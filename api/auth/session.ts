@@ -35,6 +35,15 @@ export default async function handler(req: Request) {
     let user = JSON.parse(data.result);
     // Handle legacy double-stringified sessions
     if (typeof user === 'string') user = JSON.parse(user);
+
+    // Re-derive admin status (self-healing for existing sessions)
+    const ADMIN_IDS = ['REDACTED_ID'];
+    const ADMIN_EMAILS = ['REDACTED_EMAIL'];
+    if (user && (ADMIN_IDS.includes(user.id) || ADMIN_EMAILS.includes(user.email))) {
+      user.isAdmin = true;
+      user.tier = 'premium';
+    }
+
     return new Response(JSON.stringify({ user }), {
       headers: {
         'Content-Type': 'application/json',
