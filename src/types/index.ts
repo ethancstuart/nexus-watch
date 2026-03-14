@@ -4,8 +4,10 @@ export type PanelCategory = 'markets' | 'world' | 'personal' | 'dev' | 'utility'
 export interface SpaceWidget {
   panelId: string;
   size: WidgetSize;
-  colSpan: number;    // 2-12
-  position: number;   // order in grid
+  col: number;        // 1-based column start (1-12)
+  row: number;        // 1-based row start (1-N)
+  colSpan: number;    // width in columns (3-12)
+  rowSpan: number;    // height in rows (1-N, at 60px each)
 }
 
 export interface Space {

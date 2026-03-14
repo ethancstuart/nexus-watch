@@ -2,6 +2,7 @@ import { createElement } from '../utils/dom.ts';
 import { applyTheme, getTheme } from '../config/theme.ts';
 import { setPreference, getPreferences } from '../config/preferences.ts';
 import { createSpace, getSpaces, saveSpaces } from '../services/spaces.ts';
+import type { SpaceWidget, WidgetSize } from '../types/index.ts';
 import { interpretQuery } from '../services/aiShell.ts';
 import type { ThemeName } from '../config/themes.ts';
 
@@ -49,41 +50,59 @@ function configureSpacesFromInterests(selected: Set<string>): void {
   // Always keep Overview — customize its widgets based on interests
   const overview = spaces.find((s) => s.id === 'overview');
   if (overview) {
-    const widgets: { panelId: string; size: 'compact' | 'medium' | 'large'; colSpan: number; position: number }[] = [];
-    let pos = 0;
+    const DEFAULT_ROW: Record<WidgetSize, number> = { compact: 4, medium: 5, large: 6 };
+    const specs: { panelId: string; size: WidgetSize; colSpan: number }[] = [];
 
     // Always include weather
-    widgets.push({ panelId: 'weather', size: 'medium', colSpan: 4, position: pos++ });
+    specs.push({ panelId: 'weather', size: 'medium', colSpan: 4 });
 
     if (selected.has('markets')) {
-      widgets.push({ panelId: 'stocks', size: 'medium', colSpan: 4, position: pos++ });
+      specs.push({ panelId: 'stocks', size: 'medium', colSpan: 4 });
     }
     if (selected.has('crypto')) {
-      widgets.push({ panelId: 'crypto', size: 'medium', colSpan: 4, position: pos++ });
+      specs.push({ panelId: 'crypto', size: 'medium', colSpan: 4 });
     }
     if (selected.has('news')) {
-      widgets.push({ panelId: 'news', size: 'medium', colSpan: 6, position: pos++ });
+      specs.push({ panelId: 'news', size: 'medium', colSpan: 6 });
     }
     if (selected.has('sports')) {
-      widgets.push({ panelId: 'sports', size: 'compact', colSpan: 3, position: pos++ });
+      specs.push({ panelId: 'sports', size: 'compact', colSpan: 3 });
     }
     if (selected.has('entertainment')) {
-      widgets.push({ panelId: 'entertainment', size: 'compact', colSpan: 3, position: pos++ });
+      specs.push({ panelId: 'entertainment', size: 'compact', colSpan: 3 });
     }
     if (selected.has('productivity')) {
-      widgets.push({ panelId: 'notes', size: 'medium', colSpan: 6, position: pos++ });
+      specs.push({ panelId: 'notes', size: 'medium', colSpan: 6 });
     }
 
     // If nothing selected, give them a sensible default
-    if (widgets.length === 1) {
-      widgets.push({ panelId: 'stocks', size: 'medium', colSpan: 4, position: pos++ });
-      widgets.push({ panelId: 'crypto', size: 'medium', colSpan: 4, position: pos++ });
-      widgets.push({ panelId: 'news', size: 'medium', colSpan: 6, position: pos++ });
-      widgets.push({ panelId: 'sports', size: 'compact', colSpan: 3, position: pos++ });
-      widgets.push({ panelId: 'entertainment', size: 'compact', colSpan: 3, position: pos++ });
+    if (specs.length === 1) {
+      specs.push({ panelId: 'stocks', size: 'medium', colSpan: 4 });
+      specs.push({ panelId: 'crypto', size: 'medium', colSpan: 4 });
+      specs.push({ panelId: 'news', size: 'medium', colSpan: 6 });
+      specs.push({ panelId: 'sports', size: 'compact', colSpan: 3 });
+      specs.push({ panelId: 'entertainment', size: 'compact', colSpan: 3 });
     }
 
-    overview.widgets = widgets;
+    // Pack widgets into grid using top-left packing
+    const packed: SpaceWidget[] = [];
+    for (const spec of specs) {
+      const rowSpan = DEFAULT_ROW[spec.size];
+      let placed = false;
+      for (let row = 1; row < 100 && !placed; row++) {
+        for (let col = 1; col <= 12 - spec.colSpan + 1 && !placed; col++) {
+          const overlaps = packed.some((w) =>
+            col < w.col + w.colSpan && col + spec.colSpan > w.col &&
+            row < w.row + w.rowSpan && row + rowSpan > w.row);
+          if (!overlaps) {
+            packed.push({ panelId: spec.panelId, size: spec.size, col, row, colSpan: spec.colSpan, rowSpan });
+            placed = true;
+          }
+        }
+      }
+    }
+
+    overview.widgets = packed;
   }
 
   // Create a focused space if markets + crypto both selected
@@ -91,9 +110,9 @@ function configureSpacesFromInterests(selected: Set<string>): void {
     const hasMarkets = spaces.some((s) => s.id === 'markets');
     if (!hasMarkets) {
       createSpace('Markets', '\u{1F4C8}', [
-        { panelId: 'stocks', size: 'large', colSpan: 6, position: 0 },
-        { panelId: 'crypto', size: 'large', colSpan: 6, position: 1 },
-        { panelId: 'news', size: 'large', colSpan: 12, position: 2 },
+        { panelId: 'stocks', size: 'large', col: 1, row: 1, colSpan: 6, rowSpan: 6 },
+        { panelId: 'crypto', size: 'large', col: 7, row: 1, colSpan: 6, rowSpan: 6 },
+        { panelId: 'news', size: 'large', col: 1, row: 7, colSpan: 12, rowSpan: 6 },
       ]);
     }
   }
@@ -103,10 +122,10 @@ function configureSpacesFromInterests(selected: Set<string>): void {
     const hasWorld = spaces.some((s) => s.id === 'world');
     if (!hasWorld) {
       createSpace('World', '\u{1F30D}', [
-        { panelId: 'news', size: 'large', colSpan: 8, position: 0 },
-        { panelId: 'weather', size: 'medium', colSpan: 4, position: 1 },
-        { panelId: 'sports', size: 'medium', colSpan: 6, position: 2 },
-        { panelId: 'entertainment', size: 'medium', colSpan: 6, position: 3 },
+        { panelId: 'news', size: 'large', col: 1, row: 1, colSpan: 8, rowSpan: 6 },
+        { panelId: 'weather', size: 'medium', col: 9, row: 1, colSpan: 4, rowSpan: 5 },
+        { panelId: 'sports', size: 'medium', col: 1, row: 7, colSpan: 6, rowSpan: 5 },
+        { panelId: 'entertainment', size: 'medium', col: 7, row: 7, colSpan: 6, rowSpan: 5 },
       ]);
     }
   }

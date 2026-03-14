@@ -17,15 +17,20 @@ export function initPanelDrag(grid: HTMLElement, onReorder: (newOrder: string[])
     grip.textContent = '\u2630'; // hamburger icon
     grip.setAttribute('aria-label', 'Drag to reorder');
 
-    grip.addEventListener('mousedown', () => { gripActive = true; });
-    grip.addEventListener('touchstart', (e) => { handleTouchStart(e, panel as HTMLElement); });
-
     header.insertBefore(grip, header.firstChild);
 
-    // Only make panel draggable when grip is held — prevents conflict
-    // with internal drag handlers (e.g. StocksPanel watchlist reorder)
-    grip.addEventListener('mousedown', () => {
+    // Activate drag on full header mousedown, except collapse button
+    header.addEventListener('mousedown', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.panel-collapse-btn')) return;
+      gripActive = true;
       (panel as HTMLElement).draggable = true;
+    });
+
+    header.addEventListener('touchstart', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.panel-collapse-btn')) return;
+      handleTouchStart(e as TouchEvent, panel as HTMLElement);
     });
 
     panel.addEventListener('dragstart', (e) => {
@@ -112,7 +117,6 @@ export function initPanelDrag(grid: HTMLElement, onReorder: (newOrder: string[])
 
   function handleTouchStart(e: TouchEvent, panel: HTMLElement) {
     if (!panel.dataset.panelId) return;
-    // Don't preventDefault on touchstart — allow scroll to begin naturally
 
     touchSrcEl = panel;
     touchDragActive = false;

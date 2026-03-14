@@ -182,18 +182,10 @@
   50% { opacity: 1; }
 }
 
-/* Widget size variants */
-.widget-compact {
-  grid-column: span 3;
-}
-
-.widget-medium {
-  grid-column: span 6;
-}
-
-.widget-large {
-  grid-column: span 12;
-}
+/* Widget size variants (used for content rendering, grid placement is inline) */
+.widget-compact { }
+.widget-medium { }
+.widget-large { }
 
 /* Premium locked */
 .panel-locked {
