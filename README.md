@@ -6,7 +6,7 @@
 
 **Your real-time intelligence dashboard.** Weather, markets, news, sports, predictions, and AI chat -- all in one browser tab. No framework, no bloat, just live data.
 
-Built entirely with [Claude Code](https://claude.ai/claude-code).
+Built with [Claude Code](https://claude.ai/claude-code).
 
 ## What's Live
 

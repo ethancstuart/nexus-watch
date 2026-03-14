@@ -154,7 +154,7 @@ export function renderLanding(root: HTMLElement): void {
 
   const footerCopy = createElement('span', {
     className: 'landing-footer-copy',
-    textContent: '\u00A9 2026 DashPulse \u2014 Built entirely with Claude Code by Ethan Stuart',
+    textContent: '\u00A9 2026 DashPulse \u2014 Built with Claude Code by Ethan Stuart',
   });
 
   footerLinks.appendChild(footerRoadmap);

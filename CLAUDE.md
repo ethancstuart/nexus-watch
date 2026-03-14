@@ -3,7 +3,7 @@
 ## Project Overview
 Vite + vanilla TypeScript dashboard with a space-based, widget-driven architecture.
 Open-source, MIT licensed. Ships with smart defaults, fully configurable.
-Deployed to Vercel at https://dashpulse.app. Built entirely through Claude Code.
+Deployed to Vercel at https://dashpulse.app. Built with Claude Code.
 Inspired by Bloomberg Terminal and worldmonitor.app — information-dense, keyboard-driven, AI-native.
 Part of Ethan Stuart's portfolio: "I don't just manage products — I build them."
 

@@ -8,9 +8,11 @@ dist/
 .env
 .env.local
 .env.*.local
+.env.vercel
 
 # AI / editor local configs
 CLAUDE.local.md
+.claude/
 .cursor/rules/private.mdc
 
 # OS files
