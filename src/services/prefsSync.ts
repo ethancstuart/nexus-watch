@@ -16,7 +16,7 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 const dirtyKeys = new Set<string>();
 let active = false;
 
-export function initPrefsSync(): void {
+export async function initPrefsSync(): Promise<void> {
   onAuthChange((user) => {
     if (user) {
       startSync();
@@ -25,19 +25,19 @@ export function initPrefsSync(): void {
     }
   });
 
-  // If already logged in, start immediately
+  // If already logged in, start immediately and await initial pull
   const user = getUser();
   if (user) {
-    startSync();
+    await startSync();
   }
 }
 
-function startSync(): void {
+async function startSync(): Promise<void> {
   if (active) return;
   active = true;
 
-  // Pull on startup
-  pullPrefs();
+  // Pull on startup — await to ensure prefs are available before render
+  await pullPrefs();
 
   // Listen for local changes
   document.addEventListener('dashview:storage-changed', onStorageChanged as EventListener);

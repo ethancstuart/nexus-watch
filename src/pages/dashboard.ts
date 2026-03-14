@@ -56,7 +56,7 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
     await showOnboarding();
   }
 
-  initPrefsSync();
+  await initPrefsSync();
   await showWelcome(sessionUser.name);
 
   const app = new App();
@@ -188,10 +188,11 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   initIntelligence();
   autoPopulateInterests();
 
-  // Re-apply theme/density when prefs arrive from another device
+  // Re-apply theme/density and re-render layout when prefs arrive from another device
   document.addEventListener('dashview:prefs-synced', () => {
     applyTheme();
     applyDensity();
+    renderActiveSpace();
   });
 
   // Cleanup intelligence on SPA navigation away from dashboard

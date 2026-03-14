@@ -205,10 +205,10 @@ function initDragToPlace(
 
   for (const card of panelCards) {
     const el = card as HTMLElement;
-    const header = el.querySelector('.panel-header');
+    const header = el.querySelector('.panel-header') as HTMLElement;
     if (!header) continue;
 
-    // Add grip handle if not present
+    // Add grip handle if not present (visual affordance)
     if (!header.querySelector('.panel-drag-handle')) {
       const grip = document.createElement('span');
       grip.className = 'panel-drag-handle';
@@ -217,17 +217,16 @@ function initDragToPlace(
       header.insertBefore(grip, header.firstChild);
     }
 
-    const grip = header.querySelector('.panel-drag-handle') as HTMLElement;
-    if (!grip) continue;
-
-    // Mouse drag
-    grip.addEventListener('mousedown', (e: MouseEvent) => {
+    // Drag from entire header — not just the grip icon
+    header.addEventListener('mousedown', (e: MouseEvent) => {
+      // Don't start drag from collapse button
+      if ((e.target as HTMLElement).closest('.panel-collapse-btn')) return;
       e.preventDefault();
       startDrag(e.clientX, e.clientY, el, grid, spaceId, panels);
     }, { signal });
 
-    // Touch drag
-    grip.addEventListener('touchstart', (e: TouchEvent) => {
+    header.addEventListener('touchstart', (e: TouchEvent) => {
+      if ((e.target as HTMLElement).closest('.panel-collapse-btn')) return;
       const touch = e.touches[0];
       startDrag(touch.clientX, touch.clientY, el, grid, spaceId, panels);
     }, { passive: true, signal });
@@ -314,6 +313,9 @@ function startDrag(
     removeGhostGrid(grid);
 
     if (!dragActive) return;
+
+    // Suppress the click that follows mouseup to prevent header collapse toggle
+    card.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); }, { once: true, capture: true });
 
     const target = cellFromPoint(x, y, cachedMetrics);
     const newCol = Math.max(1, Math.min(cachedMetrics.colCount - wColSpan + 1, target.col));

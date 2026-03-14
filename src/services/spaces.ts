@@ -212,7 +212,10 @@ export function getSpaces(): Space[] {
 
     return saved;
   }
-  return DEFAULT_SPACES.map((s) => ({ ...s, widgets: [...s.widgets] }));
+  // First load — save defaults so they persist and sync across devices
+  const defaults = DEFAULT_SPACES.map((s) => ({ ...s, widgets: [...s.widgets] }));
+  storage.set(SPACES_KEY, defaults);
+  return defaults;
 }
 
 export function saveSpaces(spaces: Space[]): void {
