@@ -1,4 +1,4 @@
-import { createElement } from '../utils/dom.ts';
+import { createElement, trapFocus } from '../utils/dom.ts';
 import { WeatherPanel } from '../panels/WeatherPanel.ts';
 import { geocodeCity } from '../services/weather.ts';
 import { getTheme, applyTheme } from '../config/theme.ts';
@@ -26,6 +26,7 @@ type SettingsTab = 'general' | 'overview' | 'markets' | 'globe' | 'personal';
 
 let modalEl: HTMLElement | null = null;
 let backdrop: HTMLElement | null = null;
+let releaseFocusTrap: (() => void) | null = null;
 let activeTab: SettingsTab = 'general';
 
 const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
@@ -45,6 +46,10 @@ export function initSettingsPanel(app: App): void {
 }
 
 function closeSettings(): void {
+  if (releaseFocusTrap) {
+    releaseFocusTrap();
+    releaseFocusTrap = null;
+  }
   if (modalEl) {
     modalEl.classList.add('settings-modal-exit');
     setTimeout(() => {
@@ -112,6 +117,7 @@ function openSettings(app: App, tab?: SettingsTab): void {
   modalEl.appendChild(body);
 
   document.body.appendChild(modalEl);
+  releaseFocusTrap = trapFocus(modalEl);
 }
 
 function renderTabContent(body: HTMLElement, app: App): void {

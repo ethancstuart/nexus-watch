@@ -29,6 +29,11 @@ export function savePanelOrder(order: string[]): void {
 }
 
 export function createLayout(): LayoutContainers {
+  // Skip-link for keyboard/screen reader accessibility
+  const skipLink = createElement('a', { className: 'skip-link', textContent: 'Skip to content' });
+  (skipLink as HTMLAnchorElement).href = '#space-content';
+  document.body.insertBefore(skipLink, document.body.firstChild);
+
   const root = createElement('div', { className: 'layout' });
   root.setAttribute('role', 'main');
   root.id = 'main-content';
@@ -44,6 +49,7 @@ export function createLayout(): LayoutContainers {
 
   // Space content — 12-column grid for widgets
   const spaceContent = createElement('div', { className: 'space-grid' });
+  spaceContent.id = 'space-content';
   spaceContent.setAttribute('role', 'region');
   spaceContent.setAttribute('aria-label', 'Dashboard widgets');
 

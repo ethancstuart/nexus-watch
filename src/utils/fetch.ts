@@ -6,6 +6,9 @@ interface CircuitEntry {
 }
 
 const circuits = new Map<string, CircuitEntry>();
+
+// In-flight request deduplication
+const inFlight = new Map<string, Promise<Response>>();
 const FAILURE_THRESHOLD = 3;
 const OPEN_DURATION_MS = 5 * 60 * 1000;
 
@@ -29,6 +32,45 @@ export async function fetchWithRetry(
   url: string,
   options?: RequestInit,
   maxRetries = 2
+): Promise<Response> {
+  // Check circuit breaker before dedup — bail early if circuit is open/blocked
+  const parsed = new URL(url, window.location.origin);
+  const hostname = parsed.hostname;
+  const state = getCircuitState(hostname);
+  if (state === 'open') {
+    throw new Error(`Circuit open for ${hostname} — requests blocked`);
+  }
+  if (state === 'half-open') {
+    const entry = getEntry(hostname);
+    if (entry.probing) {
+      throw new Error(`Circuit half-open for ${hostname} — probe in progress`);
+    }
+  }
+
+  // Deduplicate GET requests — if an identical URL is already in-flight, return the same promise
+  const method = options?.method?.toUpperCase() || 'GET';
+  if (method === 'GET') {
+    const pending = inFlight.get(url);
+    if (pending) return pending.then((r) => r.clone());
+  }
+
+  const request = _fetchWithRetry(url, options, maxRetries);
+
+  if (method === 'GET') {
+    inFlight.set(url, request);
+    request.then(
+      () => inFlight.delete(url),
+      () => inFlight.delete(url),
+    );
+  }
+
+  return request;
+}
+
+async function _fetchWithRetry(
+  url: string,
+  options: RequestInit | undefined,
+  maxRetries: number,
 ): Promise<Response> {
   const parsed = new URL(url, window.location.origin);
   const hostname = parsed.hostname;

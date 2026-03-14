@@ -5,6 +5,7 @@ import type { PulseItem } from '../types/index.ts';
 export function createPulseBar(): HTMLElement {
   const bar = createElement('div', { className: 'pulse-bar' });
   bar.setAttribute('role', 'status');
+  bar.setAttribute('aria-live', 'polite');
   bar.setAttribute('aria-label', 'Intelligence pulse');
 
   function render(items: PulseItem[]) {

@@ -11,7 +11,7 @@ import { initKeyboardShortcuts } from '../ui/keyboard.ts';
 import { initBriefing } from '../ui/briefing.ts';
 import { initOfflineIndicator } from '../ui/offlineIndicator.ts';
 import { initInstallPrompt } from '../ui/installPrompt.ts';
-import { initIntelligence } from '../services/intelligence.ts';
+import { initIntelligence, destroyIntelligence } from '../services/intelligence.ts';
 import { autoPopulateInterests } from '../services/interests.ts';
 import { interpretQuery } from '../services/aiShell.ts';
 import { showAIOverlay } from '../ui/aiOverlay.ts';
@@ -83,6 +83,9 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   // Create layout
   const layout = createLayout();
 
+  // Track which panels have had their data cycle started
+  const initializedPanels = new Set<string>();
+
   // Function to render active space
   function renderActiveSpace() {
     const spaces = getSpaces();
@@ -90,14 +93,31 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
     const space = spaces.find((s) => s.id === activeId) || spaces[0];
     if (!space) return;
 
+    const visiblePanelIds = new Set(space.widgets.map((w) => w.panelId));
+
     // Detach all panels first
     for (const p of app.getPanels()) {
       if (p.container.parentElement) {
         p.container.remove();
       }
+      // Stop data cycles for panels not in the active space
+      if (!visiblePanelIds.has(p.id) && p.enabled) {
+        p.stopDataCycle();
+      }
     }
 
     renderSpace(layout.spaceContent, space, panelMap);
+
+    // Start data cycles only for visible panels
+    for (const wid of visiblePanelIds) {
+      const panel = panelMap.get(wid);
+      if (panel && panel.enabled && !initializedPanels.has(wid)) {
+        initializedPanels.add(wid);
+        void panel.startDataCycle();
+      } else if (panel && panel.enabled) {
+        panel.resumeDataCycle();
+      }
+    }
   }
 
   // AI Bar (commands registered after app.init)
@@ -106,9 +126,13 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
       executeSlashCommand(cmd, app, renderActiveSpace);
     },
     onAIQuery: async (query) => {
-      showAIOverlay('Thinking...', undefined);
-      const result = await interpretQuery(query);
-      executeAIAction(result, renderActiveSpace);
+      try {
+        showAIOverlay('Thinking...', undefined);
+        const result = await interpretQuery(query);
+        executeAIAction(result, renderActiveSpace);
+      } catch {
+        showAIOverlay('Something went wrong. Please try again.');
+      }
     },
   });
 
@@ -163,6 +187,13 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   document.addEventListener('dashview:prefs-synced', () => {
     applyTheme();
     applyDensity();
+  });
+
+  // Cleanup intelligence on SPA navigation away from dashboard
+  window.addEventListener('hashchange', () => {
+    if (!window.location.hash.startsWith('#/dashboard')) {
+      destroyIntelligence();
+    }
   });
 }
 

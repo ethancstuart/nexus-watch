@@ -7,6 +7,8 @@ export function showAIOverlay(message: string, action?: string): void {
   hideAIOverlay();
 
   overlayEl = createElement('div', { className: 'ai-overlay' });
+  overlayEl.setAttribute('aria-live', 'polite');
+  overlayEl.setAttribute('role', 'status');
 
   const textEl = createElement('div', { className: 'ai-overlay-text', textContent: message });
   overlayEl.appendChild(textEl);

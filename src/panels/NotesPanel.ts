@@ -34,6 +34,7 @@ export class NotesPanel extends Panel {
     input.className = 'notes-input';
     input.placeholder = 'Add a note...';
     input.rows = 2;
+    input.maxLength = 5000;
 
     const addBtn = createElement('button', {
       className: 'notes-add-btn',

@@ -207,7 +207,11 @@ export default async function handler(req: Request) {
 
   // Cap context length and sanitize
   if (body.context) {
-    body.context = body.context.slice(0, 5000).replace(/<[^>]*>/g, '');
+    body.context = body.context
+      .slice(0, 5000)
+      .replace(/<[^>]*?>/g, '')
+      .replace(/on\w+\s*=/gi, '')
+      .replace(/javascript\s*:/gi, '');
   }
 
   const provider: ChatProvider = body.provider || 'anthropic';

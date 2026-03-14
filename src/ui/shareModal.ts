@@ -1,8 +1,9 @@
-import { createElement } from '../utils/dom.ts';
+import { createElement, trapFocus } from '../utils/dom.ts';
 import { shareConfig, importSharedConfig, applySharedConfig } from '../services/configSync.ts';
 import { pushModal, popModal } from './modalManager.ts';
 
 let overlay: HTMLElement | null = null;
+let releaseFocusTrap: (() => void) | null = null;
 
 export function openShareModal(): void {
   closeShareModal();
@@ -193,6 +194,7 @@ export function openShareModal(): void {
   overlay.appendChild(dialog);
   document.body.appendChild(overlay);
 
+  releaseFocusTrap = trapFocus(dialog);
   pushModal(closeShareModal);
 }
 
@@ -219,6 +221,10 @@ export function openImportModal(code: string): void {
 }
 
 function closeShareModal(): void {
+  if (releaseFocusTrap) {
+    releaseFocusTrap();
+    releaseFocusTrap = null;
+  }
   if (overlay) {
     overlay.remove();
     overlay = null;

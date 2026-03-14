@@ -1,4 +1,4 @@
-import { createElement } from '../utils/dom.ts';
+import { createElement, trapFocus } from '../utils/dom.ts';
 import {
   getAlerts,
   addAlert,
@@ -12,6 +12,7 @@ import { pushModal, popModal } from './modalManager.ts';
 import type { PriceAlert } from '../types/index.ts';
 
 let overlay: HTMLElement | null = null;
+let releaseFocusTrap: (() => void) | null = null;
 
 export function openAlertsModal(prefill?: { symbol: string; type: 'stock' | 'crypto' }): void {
   closeAlertsModal();
@@ -56,10 +57,15 @@ export function openAlertsModal(prefill?: { symbol: string; type: 'stock' | 'cry
   overlay.appendChild(dialog);
   document.body.appendChild(overlay);
 
+  releaseFocusTrap = trapFocus(dialog);
   pushModal(closeAlertsModal);
 }
 
 export function closeAlertsModal(): void {
+  if (releaseFocusTrap) {
+    releaseFocusTrap();
+    releaseFocusTrap = null;
+  }
   if (overlay) {
     overlay.remove();
     overlay = null;

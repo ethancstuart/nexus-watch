@@ -66,6 +66,7 @@ export class ChatPanel extends Panel {
     input.className = 'chat-input';
     input.placeholder = 'Type a message...';
     input.rows = 1;
+    input.maxLength = 10000;
 
     const sendBtn = createElement('button', { className: 'chat-send-btn', textContent: '\u2191' });
 

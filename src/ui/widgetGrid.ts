@@ -109,6 +109,10 @@ function removeResizeTooltip(): void {
   document.querySelector('.widget-resize-tooltip')?.remove();
 }
 
+// ─── Listener Cleanup ───────────────────────────────────────────
+
+let activeAbortController: AbortController | null = null;
+
 // ─── Render Space ────────────────────────────────────────────────
 
 export function renderSpace(
@@ -116,6 +120,12 @@ export function renderSpace(
   space: Space,
   panels: Map<string, Panel>,
 ): void {
+  // Abort previous listeners to prevent accumulation
+  if (activeAbortController) {
+    activeAbortController.abort();
+  }
+  activeAbortController = new AbortController();
+
   container.textContent = '';
 
   const widgets = space.widgets;
@@ -141,9 +151,9 @@ export function renderSpace(
     container.appendChild(panel.container);
   }
 
-  // Init interactions
-  initDragToPlace(container, space.id, panels);
-  initEdgeResize(container, space.id, panels);
+  // Init interactions (pass signal for cleanup on next render)
+  initDragToPlace(container, space.id, panels, activeAbortController.signal);
+  initEdgeResize(container, space.id, panels, activeAbortController.signal);
 }
 
 // ─── Resize Handles ──────────────────────────────────────────────
@@ -169,6 +179,7 @@ function initDragToPlace(
   grid: HTMLElement,
   spaceId: string,
   panels: Map<string, Panel>,
+  signal: AbortSignal,
 ): void {
   const panelCards = grid.querySelectorAll('.panel-card[data-panel-id]');
 
@@ -193,13 +204,13 @@ function initDragToPlace(
     grip.addEventListener('mousedown', (e: MouseEvent) => {
       e.preventDefault();
       startDrag(e.clientX, e.clientY, el, grid, spaceId, panels);
-    });
+    }, { signal });
 
     // Touch drag
     grip.addEventListener('touchstart', (e: TouchEvent) => {
       const touch = e.touches[0];
       startDrag(touch.clientX, touch.clientY, el, grid, spaceId, panels);
-    }, { passive: true });
+    }, { passive: true, signal });
   }
 }
 
@@ -230,6 +241,9 @@ function startDrag(
 
   const maxRow = Math.max(...space.widgets.map((w) => w.row + w.rowSpan));
 
+  // Cache metrics once at drag start — grid doesn't resize during a drag
+  const cachedMetrics = getGridMetrics(grid);
+
   function onMove(x: number, y: number) {
     const dx = x - startX;
     const dy = y - startY;
@@ -258,11 +272,10 @@ function startDrag(
       clone.style.transform = `translate(${dx}px, ${dy}px)`;
     }
 
-    // Calculate target cell
-    const metrics = getGridMetrics(grid);
-    const target = cellFromPoint(x, y, metrics);
+    // Calculate target cell (using cached metrics)
+    const target = cellFromPoint(x, y, cachedMetrics);
     // Clamp so widget fits in grid
-    const clampedCol = Math.max(1, Math.min(metrics.colCount - wColSpan + 1, target.col));
+    const clampedCol = Math.max(1, Math.min(cachedMetrics.colCount - wColSpan + 1, target.col));
     const clampedRow = Math.max(1, target.row);
 
     if (ghost) {
@@ -282,9 +295,8 @@ function startDrag(
 
     if (!dragActive) return;
 
-    const metrics = getGridMetrics(grid);
-    const target = cellFromPoint(x, y, metrics);
-    const newCol = Math.max(1, Math.min(metrics.colCount - wColSpan + 1, target.col));
+    const target = cellFromPoint(x, y, cachedMetrics);
+    const newCol = Math.max(1, Math.min(cachedMetrics.colCount - wColSpan + 1, target.col));
     const newRow = Math.max(1, target.row);
 
     updateWidgetPlacement(spaceId, panelId!, { col: newCol, row: newRow });
@@ -321,6 +333,7 @@ function initEdgeResize(
   grid: HTMLElement,
   spaceId: string,
   panels: Map<string, Panel>,
+  signal: AbortSignal,
 ): void {
   const panelCards = grid.querySelectorAll('.panel-card[data-panel-id]');
 
@@ -335,33 +348,33 @@ function initEdgeResize(
         e.preventDefault();
         e.stopPropagation();
         startResize(e as MouseEvent, el, grid, spaceId, panels, 'right');
-      });
+      }, { signal });
       rightHandle.addEventListener('touchstart', (e) => {
         e.stopPropagation();
         startResize(e as TouchEvent, el, grid, spaceId, panels, 'right');
-      }, { passive: true });
+      }, { passive: true, signal });
     }
     if (bottomHandle) {
       bottomHandle.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
         startResize(e as MouseEvent, el, grid, spaceId, panels, 'bottom');
-      });
+      }, { signal });
       bottomHandle.addEventListener('touchstart', (e) => {
         e.stopPropagation();
         startResize(e as TouchEvent, el, grid, spaceId, panels, 'bottom');
-      }, { passive: true });
+      }, { passive: true, signal });
     }
     if (cornerHandle) {
       cornerHandle.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
         startResize(e as MouseEvent, el, grid, spaceId, panels, 'corner');
-      });
+      }, { signal });
       cornerHandle.addEventListener('touchstart', (e) => {
         e.stopPropagation();
         startResize(e as TouchEvent, el, grid, spaceId, panels, 'corner');
-      }, { passive: true });
+      }, { passive: true, signal });
     }
   }
 }

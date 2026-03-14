@@ -189,6 +189,14 @@ export abstract class Panel {
     this.contentEl.appendChild(loadingWrap);
   }
 
+  stopDataCycle(): void {
+    this.stopInterval();
+  }
+
+  resumeDataCycle(): void {
+    this.startInterval();
+  }
+
   destroy(): void {
     this.stopInterval();
     this.container.remove();
@@ -237,14 +245,14 @@ export abstract class Panel {
     return `${hours}h ago`;
   }
 
-  private startInterval(): void {
+  protected startInterval(): void {
     this.stopInterval();
     if (this.refreshInterval > 0) {
       this.intervalId = setInterval(() => void this.refresh(), this.refreshInterval);
     }
   }
 
-  private stopInterval(): void {
+  protected stopInterval(): void {
     if (this.intervalId !== null) {
       clearInterval(this.intervalId);
       this.intervalId = null;

@@ -2,6 +2,7 @@ import { Panel } from './Panel.ts';
 import { createElement } from '../utils/dom.ts';
 import { fetchCalendarEvents, isCalendarConnected, connectCalendar, disconnectCalendar } from '../services/calendar.ts';
 import type { CalendarEvent } from '../types/index.ts';
+import type { WidgetSize } from '../types/index.ts';
 
 export class CalendarPanel extends Panel {
   private events: CalendarEvent[] = [];
@@ -98,6 +99,65 @@ export class CalendarPanel extends Panel {
     }
 
     this.renderDisconnectBar();
+  }
+
+  renderAtSize(size: WidgetSize): void {
+    if (!this.connected) {
+      this.render(null);
+      return;
+    }
+
+    const events = this.events;
+    if (events.length === 0) {
+      this.render(null);
+      return;
+    }
+
+    this.contentEl.textContent = '';
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todayTimed = events.filter(e => !e.allDay && new Date(e.start) >= today && new Date(e.start) < tomorrow);
+
+    if (size === 'compact') {
+      // Compact: today's event count + next event
+      const countText = `${todayTimed.length} event${todayTimed.length !== 1 ? 's' : ''} today`;
+      const countEl = createElement('div', { className: 'calendar-section-header', textContent: countText });
+      this.contentEl.appendChild(countEl);
+
+      if (todayTimed.length > 0) {
+        this.contentEl.appendChild(this.createEventCard(todayTimed[0]));
+      } else {
+        const allDay = events.filter(e => e.allDay);
+        if (allDay.length > 0) {
+          this.contentEl.appendChild(this.createAllDayBanner(allDay[0]));
+        }
+      }
+    } else if (size === 'medium') {
+      // Medium: today's full list
+      const allDay = events.filter(e => e.allDay);
+      if (allDay.length > 0) {
+        for (const event of allDay) {
+          this.contentEl.appendChild(this.createAllDayBanner(event));
+        }
+      }
+
+      if (todayTimed.length > 0) {
+        this.contentEl.appendChild(createElement('div', { className: 'calendar-section-header', textContent: 'Today' }));
+        for (const event of todayTimed) {
+          this.contentEl.appendChild(this.createEventCard(event));
+        }
+      } else {
+        this.contentEl.appendChild(createElement('div', { className: 'calendar-empty', textContent: 'No events today' }));
+      }
+      this.renderDisconnectBar();
+    } else {
+      // Large: full render
+      this.render(this.events);
+    }
   }
 
   private renderConnectState(): void {
