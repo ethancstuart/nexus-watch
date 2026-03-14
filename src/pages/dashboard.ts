@@ -166,6 +166,11 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
 
   await app.init();
 
+  // Mark all enabled panels as initialized — app.init() already started their data cycles
+  for (const p of app.getPanels()) {
+    if (p.enabled) initializedPanels.add(p.id);
+  }
+
   // Build command registry AFTER app.init so panels are available
   const commands = buildCommands(app, renderActiveSpace);
   registerCommands(commands);

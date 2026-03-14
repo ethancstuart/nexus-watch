@@ -156,6 +156,26 @@ export function renderSpace(
   initEdgeResize(container, space.id, panels, activeAbortController.signal);
 }
 
+// ─── Update Placements In-Place ─────────────────────────────────
+
+function updatePlacementsInPlace(
+  _container: HTMLElement,
+  space: Space,
+  panels: Map<string, Panel>,
+): void {
+  for (const widget of space.widgets) {
+    const panel = panels.get(widget.panelId);
+    if (!panel) continue;
+
+    panel.container.style.gridColumn = `${widget.col} / span ${widget.colSpan}`;
+    panel.container.style.gridRow = `${widget.row} / span ${widget.rowSpan}`;
+
+    const newSize = colSpanToSize(widget.colSpan);
+    panel.container.classList.remove('widget-compact', 'widget-medium', 'widget-large');
+    panel.container.classList.add(`widget-${newSize}`);
+  }
+}
+
 // ─── Resize Handles ──────────────────────────────────────────────
 
 function addResizeHandles(card: HTMLElement): void {
@@ -301,11 +321,11 @@ function startDrag(
 
     updateWidgetPlacement(spaceId, panelId!, { col: newCol, row: newRow });
 
-    // Re-render
+    // Update positions in-place (no DOM teardown)
     const updatedSpaces = getSpaces();
     const updatedSpace = updatedSpaces.find((s) => s.id === spaceId);
     if (updatedSpace) {
-      renderSpace(grid, updatedSpace, panels);
+      updatePlacementsInPlace(grid, updatedSpace, panels);
     }
   }
 
@@ -456,17 +476,18 @@ function startResize(
     if (newColSpan !== startColSpan || newRowSpan !== startRowSpan) {
       updateWidgetPlacement(spaceId, panelId!, { colSpan: newColSpan, rowSpan: newRowSpan });
 
-      // Re-render and call renderAtSize for the resized panel
+      // Update positions in-place (no DOM teardown)
       const updatedSpaces = getSpaces();
       const updatedSpace = updatedSpaces.find((s) => s.id === spaceId);
       if (updatedSpace) {
-        renderSpace(grid, updatedSpace, panels);
+        updatePlacementsInPlace(grid, updatedSpace, panels);
       }
 
-      // Re-render panel at new size
-      const size = colSpanToSize(newColSpan);
-      if (panel && panel.supportedSizes.includes(size)) {
-        panel.renderAtSize(size);
+      // Re-render panel content only if size category changed
+      const newSize = colSpanToSize(newColSpan);
+      const oldSize = colSpanToSize(startColSpan);
+      if (newSize !== oldSize && panel && panel.supportedSizes.includes(newSize)) {
+        panel.renderAtSize(newSize);
       }
     }
   }
