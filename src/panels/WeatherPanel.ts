@@ -3,6 +3,7 @@ import { createElement } from '../utils/dom.ts';
 import { fetchWeather } from '../services/weather.ts';
 import { getPreferences } from '../config/preferences.ts';
 import * as storage from '../services/storage.ts';
+import type { WidgetSize } from '../types/index.ts';
 import type { WeatherData, SavedLocation, WeatherLocations } from '../types/index.ts';
 
 const LOCATION_KEY = 'dashview-location';
@@ -157,7 +158,7 @@ export class WeatherPanel extends Panel {
     return this.data;
   }
 
-  renderAtSize(size: import('../types/index.ts').WidgetSize): void {
+  renderAtSize(size: WidgetSize): void {
     if (size === 'compact' && this.data) {
       this.contentEl.textContent = '';
       const wrap = createElement('div', { className: 'data-value' });

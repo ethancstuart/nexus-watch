@@ -1,5 +1,5 @@
 import '../styles/embed.css';
-import { Panel } from '../panels/Panel.ts';
+import type { Panel } from '../panels/Panel.ts';
 import { createElement } from '../utils/dom.ts';
 import { WeatherPanel } from '../panels/WeatherPanel.ts';
 import { StocksPanel } from '../panels/StocksPanel.ts';

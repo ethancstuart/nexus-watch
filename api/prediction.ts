@@ -25,7 +25,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         { signal: AbortSignal.timeout(5000) },
       );
       if (polyRes.ok) {
-        const events: PolymarketEvent[] = await polyRes.json();
+        const events = await polyRes.json() as PolymarketEvent[];
         for (const event of events) {
           for (const m of event.markets.slice(0, 1)) {
             let prob = 50;
@@ -58,12 +58,12 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         { signal: AbortSignal.timeout(5000) },
       );
       if (kalshiRes.ok) {
-        const data = await kalshiRes.json();
+        const data = await kalshiRes.json() as { markets?: { id?: string; ticker?: string; title?: string; subtitle?: string; last_price?: number; yes_ask?: number; volume?: number }[] };
         const kalshiMarkets = data.markets || [];
         for (const m of kalshiMarkets) {
           const prob = m.last_price ? Math.round(m.last_price * 100) : (m.yes_ask ? Math.round(m.yes_ask * 100) : 50);
           markets.push({
-            id: m.ticker || m.id,
+            id: m.ticker || m.id || '',
             question: m.title || m.subtitle || '',
             probability: prob,
             volume: m.volume || 0,

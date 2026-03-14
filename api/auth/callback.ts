@@ -38,11 +38,11 @@ async function exchangeGoogle(code: string, redirectUri: string): Promise<{ id: 
       grant_type: 'authorization_code',
     }),
   });
-  const tokenData = await tokenRes.json();
+  const tokenData = await tokenRes.json() as TokenResponse & Record<string, unknown>;
   if (!tokenRes.ok || !tokenData.access_token) {
     throw new Error(`Google token exchange failed: ${JSON.stringify(tokenData)}`);
   }
-  const tokens = tokenData as TokenResponse;
+  const tokens = tokenData;
 
   const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
@@ -64,11 +64,11 @@ async function exchangeGithub(code: string, _redirectUri: string): Promise<{ id:
       code,
     }),
   });
-  const tokenData = await tokenRes.json();
+  const tokenData = await tokenRes.json() as TokenResponse & Record<string, unknown>;
   if (!tokenData.access_token) {
     throw new Error(`GitHub token exchange failed: ${JSON.stringify(tokenData)}`);
   }
-  const tokens = tokenData as TokenResponse;
+  const tokens = tokenData;
 
   const userRes = await fetch('https://api.github.com/user', {
     headers: { Authorization: `Bearer ${tokens.access_token}`, Accept: 'application/json' },

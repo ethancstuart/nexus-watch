@@ -175,7 +175,7 @@ export default async function handler(req: Request) {
 
     let body: { data?: unknown; updatedAt?: number; baseUpdatedAt?: number };
     try {
-      body = await req.json();
+      body = await req.json() as { data?: unknown; updatedAt?: number; baseUpdatedAt?: number };
     } catch {
       return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
         status: 400,

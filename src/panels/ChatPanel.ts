@@ -24,6 +24,16 @@ export class ChatPanel extends Panel {
     this.messages = storage.get<ChatMessage[]>(CHAT_KEY, []).slice(-MAX_CHAT_MESSAGES);
   }
 
+  override async startDataCycle(): Promise<void> {
+    await super.startDataCycle();
+    document.addEventListener('dashview:storage-changed', ((e: CustomEvent) => {
+      if (e.detail?.key === CHAT_KEY) {
+        this.messages = storage.get<ChatMessage[]>(CHAT_KEY, []).slice(-MAX_CHAT_MESSAGES);
+        this.render(null);
+      }
+    }) as EventListener, { signal: this.cycleAbort!.signal });
+  }
+
   async fetchData(): Promise<void> {
     this.render(null);
 

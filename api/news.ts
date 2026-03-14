@@ -134,7 +134,7 @@ async function geocodeLocation(location: string): Promise<{ lat: number; lon: nu
         headers: { Authorization: `Bearer ${kvToken}` },
       });
       if (kvRes.ok) {
-        const kvData = await kvRes.json();
+        const kvData = await kvRes.json() as { result: string | null };
         if (kvData.result) {
           const cached = JSON.parse(kvData.result) as { lat: number; lon: number };
           geocodeCache.set(key, cached);

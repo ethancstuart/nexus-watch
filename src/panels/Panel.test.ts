@@ -119,7 +119,7 @@ describe('Panel base class', () => {
       expect(panel.lastRenderData).toEqual({ value: 42 });
 
       // renderAtSize should re-render with the data from getLastData()
-      let renderCallCount = panel.fetchCount;
+      const renderCallCount = panel.fetchCount;
       panel.renderAtSize('compact');
       // render was called (lastRenderData still equals the last data)
       expect(panel.lastRenderData).toEqual({ value: 42 });

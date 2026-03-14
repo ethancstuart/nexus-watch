@@ -20,7 +20,7 @@ export function registerCommands(commands: CommandEntry[]): void {
   commandRegistry = commands;
 }
 
-export function createAIBar(_app: App, callbacks: AIBarCallbacks): HTMLElement {
+export function createAIBar(_app: App, callbacks: AIBarCallbacks, signal?: AbortSignal): HTMLElement {
   const bar = createElement('header', { className: 'ai-bar' });
   bar.setAttribute('role', 'banner');
 
@@ -156,7 +156,7 @@ export function createAIBar(_app: App, callbacks: AIBarCallbacks): HTMLElement {
         input.dispatchEvent(new Event('input'));
       }
     }
-  });
+  }, signal ? { signal } : undefined);
 
   bar.appendChild(inputWrap);
 
@@ -174,7 +174,7 @@ export function createAIBar(_app: App, callbacks: AIBarCallbacks): HTMLElement {
       const w = detail.data.current;
       weatherPill.textContent = `${w.icon || '\u2600\uFE0F'} ${Math.round(w.temp)}\u00B0`;
     }
-  });
+  }, signal ? { signal } : undefined);
 
   // Controls (settings + auth)
   const controls = createElement('div', { className: 'ai-bar-controls' });
@@ -213,7 +213,8 @@ export function createAIBar(_app: App, callbacks: AIBarCallbacks): HTMLElement {
     }
   }
   updateAuth();
-  onAuthChange(() => updateAuth());
+  const unsubAuth = onAuthChange(() => updateAuth());
+  if (signal) signal.addEventListener('abort', unsubAuth);
   controls.appendChild(authWrap);
 
   bar.appendChild(controls);

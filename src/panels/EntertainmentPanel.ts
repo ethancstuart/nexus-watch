@@ -2,7 +2,7 @@ import { Panel } from './Panel.ts';
 import { createElement } from '../utils/dom.ts';
 import { fetchEntertainment } from '../services/entertainment.ts';
 import * as storage from '../services/storage.ts';
-import type { EntertainmentTab, EntertainmentData, EntertainmentItem } from '../types/index.ts';
+import type { EntertainmentTab, EntertainmentData, EntertainmentItem, WidgetSize } from '../types/index.ts';
 
 const TAB_KEY = 'dashview-entertainment-tab';
 
@@ -21,7 +21,7 @@ export class EntertainmentPanel extends Panel {
     return this.data;
   }
 
-  renderAtSize(size: import('../types/index.ts').WidgetSize): void {
+  renderAtSize(size: WidgetSize): void {
     if (size === 'compact' && this.data?.items?.length) {
       this.contentEl.textContent = '';
       const top = this.data.items[0];
@@ -51,6 +51,16 @@ export class EntertainmentPanel extends Panel {
       category: 'world',
     });
     this.tab = storage.get<EntertainmentTab>(TAB_KEY, 'trending');
+  }
+
+  override async startDataCycle(): Promise<void> {
+    await super.startDataCycle();
+    document.addEventListener('dashview:storage-changed', ((e: CustomEvent) => {
+      if (e.detail?.key === TAB_KEY) {
+        this.tab = storage.get<EntertainmentTab>(TAB_KEY, 'trending');
+        void this.refresh();
+      }
+    }) as EventListener, { signal: this.cycleAbort!.signal });
   }
 
   async fetchData(): Promise<void> {

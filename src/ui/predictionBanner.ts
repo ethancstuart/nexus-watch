@@ -91,7 +91,7 @@ export function initPredictionBanner(container: HTMLElement): { destroy(): void 
 
 function cleanQuestion(q: string): string {
   // Strip leading "Yes" / "No" / "Yes:" / "No:" prefixes from Kalshi-style titles
-  let cleaned = q.replace(/^(Yes|No)\s*[:\-]?\s*/i, '').trim();
+  let cleaned = q.replace(/^(Yes|No)\s*[:-]?\s*/i, '').trim();
   // Capitalize first letter after stripping
   if (cleaned.length > 0) {
     cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);

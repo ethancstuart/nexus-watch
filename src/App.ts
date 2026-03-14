@@ -1,4 +1,4 @@
-import { Panel } from './panels/Panel.ts';
+import type { Panel } from './panels/Panel.ts';
 import type { PanelState } from './types/index.ts';
 import * as storage from './services/storage.ts';
 import { getPanelOrder } from './ui/layout.ts';

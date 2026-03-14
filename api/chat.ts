@@ -68,7 +68,7 @@ async function callAnthropic(apiKey: string, messages: { role: string; content: 
     await res.text();
     throw new Error(`Anthropic API error: ${res.status}`);
   }
-  const data = await res.json();
+  const data = await res.json() as { content?: { type: string; text: string }[] };
   // Extract text from Anthropic response format
   const text = (data.content || [])
     .filter((b: { type: string }) => b.type === 'text')
@@ -94,7 +94,7 @@ async function callOpenAI(apiKey: string, messages: { role: string; content: str
     await res.text();
     throw new Error(`OpenAI API error: ${res.status}`);
   }
-  const data = await res.json();
+  const data = await res.json() as { choices?: { message?: { content?: string } }[] };
   return { response: data.choices?.[0]?.message?.content || 'No response' };
 }
 
@@ -118,7 +118,7 @@ async function callGoogle(apiKey: string, messages: { role: string; content: str
     await res.text();
     throw new Error(`Google AI API error: ${res.status}`);
   }
-  const data = await res.json();
+  const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   return { response: text || 'No response' };
 }
@@ -141,7 +141,7 @@ async function callXAI(apiKey: string, messages: { role: string; content: string
     await res.text();
     throw new Error(`xAI API error: ${res.status}`);
   }
-  const data = await res.json();
+  const data = await res.json() as { choices?: { message?: { content?: string } }[] };
   return { response: data.choices?.[0]?.message?.content || 'No response' };
 }
 

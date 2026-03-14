@@ -53,7 +53,7 @@ export default async function handler(req: Request) {
         const rlRes = await fetch(`${kvUrl}/get/${rlKey}`, {
           headers: { Authorization: `Bearer ${kvToken}` },
         });
-        const rlData = await rlRes.json();
+        const rlData = await rlRes.json() as { result: string | null };
         if (rlData.result) {
           return new Response(JSON.stringify({ error: 'Please wait before submitting again' }), {
             status: 429,

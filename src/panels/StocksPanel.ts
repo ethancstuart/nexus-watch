@@ -4,7 +4,7 @@ import { fetchStocks, fetchCompanyNews, fetchProfile, fetchMetrics } from '../se
 import { checkAlerts } from '../services/alerts.ts';
 import { openAlertsModal } from '../ui/alertsModal.ts';
 import * as storage from '../services/storage.ts';
-import type { StocksData, StockQuote, CompanyNews, CompanyProfile, KeyMetrics } from '../types/index.ts';
+import type { StocksData, StockQuote, CompanyNews, CompanyProfile, KeyMetrics, WidgetSize } from '../types/index.ts';
 
 const WATCHLIST_KEY = 'dashview-watchlist';
 const FAVORITES_KEY = 'dashview-favorites';
@@ -59,7 +59,7 @@ export class StocksPanel extends Panel {
     return this.data;
   }
 
-  renderAtSize(size: import('../types/index.ts').WidgetSize): void {
+  renderAtSize(size: WidgetSize): void {
     if (size === 'compact' && this.data?.watchlist?.length) {
       this.contentEl.textContent = '';
       const top = this.data.watchlist[0];
@@ -76,6 +76,16 @@ export class StocksPanel extends Panel {
       return;
     }
     if (this.data) this.render(this.data);
+  }
+
+  override async startDataCycle(): Promise<void> {
+    await super.startDataCycle();
+    document.addEventListener('dashview:storage-changed', ((e: CustomEvent) => {
+      if (e.detail?.key === WATCHLIST_KEY) {
+        this.watchlist = storage.get<string[]>(WATCHLIST_KEY, DEFAULT_WATCHLIST);
+        void this.refresh();
+      }
+    }) as EventListener, { signal: this.cycleAbort!.signal });
   }
 
   destroy(): void {

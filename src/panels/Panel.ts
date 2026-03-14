@@ -20,6 +20,7 @@ export abstract class Panel {
   protected errorEl: HTMLElement;
   private collapseBtn: HTMLElement;
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  protected cycleAbort: AbortController | null = null;
 
   constructor(config: PanelConfig & { requiredTier?: UserTier; supportedSizes?: WidgetSize[] }) {
     this.id = config.id;
@@ -113,6 +114,7 @@ export abstract class Panel {
   async startDataCycle(): Promise<void> {
     if (!this.enabled) return;
     if (!hasAccess(this.requiredTier)) return;
+    this.cycleAbort = new AbortController();
     trackPanelView(this.id);
     await this.refresh();
     this.startInterval();
@@ -190,7 +192,13 @@ export abstract class Panel {
   }
 
   stopDataCycle(): void {
+    this.cycleAbort?.abort();
+    this.cycleAbort = null;
     this.stopInterval();
+  }
+
+  protected get cycleSignal(): AbortSignal | undefined {
+    return this.cycleAbort?.signal;
   }
 
   resumeDataCycle(): void {

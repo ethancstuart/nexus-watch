@@ -28,6 +28,7 @@ let modalEl: HTMLElement | null = null;
 let backdrop: HTMLElement | null = null;
 let releaseFocusTrap: (() => void) | null = null;
 let activeTab: SettingsTab = 'general';
+let currentEscHandler: ((e: KeyboardEvent) => void) | null = null;
 
 const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: 'general', label: 'General' },
@@ -37,15 +38,19 @@ const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: 'personal', label: 'Personal' },
 ];
 
-export function initSettingsPanel(app: App): void {
+export function initSettingsPanel(app: App, signal?: AbortSignal): void {
   document.addEventListener('dashview:open-settings', ((e: CustomEvent) => {
     const tab = e.detail?.tab as SettingsTab | undefined;
     if (tab) activeTab = tab;
     openSettings(app, tab);
-  }) as EventListener);
+  }) as EventListener, signal ? { signal } : undefined);
 }
 
 function closeSettings(): void {
+  if (currentEscHandler) {
+    document.removeEventListener('keydown', currentEscHandler);
+    currentEscHandler = null;
+  }
   if (releaseFocusTrap) {
     releaseFocusTrap();
     releaseFocusTrap = null;
@@ -76,13 +81,12 @@ function openSettings(app: App, tab?: SettingsTab): void {
   modalEl.setAttribute('aria-label', 'Settings');
 
   // Close on Escape
-  const escHandler = (e: KeyboardEvent) => {
+  currentEscHandler = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       closeSettings();
-      document.removeEventListener('keydown', escHandler);
     }
   };
-  document.addEventListener('keydown', escHandler);
+  document.addEventListener('keydown', currentEscHandler);
 
   // Header
   const header = createElement('div', { className: 'settings-panel-header' });

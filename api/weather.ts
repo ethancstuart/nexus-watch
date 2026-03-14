@@ -103,8 +103,17 @@ async function handleWeather(req: VercelRequest, res: VercelResponse, apiKey: st
     return res.status(forecastRes.status).json({ error: 'Forecast request failed' });
   }
 
-  const current = await currentRes.json();
-  const forecastData = await forecastRes.json();
+  const current = await currentRes.json() as {
+    name: string;
+    main: { temp: number; feels_like: number; temp_max: number; temp_min: number; humidity: number; pressure: number };
+    weather: { description: string; icon: string }[];
+    sys: { sunrise: number; sunset: number };
+    wind: { speed: number; deg?: number };
+    visibility?: number;
+  };
+  const forecastData = await forecastRes.json() as {
+    list: { dt: number; main: { temp: number; temp_max: number; temp_min: number }; weather: { icon: string }[] }[];
+  };
 
   // Build 5-day forecast from 5-day/3-hour data
   const dailyMap = new Map<string, { highs: number[]; lows: number[]; icon: string }>();

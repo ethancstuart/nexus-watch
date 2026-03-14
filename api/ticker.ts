@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const symbols = INDICES.map(i => i.symbol).join(',');
     const url = `https://api.twelvedata.com/quote?symbol=${symbols}&apikey=${apiKey}`;
     const response = await fetch(url);
-    const data = await response.json();
+    const data = await response.json() as Record<string, Record<string, string> & { code?: number }>;
 
     const quotes: IndexQuote[] = [];
 

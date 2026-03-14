@@ -18,7 +18,7 @@ const SHORTCUTS: { key: string; description: string }[] = [
 
 const PANEL_ORDER = ['weather', 'stocks', 'news', 'sports', 'chat', 'notes'];
 
-export function initKeyboardShortcuts(app: App): void {
+export function initKeyboardShortcuts(app: App, signal?: AbortSignal): void {
   document.addEventListener('keydown', (e) => {
     const target = e.target as HTMLElement;
     const tag = target.tagName;
@@ -54,7 +54,7 @@ export function initKeyboardShortcuts(app: App): void {
           jumpToPanel(app, parseInt(e.key) - 1);
         }
     }
-  });
+  }, signal ? { signal } : undefined);
 }
 
 function jumpToPanel(app: App, index: number): void {

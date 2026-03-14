@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
         );
         if (!response.ok) throw new Error(`Finnhub error for ${symbol}`);
-        const data: FinnhubQuote = await response.json();
+        const data = await response.json() as FinnhubQuote;
 
         // Filter invalid symbols (c=0 means no data)
         if (data.c === 0 || data.d === null) return null;
@@ -115,7 +115,7 @@ async function handleTicker(res: VercelResponse, apiKey: string) {
             `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(s.symbol)}&token=${apiKey}`,
           );
           if (!response.ok) return null;
-          const data: FinnhubQuote = await response.json();
+          const data = await response.json() as FinnhubQuote;
           if (data.c === 0 || data.d === null) return null;
           return {
             symbol: s.symbol,
@@ -127,8 +127,8 @@ async function handleTicker(res: VercelResponse, apiKey: string) {
           };
         }),
       ),
-      fetch(`https://finnhub.io/api/v1/forex/rates?base=USD&token=${apiKey}`).then(r => r.json()),
-      fetch(`https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${apiKey}`).then(r => r.json()),
+      fetch(`https://finnhub.io/api/v1/forex/rates?base=USD&token=${apiKey}`).then(r => r.json()) as Promise<{ quote?: Record<string, number> }>,
+      fetch(`https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${apiKey}`).then(r => r.json()) as Promise<{ isOpen?: boolean; session?: string }>,
     ]);
 
     const items: Array<{ symbol: string; label: string; price: number; change: number; changePercent: number; type: string }> = [];
@@ -213,9 +213,9 @@ async function handleSparklines(req: VercelRequest, res: VercelResponse, apiKey:
           `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=60&from=${from}&to=${now}&token=${apiKey}`,
         );
         if (!response.ok) return { symbol, prices: [] };
-        const data = await response.json();
+        const data = await response.json() as { s?: string; c?: number[] };
         if (data.s === 'no_data' || !data.c) return { symbol, prices: [] };
-        return { symbol, prices: data.c as number[] };
+        return { symbol, prices: data.c };
       }),
     );
 
@@ -264,7 +264,7 @@ async function handleCandle(req: VercelRequest, res: VercelResponse, apiKey: str
       return res.status(response.status).json({ error: 'Candle request failed' });
     }
 
-    const data = await response.json();
+    const data = await response.json() as { s?: string; t?: number[]; c?: number[]; h?: number[]; l?: number[]; o?: number[]; v?: number[] };
     if (data.s === 'no_data') {
       return res.json({ candles: { t: [], c: [], h: [], l: [], o: [], v: [] } });
     }
@@ -304,7 +304,7 @@ async function handleCompanyNews(req: VercelRequest, res: VercelResponse, apiKey
       return res.status(response.status).json({ error: 'Company news request failed' });
     }
 
-    const data = await response.json();
+    const data = await response.json() as { headline: string; summary: string; url: string; source: string; datetime: number; image: string }[];
     const news = (Array.isArray(data) ? data : []).slice(0, 10).map((item: {
       headline: string;
       summary: string;
@@ -342,7 +342,7 @@ async function handleProfile(req: VercelRequest, res: VercelResponse, apiKey: st
     if (!response.ok) {
       return res.status(response.status).json({ error: 'Profile request failed' });
     }
-    const data = await response.json();
+    const data = await response.json() as { name?: string; ticker?: string; logo?: string; finnhubIndustry?: string; marketCapitalization?: number; weburl?: string };
     return res
       .setHeader('Cache-Control', 'max-age=86400')
       .json({
@@ -373,7 +373,7 @@ async function handleMetrics(req: VercelRequest, res: VercelResponse, apiKey: st
     if (!response.ok) {
       return res.status(response.status).json({ error: 'Metrics request failed' });
     }
-    const data = await response.json();
+    const data = await response.json() as { metric?: Record<string, number> };
     const m = data.metric || {};
     return res
       .setHeader('Cache-Control', 'max-age=3600')
@@ -410,7 +410,7 @@ async function handleSearch(req: VercelRequest, res: VercelResponse, apiKey: str
       return res.status(response.status).json({ error: 'Search request failed' });
     }
 
-    const data = await response.json();
+    const data = await response.json() as { result?: { symbol: string; description: string; type: string }[] };
     const results = (data.result ?? [])
       .filter((r: { type: string }) => r.type === 'Common Stock')
       .slice(0, 8)

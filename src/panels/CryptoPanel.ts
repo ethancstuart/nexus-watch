@@ -4,7 +4,7 @@ import { fetchCryptoData } from '../services/crypto.ts';
 import { checkAlerts } from '../services/alerts.ts';
 import { openAlertsModal } from '../ui/alertsModal.ts';
 import { renderSparkline } from '../ui/chart.ts';
-import type { CryptoData, CryptoCoin } from '../types/index.ts';
+import type { CryptoData, CryptoCoin, WidgetSize } from '../types/index.ts';
 
 export class CryptoPanel extends Panel {
   private data: CryptoData | null = null;
@@ -25,7 +25,7 @@ export class CryptoPanel extends Panel {
     return this.data;
   }
 
-  renderAtSize(size: import('../types/index.ts').WidgetSize): void {
+  renderAtSize(size: WidgetSize): void {
     if (size === 'compact' && this.data?.coins?.length) {
       this.contentEl.textContent = '';
       const btc = this.data.coins.find((c) => c.symbol === 'btc') || this.data.coins[0];

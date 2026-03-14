@@ -52,6 +52,10 @@ export function logout(): void {
   window.location.href = '/api/auth/logout';
 }
 
-export function onAuthChange(cb: AuthCallback): void {
+export function onAuthChange(cb: AuthCallback): () => void {
   listeners.push(cb);
+  return () => {
+    const idx = listeners.indexOf(cb);
+    if (idx >= 0) listeners.splice(idx, 1);
+  };
 }

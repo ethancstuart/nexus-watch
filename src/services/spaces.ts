@@ -137,7 +137,6 @@ export function resolveCollisions(widgets: SpaceWidget[]): SpaceWidget[] {
 
   for (const w of sorted) {
     let row = w.row;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const candidate = { ...w, row };
       const overlap = result.some((placed) =>

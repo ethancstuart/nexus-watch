@@ -2,7 +2,7 @@ import { Panel } from './Panel.ts';
 import { createElement } from '../utils/dom.ts';
 import { fetchScoreboard } from '../services/sports.ts';
 import * as storage from '../services/storage.ts';
-import type { SportsLeague, SportsData, SportsGame, SportsHeadline } from '../types/index.ts';
+import type { SportsLeague, SportsData, SportsGame, SportsHeadline, WidgetSize } from '../types/index.ts';
 
 const LEAGUE_KEY = 'dashview-sports-league';
 const FAVORITES_KEY = 'dashview-sports-favorites';
@@ -23,7 +23,7 @@ export class SportsPanel extends Panel {
     return this.data;
   }
 
-  renderAtSize(size: import('../types/index.ts').WidgetSize): void {
+  renderAtSize(size: WidgetSize): void {
     if (size === 'compact' && this.data?.games?.length) {
       this.contentEl.textContent = '';
       const live = this.data.games.filter((g) => g.status === 'in_progress');
@@ -56,6 +56,16 @@ export class SportsPanel extends Panel {
     });
     this.league = storage.get<SportsLeague>(LEAGUE_KEY, 'nba');
     this.favorites = new Set(storage.get<string[]>(FAVORITES_KEY, []));
+  }
+
+  override async startDataCycle(): Promise<void> {
+    await super.startDataCycle();
+    document.addEventListener('dashview:storage-changed', ((e: CustomEvent) => {
+      if (e.detail?.key === LEAGUE_KEY) {
+        this.league = storage.get<SportsLeague>(LEAGUE_KEY, 'nba');
+        void this.refresh();
+      }
+    }) as EventListener, { signal: this.cycleAbort!.signal });
   }
 
   async fetchData(): Promise<void> {

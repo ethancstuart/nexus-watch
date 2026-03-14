@@ -40,7 +40,13 @@ import type { DensityMode } from '../config/density.ts';
 import type { Panel } from '../panels/Panel.ts';
 import type { WidgetSize } from '../types/index.ts';
 
+let dashboardAbort: AbortController | null = null;
+
 export async function renderDashboard(root: HTMLElement): Promise<void> {
+  if (dashboardAbort) dashboardAbort.abort();
+  dashboardAbort = new AbortController();
+  const signal = dashboardAbort.signal;
+
   root.textContent = '';
 
   // Auth gate — require login
@@ -134,7 +140,7 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
         showAIOverlay('Something went wrong. Please try again.');
       }
     },
-  });
+  }, signal);
 
   // Space Bar
   const spaceBar = createSpaceBar({
@@ -179,9 +185,9 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   renderActiveSpace();
 
   // Initialize subsystems
-  initSettingsPanel(app);
+  initSettingsPanel(app, signal);
   initPredictionBanner(layout.predictionBanner);
-  initKeyboardShortcuts(app);
+  initKeyboardShortcuts(app, signal);
   initBriefing(app);
   initOfflineIndicator();
   initInstallPrompt(aiBar);
@@ -191,21 +197,23 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   // Re-render when spaces change (settings toggles, AI actions, size changes)
   document.addEventListener('dashview:spaces-changed', () => {
     renderActiveSpace();
-  });
+  }, { signal });
 
   // Re-apply theme/density and re-render layout when prefs arrive from another device
   document.addEventListener('dashview:prefs-synced', () => {
     applyTheme();
     applyDensity();
     renderActiveSpace();
-  });
+  }, { signal });
 
   // Cleanup intelligence on SPA navigation away from dashboard
   window.addEventListener('hashchange', () => {
     if (!window.location.hash.startsWith('#/dashboard')) {
       destroyIntelligence();
+      dashboardAbort?.abort();
+      dashboardAbort = null;
     }
-  });
+  }, { signal });
 }
 
 function executeSlashCommand(cmd: string, app: App, rerender: () => void): void {

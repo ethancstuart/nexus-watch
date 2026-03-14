@@ -4,53 +4,56 @@
 
 ### Core Dashboard
 - Panel-based architecture with self-contained data sources
-- Weather panel (OpenWeatherMap) with 3-day forecast, hourly sparklines, interactive map
-- Markets panel (Finnhub) with 10-stock watchlist, detail views, drag-to-reorder, sparklines
+- Space-based organization with named contexts (Overview, Markets, World, Personal)
+- 12-column responsive widget grid with drag-to-reorder and resize handles
+- Weather panel (OpenWeatherMap) with 3-day forecast, hourly sparklines, multi-location support
+- Markets panel (Finnhub) with watchlist, detail views, drag-to-reorder, sparklines
 - Crypto panel (CoinGecko) with top 10 coins, 7-day sparklines, market cap, ATH tracking
-- News panel with 7 categories, interactive Mapbox map with day/night terminator
+- News panel with 7 categories, custom RSS feeds (tier-gated)
 - Sports panel (ESPN) with NBA, NFL, MLB, EPL live scores and team favorites
+- Entertainment panel (TMDB) with trending, movies, TV, upcoming tabs
 - Notes panel with quick-capture to-dos, fully offline
-
-### AI & Intelligence
-- Multi-provider AI chat (Anthropic, OpenAI, Google, xAI) with BYO key
-- Daily AI briefing using live dashboard context
-- Prediction markets (Polymarket, Kalshi)
 - Scrolling market ticker
 
+### AI & Intelligence
+- AI Bar — persistent input with Cmd+K, `/` commands, natural language AI queries
+- Multi-provider AI chat (Anthropic, OpenAI, Google, xAI) with BYO key
+- AI shell powered by deployer-hosted Claude Haiku (5 free/day, 25/day premium)
+- Daily AI briefing using live dashboard context
+- Pulse Bar — cross-panel intelligence strip showing real-time correlations
+- Prediction markets (Polymarket, Kalshi)
+
 ### Platform
-- Google/GitHub OAuth with guest, free, and premium tiers
+- Google/GitHub OAuth with free and premium tiers
+- Cross-device preference sync via Vercel KV (pull on focus, push on change, beacon flush)
+- Dashboard config sharing via export/import (JSON + URL codes)
 - PWA with service worker, offline caching, install prompt
-- Command palette (Cmd+K)
 - Price alerts with browser notifications (tier-gated)
-- Export/import dashboard config as JSON
-- Lightweight usage analytics (30-day rolling window)
+- Lightweight usage analytics (30-day rolling window, visible in settings)
 
 ### UX & Accessibility
 - Dark, light, and OLED black themes
 - 3 density modes (compact, comfortable, spacious)
-- Responsive panel grid layout
+- Compact/medium/large widget sizes per panel
 - Keyboard shortcuts (press ? for help)
 - ARIA landmarks, skip-link, focus-visible, screen reader support
-- 5-step onboarding flow for first-time visitors
-- Priority-based data loading, collapsible panels, retry on error
+- 5-step AI-driven onboarding with interests picker
+- Priority-based data loading (P0 → P1 → P2), collapsible panels, retry on error
+- Settings panel reactive to changes — panels refresh immediately on preference updates
 
 ### Infrastructure
 - Vercel Edge Function API proxying (keys stay server-side)
-- Circuit breaker fetch pattern (3 failures, 5-min backoff)
-- Security headers (CSP, HSTS, X-Frame-Options)
-- CI pipeline (build check on PRs)
-
-## Phase 2 — Sign-In Value
-- Cross-device sync
-- Custom news sources
-- Multiple weather locations
-- Dashboard sharing
+- Circuit breaker fetch pattern (3 failures, 5-min backoff) with request deduplication
+- Security headers (CSP, HSTS, X-Content-Type-Options, Permissions-Policy)
+- ESLint (flat config) + Prettier for code quality
+- TypeScript strict mode for both src/ and api/
+- CI pipeline: typecheck, lint, format check, tests, build
+- AbortController-based listener cleanup on SPA navigation (no listener leaks)
 
 ## Phase 3 — Premium Features
 - Hosted AI chat (no key needed)
-- Drag-and-drop layout
 - Calendar integration (Google Calendar)
-- Advanced alert conditions
+- Advanced alert conditions (crossing, range-based)
 
 ## Phase 4 — Platform Expansion
 - Stripe payments
