@@ -188,6 +188,11 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   initIntelligence();
   autoPopulateInterests();
 
+  // Re-render when spaces change (settings toggles, AI actions, size changes)
+  document.addEventListener('dashview:spaces-changed', () => {
+    renderActiveSpace();
+  });
+
   // Re-apply theme/density and re-render layout when prefs arrive from another device
   document.addEventListener('dashview:prefs-synced', () => {
     applyTheme();

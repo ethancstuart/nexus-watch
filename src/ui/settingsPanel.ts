@@ -365,6 +365,7 @@ function renderOverviewTab(body: HTMLElement, app: App): void {
       } else {
         removeWidgetFromSpace('overview', panel.id);
       }
+      document.dispatchEvent(new CustomEvent('dashview:spaces-changed'));
     });
 
     const nameEl = createElement('span', { className: 'settings-widget-name', textContent: panel.title });
@@ -389,6 +390,7 @@ function renderOverviewTab(body: HTMLElement, app: App): void {
         widget.size = newSize;
         widget.colSpan = colSpanMap[newSize];
         saveSpaces(spaces);
+        document.dispatchEvent(new CustomEvent('dashview:spaces-changed'));
       }
     });
 
