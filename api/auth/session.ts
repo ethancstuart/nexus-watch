@@ -44,6 +44,24 @@ export default async function handler(req: Request) {
       user.tier = 'premium';
     }
 
+    // Self-healing Stripe tier check
+    if (user && !user.isAdmin) {
+      try {
+        const stripeRes = await fetch(`${kvUrl}/get/stripe:${user.id}`, {
+          headers: { Authorization: `Bearer ${kvToken}` },
+        });
+        const stripeData = (await stripeRes.json()) as { result: string | null };
+        if (stripeData.result) {
+          const stripeInfo = JSON.parse(stripeData.result);
+          if (stripeInfo.status === 'active' || stripeInfo.status === 'trialing') {
+            user.tier = 'premium';
+          }
+        }
+      } catch {
+        // Stripe check failed — keep existing tier
+      }
+    }
+
     return new Response(JSON.stringify({ user }), {
       headers: {
         'Content-Type': 'application/json',

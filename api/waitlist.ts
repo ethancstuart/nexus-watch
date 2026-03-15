@@ -4,8 +4,27 @@ const CORS_HEADERS = { 'Content-Type': 'application/json', 'Access-Control-Allow
 
 export default async function handler(req: Request) {
   if (req.method === 'GET') {
-    // Return waitlist count (placeholder until KV is set up)
-    return new Response(JSON.stringify({ count: 0 }), {
+    const kvUrl = process.env.KV_REST_API_URL;
+    const kvToken = process.env.KV_REST_API_TOKEN;
+    let count = 0;
+
+    if (kvUrl && kvToken) {
+      try {
+        let cursor = '0';
+        do {
+          const res = await fetch(`${kvUrl}/scan/${cursor}?MATCH=waitlist:*&COUNT=100`, {
+            headers: { Authorization: `Bearer ${kvToken}` },
+          });
+          const data = (await res.json()) as { result: [string, string[]] };
+          cursor = data.result[0];
+          count += data.result[1].length;
+        } while (cursor !== '0');
+      } catch {
+        // KV unavailable — return 0
+      }
+    }
+
+    return new Response(JSON.stringify({ count }), {
       headers: CORS_HEADERS,
     });
   }

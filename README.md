@@ -4,36 +4,46 @@
 [![Deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-black.svg)](https://dashpulse.app)
 [![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-blueviolet.svg)](https://claude.ai/claude-code)
 
-![DashPulse](https://dashpulse.app/og-image.png)
+![DashPulse](https://dashpulse.app/api/og)
 
-**Your real-time intelligence dashboard.** Weather, markets, news, sports, predictions, and AI chat -- all in one browser tab. No framework, no bloat, just live data.
+**Your personal intelligence terminal.** Weather, markets, news, sports, crypto, and AI -- organized into customizable spaces with a keyboard-driven interface. No framework, no bloat, just live data.
 
-Built with [Claude Code](https://claude.ai/claude-code).
+Built entirely with [Claude Code](https://claude.ai/claude-code). Open source under MIT.
 
-## What's Live
+## Why DashPulse
 
-- **Weather** -- Hyperlocal forecasts, hourly sparklines, conditions on an interactive world map, °F/°C toggle
-- **Markets** -- 10-stock watchlist with real-time quotes, detail views, drag-to-reorder, and sparklines (Finnhub)
+The personal dashboard category hasn't evolved. Momentum and its clones are passive wallpaper -- a clock, a greeting, a photo. DashPulse treats your browser tab as a control surface: real-time data from 10 sources, AI-powered queries, and a terminal aesthetic built for information density.
+
+## Features
+
+**10 Data Panels**
+- **Weather** -- Hyperlocal forecasts, hourly sparklines, multi-location support, interactive world map
+- **Markets** -- 10-stock watchlist with real-time quotes, detail views, sparklines (Finnhub)
 - **Crypto** -- Top 10 coins with 7-day sparklines, market cap, volume, ATH tracking (CoinGecko)
-- **News** -- 7 categories with headlines mapped to their origin on an interactive Mapbox map with day/night terminator
+- **News** -- 7 categories + custom RSS feeds, mapped on an interactive globe
 - **Sports** -- NBA, NFL, MLB, EPL live scores with team favorites
+- **Entertainment** -- Trending movies, TV, upcoming releases (TMDB)
 - **AI Chat** -- Multi-provider (Anthropic, OpenAI, Google, xAI), bring your own API key
-- **Daily Briefing** -- AI-generated morning summary using live dashboard data
-- **Notes** -- Quick-capture notes and to-dos, fully offline, persists in localStorage
-- **Price Alerts** -- Set stock/crypto price thresholds, browser notifications, tier-gated (3 free)
-- **Predictions** -- Live odds from Polymarket and Kalshi
-- **Market Ticker** -- Scrolling real-time market data
-- **Command Palette** -- Cmd+K to search commands, jump to panels, manage alerts, export/import config
-- **PWA + Offline** -- Installable as native app, service worker caching, offline indicator
-- **Export/Import** -- Download/restore dashboard config as JSON (zero-backend config portability)
-- **Usage Analytics** -- Lightweight local tracking of panel views, feature usage, 30-day rolling window
-- **Auth** -- Google/GitHub OAuth with guest, free, and premium tiers
-- **Themes** -- Dark, light, and OLED black with 3 density modes (compact/comfortable/spacious)
-- **Responsive Layout** -- Panel grid adapts from 3-4 columns (desktop) to 1 column (mobile)
-- **Keyboard Shortcuts** -- Full shortcut system (press `?` for help)
-- **Accessibility** -- ARIA landmarks, skip-link, focus-visible outlines, screen reader support
-- **Onboarding** -- Guided setup for first-time visitors
-- **Smart Loading** -- Priority-based data fetching, collapsible panels, retry on error
+- **Calendar** -- Google Calendar integration with today/tomorrow view (premium)
+- **Notes** -- Quick-capture to-dos, fully offline
+- **Globe** -- Interactive 3D map with news correlation and weather overlay
+
+**AI-Native Interface**
+- AI Bar (Cmd+K) -- natural language queries and slash commands
+- Daily AI Briefing -- morning summary using live dashboard data
+- Pulse Bar -- cross-panel intelligence showing what matters NOW
+- AI Shell -- deployer-hosted Claude Haiku (5 free/day)
+
+**Platform**
+- Space-based layout -- organize panels into named contexts (Overview, Markets, World, Personal)
+- 12-column responsive grid with drag-to-reorder and resize
+- PWA -- installable as native app, works offline
+- Cross-device sync via Vercel KV
+- Price alerts with browser notifications (5 free, unlimited premium)
+- Stripe-powered premium tier with founding member pricing
+- Dark, light, and OLED themes with 3 density modes
+- Export/import config as JSON
+- Google/GitHub OAuth
 
 ## Quick Start
 
@@ -46,7 +56,7 @@ npm install
 npm run dev
 ```
 
-Open [localhost:5173](http://localhost:5173) to see the dashboard.
+Open [localhost:5173](http://localhost:5173).
 
 ## API Keys
 
@@ -54,27 +64,37 @@ Open [localhost:5173](http://localhost:5173) to see the dashboard.
 |---------|------|---------|
 | [OpenWeatherMap](https://openweathermap.org/api) | Free | Weather data |
 | [Finnhub](https://finnhub.io) | Free (60 calls/min) | Stock quotes |
-| [Mapbox](https://www.mapbox.com) | Free tier | News map |
+| [Mapbox](https://www.mapbox.com) | Free tier | News map + globe |
+| [TMDB](https://www.themoviedb.org/documentation/api) | Free | Entertainment data |
 
-Optional (BYO key for AI Chat): Anthropic, OpenAI, Google AI, xAI
+Optional: Stripe keys (premium tier), Anthropic key (hosted AI shell), BYO key for AI Chat (Anthropic/OpenAI/Google/xAI).
 
 ## Architecture
 
-Panel-based -- every data source is a self-contained TypeScript class with its own refresh cycle. No React, no framework. DOM updates are direct. API keys are proxied through Vercel Edge Functions (never exposed client-side).
+```
+src/
+  panels/        # 10 self-contained panel classes
+  services/      # API clients, auth, storage, tier, sync
+  pages/         # Landing, dashboard, roadmap
+  ui/            # AI bar, settings, command palette, widgets
+  config/        # Themes, density, preferences
+  types/         # Centralized TypeScript types
+  styles/        # 28 CSS files, all using CSS custom properties
+api/             # 18 Vercel Edge Functions (API proxies, auth, Stripe)
+```
 
-- **Panels:** `src/panels/` -- WeatherPanel, StocksPanel, NewsPanel, SportsPanel, CryptoPanel, ChatPanel, NotesPanel
-- **Services:** `src/services/` -- API clients, auth, storage
-- **Edge Functions:** `api/` -- server-side API proxies
-- **Pages:** `src/pages/` -- landing, roadmap, dashboard
+Panel-based -- every data source is a self-contained TypeScript class with its own refresh cycle. No React, no framework. DOM updates are direct. API keys proxied through Edge Functions.
 
-User preferences persist in localStorage (no backend database for core features). Circuit breaker pattern on all fetches -- 3 failures trigger 5-minute backoff.
+**Key patterns:** Circuit breaker fetch (3 failures, 5-min backoff), priority-based loading (P0-P2), AbortController listener cleanup, self-healing session tier.
 
 ## Commands
 
 ```bash
 npm run dev        # Dev server (localhost:5173)
-npm run build      # Production build
-npm run preview    # Preview production build
+npm run build      # TypeScript + Vite build + SW manifest
+npm run test       # Vitest (100+ tests)
+npm run lint       # ESLint
+npm run validate   # Typecheck + lint + test
 vercel             # Deploy to Vercel
 ```
 
@@ -84,11 +104,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, PR guidelines, and
 
 ## Tech Stack
 
-- [Vite](https://vitejs.dev) + TypeScript (strict mode)
+- [Vite](https://vitejs.dev) + TypeScript (strict mode, ~50-70KB gzipped)
 - Vanilla DOM (no framework)
-- CSS custom properties for theming
+- CSS custom properties for theming (JetBrains Mono, terminal aesthetic)
 - [Vercel](https://vercel.com) Edge Functions
-- [Leaflet](https://leafletjs.com) + [Mapbox](https://www.mapbox.com) for maps
+- [globe.gl](https://globe.gl) for interactive 3D globe
+- [Vitest](https://vitest.dev) + happy-dom for testing
+- Stripe (raw fetch, no SDK) for payments
 
 ## License
 

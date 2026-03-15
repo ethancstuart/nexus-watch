@@ -93,6 +93,24 @@ export function renderLanding(root: HTMLElement): void {
   hero.appendChild(heroCtas);
   page.appendChild(hero);
 
+  // Dashboard preview
+  const previewSection = createElement('section', { className: 'landing-preview' });
+  const previewImg = document.createElement('img');
+  previewImg.src = '/api/og';
+  previewImg.alt = 'DashPulse dashboard preview';
+  previewImg.className = 'landing-preview-img';
+  previewImg.loading = 'lazy';
+  previewSection.appendChild(previewImg);
+
+  // Badges
+  const badges = createElement('div', { className: 'landing-badges' });
+  const osBadge = createElement('span', { className: 'landing-badge', textContent: 'Open Source' });
+  const ccBadge = createElement('span', { className: 'landing-badge', textContent: 'Built with Claude Code' });
+  badges.appendChild(osBadge);
+  badges.appendChild(ccBadge);
+  previewSection.appendChild(badges);
+  page.appendChild(previewSection);
+
   // Features grid
   const features = createElement('section', { className: 'landing-features' });
   const featuresTitle = createElement('h2', { className: 'landing-section-title', textContent: 'Built for the Information Age' });

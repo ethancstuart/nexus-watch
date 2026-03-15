@@ -62,6 +62,15 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
     await showOnboarding();
   }
 
+  // Handle post-checkout upgrade
+  if (window.location.hash.includes('upgraded=true')) {
+    await checkSession(); // Re-fetch session to get updated tier
+    const cleanHash = window.location.hash.replace(/[?&]upgraded=true/, '');
+    history.replaceState(null, '', cleanHash || '#/app');
+    // Show success toast after layout renders
+    requestAnimationFrame(() => showAIOverlay('Welcome to Premium! All features unlocked.'));
+  }
+
   await initPrefsSync();
   await showWelcome(sessionUser.name);
 

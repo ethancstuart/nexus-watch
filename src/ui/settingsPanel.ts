@@ -875,19 +875,86 @@ function renderPersonalTab(body: HTMLElement): void {
   addSection(body, 'PREMIUM');
   const tier = getCurrentTier();
   if (tier === 'premium') {
-    const premiumHint = createElement('div', { className: 'settings-panel-hint' });
-    premiumHint.textContent = 'Premium active. Unlimited alerts, feeds, and priority refresh.';
-    body.appendChild(premiumHint);
-  } else {
-    const premiumHint = createElement('div', { className: 'settings-panel-hint' });
-    premiumHint.textContent = 'Free tier. Upgrade for unlimited alerts, custom feeds, and priority refresh rates.';
-    body.appendChild(premiumHint);
-    const upgradeBtn = createElement('button', { className: 'settings-panel-action', textContent: 'Learn about Premium' });
-    upgradeBtn.addEventListener('click', () => {
-      closeSettings();
-      window.location.hash = '#/roadmap';
+    const premiumBadge = createElement('div', { className: 'settings-panel-hint' });
+    premiumBadge.textContent = 'Premium active. Unlimited alerts, feeds, calendar, and priority refresh.';
+    premiumBadge.style.color = 'var(--color-positive)';
+    body.appendChild(premiumBadge);
+
+    const manageBtn = createElement('button', { className: 'settings-panel-action', textContent: 'Manage Billing' });
+    manageBtn.addEventListener('click', async () => {
+      manageBtn.textContent = '\u2026';
+      try {
+        const res = await fetch('/api/stripe/portal', { method: 'POST' });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          manageBtn.textContent = 'Error — try again';
+          setTimeout(() => { manageBtn.textContent = 'Manage Billing'; }, 2000);
+        }
+      } catch {
+        manageBtn.textContent = 'Error — try again';
+        setTimeout(() => { manageBtn.textContent = 'Manage Billing'; }, 2000);
+      }
     });
-    body.appendChild(upgradeBtn);
+    body.appendChild(manageBtn);
+  } else {
+    // Pricing cards
+    const pricingWrap = createElement('div', { className: 'settings-pricing-cards' });
+    pricingWrap.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px';
+
+    const standardCard = createElement('div', { className: 'settings-pricing-card' });
+    standardCard.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:16px;text-align:center';
+    standardCard.innerHTML = `<div style="font-size:24px;font-weight:700;color:var(--color-text)">$5<span style="font-size:12px;font-weight:400;color:var(--color-text-muted)">/mo</span></div><div style="font-size:11px;color:var(--color-text-muted);margin-top:4px">Standard</div>`;
+    const standardBtn = createElement('button', { className: 'settings-panel-action', textContent: 'Upgrade' });
+    standardBtn.style.marginTop = '12px';
+    standardBtn.addEventListener('click', () => void handleUpgrade(standardBtn, false));
+    standardCard.appendChild(standardBtn);
+
+    const foundingCard = createElement('div', { className: 'settings-pricing-card' });
+    foundingCard.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-accent);border-radius:6px;padding:16px;text-align:center';
+    foundingCard.innerHTML = `<div style="font-size:24px;font-weight:700;color:var(--color-accent)">$3<span style="font-size:12px;font-weight:400;color:var(--color-text-muted)">/mo</span></div><div style="font-size:11px;color:var(--color-text-muted);margin-top:4px">Founding Member</div><div style="font-size:10px;color:var(--color-accent);margin-top:2px">Limited time</div>`;
+    const foundingBtn = createElement('button', { className: 'settings-panel-action', textContent: 'Upgrade' });
+    foundingBtn.style.marginTop = '12px';
+    foundingBtn.addEventListener('click', () => void handleUpgrade(foundingBtn, true));
+    foundingCard.appendChild(foundingBtn);
+
+    pricingWrap.appendChild(standardCard);
+    pricingWrap.appendChild(foundingCard);
+    body.appendChild(pricingWrap);
+
+    const features = createElement('div', { className: 'settings-panel-hint' });
+    features.textContent = 'Unlimited alerts, custom feeds, calendar integration, hosted AI chat, priority refresh.';
+    body.appendChild(features);
+
+    const restoreLink = createElement('button', { className: 'settings-panel-action', textContent: 'Restore Purchase' });
+    restoreLink.style.opacity = '0.6';
+    restoreLink.addEventListener('click', async () => {
+      restoreLink.textContent = 'Checking\u2026';
+      const { checkSession } = await import('../services/auth.ts');
+      await checkSession();
+      restoreLink.textContent = 'Session refreshed';
+      setTimeout(() => { restoreLink.textContent = 'Restore Purchase'; }, 2000);
+    });
+    body.appendChild(restoreLink);
+  }
+}
+
+async function handleUpgrade(btn: HTMLElement, founding: boolean): Promise<void> {
+  btn.textContent = '\u2026';
+  try {
+    const url = founding ? '/api/stripe/checkout?founding=true' : '/api/stripe/checkout';
+    const res = await fetch(url, { method: 'POST' });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      btn.textContent = data.error || 'Error';
+      setTimeout(() => { btn.textContent = 'Upgrade'; }, 2000);
+    }
+  } catch {
+    btn.textContent = 'Error — try again';
+    setTimeout(() => { btn.textContent = 'Upgrade'; }, 2000);
   }
 }
 

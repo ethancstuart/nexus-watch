@@ -12,8 +12,9 @@ export function set(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // localStorage quota exceeded — silently fail
-    console.warn('localStorage quota exceeded for key:', key);
+    document.dispatchEvent(
+      new CustomEvent('dashview:storage-error', { detail: { key, error: 'quota' } }),
+    );
     return;
   }
   document.dispatchEvent(new CustomEvent('dashview:storage-changed', { detail: { key, action: 'set' } }));

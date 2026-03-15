@@ -1,4 +1,6 @@
 import { createElement } from '../utils/dom.ts';
+import { getUser } from '../services/auth.ts';
+import { getCurrentTier } from '../services/tier.ts';
 
 export function renderRoadmap(root: HTMLElement): void {
   root.textContent = '';
@@ -120,16 +122,45 @@ export function renderRoadmap(root: HTMLElement): void {
 
   // Premium CTA
   const premiumCta = createElement('div', { className: 'roadmap-premium-cta' });
-  const ctaText = createElement('p', {
-    className: 'roadmap-cta-text',
-    textContent: 'Premium coming soon \u2014 everything stays free until then. Founding members lock in $3/mo for life.',
-  });
-  const ctaBtn = document.createElement('a');
-  ctaBtn.href = '#/app';
-  ctaBtn.className = 'landing-btn landing-btn-primary';
-  ctaBtn.textContent = 'Try the Dashboard';
-  premiumCta.appendChild(ctaText);
-  premiumCta.appendChild(ctaBtn);
+  const user = getUser();
+  const currentTier = getCurrentTier();
+
+  if (user && currentTier === 'free') {
+    const ctaText = createElement('p', {
+      className: 'roadmap-cta-text',
+      textContent: 'Founding members lock in $3/mo for life. Upgrade now for unlimited alerts, calendar, and more.',
+    });
+    const ctaBtn = createElement('button', { className: 'landing-btn landing-btn-primary', textContent: 'Upgrade to Premium' });
+    ctaBtn.addEventListener('click', async () => {
+      ctaBtn.textContent = '\u2026';
+      try {
+        const res = await fetch('/api/stripe/checkout?founding=true', { method: 'POST' });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          ctaBtn.textContent = 'Error — try again';
+          setTimeout(() => { ctaBtn.textContent = 'Upgrade to Premium'; }, 2000);
+        }
+      } catch {
+        ctaBtn.textContent = 'Error — try again';
+        setTimeout(() => { ctaBtn.textContent = 'Upgrade to Premium'; }, 2000);
+      }
+    });
+    premiumCta.appendChild(ctaText);
+    premiumCta.appendChild(ctaBtn);
+  } else {
+    const ctaText = createElement('p', {
+      className: 'roadmap-cta-text',
+      textContent: user ? 'You have Premium. Thank you for your support!' : 'Founding members lock in $3/mo for life.',
+    });
+    const ctaBtn = document.createElement('a');
+    ctaBtn.href = '#/app';
+    ctaBtn.className = 'landing-btn landing-btn-primary';
+    ctaBtn.textContent = 'Try the Dashboard';
+    premiumCta.appendChild(ctaText);
+    premiumCta.appendChild(ctaBtn);
+  }
   tierSection.appendChild(premiumCta);
   page.appendChild(tierSection);
 
@@ -155,8 +186,8 @@ export function renderRoadmap(root: HTMLElement): void {
     { status: 'shipped', label: 'Shipped', title: 'Entertainment & AI Bar', desc: 'TMDB entertainment panel, AI Bar with natural language queries, Pulse Bar cross-panel intelligence' },
     { status: 'shipped', label: 'Shipped', title: 'Sign-In Value', desc: 'Cross-device sync via Vercel KV, custom news sources, multiple weather locations, dashboard sharing' },
     { status: 'shipped', label: 'Shipped', title: 'Quality & Reliability', desc: 'ESLint + Prettier, full CI pipeline, listener leak cleanup, reactive settings (panels refresh immediately on preference changes)' },
-    { status: 'active', label: 'Phase 3', title: 'Premium Features', desc: 'Hosted AI chat, calendar integration, advanced alert conditions' },
-    { status: 'planned', label: 'Phase 4', title: 'Platform Expansion', desc: 'Stripe payments, plugin SDK, custom dashboards, API access' },
+    { status: 'shipped', label: 'Shipped', title: 'Premium & Launch', desc: 'Stripe payments with founding member pricing, Google Calendar (premium), advanced alert conditions, OG image generation, billing portal, self-healing session tier' },
+    { status: 'active', label: 'Phase 4', title: 'Platform Expansion', desc: 'Plugin SDK, custom dashboards, API access' },
     { status: 'planned', label: 'Phase 5', title: 'AI-Native Intelligence', desc: 'AI co-pilot, natural language config, trend detection, smart defaults' },
   ];
 

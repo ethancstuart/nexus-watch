@@ -89,12 +89,26 @@ Open-source under MIT. The canonical deployment runs on Vercel at dashpulse.app.
 
 If community traction warrants it, a managed hosted version may be offered as a paid convenience. The open-source tool remains fully functional and free.
 
+## Quality Engineering
+
+### Code Quality Infrastructure
+DashPulse isn't just feature-complete — it's production-hardened. A comprehensive quality pass added:
+
+- **ESLint + Prettier** — Flat config with strict rules, enforced via CI. No `any` types allowed. Consistent formatting across 50+ source files.
+- **Listener Leak Cleanup** — All event listeners use `AbortController` signals tied to SPA navigation lifecycle. When the user navigates away from the dashboard, every listener is cleaned up automatically. This eliminated a class of memory leaks common in vanilla JS SPAs.
+- **Reactive Settings** — Panels now refresh immediately when preferences change (theme, density, units, watchlist). Previously, changes required a page reload. The fix involved dispatching `dashview:storage-changed` custom events and subscribing in each affected panel.
+- **CI Pipeline** — Every commit runs: TypeScript strict typecheck (both `src/` and `api/`), ESLint, Prettier format check, Vitest test suite, and production build. A single `npm run validate` command gates all merges.
+- **Test Coverage** — 100+ tests covering: circuit breaker FSM, alert conditions (7 types), panel lifecycle, storage persistence, config sync, DOM helpers, widget grid layout, tier access control, auth session management, and calendar panel states.
+
 ## What's Next
 
-**Phase 2 -- Sign-In Value.** Cross-device preference sync (shipped: KV-backed with per-key merge and conflict resolution), custom news sources, multiple weather locations (shipped: up to 5 saved locations), and dashboard sharing.
+**Phase 2 -- Sign-In Value (shipped).** Cross-device preference sync via KV with per-key merge and conflict resolution, custom news sources, multiple weather locations (up to 5), and dashboard sharing.
 
-**Phase 3 -- Premium Features.** Hosted AI chat (no user key required), drag-and-drop panel layout, Google Calendar integration, and advanced alert conditions beyond simple price thresholds.
+**Phase 3 -- Premium & Launch (shipped).** Stripe payments with founding member pricing ($3/mo vs $5/mo standard), Google Calendar integration (premium-gated), advanced alert conditions (crossing, range-based), self-healing session tier via Stripe KV lookup, webhook-driven subscription lifecycle, billing portal, OG image generation, and comprehensive quality pass (100+ tests, ESLint, Prettier, CI pipeline).
 
-**Phase 4 -- Platform Expansion.** Stripe payments for the premium tier, a plugin SDK enabling third-party panels, support for multiple named dashboards per user, and API access for external integrations.
+### Stripe Integration
+The premium tier uses raw `fetch` calls to the Stripe API — no SDK dependency. Webhook signature verification is implemented via Web Crypto API HMAC-SHA256. Idempotency keys prevent duplicate event processing. The session endpoint self-heals tier status on every load by checking `stripe:{userId}` in KV, so even if a webhook is delayed, the user's premium status resolves on the next page load.
 
-**Phase 5 -- AI-Native Intelligence.** An AI co-pilot that surfaces insights proactively, natural language configuration ("show me tech stocks and crypto, hide sports"), automated trend detection across panels, and smart defaults that adapt to usage patterns over time.
+**Phase 4 -- Platform Expansion.** Plugin SDK for third-party panels, multiple named dashboards per user, and API access for external integrations.
+
+**Phase 5 -- AI-Native Intelligence.** AI co-pilot, natural language configuration, automated trend detection, and smart defaults.

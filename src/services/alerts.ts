@@ -1,6 +1,8 @@
 import * as storage from './storage.ts';
-import { getCurrentTier } from './tier.ts';
+import { getAlertLimit } from './tier.ts';
 import type { PriceAlert } from '../types/index.ts';
+
+export { getAlertLimit } from './tier.ts';
 
 const STORAGE_KEY = 'dashview-alerts';
 
@@ -10,11 +12,6 @@ export function getAlerts(): PriceAlert[] {
 
 export function getActiveAlerts(): PriceAlert[] {
   return getAlerts().filter((a) => !a.triggeredAt);
-}
-
-export function getAlertLimit(): number {
-  const tier = getCurrentTier();
-  return tier === 'premium' ? Infinity : 3;
 }
 
 export function canAddAlert(): boolean {

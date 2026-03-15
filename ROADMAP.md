@@ -50,13 +50,23 @@
 - CI pipeline: typecheck, lint, format check, tests, build
 - AbortController-based listener cleanup on SPA navigation (no listener leaks)
 
-## Phase 3 — Premium Features
-- Hosted AI chat (no key needed)
-- Calendar integration (Google Calendar)
-- Advanced alert conditions (crossing, range-based)
+### Phase 3 — Premium & Launch (Shipped)
+- Calendar integration (Google Calendar) — premium-gated
+- Advanced alert conditions (crossing, range-based, outside range)
+- Stripe payments with founding member pricing ($3/mo)
+- Self-healing session tier (Stripe status checked on every session load)
+- Webhook-driven subscription lifecycle (checkout, update, cancel)
+- Billing portal for self-service subscription management
+- OG image generation via Edge Function (@vercel/og)
+- Landing page polish with dashboard preview and open-source badges
+- Alert limit aligned to 5 for free tier (from 3)
+- CSS variable adoption for calendar panel (theme-safe across all 3 themes)
+- localStorage quota error events for UI-surfaceable storage errors
+- Live waitlist count via KV SCAN
+- 100+ tests across tier, auth, calendar, alerts, storage, and more
+- Comprehensive quality pass: ESLint, Prettier, CI, listener cleanup
 
 ## Phase 4 — Platform Expansion
-- Stripe payments
 - Plugin SDK
 - Custom dashboards
 - API access

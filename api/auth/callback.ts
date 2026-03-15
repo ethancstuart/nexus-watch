@@ -150,6 +150,28 @@ export default async function handler(req: Request) {
         method: 'POST',
         headers: { Authorization: `Bearer ${kvToken}` },
       });
+
+      // Store reverse mapping for webhook session updates
+      try {
+        const sessionsRes = await fetch(`${kvUrl}/get/user-sessions:${userInfo.id}`, {
+          headers: { Authorization: `Bearer ${kvToken}` },
+        });
+        const sessionsData = (await sessionsRes.json()) as { result: string | null };
+        let sessionIds: string[] = [];
+        if (sessionsData.result) {
+          sessionIds = JSON.parse(sessionsData.result) as string[];
+        }
+        if (!sessionIds.includes(sessionId)) {
+          sessionIds.push(sessionId);
+        }
+        await fetch(`${kvUrl}/set/user-sessions:${userInfo.id}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(sessionIds),
+        });
+      } catch {
+        // Reverse mapping failed — non-critical
+      }
     }
 
     // Set session cookie and redirect to dashboard

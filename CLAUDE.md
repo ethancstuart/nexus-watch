@@ -89,7 +89,9 @@ Part of Ethan Stuart's portfolio: "I don't just manage products — I build them
 npm run dev        → Start dev server (localhost:5173)
 npm run build      → Production build (dist/) + SW manifest injection
 npm run preview    → Preview production build locally
-npx vitest run     → Run test suite
+npm run test       → Run test suite (vitest)
+npm run lint       → ESLint
+npm run validate   → Typecheck + lint + test (CI gate)
 vercel             → Deploy to Vercel
 
 ## Panel Status
@@ -100,7 +102,7 @@ vercel             → Deploy to Vercel
 - [x] Crypto (CoinGecko) — markets, priority 1, price alerts, compact variant
 - [x] Chat (multi-provider) — personal, priority 2
 - [x] Notes (localStorage) — utility, priority 2, no network
-- [ ] Calendar (Google Calendar API) — personal, planned
+- [x] Calendar (Google Calendar API) — personal, priority 1, premium-gated
 - [x] Entertainment (TMDB) — world, priority 2, compact variant
 
 ## Shared Context — home-base
@@ -143,3 +145,13 @@ When planning new panels, check the API catalog first — it maps APIs to DashPu
   - Conflict resolution: per-key merge, local dirty keys take priority over server
   - Beacon flush on tab close for pending changes
   - Change tracking via dashview:storage-changed CustomEvent on document
+- Stripe premium: raw fetch (no SDK), $5/mo standard + $3/mo founding member
+  - Checkout: POST /api/stripe/checkout → Stripe hosted checkout → webhook → KV update
+  - Webhook: HMAC-SHA256 signature verification via Web Crypto, idempotency keys (24h TTL)
+  - Self-healing: api/auth/session.ts checks stripe:{userId} in KV on every session load
+  - Portal: POST /api/stripe/portal → Stripe billing portal for self-service cancel/update
+  - Reverse session mapping: user-sessions:{userId} enables webhook to update all active sessions
+- Calendar panel is premium-gated (requiredTier: 'premium')
+- Alert limit: 5 for free tier, unlimited for premium (aligned in tier.ts, re-exported from alerts.ts)
+- localStorage quota errors dispatch dashview:storage-error CustomEvent for UI toasts
+- OG image: /api/og generates 1200x630 PNG via @vercel/og (Edge Function, zero client impact)

@@ -8,6 +8,7 @@ vi.mock('./storage.ts', () => ({
 
 vi.mock('./tier.ts', () => ({
   getCurrentTier: vi.fn(),
+  getAlertLimit: vi.fn(),
 }));
 
 import {
@@ -18,12 +19,13 @@ import {
   acknowledgeAlert,
 } from './alerts.ts';
 import * as storage from './storage.ts';
-import { getCurrentTier } from './tier.ts';
+import { getCurrentTier, getAlertLimit } from './tier.ts';
 
 beforeEach(() => {
   vi.mocked(storage.get).mockReset();
   vi.mocked(storage.set).mockReset();
   vi.mocked(getCurrentTier).mockReset();
+  vi.mocked(getAlertLimit).mockReset();
   vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-1234' });
 });
 
@@ -40,26 +42,28 @@ function makeAlert(overrides: Partial<import('../types/index.ts').PriceAlert> = 
 }
 
 describe('canAddAlert', () => {
-  it('returns true when under limit (free tier: 3 max)', () => {
-    vi.mocked(getCurrentTier).mockReturnValue('free');
+  it('returns true when under limit (free tier: 5 max)', () => {
+    vi.mocked(getAlertLimit).mockReturnValue(5);
     vi.mocked(storage.get).mockReturnValue([makeAlert(), makeAlert({ id: 'a2' })]);
 
     expect(canAddAlert()).toBe(true);
   });
 
   it('returns false when at limit for free tier', () => {
-    vi.mocked(getCurrentTier).mockReturnValue('free');
+    vi.mocked(getAlertLimit).mockReturnValue(5);
     vi.mocked(storage.get).mockReturnValue([
       makeAlert({ id: 'a1' }),
       makeAlert({ id: 'a2' }),
       makeAlert({ id: 'a3' }),
+      makeAlert({ id: 'a4' }),
+      makeAlert({ id: 'a5' }),
     ]);
 
     expect(canAddAlert()).toBe(false);
   });
 
   it('returns true for premium tier regardless of count', () => {
-    vi.mocked(getCurrentTier).mockReturnValue('premium');
+    vi.mocked(getAlertLimit).mockReturnValue(Infinity);
     vi.mocked(storage.get).mockReturnValue([
       makeAlert({ id: 'a1' }),
       makeAlert({ id: 'a2' }),
@@ -74,7 +78,7 @@ describe('canAddAlert', () => {
 
 describe('addAlert', () => {
   it('persists alert to storage and returns it', () => {
-    vi.mocked(getCurrentTier).mockReturnValue('free');
+    vi.mocked(getAlertLimit).mockReturnValue(5);
     vi.mocked(storage.get).mockReturnValue([]);
 
     const result = addAlert({
@@ -91,11 +95,13 @@ describe('addAlert', () => {
   });
 
   it('returns null when limit reached', () => {
-    vi.mocked(getCurrentTier).mockReturnValue('free');
+    vi.mocked(getAlertLimit).mockReturnValue(5);
     vi.mocked(storage.get).mockReturnValue([
       makeAlert({ id: 'a1' }),
       makeAlert({ id: 'a2' }),
       makeAlert({ id: 'a3' }),
+      makeAlert({ id: 'a4' }),
+      makeAlert({ id: 'a5' }),
     ]);
 
     const result = addAlert({
