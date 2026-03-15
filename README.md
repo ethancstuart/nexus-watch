@@ -4,6 +4,8 @@
 [![Deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-black.svg)](https://dashpulse.app)
 [![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-blueviolet.svg)](https://claude.ai/claude-code)
 
+![DashPulse](https://dashpulse.app/og-image.png)
+
 **Your real-time intelligence dashboard.** Weather, markets, news, sports, predictions, and AI chat -- all in one browser tab. No framework, no bloat, just live data.
 
 Built with [Claude Code](https://claude.ai/claude-code).

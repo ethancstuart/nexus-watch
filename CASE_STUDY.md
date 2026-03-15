@@ -14,7 +14,7 @@ DashPulse fills that gap: a panel-based, real-time dashboard that ships with sma
 
 The entire application ships at 50-70KB gzipped. An equivalent React build would start at 150KB+ before any application code. For a dashboard that loads on every new tab, payload size is a first-class constraint. Vanilla TypeScript with direct DOM manipulation eliminates the framework tax entirely.
 
-The trade-off is real: no component model, no declarative rendering, no ecosystem of ready-made UI primitives. The mitigation is an abstract `Panel` base class that enforces a consistent lifecycle (`fetchData`, `render`, `attachToDOM`, `startDataCycle`, `toggle`, `setCollapsed`) across all seven panels. Every panel is self-contained -- owns its DOM container, manages its own refresh interval, and handles its own error states.
+The trade-off is real: no component model, no declarative rendering, no ecosystem of ready-made UI primitives. The mitigation is an abstract `Panel` base class that enforces a consistent lifecycle (`fetchData`, `render`, `attachToDOM`, `startDataCycle`, `toggle`, `setCollapsed`) across all ten panels. Every panel is self-contained -- owns its DOM container, manages its own refresh interval, and handles its own error states.
 
 ### Edge Functions for API Proxying
 
@@ -62,7 +62,7 @@ Each panel manages its own refresh cycle via `setInterval`, started only after t
 
 | Dimension | Value |
 |---|---|
-| Panels | 7 shipped (weather, stocks, news, crypto, sports, chat, notes) |
+| Panels | 10 shipped (weather, stocks, news, crypto, sports, chat, notes, entertainment, globe, calendar) |
 | Themes | 3 (dark, light, OLED black) |
 | Density modes | 3 (compact, comfortable, spacious) |
 | Bundle size | ~50-70KB gzipped |
