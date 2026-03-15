@@ -37,11 +37,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const symbols = INDICES.map(i => i.symbol).join(',');
+    const symbols = INDICES.map((i) => i.symbol).join(',');
     const url = `https://api.twelvedata.com/quote?symbol=${symbols}&apikey=${apiKey}`;
     const response = await fetch(url);
-    interface QuoteEntry { close?: string; change?: string; percent_change?: string; code?: number; [key: string]: unknown }
-    const data = await response.json() as Record<string, QuoteEntry>;
+    interface QuoteEntry {
+      close?: string;
+      change?: string;
+      percent_change?: string;
+      code?: number;
+      [key: string]: unknown;
+    }
+    const data = (await response.json()) as Record<string, QuoteEntry>;
 
     const quotes: IndexQuote[] = [];
 

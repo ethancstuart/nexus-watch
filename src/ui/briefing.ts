@@ -31,7 +31,9 @@ function gatherDashboardContext(): string {
   const weatherCache = storage.get<{ temp: number; condition: string } | null>('dashview-weather-cache', null);
   const locationCache = storage.get<{ lat: number; lon: number; name?: string } | null>('dashview-location', null);
   if (weatherCache && locationCache) {
-    parts.push(`Weather in ${locationCache.name || 'your location'}: ${weatherCache.temp}\u00B0, ${weatherCache.condition}`);
+    parts.push(
+      `Weather in ${locationCache.name || 'your location'}: ${weatherCache.temp}\u00B0, ${weatherCache.condition}`,
+    );
   }
 
   // Stocks — from panel data
@@ -39,9 +41,9 @@ function gatherDashboardContext(): string {
     const stocksPanel = appRef.getPanel('stocks');
     const stocksData = stocksPanel?.getLastData() as StocksData | null;
     if (stocksData?.watchlist?.length) {
-      const stocks = stocksData.watchlist.slice(0, 10).map(
-        (q) => `${q.symbol} ${q.changePercent >= 0 ? '+' : ''}${q.changePercent.toFixed(2)}%`,
-      );
+      const stocks = stocksData.watchlist
+        .slice(0, 10)
+        .map((q) => `${q.symbol} ${q.changePercent >= 0 ? '+' : ''}${q.changePercent.toFixed(2)}%`);
       parts.push(`Watchlist: ${stocks.join(', ')}`);
     }
 
@@ -49,9 +51,9 @@ function gatherDashboardContext(): string {
     const cryptoPanel = appRef.getPanel('crypto');
     const cryptoData = cryptoPanel?.getLastData() as CryptoData | null;
     if (cryptoData?.coins?.length) {
-      const cryptos = cryptoData.coins.slice(0, 5).map(
-        (c) => `${c.symbol.toUpperCase()} ${c.change24h >= 0 ? '+' : ''}${c.change24h.toFixed(1)}%`,
-      );
+      const cryptos = cryptoData.coins
+        .slice(0, 5)
+        .map((c) => `${c.symbol.toUpperCase()} ${c.change24h >= 0 ? '+' : ''}${c.change24h.toFixed(1)}%`);
       parts.push(`Top crypto: ${cryptos.join(', ')}`);
     }
 
@@ -72,7 +74,12 @@ function gatherDashboardContext(): string {
   }
 
   const today = new Date();
-  const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const dateStr = today.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
   return `Today is ${dateStr}.\n\n${parts.join('\n')}`;
 }
@@ -171,7 +178,7 @@ function renderBriefing(content: string): void {
     }
     const el = document.createElement('div');
     el.className = 'briefing-line';
-    if (line.startsWith('##') || line.startsWith('**') && line.endsWith('**')) {
+    if (line.startsWith('##') || (line.startsWith('**') && line.endsWith('**'))) {
       el.className = 'briefing-section-title';
       el.textContent = line.replace(/^#+\s*/, '').replace(/\*\*/g, '');
     } else if (line.startsWith('- ') || line.startsWith('* ')) {

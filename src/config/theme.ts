@@ -7,7 +7,9 @@ export function getTheme(): ThemeName {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && stored in themes) return stored as ThemeName;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return 'dark';
 }
 
@@ -22,8 +24,12 @@ export function applyTheme(name?: ThemeName): void {
   document.body.style.background = props['--color-bg'];
   try {
     localStorage.setItem(STORAGE_KEY, theme);
-    document.dispatchEvent(new CustomEvent('dashview:storage-changed', { detail: { key: STORAGE_KEY, action: 'set' } }));
-  } catch { /* ignore */ }
+    document.dispatchEvent(
+      new CustomEvent('dashview:storage-changed', { detail: { key: STORAGE_KEY, action: 'set' } }),
+    );
+  } catch {
+    /* ignore */
+  }
   for (const cb of listeners) cb(theme);
 }
 

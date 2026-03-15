@@ -83,9 +83,7 @@ const CONDITION_OPTIONS: { value: PriceAlert['condition']; label: string }[] = [
   { value: 'outside_range', label: 'Outside Range' },
 ];
 
-function createAlertForm(
-  prefill: { symbol: string; type: 'stock' | 'crypto' } | undefined,
-): HTMLElement {
+function createAlertForm(prefill: { symbol: string; type: 'stock' | 'crypto' } | undefined): HTMLElement {
   const form = createElement('div', { className: 'alerts-form' });
 
   const row1 = createElement('div', { className: 'alerts-form-row' });

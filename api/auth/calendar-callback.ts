@@ -2,11 +2,18 @@ export const config = { runtime: 'edge' };
 
 function getSessionId(req: Request): string | null {
   const cookies = req.headers.get('cookie') || '';
-  const sessionCookie = cookies.split(';').map(c => c.trim()).find(c => c.startsWith('__Host-session='));
+  const sessionCookie = cookies
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith('__Host-session='));
   return sessionCookie?.split('=')[1] || null;
 }
 
-async function getUser(sessionId: string, kvUrl: string, kvToken: string): Promise<{ id: string; tier: string } | null> {
+async function getUser(
+  sessionId: string,
+  kvUrl: string,
+  kvToken: string,
+): Promise<{ id: string; tier: string } | null> {
   try {
     const res = await fetch(`${kvUrl}/get/session:${sessionId}`, { headers: { Authorization: `Bearer ${kvToken}` } });
     const data = (await res.json()) as { result: string | null };
@@ -14,11 +21,15 @@ async function getUser(sessionId: string, kvUrl: string, kvToken: string): Promi
     let user = JSON.parse(data.result);
     if (typeof user === 'string') user = JSON.parse(user);
     return user?.id ? { id: user.id, tier: user.tier || 'free' } : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function encrypt(plaintext: string, secret: string): Promise<string> {
-  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'PBKDF2', false, ['deriveKey']);
+  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'PBKDF2', false, [
+    'deriveKey',
+  ]);
   const key = await crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt: new TextEncoder().encode('dashview-api-keys'), iterations: 100000, hash: 'SHA-256' },
     keyMaterial,
@@ -46,7 +57,10 @@ export default async function handler(req: Request) {
 
   // Verify CSRF state
   const cookies = req.headers.get('cookie') || '';
-  const stateCookie = cookies.split(';').map(c => c.trim()).find(c => c.startsWith('calendar_state='));
+  const stateCookie = cookies
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith('calendar_state='));
   const savedState = stateCookie?.split('=')[1];
   if (!savedState || savedState !== state) {
     return new Response(null, { status: 302, headers: { Location: '/#/app?calendar=error' } });

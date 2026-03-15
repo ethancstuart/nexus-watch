@@ -31,7 +31,8 @@ export function openShareModal(): void {
 
   const description = createElement('div', {
     className: 'feeds-validation-result',
-    textContent: 'Generate a shareable link for your dashboard configuration. Recipients can import your theme, panel settings, and custom feeds.',
+    textContent:
+      'Generate a shareable link for your dashboard configuration. Recipients can import your theme, panel settings, and custom feeds.',
   });
   body.appendChild(description);
 
@@ -68,7 +69,9 @@ export function openShareModal(): void {
         try {
           await navigator.clipboard.writeText(shareUrl);
           copyBtn.textContent = 'Copied!';
-          setTimeout(() => { copyBtn.textContent = 'Copy Link'; }, 2000);
+          setTimeout(() => {
+            copyBtn.textContent = 'Copy Link';
+          }, 2000);
         } catch {
           urlDisplay.select();
         }
@@ -80,7 +83,10 @@ export function openShareModal(): void {
 
       const codeRow = createElement('div', { className: 'feeds-active-item' });
       const codeLabel = createElement('span', { className: 'feeds-active-name', textContent: `Code: ${result.code}` });
-      const expiryLabel = createElement('span', { className: 'feeds-active-url', textContent: `Expires: ${expiryDate}` });
+      const expiryLabel = createElement('span', {
+        className: 'feeds-active-url',
+        textContent: `Expires: ${expiryDate}`,
+      });
       codeRow.appendChild(codeLabel);
       codeRow.appendChild(expiryLabel);
       resultContainer.appendChild(codeRow);
@@ -140,7 +146,7 @@ export function openShareModal(): void {
 
       // Show preview
       const previewData = result.preview;
-      const keys = Object.keys(previewData).filter(k => k.startsWith('dashview'));
+      const keys = Object.keys(previewData).filter((k) => k.startsWith('dashview'));
       const themeKey = previewData['dashview:theme'];
       const customFeeds = previewData['dashview-custom-feeds'];
       const feedCount = Array.isArray(customFeeds) ? customFeeds.length : 0;

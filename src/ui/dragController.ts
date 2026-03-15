@@ -48,7 +48,7 @@ export function initPanelDrag(grid: HTMLElement, onReorder: (newOrder: string[])
     panel.addEventListener('dragover', (e) => {
       e.preventDefault();
       (e as DragEvent).dataTransfer!.dropEffect = 'move';
-      const target = (e.currentTarget as HTMLElement);
+      const target = e.currentTarget as HTMLElement;
       if (!target.dataset.panelId || target === dragSrcEl) return;
 
       // Determine if above or below midpoint
@@ -96,7 +96,7 @@ export function initPanelDrag(grid: HTMLElement, onReorder: (newOrder: string[])
       (panel as HTMLElement).draggable = false;
       (panel as HTMLElement).classList.remove('panel-dragging');
       // Clean up all drag indicators
-      grid.querySelectorAll('.panel-drag-above, .panel-drag-below').forEach(el => {
+      grid.querySelectorAll('.panel-drag-above, .panel-drag-below').forEach((el) => {
         el.classList.remove('panel-drag-above', 'panel-drag-below');
       });
       dragSrcEl = null;
@@ -104,7 +104,9 @@ export function initPanelDrag(grid: HTMLElement, onReorder: (newOrder: string[])
   }
 
   // Global mouseup to reset grip
-  document.addEventListener('mouseup', () => { gripActive = false; });
+  document.addEventListener('mouseup', () => {
+    gripActive = false;
+  });
 
   // Touch support
   let touchClone: HTMLElement | null = null;
@@ -166,7 +168,7 @@ export function initPanelDrag(grid: HTMLElement, onReorder: (newOrder: string[])
 
     const targetPanel = elemBelow.closest('.panel-card') as HTMLElement | null;
     // Clear all indicators
-    grid.querySelectorAll('.panel-drag-above, .panel-drag-below').forEach(el => {
+    grid.querySelectorAll('.panel-drag-above, .panel-drag-below').forEach((el) => {
       el.classList.remove('panel-drag-above', 'panel-drag-below');
     });
 
@@ -205,7 +207,7 @@ export function initPanelDrag(grid: HTMLElement, onReorder: (newOrder: string[])
     const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
     const targetPanel = elemBelow?.closest('.panel-card') as HTMLElement | null;
 
-    grid.querySelectorAll('.panel-drag-above, .panel-drag-below').forEach(el => {
+    grid.querySelectorAll('.panel-drag-above, .panel-drag-below').forEach((el) => {
       el.classList.remove('panel-drag-above', 'panel-drag-below');
     });
 

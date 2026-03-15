@@ -50,9 +50,7 @@ export function acknowledgeAlert(id: string): void {
   }
 }
 
-export function checkAlerts(
-  prices: { symbol: string; price: number; type: 'stock' | 'crypto' }[],
-): PriceAlert[] {
+export function checkAlerts(prices: { symbol: string; price: number; type: 'stock' | 'crypto' }[]): PriceAlert[] {
   const alerts = getAlerts();
   const triggered: PriceAlert[] = [];
   let changed = false;
@@ -60,9 +58,7 @@ export function checkAlerts(
   for (const alert of alerts) {
     if (alert.triggeredAt) continue;
 
-    const match = prices.find(
-      (p) => p.symbol.toUpperCase() === alert.symbol.toUpperCase() && p.type === alert.type,
-    );
+    const match = prices.find((p) => p.symbol.toUpperCase() === alert.symbol.toUpperCase() && p.type === alert.type);
     if (!match) continue;
 
     let breached = false;
@@ -132,9 +128,7 @@ export function checkAlerts(
   let lastPriceUpdated = false;
   for (const alert of alerts) {
     if (alert.condition === 'crosses_above' || alert.condition === 'crosses_below') {
-      const match = prices.find(
-        (p) => p.symbol.toUpperCase() === alert.symbol.toUpperCase() && p.type === alert.type,
-      );
+      const match = prices.find((p) => p.symbol.toUpperCase() === alert.symbol.toUpperCase() && p.type === alert.type);
       if (match && alert.lastPrice !== match.price) {
         alert.lastPrice = match.price;
         lastPriceUpdated = true;

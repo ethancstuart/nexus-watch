@@ -38,7 +38,9 @@
   cursor: pointer;
   white-space: nowrap;
   opacity: 0.6;
-  transition: opacity 0.15s, border-color 0.15s;
+  transition:
+    opacity 0.15s,
+    border-color 0.15s;
 }
 
 .space-tab:hover {

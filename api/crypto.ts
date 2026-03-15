@@ -19,8 +19,16 @@ interface CoinGeckoMarket {
 }
 
 const TOP_COINS = [
-  'bitcoin', 'ethereum', 'solana', 'xrp', 'cardano',
-  'dogecoin', 'avalanche-2', 'chainlink', 'polkadot', 'polygon',
+  'bitcoin',
+  'ethereum',
+  'solana',
+  'xrp',
+  'cardano',
+  'dogecoin',
+  'avalanche-2',
+  'chainlink',
+  'polkadot',
+  'polygon',
 ];
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
@@ -43,9 +51,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       change24h: coin.price_change_percentage_24h ?? 0,
       marketCap: coin.market_cap,
       volume: coin.total_volume,
-      sparkline: coin.sparkline_in_7d?.price
-        ? sampleSparkline(coin.sparkline_in_7d.price, 24)
-        : [],
+      sparkline: coin.sparkline_in_7d?.price ? sampleSparkline(coin.sparkline_in_7d.price, 24) : [],
       rank: coin.market_cap_rank,
       high24h: coin.high_24h,
       low24h: coin.low_24h,
@@ -53,9 +59,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       athChange: coin.ath_change_percentage,
     }));
 
-    return res
-      .setHeader('Cache-Control', 'max-age=120')
-      .json({ coins, fetchedAt: Date.now() });
+    return res.setHeader('Cache-Control', 'max-age=120').json({ coins, fetchedAt: Date.now() });
   } catch (err) {
     console.error('Crypto API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Crypto data service error' });

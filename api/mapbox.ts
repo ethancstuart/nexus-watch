@@ -23,9 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!z || !x || !y) {
     // Return a flag that Mapbox is available (no token exposed)
-    return res
-      .setHeader('Cache-Control', 'max-age=3600')
-      .json({ available: true });
+    return res.setHeader('Cache-Control', 'max-age=3600').json({ available: true });
   }
 
   // Validate tile coordinates are integers within bounds
@@ -42,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const ALLOWED_STYLES = new Set(['dark-v11', 'navigation-night-v1', 'satellite-streets-v12']);
   const styleParam = req.query.style as string | undefined;
-  const style = (styleParam && ALLOWED_STYLES.has(styleParam)) ? styleParam : 'navigation-night-v1';
+  const style = styleParam && ALLOWED_STYLES.has(styleParam) ? styleParam : 'navigation-night-v1';
 
   try {
     const tileUrl = `https://api.mapbox.com/styles/v1/mapbox/${style}/tiles/512/${z}/${x}/${y}@2x?access_token=${token}`;
@@ -57,10 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const buf = (globalThis as any).Buffer.from(arrayBuf);
 
-    return res
-      .setHeader('Content-Type', contentType)
-      .setHeader('Cache-Control', 'public, max-age=86400')
-      .send(buf);
+    return res.setHeader('Content-Type', contentType).setHeader('Cache-Control', 'public, max-age=86400').send(buf);
   } catch {
     return res.status(502).end();
   }

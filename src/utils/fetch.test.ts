@@ -75,7 +75,9 @@ describe('fetchWithRetry', () => {
     mockFetchFail();
 
     let caught: Error | undefined;
-    const promise = fetchWithRetry(`https://${host}/data`, undefined, 2).catch((e) => { caught = e; });
+    const promise = fetchWithRetry(`https://${host}/data`, undefined, 2).catch((e) => {
+      caught = e;
+    });
     await vi.advanceTimersByTimeAsync(2000);
     await promise;
 

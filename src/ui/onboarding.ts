@@ -17,7 +17,9 @@ function getState(): OnboardingState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return { completed: false, step: 0 };
 }
 
@@ -91,9 +93,10 @@ function configureSpacesFromInterests(selected: Set<string>): void {
       let placed = false;
       for (let row = 1; row < 100 && !placed; row++) {
         for (let col = 1; col <= 12 - spec.colSpan + 1 && !placed; col++) {
-          const overlaps = packed.some((w) =>
-            col < w.col + w.colSpan && col + spec.colSpan > w.col &&
-            row < w.row + w.rowSpan && row + rowSpan > w.row);
+          const overlaps = packed.some(
+            (w) =>
+              col < w.col + w.colSpan && col + spec.colSpan > w.col && row < w.row + w.rowSpan && row + rowSpan > w.row,
+          );
           if (!overlaps) {
             packed.push({ panelId: spec.panelId, size: spec.size, col, row, colSpan: spec.colSpan, rowSpan });
             placed = true;
@@ -142,12 +145,7 @@ export function showOnboarding(): Promise<void> {
     const overlay = createElement('div', { className: 'onboarding-overlay' });
     const container = createElement('div', { className: 'onboarding-container' });
 
-    const steps = [
-      buildWelcomeStep,
-      buildInterestsStep,
-      buildPreferencesStep,
-      buildReadyStep,
-    ];
+    const steps = [buildWelcomeStep, buildInterestsStep, buildPreferencesStep, buildReadyStep];
 
     const dots = createElement('div', { className: 'onboarding-dots' });
 
@@ -215,12 +213,21 @@ export function showOnboarding(): Promise<void> {
       const aiResult = createElement('div', { className: 'onboarding-ai-result' });
 
       const btns = createElement('div', { className: 'onboarding-btns' });
-      const askBtn = createElement('button', { className: 'onboarding-btn onboarding-btn-primary', textContent: 'Ask AI' });
-      const skipBtn = createElement('button', { className: 'onboarding-btn onboarding-btn-ghost', textContent: 'Pick Manually' });
+      const askBtn = createElement('button', {
+        className: 'onboarding-btn onboarding-btn-primary',
+        textContent: 'Ask AI',
+      });
+      const skipBtn = createElement('button', {
+        className: 'onboarding-btn onboarding-btn-ghost',
+        textContent: 'Pick Manually',
+      });
 
       askBtn.addEventListener('click', async () => {
         const query = aiInput.value.trim();
-        if (!query) { next(); return; }
+        if (!query) {
+          next();
+          return;
+        }
 
         askBtn.textContent = 'Thinking...';
         askBtn.setAttribute('disabled', '');
@@ -236,9 +243,11 @@ export function showOnboarding(): Promise<void> {
           if (lower.includes('crypto') || lower.includes('bitcoin')) selectedInterests.add('crypto');
           if (lower.includes('news') || lower.includes('world')) selectedInterests.add('news');
           if (lower.includes('sport')) selectedInterests.add('sports');
-          if (lower.includes('entertain') || lower.includes('movie') || lower.includes('tv')) selectedInterests.add('entertainment');
+          if (lower.includes('entertain') || lower.includes('movie') || lower.includes('tv'))
+            selectedInterests.add('entertainment');
           if (lower.includes('weather')) selectedInterests.add('weather');
-          if (lower.includes('product') || lower.includes('note') || lower.includes('focus')) selectedInterests.add('productivity');
+          if (lower.includes('product') || lower.includes('note') || lower.includes('focus'))
+            selectedInterests.add('productivity');
 
           // Show AI response
           aiResult.textContent = result.message;
@@ -303,11 +312,17 @@ export function showOnboarding(): Promise<void> {
         grid.appendChild(pill);
       }
 
-      const nextBtn = createElement('button', { className: 'onboarding-btn onboarding-btn-primary', textContent: 'Continue' });
+      const nextBtn = createElement('button', {
+        className: 'onboarding-btn onboarding-btn-primary',
+        textContent: 'Continue',
+      });
       nextBtn.addEventListener('click', next);
 
       // Location detect
-      const detectBtn = createElement('button', { className: 'onboarding-btn onboarding-btn-ghost', textContent: 'Detect Location' });
+      const detectBtn = createElement('button', {
+        className: 'onboarding-btn onboarding-btn-ghost',
+        textContent: 'Detect Location',
+      });
       detectBtn.addEventListener('click', () => {
         if (!navigator.geolocation) return;
         detectBtn.textContent = 'Detecting...';
@@ -316,13 +331,17 @@ export function showOnboarding(): Promise<void> {
             const lat = Math.round(pos.coords.latitude * 100) / 100;
             const lon = Math.round(pos.coords.longitude * 100) / 100;
             localStorage.setItem('dashview-location', JSON.stringify({ lat, lon }));
-            document.dispatchEvent(new CustomEvent('dashview:storage-changed', { detail: { key: 'dashview-location', action: 'set' } }));
+            document.dispatchEvent(
+              new CustomEvent('dashview:storage-changed', { detail: { key: 'dashview-location', action: 'set' } }),
+            );
             detectBtn.textContent = 'Location Set';
             selectedInterests.add('weather');
             const weatherPill = grid.querySelector('.onboarding-interest-pill:nth-child(6)');
             if (weatherPill) weatherPill.classList.add('active');
           },
-          () => { detectBtn.textContent = 'Detect Location'; },
+          () => {
+            detectBtn.textContent = 'Detect Location';
+          },
           { timeout: 5000 },
         );
       });
@@ -357,7 +376,9 @@ export function showOnboarding(): Promise<void> {
         });
         btn.addEventListener('click', () => {
           applyTheme(opt.id);
-          themeRow.querySelectorAll('.onboarding-option').forEach((b) => b.classList.remove('onboarding-option-active'));
+          themeRow
+            .querySelectorAll('.onboarding-option')
+            .forEach((b) => b.classList.remove('onboarding-option-active'));
           btn.classList.add('onboarding-option-active');
         });
         themeRow.appendChild(btn);
@@ -367,7 +388,10 @@ export function showOnboarding(): Promise<void> {
       const tempLabel = createElement('div', { className: 'onboarding-label', textContent: 'Temperature' });
       const tempRow = createElement('div', { className: 'onboarding-option-row' });
       const prefs = getPreferences();
-      for (const opt of [{ id: 'F' as const, label: '\u00B0F' }, { id: 'C' as const, label: '\u00B0C' }]) {
+      for (const opt of [
+        { id: 'F' as const, label: '\u00B0F' },
+        { id: 'C' as const, label: '\u00B0C' },
+      ]) {
         const btn = createElement('button', {
           className: `onboarding-option ${prefs.tempUnit === opt.id ? 'onboarding-option-active' : ''}`,
           textContent: opt.label,
@@ -380,7 +404,10 @@ export function showOnboarding(): Promise<void> {
         tempRow.appendChild(btn);
       }
 
-      const nextBtn = createElement('button', { className: 'onboarding-btn onboarding-btn-primary', textContent: 'Continue' });
+      const nextBtn = createElement('button', {
+        className: 'onboarding-btn onboarding-btn-primary',
+        textContent: 'Continue',
+      });
       nextBtn.addEventListener('click', next);
 
       step.appendChild(title);
@@ -398,14 +425,18 @@ export function showOnboarding(): Promise<void> {
 
       const summary = createElement('div', { className: 'onboarding-desc' });
       const count = selectedInterests.size;
-      summary.textContent = count > 0
-        ? `Your dashboard is configured with ${count} interest${count > 1 ? 's' : ''}. Use the AI bar to adjust anything \u2014 just type what you want.`
-        : 'Your dashboard is ready with default spaces. Use the AI bar or press Cmd+K to customize.';
+      summary.textContent =
+        count > 0
+          ? `Your dashboard is configured with ${count} interest${count > 1 ? 's' : ''}. Use the AI bar to adjust anything \u2014 just type what you want.`
+          : 'Your dashboard is ready with default spaces. Use the AI bar or press Cmd+K to customize.';
 
       const hint = createElement('div', { className: 'onboarding-ai-hint' });
       hint.textContent = 'Tip: Press ? for keyboard shortcuts';
 
-      const launchBtn = createElement('button', { className: 'onboarding-btn onboarding-btn-primary', textContent: 'Launch Terminal' });
+      const launchBtn = createElement('button', {
+        className: 'onboarding-btn onboarding-btn-primary',
+        textContent: 'Launch Terminal',
+      });
       launchBtn.addEventListener('click', finish);
 
       step.appendChild(title);

@@ -63,7 +63,7 @@ export class NewsPanel extends Panel {
     this.contentEl.textContent = '';
 
     // Build category list, conditionally including 'custom' tab
-    const hasCustomFeeds = getCustomFeeds().filter(f => f.enabled).length > 0;
+    const hasCustomFeeds = getCustomFeeds().filter((f) => f.enabled).length > 0;
     const allCategories = [...CATEGORIES];
     if (hasCustomFeeds) {
       allCategories.push({ id: 'custom', label: 'Custom' });
@@ -184,9 +184,8 @@ export class NewsPanel extends Panel {
 
     if (article.description) {
       const desc = createElement('div', { className: 'news-article-desc' });
-      const truncated = article.description.length > 120
-        ? article.description.slice(0, 120) + '\u2026'
-        : article.description;
+      const truncated =
+        article.description.length > 120 ? article.description.slice(0, 120) + '\u2026' : article.description;
       desc.textContent = truncated;
       row.appendChild(desc);
     }

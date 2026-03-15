@@ -60,12 +60,16 @@ export class SportsPanel extends Panel {
 
   override async startDataCycle(): Promise<void> {
     await super.startDataCycle();
-    document.addEventListener('dashview:storage-changed', ((e: CustomEvent) => {
-      if (e.detail?.key === LEAGUE_KEY) {
-        this.league = storage.get<SportsLeague>(LEAGUE_KEY, 'nba');
-        void this.refresh();
-      }
-    }) as EventListener, { signal: this.cycleAbort!.signal });
+    document.addEventListener(
+      'dashview:storage-changed',
+      ((e: CustomEvent) => {
+        if (e.detail?.key === LEAGUE_KEY) {
+          this.league = storage.get<SportsLeague>(LEAGUE_KEY, 'nba');
+          void this.refresh();
+        }
+      }) as EventListener,
+      { signal: this.cycleAbort!.signal },
+    );
   }
 
   async fetchData(): Promise<void> {
@@ -170,7 +174,10 @@ export class SportsPanel extends Panel {
     return row;
   }
 
-  private createTeamRow(team: { name: string; abbreviation: string; logo: string; score: number | null; record?: string }, isLive: boolean): HTMLElement {
+  private createTeamRow(
+    team: { name: string; abbreviation: string; logo: string; score: number | null; record?: string },
+    isLive: boolean,
+  ): HTMLElement {
     const row = createElement('div', { className: 'sports-team-row' });
 
     const logo = document.createElement('img');

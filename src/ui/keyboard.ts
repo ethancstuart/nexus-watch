@@ -19,42 +19,46 @@ const SHORTCUTS: { key: string; description: string }[] = [
 const PANEL_ORDER = ['weather', 'stocks', 'news', 'sports', 'chat', 'notes'];
 
 export function initKeyboardShortcuts(app: App, signal?: AbortSignal): void {
-  document.addEventListener('keydown', (e) => {
-    const target = e.target as HTMLElement;
-    const tag = target.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
 
-    switch (e.key) {
-      case '?':
-        e.preventDefault();
-        toggleHelpModal();
-        break;
-      case '/':
-        e.preventDefault();
-        focusLocationSearch();
-        break;
-      case 't':
-        e.preventDefault();
-        cycleTheme();
-        break;
-      case 'm':
-        e.preventDefault();
-        toggleMap();
-        break;
-      case 'Escape':
-        closeOverlays();
-        break;
-      case 'a':
-        e.preventDefault();
-        openAlertsModal();
-        break;
-      default:
-        if (e.key >= '1' && e.key <= '6') {
+      switch (e.key) {
+        case '?':
           e.preventDefault();
-          jumpToPanel(app, parseInt(e.key) - 1);
-        }
-    }
-  }, signal ? { signal } : undefined);
+          toggleHelpModal();
+          break;
+        case '/':
+          e.preventDefault();
+          focusLocationSearch();
+          break;
+        case 't':
+          e.preventDefault();
+          cycleTheme();
+          break;
+        case 'm':
+          e.preventDefault();
+          toggleMap();
+          break;
+        case 'Escape':
+          closeOverlays();
+          break;
+        case 'a':
+          e.preventDefault();
+          openAlertsModal();
+          break;
+        default:
+          if (e.key >= '1' && e.key <= '6') {
+            e.preventDefault();
+            jumpToPanel(app, parseInt(e.key) - 1);
+          }
+      }
+    },
+    signal ? { signal } : undefined,
+  );
 }
 
 function jumpToPanel(app: App, index: number): void {

@@ -213,9 +213,20 @@
 }
 
 @media (max-width: 768px) {
-  .roadmap-header { padding: 40px 16px 24px; }
-  .roadmap-title { font-size: 28px; }
-  .roadmap-section { padding: 24px 16px; }
-  .roadmap-tier-table { font-size: 12px; }
-  .roadmap-tier-table th, .roadmap-tier-table td { padding: 8px 6px; }
+  .roadmap-header {
+    padding: 40px 16px 24px;
+  }
+  .roadmap-title {
+    font-size: 28px;
+  }
+  .roadmap-section {
+    padding: 24px 16px;
+  }
+  .roadmap-tier-table {
+    font-size: 12px;
+  }
+  .roadmap-tier-table th,
+  .roadmap-tier-table td {
+    padding: 8px 6px;
+  }
 }

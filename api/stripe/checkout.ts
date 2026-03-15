@@ -83,10 +83,10 @@ export default async function handler(req: Request) {
     const stripeData = (await stripeRes.json()) as { url?: string; error?: { message: string } };
 
     if (!stripeRes.ok || !stripeData.url) {
-      return new Response(
-        JSON.stringify({ error: stripeData.error?.message || 'Failed to create checkout session' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ error: stripeData.error?.message || 'Failed to create checkout session' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({ url: stripeData.url }), {

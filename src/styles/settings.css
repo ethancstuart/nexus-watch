@@ -26,8 +26,14 @@
 }
 
 @keyframes settingsModalIn {
-  from { opacity: 0; transform: translate(-50%, -48%); }
-  to { opacity: 1; transform: translate(-50%, -50%); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }
 
 .settings-modal-exit {
@@ -35,7 +41,10 @@
 }
 
 @keyframes settingsModalOut {
-  to { opacity: 0; transform: translate(-50%, -48%); }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -48%);
+  }
 }
 
 /* Header */
@@ -97,7 +106,9 @@
   letter-spacing: 0.04em;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .settings-tab:hover {
@@ -149,7 +160,7 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.settings-panel-row input[type="checkbox"] {
+.settings-panel-row input[type='checkbox'] {
   accent-color: var(--color-accent, #3b82f6);
 }
 
@@ -177,7 +188,7 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.settings-panel-radio input[type="radio"] {
+.settings-panel-radio input[type='radio'] {
   accent-color: var(--color-accent, #3b82f6);
   margin: 0;
 }
@@ -328,7 +339,7 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.settings-widget-row input[type="checkbox"] {
+.settings-widget-row input[type='checkbox'] {
   accent-color: var(--color-accent, #3b82f6);
 }
 
@@ -599,8 +610,14 @@
   }
 
   @keyframes settingsModalIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .settings-modal-exit {

@@ -31,7 +31,7 @@ export function renderRoadmap(root: HTMLElement): void {
   const title = createElement('h1', { className: 'roadmap-title', textContent: 'Roadmap' });
   const subtitle = createElement('p', {
     className: 'roadmap-subtitle',
-    textContent: 'Everything you check, in one place. Here\'s what\'s shipped and what\'s next.',
+    textContent: "Everything you check, in one place. Here's what's shipped and what's next.",
   });
   header.appendChild(title);
   header.appendChild(subtitle);
@@ -44,9 +44,21 @@ export function renderRoadmap(root: HTMLElement): void {
 
   const steps = createElement('div', { className: 'roadmap-steps' });
   const stepItems = [
-    { num: '1', title: 'Visit', desc: 'Open the dashboard \u2014 no account needed. All core panels load instantly with live data.' },
-    { num: '2', title: 'Explore', desc: 'Browse weather, markets, news, sports, predictions, and AI chat from one command center.' },
-    { num: '3', title: 'Customize', desc: 'Sign in to save preferences, sync across devices, and unlock premium features.' },
+    {
+      num: '1',
+      title: 'Visit',
+      desc: 'Open the dashboard \u2014 no account needed. All core panels load instantly with live data.',
+    },
+    {
+      num: '2',
+      title: 'Explore',
+      desc: 'Browse weather, markets, news, sports, predictions, and AI chat from one command center.',
+    },
+    {
+      num: '3',
+      title: 'Customize',
+      desc: 'Sign in to save preferences, sync across devices, and unlock premium features.',
+    },
   ];
   for (const s of stepItems) {
     const step = createElement('div', { className: 'roadmap-step' });
@@ -130,7 +142,10 @@ export function renderRoadmap(root: HTMLElement): void {
       className: 'roadmap-cta-text',
       textContent: 'Founding members lock in $3/mo for life. Upgrade now for unlimited alerts, calendar, and more.',
     });
-    const ctaBtn = createElement('button', { className: 'landing-btn landing-btn-primary', textContent: 'Upgrade to Premium' });
+    const ctaBtn = createElement('button', {
+      className: 'landing-btn landing-btn-primary',
+      textContent: 'Upgrade to Premium',
+    });
     ctaBtn.addEventListener('click', async () => {
       ctaBtn.textContent = '\u2026';
       try {
@@ -140,11 +155,15 @@ export function renderRoadmap(root: HTMLElement): void {
           window.location.href = data.url;
         } else {
           ctaBtn.textContent = 'Error — try again';
-          setTimeout(() => { ctaBtn.textContent = 'Upgrade to Premium'; }, 2000);
+          setTimeout(() => {
+            ctaBtn.textContent = 'Upgrade to Premium';
+          }, 2000);
         }
       } catch {
         ctaBtn.textContent = 'Error — try again';
-        setTimeout(() => { ctaBtn.textContent = 'Upgrade to Premium'; }, 2000);
+        setTimeout(() => {
+          ctaBtn.textContent = 'Upgrade to Premium';
+        }, 2000);
       }
     });
     premiumCta.appendChild(ctaText);
@@ -171,24 +190,109 @@ export function renderRoadmap(root: HTMLElement): void {
 
   const timeline = createElement('div', { className: 'roadmap-timeline' });
   const milestones: Array<{ status: string; label: string; title: string; desc: string }> = [
-    { status: 'shipped', label: 'Shipped', title: 'Core Dashboard', desc: 'Weather, markets (10-stock watchlist with detail views), news (7 categories), interactive map with day/night terminator, market ticker' },
-    { status: 'shipped', label: 'Shipped', title: 'Sports Panel', desc: 'NBA, NFL, MLB, EPL live scores, team favorites, and game status' },
-    { status: 'shipped', label: 'Shipped', title: 'AI Chat', desc: 'Multi-provider chat (Anthropic, OpenAI, Google, xAI) with BYO key support' },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Core Dashboard',
+      desc: 'Weather, markets (10-stock watchlist with detail views), news (7 categories), interactive map with day/night terminator, market ticker',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Sports Panel',
+      desc: 'NBA, NFL, MLB, EPL live scores, team favorites, and game status',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'AI Chat',
+      desc: 'Multi-provider chat (Anthropic, OpenAI, Google, xAI) with BYO key support',
+    },
     { status: 'shipped', label: 'Shipped', title: 'Prediction Markets', desc: 'Live odds from Polymarket and Kalshi' },
-    { status: 'shipped', label: 'Shipped', title: 'Auth & Tiers', desc: 'Google/GitHub OAuth, 3-tier system (guest/free/premium)' },
-    { status: 'shipped', label: 'Shipped', title: 'Landing & Waitlist', desc: 'Product page, waitlist signup, roadmap, feature comparison' },
-    { status: 'shipped', label: 'Shipped', title: 'Foundation Hardening', desc: 'Onboarding flow, themes (dark/light/OLED), panel collapse & density modes, keyboard shortcuts, accessibility, priority loading, unit preferences' },
-    { status: 'shipped', label: 'Shipped', title: 'Power Features', desc: 'Crypto panel (top 10 coins with sparklines), command palette (Cmd+K), daily AI briefing with dashboard context' },
-    { status: 'shipped', label: 'Shipped', title: 'PWA + Offline', desc: 'Installable as native app, service worker with offline caching, install prompt, offline indicator' },
-    { status: 'shipped', label: 'Shipped', title: 'Notes & Alerts', desc: 'Quick-capture notes panel with to-dos, price alerts with browser notifications, tier-gated limits' },
-    { status: 'shipped', label: 'Shipped', title: 'Config & Analytics', desc: 'Export/import dashboard config, lightweight usage analytics with 30-day rolling window' },
-    { status: 'shipped', label: 'Shipped', title: 'Layout Rethink', desc: 'Space-based widget system with 12-column responsive grid, drag-to-reorder, resize handles, compact/medium/large sizes' },
-    { status: 'shipped', label: 'Shipped', title: 'Entertainment & AI Bar', desc: 'TMDB entertainment panel, AI Bar with natural language queries, Pulse Bar cross-panel intelligence' },
-    { status: 'shipped', label: 'Shipped', title: 'Sign-In Value', desc: 'Cross-device sync via Vercel KV, custom news sources, multiple weather locations, dashboard sharing' },
-    { status: 'shipped', label: 'Shipped', title: 'Quality & Reliability', desc: 'ESLint + Prettier, full CI pipeline, listener leak cleanup, reactive settings (panels refresh immediately on preference changes)' },
-    { status: 'shipped', label: 'Shipped', title: 'Premium & Launch', desc: 'Stripe payments with founding member pricing, Google Calendar (premium), advanced alert conditions, OG image generation, billing portal, self-healing session tier' },
-    { status: 'active', label: 'Phase 4', title: 'Platform Expansion', desc: 'Plugin SDK, custom dashboards, API access' },
-    { status: 'planned', label: 'Phase 5', title: 'AI-Native Intelligence', desc: 'AI co-pilot, natural language config, trend detection, smart defaults' },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Auth & Tiers',
+      desc: 'Google/GitHub OAuth, 3-tier system (guest/free/premium)',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Landing & Waitlist',
+      desc: 'Product page, waitlist signup, roadmap, feature comparison',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Foundation Hardening',
+      desc: 'Onboarding flow, themes (dark/light/OLED), panel collapse & density modes, keyboard shortcuts, accessibility, priority loading, unit preferences',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Power Features',
+      desc: 'Crypto panel (top 10 coins with sparklines), command palette (Cmd+K), daily AI briefing with dashboard context',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'PWA + Offline',
+      desc: 'Installable as native app, service worker with offline caching, install prompt, offline indicator',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Notes & Alerts',
+      desc: 'Quick-capture notes panel with to-dos, price alerts with browser notifications, tier-gated limits',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Config & Analytics',
+      desc: 'Export/import dashboard config, lightweight usage analytics with 30-day rolling window',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Layout Rethink',
+      desc: 'Space-based widget system with 12-column responsive grid, drag-to-reorder, resize handles, compact/medium/large sizes',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Entertainment & AI Bar',
+      desc: 'TMDB entertainment panel, AI Bar with natural language queries, Pulse Bar cross-panel intelligence',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Sign-In Value',
+      desc: 'Cross-device sync via Vercel KV, custom news sources, multiple weather locations, dashboard sharing',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Quality & Reliability',
+      desc: 'ESLint + Prettier, full CI pipeline, listener leak cleanup, reactive settings (panels refresh immediately on preference changes)',
+    },
+    {
+      status: 'shipped',
+      label: 'Shipped',
+      title: 'Premium & Launch',
+      desc: 'Stripe payments with founding member pricing, Google Calendar (premium), advanced alert conditions, OG image generation, billing portal, self-healing session tier',
+    },
+    {
+      status: 'active',
+      label: 'Phase 4',
+      title: 'Platform Expansion',
+      desc: 'Plugin SDK, custom dashboards, API access',
+    },
+    {
+      status: 'planned',
+      label: 'Phase 5',
+      title: 'AI-Native Intelligence',
+      desc: 'AI co-pilot, natural language config, trend detection, smart defaults',
+    },
   ];
 
   for (const m of milestones) {

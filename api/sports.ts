@@ -125,7 +125,7 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
 
     if (action === 'headlines') {
       const resp = await fetch(urls.news);
-      const data = await resp.json() as { articles?: ESPNArticle[] };
+      const data = (await resp.json()) as { articles?: ESPNArticle[] };
       const headlines = transformHeadlines(data);
       return new Response(JSON.stringify({ league, headlines, fetchedAt: Date.now() }), {
         headers: {
@@ -137,14 +137,14 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
 
     // Default: scoreboard
     const resp = await fetch(urls.scoreboard);
-    const data = await resp.json() as { events?: ESPNEvent[] };
+    const data = (await resp.json()) as { events?: ESPNEvent[] };
     const games = transformScoreboard(league, data);
 
     // Also fetch headlines in parallel for combined response
     let headlines: { title: string; link: string; source: string; published: string }[] = [];
     try {
       const newsResp = await fetch(urls.news);
-      const newsData = await newsResp.json() as { articles?: ESPNArticle[] };
+      const newsData = (await newsResp.json()) as { articles?: ESPNArticle[] };
       headlines = transformHeadlines(newsData);
     } catch {
       // Headlines are optional

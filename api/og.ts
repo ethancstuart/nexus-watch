@@ -31,8 +31,7 @@ export default function handler() {
                 transform: 'translate(-50%, -50%)',
                 width: '800px',
                 height: '800px',
-                background:
-                  'radial-gradient(circle, rgba(0, 255, 136, 0.08) 0%, transparent 70%)',
+                background: 'radial-gradient(circle, rgba(0, 255, 136, 0.08) 0%, transparent 70%)',
               },
             },
           },
@@ -75,31 +74,24 @@ export default function handler() {
                 justifyContent: 'center',
                 maxWidth: '900px',
               },
-              children: [
-                'Weather',
-                'Markets',
-                'News',
-                'Sports',
-                'Crypto',
-                'AI Chat',
-                'Calendar',
-                'PWA',
-              ].map((label) => ({
-                type: 'div',
-                props: {
-                  style: {
-                    padding: '8px 20px',
-                    border: '1px solid #262626',
-                    borderRadius: '4px',
-                    fontSize: '16px',
-                    color: '#fafafa',
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase' as const,
+              children: ['Weather', 'Markets', 'News', 'Sports', 'Crypto', 'AI Chat', 'Calendar', 'PWA'].map(
+                (label) => ({
+                  type: 'div',
+                  props: {
+                    style: {
+                      padding: '8px 20px',
+                      border: '1px solid #262626',
+                      borderRadius: '4px',
+                      fontSize: '16px',
+                      color: '#fafafa',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase' as const,
+                    },
+                    children: label,
                   },
-                  children: label,
-                },
-              })),
+                }),
+              ),
             },
           },
           // Footer

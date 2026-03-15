@@ -221,9 +221,11 @@ export abstract class Panel {
       // Dispatch panel data event for intelligence/pulse system
       const lastData = this.getLastData();
       if (lastData) {
-        document.dispatchEvent(new CustomEvent('dashview:panel-data', {
-          detail: { panelId: this.id, data: lastData },
-        }));
+        document.dispatchEvent(
+          new CustomEvent('dashview:panel-data', {
+            detail: { panelId: this.id, data: lastData },
+          }),
+        );
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load data';

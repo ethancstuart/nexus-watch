@@ -28,11 +28,7 @@ export function getCircuitState(hostname: string): 'closed' | 'open' | 'half-ope
   return 'open';
 }
 
-export async function fetchWithRetry(
-  url: string,
-  options?: RequestInit,
-  maxRetries = 2
-): Promise<Response> {
+export async function fetchWithRetry(url: string, options?: RequestInit, maxRetries = 2): Promise<Response> {
   // Check circuit breaker before dedup — bail early if circuit is open/blocked
   const parsed = new URL(url, window.location.origin);
   const hostname = parsed.hostname;
@@ -67,11 +63,7 @@ export async function fetchWithRetry(
   return request;
 }
 
-async function _fetchWithRetry(
-  url: string,
-  options: RequestInit | undefined,
-  maxRetries: number,
-): Promise<Response> {
+async function _fetchWithRetry(url: string, options: RequestInit | undefined, maxRetries: number): Promise<Response> {
   const parsed = new URL(url, window.location.origin);
   const hostname = parsed.hostname;
   const entry = getEntry(hostname);

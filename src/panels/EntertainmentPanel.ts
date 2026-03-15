@@ -55,12 +55,16 @@ export class EntertainmentPanel extends Panel {
 
   override async startDataCycle(): Promise<void> {
     await super.startDataCycle();
-    document.addEventListener('dashview:storage-changed', ((e: CustomEvent) => {
-      if (e.detail?.key === TAB_KEY) {
-        this.tab = storage.get<EntertainmentTab>(TAB_KEY, 'trending');
-        void this.refresh();
-      }
-    }) as EventListener, { signal: this.cycleAbort!.signal });
+    document.addEventListener(
+      'dashview:storage-changed',
+      ((e: CustomEvent) => {
+        if (e.detail?.key === TAB_KEY) {
+          this.tab = storage.get<EntertainmentTab>(TAB_KEY, 'trending');
+          void this.refresh();
+        }
+      }) as EventListener,
+      { signal: this.cycleAbort!.signal },
+    );
   }
 
   async fetchData(): Promise<void> {
@@ -149,9 +153,12 @@ export class EntertainmentPanel extends Panel {
     });
     meta.appendChild(badge);
 
-    const ratingClass = item.rating >= 7 ? 'entertainment-rating-high'
-      : item.rating >= 5 ? 'entertainment-rating-mid'
-      : 'entertainment-rating-low';
+    const ratingClass =
+      item.rating >= 7
+        ? 'entertainment-rating-high'
+        : item.rating >= 5
+          ? 'entertainment-rating-mid'
+          : 'entertainment-rating-low';
     const rating = createElement('span', {
       className: `entertainment-rating ${ratingClass}`,
       textContent: item.rating.toFixed(1),

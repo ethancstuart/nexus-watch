@@ -30,7 +30,9 @@
   flex-shrink: 0;
   min-width: 280px;
   max-width: 420px;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
   align-items: center;
 }
 
@@ -88,7 +90,15 @@
 }
 
 @media (max-width: 768px) {
-  .prediction-banner { height: 68px; }
-  .prediction-card { padding: 8px 12px; min-width: 220px; max-width: 320px; }
-  .prediction-card-question { font-size: 12px; }
+  .prediction-banner {
+    height: 68px;
+  }
+  .prediction-card {
+    padding: 8px 12px;
+    min-width: 220px;
+    max-width: 320px;
+  }
+  .prediction-card-question {
+    font-size: 12px;
+  }
 }

@@ -143,9 +143,7 @@ function runCorrelation(): void {
 
   // Sort by priority, filter expired
   const now = Date.now();
-  pulseItems = items
-    .filter((item) => !item.expiry || item.expiry > now)
-    .sort((a, b) => a.priority - b.priority);
+  pulseItems = items.filter((item) => !item.expiry || item.expiry > now).sort((a, b) => a.priority - b.priority);
 
   // Emit update
   document.dispatchEvent(new CustomEvent('dashview:pulse-update', { detail: { items: pulseItems } }));

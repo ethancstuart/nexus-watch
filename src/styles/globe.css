@@ -7,17 +7,17 @@
 }
 
 /* Remove panel card padding so globe fills full space */
-.panel-card[data-panel-id="globe"] {
+.panel-card[data-panel-id='globe'] {
   padding: 0;
   overflow: hidden;
 }
 
-.panel-card[data-panel-id="globe"] .panel-header {
+.panel-card[data-panel-id='globe'] .panel-header {
   padding: 12px 16px;
   margin-bottom: 0;
 }
 
-.panel-card[data-panel-id="globe"] .panel-content {
+.panel-card[data-panel-id='globe'] .panel-content {
   padding: 0;
 }
 
@@ -89,8 +89,15 @@
 }
 
 @keyframes globeLivePulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-  50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0);
+  }
 }
 
 /* Category tabs */
@@ -122,7 +129,9 @@
   letter-spacing: 0.04em;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .globe-feed-tab:hover {
@@ -308,7 +317,7 @@
 
 /* Mobile: hide globe entirely */
 @media (max-width: 767px) {
-  .panel-card[data-panel-id="globe"] {
+  .panel-card[data-panel-id='globe'] {
     display: none !important;
   }
 }

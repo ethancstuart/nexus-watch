@@ -21,7 +21,9 @@ describe('trackEvent', () => {
     trackEvent('feature_use', 'alert_create');
 
     expect(storage.set).toHaveBeenCalledTimes(1);
-    const saved = vi.mocked(storage.set).mock.calls[0][1] as { days: { date: string; events: Record<string, number> }[] };
+    const saved = vi.mocked(storage.set).mock.calls[0][1] as {
+      days: { date: string; events: Record<string, number> }[];
+    };
     expect(saved.days).toHaveLength(1);
     expect(saved.days[0].date).toBe('2026-03-11');
     expect(saved.days[0].events['feature_use:alert_create']).toBe(1);
@@ -32,7 +34,9 @@ describe('trackPanelView', () => {
   it('constructs correct event key with panel id', () => {
     trackPanelView('weather');
 
-    const saved = vi.mocked(storage.set).mock.calls[0][1] as { days: { date: string; events: Record<string, number> }[] };
+    const saved = vi.mocked(storage.set).mock.calls[0][1] as {
+      days: { date: string; events: Record<string, number> }[];
+    };
     expect(saved.days[0].events['panel_view:weather']).toBe(1);
   });
 });

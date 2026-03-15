@@ -11,13 +11,7 @@ vi.mock('./tier.ts', () => ({
   getAlertLimit: vi.fn(),
 }));
 
-import {
-  getActiveAlerts,
-  canAddAlert,
-  addAlert,
-  checkAlerts,
-  acknowledgeAlert,
-} from './alerts.ts';
+import { getActiveAlerts, canAddAlert, addAlert, checkAlerts, acknowledgeAlert } from './alerts.ts';
 import * as storage from './storage.ts';
 import { getCurrentTier, getAlertLimit } from './tier.ts';
 
@@ -29,7 +23,9 @@ beforeEach(() => {
   vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-1234' });
 });
 
-function makeAlert(overrides: Partial<import('../types/index.ts').PriceAlert> = {}): import('../types/index.ts').PriceAlert {
+function makeAlert(
+  overrides: Partial<import('../types/index.ts').PriceAlert> = {},
+): import('../types/index.ts').PriceAlert {
   return {
     id: 'a1',
     symbol: 'AAPL',

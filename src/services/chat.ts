@@ -26,10 +26,7 @@ export function setProvider(provider: ChatProvider): void {
   storage.set(PROVIDER_KEY, provider);
 }
 
-export async function sendMessage(
-  messages: ChatMessage[],
-  context?: string,
-): Promise<string> {
+export async function sendMessage(messages: ChatMessage[], context?: string): Promise<string> {
   const provider = getProvider();
   const res = await fetchWithRetry('/api/chat', {
     method: 'POST',

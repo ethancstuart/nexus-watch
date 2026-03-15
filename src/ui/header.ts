@@ -26,7 +26,10 @@ function createGearSVG(): SVGSVGElement {
   const path = document.createElementNS(NS, 'path');
   path.setAttribute('fill-rule', 'evenodd');
   path.setAttribute('clip-rule', 'evenodd');
-  path.setAttribute('d', 'M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z');
+  path.setAttribute(
+    'd',
+    'M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z',
+  );
   svg.appendChild(path);
   return svg;
 }
@@ -156,7 +159,10 @@ function buildDropdown(dropdown: HTMLElement, app: App): void {
 
   // Temperature toggle
   const tempRow = createElement('div', { className: 'settings-radio-row' });
-  for (const opt of [{ id: 'F' as const, label: '°F' }, { id: 'C' as const, label: '°C' }]) {
+  for (const opt of [
+    { id: 'F' as const, label: '°F' },
+    { id: 'C' as const, label: '°C' },
+  ]) {
     const label = createElement('label', { className: 'settings-radio-label' });
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -172,7 +178,10 @@ function buildDropdown(dropdown: HTMLElement, app: App): void {
 
   // Time format toggle
   const timeRow = createElement('div', { className: 'settings-radio-row' });
-  for (const opt of [{ id: '12h' as const, label: '12h' }, { id: '24h' as const, label: '24h' }]) {
+  for (const opt of [
+    { id: '12h' as const, label: '12h' },
+    { id: '24h' as const, label: '24h' },
+  ]) {
     const label = createElement('label', { className: 'settings-radio-label' });
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -288,13 +297,14 @@ function buildDropdown(dropdown: HTMLElement, app: App): void {
       if (!added) {
         statusDisplay.textContent = `Max ${wp.getMaxLocations()} locations`;
         statusDisplay.style.color = 'var(--color-negative)';
-        setTimeout(() => { statusDisplay.textContent = ''; statusDisplay.style.color = ''; }, 3000);
+        setTimeout(() => {
+          statusDisplay.textContent = '';
+          statusDisplay.style.color = '';
+        }, 3000);
       } else {
         // Switch to the newly added (or existing duplicate) location
         const locs = wp.getLocations();
-        const idx = locs.findIndex(
-          (l) => Math.abs(l.lat - loc.lat) < 0.01 && Math.abs(l.lon - loc.lon) < 0.01,
-        );
+        const idx = locs.findIndex((l) => Math.abs(l.lat - loc.lat) < 0.01 && Math.abs(l.lon - loc.lon) < 0.01);
         if (idx >= 0) wp.setActiveLocation(idx);
         input.value = '';
         renderLocList();
@@ -303,7 +313,10 @@ function buildDropdown(dropdown: HTMLElement, app: App): void {
       const msg = err instanceof Error ? err.message : 'Geocoding failed';
       statusDisplay.textContent = msg;
       statusDisplay.style.color = 'var(--color-negative)';
-      setTimeout(() => { statusDisplay.textContent = ''; statusDisplay.style.color = ''; }, 3000);
+      setTimeout(() => {
+        statusDisplay.textContent = '';
+        statusDisplay.style.color = '';
+      }, 3000);
     } finally {
       searchBtn.textContent = 'Go';
       searchBtn.removeAttribute('disabled');
@@ -329,12 +342,13 @@ function buildDropdown(dropdown: HTMLElement, app: App): void {
         if (!added) {
           statusDisplay.textContent = `Max ${wp.getMaxLocations()} locations`;
           statusDisplay.style.color = 'var(--color-negative)';
-          setTimeout(() => { statusDisplay.textContent = ''; statusDisplay.style.color = ''; }, 3000);
+          setTimeout(() => {
+            statusDisplay.textContent = '';
+            statusDisplay.style.color = '';
+          }, 3000);
         } else {
           const locs = wp.getLocations();
-          const idx = locs.findIndex(
-            (l) => Math.abs(l.lat - lat) < 0.01 && Math.abs(l.lon - lon) < 0.01,
-          );
+          const idx = locs.findIndex((l) => Math.abs(l.lat - lat) < 0.01 && Math.abs(l.lon - lon) < 0.01);
           if (idx >= 0) wp.setActiveLocation(idx);
           renderLocList();
         }
@@ -436,7 +450,6 @@ function buildDropdown(dropdown: HTMLElement, app: App): void {
   dropdown.appendChild(resetBtn);
 }
 
-
 export function createHeader(app: App): HTMLElement {
   const header = createElement('header', { className: 'header' });
   header.setAttribute('role', 'banner');
@@ -526,7 +539,9 @@ export function createHeader(app: App): HTMLElement {
       avatar.className = 'header-avatar';
       avatar.width = 28;
       avatar.height = 28;
-      avatar.onerror = () => { avatar.style.display = 'none'; };
+      avatar.onerror = () => {
+        avatar.style.display = 'none';
+      };
 
       const name = createElement('span', { className: 'header-username', textContent: user.name });
       const tierLabel = user.isAdmin ? 'admin' : user.tier;

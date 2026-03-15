@@ -92,7 +92,7 @@
   background: var(--color-border);
 }
 
-.settings-item input[type="checkbox"] {
+.settings-item input[type='checkbox'] {
   accent-color: var(--color-accent);
   width: 16px;
   height: 16px;

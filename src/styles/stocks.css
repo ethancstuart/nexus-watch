@@ -399,8 +399,15 @@
 }
 
 @keyframes slideDown {
-  from { opacity: 0; max-height: 0; overflow: hidden; }
-  to { opacity: 1; max-height: 600px; }
+  from {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-height: 600px;
+  }
 }
 
 /* Stock row chevron */

@@ -26,12 +26,16 @@ export class ChatPanel extends Panel {
 
   override async startDataCycle(): Promise<void> {
     await super.startDataCycle();
-    document.addEventListener('dashview:storage-changed', ((e: CustomEvent) => {
-      if (e.detail?.key === CHAT_KEY) {
-        this.messages = storage.get<ChatMessage[]>(CHAT_KEY, []).slice(-MAX_CHAT_MESSAGES);
-        this.render(null);
-      }
-    }) as EventListener, { signal: this.cycleAbort!.signal });
+    document.addEventListener(
+      'dashview:storage-changed',
+      ((e: CustomEvent) => {
+        if (e.detail?.key === CHAT_KEY) {
+          this.messages = storage.get<ChatMessage[]>(CHAT_KEY, []).slice(-MAX_CHAT_MESSAGES);
+          this.render(null);
+        }
+      }) as EventListener,
+      { signal: this.cycleAbort!.signal },
+    );
   }
 
   async fetchData(): Promise<void> {
@@ -178,7 +182,10 @@ export class ChatPanel extends Panel {
       textContent: 'Configure your AI provider and API key in Settings to start chatting.',
     });
 
-    const openBtn = createElement('button', { className: 'landing-btn landing-btn-primary', textContent: 'Open Settings' });
+    const openBtn = createElement('button', {
+      className: 'landing-btn landing-btn-primary',
+      textContent: 'Open Settings',
+    });
     openBtn.addEventListener('click', () => {
       document.dispatchEvent(new CustomEvent('dashview:open-settings', { detail: { tab: 'personal' } }));
     });

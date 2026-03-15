@@ -20,7 +20,9 @@ export function getPanelOrder(): string[] {
       const order = JSON.parse(saved) as string[];
       if (Array.isArray(order) && order.length > 0) return order;
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return DEFAULT_PANEL_ORDER;
 }
 
@@ -75,7 +77,9 @@ export function enablePanelDrag(_grid: HTMLElement): void {
   import('./dragController.ts').then((m) => {
     m.initPanelDrag(_grid, (newOrder) => {
       savePanelOrder(newOrder);
-      document.dispatchEvent(new CustomEvent('dashview:storage-changed', { detail: { key: 'dashview:panel-order', action: 'set' } }));
+      document.dispatchEvent(
+        new CustomEvent('dashview:storage-changed', { detail: { key: 'dashview:panel-order', action: 'set' } }),
+      );
     });
   });
 }

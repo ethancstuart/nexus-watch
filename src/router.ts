@@ -52,7 +52,9 @@ export class Router {
       const match = hash.match(route.pattern);
       if (match) {
         const params: Record<string, string> = {};
-        route.keys.forEach((key, i) => { params[key] = match[i + 1]; });
+        route.keys.forEach((key, i) => {
+          params[key] = match[i + 1];
+        });
         void route.handler(params);
         return;
       }

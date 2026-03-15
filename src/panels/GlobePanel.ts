@@ -77,9 +77,11 @@ export class GlobePanel extends Panel {
 
     // Dispatch panel-data for Pulse Bar
     if (this.allArticles.length > 0) {
-      document.dispatchEvent(new CustomEvent('dashview:panel-data', {
-        detail: { panelId: 'globe', data: { articles: this.allArticles, fetchedAt: Date.now() } },
-      }));
+      document.dispatchEvent(
+        new CustomEvent('dashview:panel-data', {
+          detail: { panelId: 'globe', data: { articles: this.allArticles, fetchedAt: Date.now() } },
+        }),
+      );
     }
   }
 
@@ -182,7 +184,7 @@ export class GlobePanel extends Panel {
 
   private getFilteredArticles(): GlobeNewsArticle[] {
     if (this.activeCategory === 'all') return this.allArticles;
-    return this.allArticles.filter(a => a.category === this.activeCategory);
+    return this.allArticles.filter((a) => a.category === this.activeCategory);
   }
 
   private updateFeedList(): void {
@@ -245,7 +247,7 @@ export class GlobePanel extends Panel {
         }
 
         // Highlight this item
-        this.feedListEl?.querySelectorAll('.globe-feed-item-active').forEach(el => {
+        this.feedListEl?.querySelectorAll('.globe-feed-item-active').forEach((el) => {
           el.classList.remove('globe-feed-item-active');
         });
         item.classList.add('globe-feed-item-active');
@@ -267,44 +269,44 @@ export class GlobePanel extends Panel {
     const g: GlobeInstance = GlobeFactory();
 
     g.globeImageUrl(GLOBE_IMAGE_URL)
-     .backgroundColor('rgba(0,0,0,0)')
-     .atmosphereColor('#60a5fa')
-     .atmosphereAltitude(0.25)
-     .showAtmosphere(true);
+      .backgroundColor('rgba(0,0,0,0)')
+      .atmosphereColor('#60a5fa')
+      .atmosphereAltitude(0.25)
+      .showAtmosphere(true);
 
     // Points (news markers)
     g.pointsData(this.newsMarkers)
-     .pointLat((d: GlobeMarker) => d.lat)
-     .pointLng((d: GlobeMarker) => d.lng)
-     .pointAltitude(0.01)
-     .pointRadius((d: GlobeMarker) => d.size)
-     .pointColor((d: GlobeMarker) => d.color);
+      .pointLat((d: GlobeMarker) => d.lat)
+      .pointLng((d: GlobeMarker) => d.lng)
+      .pointAltitude(0.01)
+      .pointRadius((d: GlobeMarker) => d.size)
+      .pointColor((d: GlobeMarker) => d.color);
 
     // Labels — top markers by article count
     this.updateLabels(g);
 
     // Pulsing rings at marker locations
     g.ringsData(this.newsMarkers)
-     .ringLat((d: GlobeMarker) => d.lat)
-     .ringLng((d: GlobeMarker) => d.lng)
-     .ringColor(() => (t: number) => `rgba(59, 130, 246, ${1 - t})`)
-     .ringMaxRadius(3)
-     .ringPropagationSpeed(1)
-     .ringRepeatPeriod(2000);
+      .ringLat((d: GlobeMarker) => d.lat)
+      .ringLng((d: GlobeMarker) => d.lng)
+      .ringColor(() => (t: number) => `rgba(59, 130, 246, ${1 - t})`)
+      .ringMaxRadius(3)
+      .ringPropagationSpeed(1)
+      .ringRepeatPeriod(2000);
 
     // Day/night terminator polygon
     const terminatorData = this.buildTerminatorData();
     g.polygonsData(terminatorData)
-     .polygonCapColor(() => 'rgba(0, 0, 0, 0.15)')
-     .polygonSideColor(() => 'rgba(0, 0, 0, 0)')
-     .polygonStrokeColor(() => 'rgba(59, 130, 246, 0.15)');
+      .polygonCapColor(() => 'rgba(0, 0, 0, 0.15)')
+      .polygonSideColor(() => 'rgba(0, 0, 0, 0)')
+      .polygonStrokeColor(() => 'rgba(59, 130, 246, 0.15)');
 
     // Weather pins as HTML markers
     if (this.weatherPins.length > 0) {
       g.htmlElementsData(this.weatherPins)
-       .htmlLat((d: GlobeWeatherPin) => d.lat)
-       .htmlLng((d: GlobeWeatherPin) => d.lng)
-       .htmlElement((d: GlobeWeatherPin) => this.createWeatherPinEl(d));
+        .htmlLat((d: GlobeWeatherPin) => d.lat)
+        .htmlLng((d: GlobeWeatherPin) => d.lng)
+        .htmlElement((d: GlobeWeatherPin) => this.createWeatherPinEl(d));
     }
 
     // Click marker → scroll feed to matching articles
@@ -358,28 +360,24 @@ export class GlobePanel extends Panel {
   }
 
   private updateLabels(g: GlobeInstance): void {
-    const topMarkers = [...this.newsMarkers]
-      .sort((a, b) => b.articles.length - a.articles.length)
-      .slice(0, 12);
+    const topMarkers = [...this.newsMarkers].sort((a, b) => b.articles.length - a.articles.length).slice(0, 12);
 
-    const labelData = topMarkers.map(m => ({
+    const labelData = topMarkers.map((m) => ({
       lat: m.lat,
       lng: m.lng,
-      text: m.articles[0].title.length > 40
-        ? m.articles[0].title.slice(0, 40) + '\u2026'
-        : m.articles[0].title,
+      text: m.articles[0].title.length > 40 ? m.articles[0].title.slice(0, 40) + '\u2026' : m.articles[0].title,
       color: m.color,
       size: 0.4,
     }));
 
     g.labelsData(labelData)
-     .labelLat((d: { lat: number }) => d.lat)
-     .labelLng((d: { lng: number }) => d.lng)
-     .labelText((d: { text: string }) => d.text)
-     .labelSize((d: { size: number }) => d.size)
-     .labelColor((d: { color: string }) => d.color)
-     .labelResolution(2)
-     .labelAltitude(0.01);
+      .labelLat((d: { lat: number }) => d.lat)
+      .labelLng((d: { lng: number }) => d.lng)
+      .labelText((d: { text: string }) => d.text)
+      .labelSize((d: { size: number }) => d.size)
+      .labelColor((d: { color: string }) => d.color)
+      .labelResolution(2)
+      .labelAltitude(0.01);
   }
 
   private highlightFeedForMarker(marker: GlobeMarker): void {
@@ -396,7 +394,7 @@ export class GlobePanel extends Panel {
     }
 
     // Clear existing highlights
-    this.feedListEl.querySelectorAll('.globe-feed-item-active').forEach(el => {
+    this.feedListEl.querySelectorAll('.globe-feed-item-active').forEach((el) => {
       el.classList.remove('globe-feed-item-active');
     });
 
@@ -417,10 +415,12 @@ export class GlobePanel extends Panel {
 
   private buildTerminatorData(): object[] {
     const points = buildTerminatorPolygon();
-    return [{
-      type: 'night',
-      coords: [points.map(p => [p.lng, p.lat])],
-    }];
+    return [
+      {
+        type: 'night',
+        coords: [points.map((p) => [p.lng, p.lat])],
+      },
+    ];
   }
 
   private createWeatherPinEl(pin: GlobeWeatherPin): HTMLElement {
@@ -508,13 +508,15 @@ export class GlobePanel extends Panel {
       const w = data as { current?: { temp: number; condition: string }; name?: string };
       if (!w?.current) return;
 
-      this.weatherPins = [{
-        lat: loc.lat,
-        lng: loc.lon,
-        temp: w.current.temp,
-        condition: w.current.condition,
-        name: w.name || loc.name || 'Location',
-      }];
+      this.weatherPins = [
+        {
+          lat: loc.lat,
+          lng: loc.lon,
+          temp: w.current.temp,
+          condition: w.current.condition,
+          name: w.name || loc.name || 'Location',
+        },
+      ];
 
       if (this.globe) {
         const g = this.globe as GlobeInstance;
@@ -575,7 +577,11 @@ export class GlobePanel extends Panel {
     if (this.globe) {
       try {
         const g = this.globe as GlobeInstance;
-        const renderer = g.renderer?.() as { dispose?: () => void; forceContextLoss?: () => void; domElement?: HTMLElement } | null;
+        const renderer = g.renderer?.() as {
+          dispose?: () => void;
+          forceContextLoss?: () => void;
+          domElement?: HTMLElement;
+        } | null;
         if (renderer) {
           renderer.dispose?.();
           renderer.forceContextLoss?.();

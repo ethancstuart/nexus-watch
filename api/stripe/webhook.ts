@@ -9,11 +9,7 @@ interface StripeEvent {
   };
 }
 
-async function verifySignature(
-  payload: string,
-  sigHeader: string,
-  secret: string,
-): Promise<boolean> {
+async function verifySignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
   const parts = sigHeader.split(',').reduce(
     (acc, part) => {
       const [key, value] = part.split('=');
@@ -172,11 +168,7 @@ async function kvSet(kvUrl: string, kvToken: string, key: string, value: unknown
   });
 }
 
-async function findUserByCustomerId(
-  kvUrl: string,
-  kvToken: string,
-  customerId: string,
-): Promise<string | null> {
+async function findUserByCustomerId(kvUrl: string, kvToken: string, customerId: string): Promise<string | null> {
   // Scan stripe:* keys to find the user with this customer ID
   try {
     let cursor = '0';
@@ -205,12 +197,7 @@ async function findUserByCustomerId(
   return null;
 }
 
-async function updateUserSessions(
-  kvUrl: string,
-  kvToken: string,
-  userId: string,
-  tier: string,
-): Promise<void> {
+async function updateUserSessions(kvUrl: string, kvToken: string, userId: string, tier: string): Promise<void> {
   try {
     const res = await fetch(`${kvUrl}/get/user-sessions:${userId}`, {
       headers: { Authorization: `Bearer ${kvToken}` },
@@ -227,12 +214,7 @@ async function updateUserSessions(
   }
 }
 
-async function updateSessionTier(
-  kvUrl: string,
-  kvToken: string,
-  sessionId: string,
-  tier: string,
-): Promise<void> {
+async function updateSessionTier(kvUrl: string, kvToken: string, sessionId: string, tier: string): Promise<void> {
   try {
     const res = await fetch(`${kvUrl}/get/session:${sessionId}`, {
       headers: { Authorization: `Bearer ${kvToken}` },

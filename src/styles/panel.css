@@ -11,19 +11,19 @@
 }
 
 /* Category accent stripes */
-.panel-card[data-category="markets"] {
+.panel-card[data-category='markets'] {
   border-left-color: var(--color-accent);
 }
-.panel-card[data-category="world"] {
+.panel-card[data-category='world'] {
   border-left-color: var(--color-positive);
 }
-.panel-card[data-category="personal"] {
+.panel-card[data-category='personal'] {
   border-left-color: var(--color-text-muted);
 }
-.panel-card[data-category="dev"] {
+.panel-card[data-category='dev'] {
   border-left-color: #8b5cf6;
 }
-.panel-card[data-category="utility"] {
+.panel-card[data-category='utility'] {
   border-left-color: var(--color-text-muted);
 }
 
@@ -178,14 +178,22 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Widget size variants (used for content rendering, grid placement is inline) */
-.widget-compact { }
-.widget-medium { }
-.widget-large { }
+.widget-compact {
+}
+.widget-medium {
+}
+.widget-large {
+}
 
 /* Premium locked */
 .panel-locked {

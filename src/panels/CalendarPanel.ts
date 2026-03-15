@@ -56,8 +56,8 @@ export class CalendarPanel extends Panel {
     }
 
     // Separate all-day and timed events
-    const allDay = events.filter(e => e.allDay);
-    const timed = events.filter(e => !e.allDay);
+    const allDay = events.filter((e) => e.allDay);
+    const timed = events.filter((e) => !e.allDay);
 
     // Group by day
     const today = new Date();
@@ -75,11 +75,11 @@ export class CalendarPanel extends Panel {
     }
 
     // Today's timed events
-    const todayEvents = timed.filter(e => {
+    const todayEvents = timed.filter((e) => {
       const d = new Date(e.start);
       return d >= today && d < tomorrow;
     });
-    const tomorrowEvents = timed.filter(e => {
+    const tomorrowEvents = timed.filter((e) => {
       const d = new Date(e.start);
       return d >= tomorrow && d < dayAfter;
     });
@@ -92,7 +92,9 @@ export class CalendarPanel extends Panel {
     }
 
     if (tomorrowEvents.length > 0) {
-      this.contentEl.appendChild(createElement('div', { className: 'calendar-section-header', textContent: 'Tomorrow' }));
+      this.contentEl.appendChild(
+        createElement('div', { className: 'calendar-section-header', textContent: 'Tomorrow' }),
+      );
       for (const event of tomorrowEvents) {
         this.contentEl.appendChild(this.createEventCard(event));
       }
@@ -120,7 +122,7 @@ export class CalendarPanel extends Panel {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const todayTimed = events.filter(e => !e.allDay && new Date(e.start) >= today && new Date(e.start) < tomorrow);
+    const todayTimed = events.filter((e) => !e.allDay && new Date(e.start) >= today && new Date(e.start) < tomorrow);
 
     if (size === 'compact') {
       // Compact: today's event count + next event
@@ -131,14 +133,14 @@ export class CalendarPanel extends Panel {
       if (todayTimed.length > 0) {
         this.contentEl.appendChild(this.createEventCard(todayTimed[0]));
       } else {
-        const allDay = events.filter(e => e.allDay);
+        const allDay = events.filter((e) => e.allDay);
         if (allDay.length > 0) {
           this.contentEl.appendChild(this.createAllDayBanner(allDay[0]));
         }
       }
     } else if (size === 'medium') {
       // Medium: today's full list
-      const allDay = events.filter(e => e.allDay);
+      const allDay = events.filter((e) => e.allDay);
       if (allDay.length > 0) {
         for (const event of allDay) {
           this.contentEl.appendChild(this.createAllDayBanner(event));
@@ -146,12 +148,16 @@ export class CalendarPanel extends Panel {
       }
 
       if (todayTimed.length > 0) {
-        this.contentEl.appendChild(createElement('div', { className: 'calendar-section-header', textContent: 'Today' }));
+        this.contentEl.appendChild(
+          createElement('div', { className: 'calendar-section-header', textContent: 'Today' }),
+        );
         for (const event of todayTimed) {
           this.contentEl.appendChild(this.createEventCard(event));
         }
       } else {
-        this.contentEl.appendChild(createElement('div', { className: 'calendar-empty', textContent: 'No events today' }));
+        this.contentEl.appendChild(
+          createElement('div', { className: 'calendar-empty', textContent: 'No events today' }),
+        );
       }
       this.renderDisconnectBar();
     } else {
@@ -166,7 +172,10 @@ export class CalendarPanel extends Panel {
     const icon = createElement('div', { className: 'calendar-connect-icon', textContent: '\uD83D\uDCC5' });
     wrap.appendChild(icon);
 
-    const text = createElement('div', { className: 'calendar-connect-text', textContent: 'Connect your Google Calendar to see your upcoming events right on your dashboard.' });
+    const text = createElement('div', {
+      className: 'calendar-connect-text',
+      textContent: 'Connect your Google Calendar to see your upcoming events right on your dashboard.',
+    });
     wrap.appendChild(text);
 
     const btn = createElement('button', { className: 'calendar-connect-btn', textContent: 'Connect Google Calendar' });

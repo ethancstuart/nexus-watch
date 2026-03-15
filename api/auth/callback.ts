@@ -26,7 +26,10 @@ interface GitHubEmail {
   verified: boolean;
 }
 
-async function exchangeGoogle(code: string, redirectUri: string): Promise<{ id: string; email: string; name: string; avatar: string }> {
+async function exchangeGoogle(
+  code: string,
+  redirectUri: string,
+): Promise<{ id: string; email: string; name: string; avatar: string }> {
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -38,7 +41,7 @@ async function exchangeGoogle(code: string, redirectUri: string): Promise<{ id: 
       grant_type: 'authorization_code',
     }),
   });
-  const tokenData = await tokenRes.json() as TokenResponse & Record<string, unknown>;
+  const tokenData = (await tokenRes.json()) as TokenResponse & Record<string, unknown>;
   if (!tokenRes.ok || !tokenData.access_token) {
     throw new Error(`Google token exchange failed: ${JSON.stringify(tokenData)}`);
   }
@@ -54,7 +57,10 @@ async function exchangeGoogle(code: string, redirectUri: string): Promise<{ id: 
   return { id: `google:${user.sub}`, email: user.email, name: user.name, avatar: user.picture };
 }
 
-async function exchangeGithub(code: string, _redirectUri: string): Promise<{ id: string; email: string; name: string; avatar: string }> {
+async function exchangeGithub(
+  code: string,
+  _redirectUri: string,
+): Promise<{ id: string; email: string; name: string; avatar: string }> {
   const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -64,7 +70,7 @@ async function exchangeGithub(code: string, _redirectUri: string): Promise<{ id:
       code,
     }),
   });
-  const tokenData = await tokenRes.json() as TokenResponse & Record<string, unknown>;
+  const tokenData = (await tokenRes.json()) as TokenResponse & Record<string, unknown>;
   if (!tokenData.access_token) {
     throw new Error(`GitHub token exchange failed: ${JSON.stringify(tokenData)}`);
   }
@@ -100,7 +106,10 @@ export default async function handler(req: Request) {
 
   // Verify CSRF state
   const cookies = req.headers.get('cookie') || '';
-  const stateCookie = cookies.split(';').map((c) => c.trim()).find((c) => c.startsWith('oauth_state='));
+  const stateCookie = cookies
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith('oauth_state='));
   const savedState = stateCookie?.split('=')[1];
   if (!savedState || savedState !== state) {
     return new Response(null, { status: 302, headers: { Location: '/#/?error=invalid_state' } });
@@ -121,8 +130,14 @@ export default async function handler(req: Request) {
     // Create session
     const sessionId = crypto.randomUUID();
 
-    const ADMIN_IDS = (process.env.ADMIN_IDS || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-    const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    const ADMIN_IDS = (process.env.ADMIN_IDS || '')
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
     const isOwner = ADMIN_IDS.includes(userInfo.id) || ADMIN_EMAILS.includes(userInfo.email);
 
     const user = {
@@ -177,7 +192,10 @@ export default async function handler(req: Request) {
     // Set session cookie and redirect to dashboard
     const headers = new Headers();
     headers.set('Location', '/#/app');
-    headers.append('Set-Cookie', `__Host-session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`);
+    headers.append(
+      'Set-Cookie',
+      `__Host-session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`,
+    );
     // Clear legacy cookie if present
     headers.append('Set-Cookie', 'session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
     headers.append('Set-Cookie', 'oauth_state=; Path=/; Max-Age=0');

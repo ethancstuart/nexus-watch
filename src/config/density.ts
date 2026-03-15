@@ -6,7 +6,9 @@ export function getDensity(): DensityMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'compact' || stored === 'comfortable' || stored === 'spacious') return stored;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return 'comfortable';
 }
 
@@ -15,6 +17,10 @@ export function applyDensity(mode?: DensityMode): void {
   document.documentElement.dataset.density = density;
   try {
     localStorage.setItem(STORAGE_KEY, density);
-    document.dispatchEvent(new CustomEvent('dashview:storage-changed', { detail: { key: STORAGE_KEY, action: 'set' } }));
-  } catch { /* ignore */ }
+    document.dispatchEvent(
+      new CustomEvent('dashview:storage-changed', { detail: { key: STORAGE_KEY, action: 'set' } }),
+    );
+  } catch {
+    /* ignore */
+  }
 }

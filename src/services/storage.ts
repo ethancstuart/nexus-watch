@@ -12,9 +12,7 @@ export function set(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    document.dispatchEvent(
-      new CustomEvent('dashview:storage-error', { detail: { key, error: 'quota' } }),
-    );
+    document.dispatchEvent(new CustomEvent('dashview:storage-error', { detail: { key, error: 'quota' } }));
     return;
   }
   document.dispatchEvent(new CustomEvent('dashview:storage-changed', { detail: { key, action: 'set' } }));

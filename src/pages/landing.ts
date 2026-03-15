@@ -25,7 +25,10 @@ export function renderLanding(root: HTMLElement): void {
 
   // Sign In buttons
   const signInWrap = createElement('div', { className: 'landing-sign-in-wrap' });
-  const signInBtn = createElement('button', { className: 'landing-btn landing-btn-outline landing-sign-in-btn', textContent: 'Sign In' });
+  const signInBtn = createElement('button', {
+    className: 'landing-btn landing-btn-outline landing-sign-in-btn',
+    textContent: 'Sign In',
+  });
   const dropdown = createElement('div', { className: 'landing-sign-in-dropdown' });
   const googleBtn = createElement('button', { className: 'landing-sign-in-option', textContent: 'Google' });
   const githubBtn = createElement('button', { className: 'landing-sign-in-option', textContent: 'GitHub' });
@@ -66,7 +69,8 @@ export function renderLanding(root: HTMLElement): void {
   });
   const heroSub = createElement('p', {
     className: 'landing-hero-sub',
-    textContent: 'Weather, markets, news, sports, and AI \u2014 organized into customizable spaces with a keyboard-driven interface.',
+    textContent:
+      'Weather, markets, news, sports, and AI \u2014 organized into customizable spaces with a keyboard-driven interface.',
   });
 
   const heroCtas = createElement('div', { className: 'landing-hero-ctas' });
@@ -113,17 +117,44 @@ export function renderLanding(root: HTMLElement): void {
 
   // Features grid
   const features = createElement('section', { className: 'landing-features' });
-  const featuresTitle = createElement('h2', { className: 'landing-section-title', textContent: 'Built for the Information Age' });
+  const featuresTitle = createElement('h2', {
+    className: 'landing-section-title',
+    textContent: 'Built for the Information Age',
+  });
   features.appendChild(featuresTitle);
 
   const featureGrid = createElement('div', { className: 'landing-feature-grid' });
   const featureItems = [
-    { icon: '\u26A1', title: 'Spaces', desc: 'Organize your data into customizable spaces \u2014 Markets, World, Personal, or create your own.' },
-    { icon: '\uD83E\uDD16', title: 'AI Bar', desc: 'Natural language commands and AI-powered dashboard control. Ask anything or type / for commands.' },
-    { icon: '\uD83D\uDCC8', title: 'Real-Time Data', desc: 'Stocks, crypto, weather, news, sports, entertainment \u2014 all updating live in your terminal.' },
-    { icon: '\u2328\uFE0F', title: 'Keyboard-Driven', desc: 'Cmd+K command palette, keyboard shortcuts, and slash commands for power users.' },
-    { icon: '\uD83D\uDCA1', title: 'Pulse Bar', desc: 'Cross-panel intelligence strip shows what matters NOW \u2014 market moves, weather alerts, live games.' },
-    { icon: '\uD83D\uDCF2', title: 'PWA', desc: 'Install as a native app. Works offline with automatic data syncing across devices.' },
+    {
+      icon: '\u26A1',
+      title: 'Spaces',
+      desc: 'Organize your data into customizable spaces \u2014 Markets, World, Personal, or create your own.',
+    },
+    {
+      icon: '\uD83E\uDD16',
+      title: 'AI Bar',
+      desc: 'Natural language commands and AI-powered dashboard control. Ask anything or type / for commands.',
+    },
+    {
+      icon: '\uD83D\uDCC8',
+      title: 'Real-Time Data',
+      desc: 'Stocks, crypto, weather, news, sports, entertainment \u2014 all updating live in your terminal.',
+    },
+    {
+      icon: '\u2328\uFE0F',
+      title: 'Keyboard-Driven',
+      desc: 'Cmd+K command palette, keyboard shortcuts, and slash commands for power users.',
+    },
+    {
+      icon: '\uD83D\uDCA1',
+      title: 'Pulse Bar',
+      desc: 'Cross-panel intelligence strip shows what matters NOW \u2014 market moves, weather alerts, live games.',
+    },
+    {
+      icon: '\uD83D\uDCF2',
+      title: 'PWA',
+      desc: 'Install as a native app. Works offline with automatic data syncing across devices.',
+    },
   ];
   for (const f of featureItems) {
     const card = createElement('div', { className: 'landing-feature-card' });

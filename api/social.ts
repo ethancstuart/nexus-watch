@@ -5,10 +5,18 @@ export const config = { runtime: 'nodejs' };
 
 // Breaking/wire-style feeds — short, frequent updates like a social timeline
 const WIRE_FEEDS = [
-  { name: 'Reuters', handle: '@Reuters', url: 'https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best' },
+  {
+    name: 'Reuters',
+    handle: '@Reuters',
+    url: 'https://www.reutersagency.com/feed/?best-topics=political-general&post_type=best',
+  },
   { name: 'AP News', handle: '@AP', url: 'https://rsshub.app/apnews/topics/apf-topnews' },
   { name: 'BBC Breaking', handle: '@BBCBreaking', url: 'https://feeds.bbci.co.uk/news/rss.xml' },
-  { name: 'CNBC', handle: '@CNBC', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114' },
+  {
+    name: 'CNBC',
+    handle: '@CNBC',
+    url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114',
+  },
   { name: 'NPR', handle: '@NPR', url: 'https://feeds.npr.org/1001/rss.xml' },
   { name: 'Al Jazeera', handle: '@AJEnglish', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
   { name: 'The Verge', handle: '@verge', url: 'https://www.theverge.com/rss/index.xml' },
@@ -67,7 +75,5 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     return true;
   });
 
-  return res
-    .setHeader('Cache-Control', 'max-age=300')
-    .json({ posts: unique.slice(0, 25) });
+  return res.setHeader('Cache-Control', 'max-age=300').json({ posts: unique.slice(0, 25) });
 }

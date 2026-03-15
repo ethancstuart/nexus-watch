@@ -83,10 +83,10 @@ export default async function handler(req: Request) {
     const portalData = (await portalRes.json()) as { url?: string; error?: { message: string } };
 
     if (!portalRes.ok || !portalData.url) {
-      return new Response(
-        JSON.stringify({ error: portalData.error?.message || 'Failed to create portal session' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } },
-      );
+      return new Response(JSON.stringify({ error: portalData.error?.message || 'Failed to create portal session' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({ url: portalData.url }), {

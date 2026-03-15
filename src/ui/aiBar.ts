@@ -88,9 +88,7 @@ export function createAIBar(_app: App, callbacks: AIBarCallbacks, signal?: Abort
     if (val.startsWith('/')) {
       const query = val.slice(1).toLowerCase().trim();
       const matches = commandRegistry.filter(
-        (c) =>
-          c.title.toLowerCase().includes(query) ||
-          c.keywords.toLowerCase().includes(query),
+        (c) => c.title.toLowerCase().includes(query) || c.keywords.toLowerCase().includes(query),
       );
       showAutocomplete(matches.slice(0, 10));
     } else {
@@ -147,16 +145,20 @@ export function createAIBar(_app: App, callbacks: AIBarCallbacks, signal?: Abort
   });
 
   // Cmd+K focus
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      input.focus();
-      if (!input.value) {
-        input.value = '/';
-        input.dispatchEvent(new Event('input'));
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        input.focus();
+        if (!input.value) {
+          input.value = '/';
+          input.dispatchEvent(new Event('input'));
+        }
       }
-    }
-  }, signal ? { signal } : undefined);
+    },
+    signal ? { signal } : undefined,
+  );
 
   bar.appendChild(inputWrap);
 
@@ -168,13 +170,17 @@ export function createAIBar(_app: App, callbacks: AIBarCallbacks, signal?: Abort
   bar.appendChild(pills);
 
   // Update pills from panel data
-  document.addEventListener('dashview:panel-data', (e) => {
-    const detail = (e as CustomEvent).detail;
-    if (detail.panelId === 'weather' && detail.data?.current) {
-      const w = detail.data.current;
-      weatherPill.textContent = `${w.icon || '\u2600\uFE0F'} ${Math.round(w.temp)}\u00B0`;
-    }
-  }, signal ? { signal } : undefined);
+  document.addEventListener(
+    'dashview:panel-data',
+    (e) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail.panelId === 'weather' && detail.data?.current) {
+        const w = detail.data.current;
+        weatherPill.textContent = `${w.icon || '\u2600\uFE0F'} ${Math.round(w.temp)}\u00B0`;
+      }
+    },
+    signal ? { signal } : undefined,
+  );
 
   // Controls (settings + auth)
   const controls = createElement('div', { className: 'ai-bar-controls' });
@@ -193,14 +199,19 @@ export function createAIBar(_app: App, callbacks: AIBarCallbacks, signal?: Abort
     authWrap.textContent = '';
     const user = getUser();
     if (user) {
-      if (user.avatar && /^https:\/\/(lh3\.googleusercontent\.com|avatars\.githubusercontent\.com)\//i.test(user.avatar)) {
+      if (
+        user.avatar &&
+        /^https:\/\/(lh3\.googleusercontent\.com|avatars\.githubusercontent\.com)\//i.test(user.avatar)
+      ) {
         const img = document.createElement('img');
         img.src = user.avatar;
         img.alt = user.name;
         img.className = 'ai-bar-avatar';
         img.width = 24;
         img.height = 24;
-        img.onerror = () => { img.style.display = 'none'; };
+        img.onerror = () => {
+          img.style.display = 'none';
+        };
         img.addEventListener('click', () => logout());
         img.title = `${user.name} — click to sign out`;
         authWrap.appendChild(img);

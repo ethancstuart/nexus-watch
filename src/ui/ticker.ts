@@ -60,11 +60,7 @@ export function createTicker(): HTMLElement & { destroy(): void } {
   return bar;
 }
 
-function renderTicker(
-  data: TickerData,
-  sparklines: SparklineData,
-  cardsContainer: HTMLElement,
-) {
+function renderTicker(data: TickerData, sparklines: SparklineData, cardsContainer: HTMLElement) {
   // Build static market cards
   cardsContainer.textContent = '';
   for (const item of data.items) {
@@ -103,9 +99,7 @@ function createTickerCard(item: TickerItem, sparklinePrices?: number[]): HTMLEle
   const sign = item.changePercent >= 0 ? '+' : '';
   const changeEl = createElement('span', {
     className: `ticker-card-change ${changeClass}`,
-    textContent: item.change !== 0 || item.changePercent !== 0
-      ? `${sign}${item.changePercent.toFixed(2)}%`
-      : '',
+    textContent: item.change !== 0 || item.changePercent !== 0 ? `${sign}${item.changePercent.toFixed(2)}%` : '',
   });
 
   card.appendChild(info);

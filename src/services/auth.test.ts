@@ -26,9 +26,12 @@ describe('checkSession', () => {
       tier: 'free' as const,
       createdAt: '2026-01-01',
     };
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ user: mockUser }),
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ user: mockUser }),
+      }),
+    );
 
     const result = await authModule.checkSession();
     expect(result).toEqual(mockUser);
@@ -36,9 +39,12 @@ describe('checkSession', () => {
   });
 
   it('returns null when API returns no user', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ user: null }),
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ user: null }),
+      }),
+    );
     vi.mocked(localStorage.getItem).mockReturnValue(null);
 
     const result = await authModule.checkSession();
@@ -74,9 +80,12 @@ describe('onAuthChange', () => {
       tier: 'free' as const,
       createdAt: '2026-01-01',
     };
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ user: mockUser }),
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ user: mockUser }),
+      }),
+    );
 
     const listener = vi.fn();
     authModule.onAuthChange(listener);
@@ -86,9 +95,12 @@ describe('onAuthChange', () => {
   });
 
   it('returns unsubscribe function that removes listener', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({ user: null }),
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ user: null }),
+      }),
+    );
     vi.mocked(localStorage.getItem).mockReturnValue(null);
 
     const listener = vi.fn();

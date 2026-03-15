@@ -6,7 +6,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'globe': ['globe.gl'],
+          globe: ['globe.gl'],
         },
       },
     },

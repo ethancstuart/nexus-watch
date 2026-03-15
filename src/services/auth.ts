@@ -24,7 +24,9 @@ export async function checkSession(): Promise<User | null> {
     try {
       const stored = localStorage.getItem('dashview-user');
       if (stored) cachedUser = JSON.parse(stored) as User;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   checked = true;
   for (const cb of listeners) cb(cachedUser);
@@ -36,7 +38,9 @@ export function getUser(): User | null {
   try {
     const stored = localStorage.getItem('dashview-user');
     if (stored) return JSON.parse(stored) as User;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return null;
 }
 

@@ -18,11 +18,11 @@ export async function fetchNews(category: NewsCategory): Promise<NewsData> {
   let url = `/api/news?category=${category}`;
 
   if (category === 'custom') {
-    const feeds = getCustomFeeds().filter(f => f.enabled);
+    const feeds = getCustomFeeds().filter((f) => f.enabled);
     if (feeds.length === 0) {
       return { articles: [], category, fetchedAt: Date.now() };
     }
-    const customUrls = feeds.map(f => ({ url: f.url, name: f.name, lat: f.lat, lon: f.lon }));
+    const customUrls = feeds.map((f) => ({ url: f.url, name: f.name, lat: f.lat, lon: f.lon }));
     url += `&customUrls=${encodeURIComponent(JSON.stringify(customUrls))}`;
   }
 
@@ -51,7 +51,7 @@ export async function fetchAllNews(categories?: GlobeNewsCategory[]): Promise<Gl
     const results = await Promise.allSettled(
       cats.map(async (cat) => {
         const newsData = await fetchNews(cat as NewsCategory);
-        return newsData.articles.map(a => ({
+        return newsData.articles.map((a) => ({
           ...a,
           category: cat,
         }));
@@ -73,10 +73,12 @@ export async function fetchAllNews(categories?: GlobeNewsCategory[]): Promise<Gl
     });
 
     const seen = new Set<string>();
-    return articles.filter(a => {
-      if (!a.link || seen.has(a.link)) return false;
-      seen.add(a.link);
-      return true;
-    }).slice(0, 100);
+    return articles
+      .filter((a) => {
+        if (!a.link || seen.has(a.link)) return false;
+        seen.add(a.link);
+        return true;
+      })
+      .slice(0, 100);
   }
 }

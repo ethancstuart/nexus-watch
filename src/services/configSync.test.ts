@@ -8,7 +8,9 @@ const fakeLocalStorage = {
   setItem: (key: string, value: string) => store.set(key, String(value)),
   removeItem: (key: string) => store.delete(key),
   clear: () => store.clear(),
-  get length() { return store.size; },
+  get length() {
+    return store.size;
+  },
   key: (i: number) => [...store.keys()][i] ?? null,
 };
 vi.stubGlobal('localStorage', fakeLocalStorage);

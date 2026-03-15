@@ -46,9 +46,7 @@ const DEFAULT_SPACES: Space[] = [
     id: 'globe',
     name: 'Globe',
     icon: '\uD83C\uDF0D',
-    widgets: [
-      { panelId: 'globe', size: 'large', col: 1, row: 1, colSpan: 12, rowSpan: 6 },
-    ],
+    widgets: [{ panelId: 'globe', size: 'large', col: 1, row: 1, colSpan: 12, rowSpan: 6 }],
   },
   {
     id: 'personal',
@@ -92,11 +90,7 @@ function migrateToGrid(widgets: (SpaceWidget & { position?: number })[]): SpaceW
 }
 
 // Find first available (col, row) for a widget of given size using top-left packing
-function findFirstAvailable(
-  placed: SpaceWidget[],
-  colSpan: number,
-  rowSpan: number,
-): { col: number; row: number } {
+function findFirstAvailable(placed: SpaceWidget[], colSpan: number, rowSpan: number): { col: number; row: number } {
   for (let row = 1; row < 100; row++) {
     for (let col = 1; col <= COLS - colSpan + 1; col++) {
       if (!overlapsAny(placed, col, row, colSpan, rowSpan)) {
@@ -108,13 +102,7 @@ function findFirstAvailable(
 }
 
 // Check if a rectangle overlaps any placed widget
-function overlapsAny(
-  widgets: SpaceWidget[],
-  col: number,
-  row: number,
-  colSpan: number,
-  rowSpan: number,
-): boolean {
+function overlapsAny(widgets: SpaceWidget[], col: number, row: number, colSpan: number, rowSpan: number): boolean {
   for (const w of widgets) {
     if (rectsOverlap(col, row, colSpan, rowSpan, w.col, w.row, w.colSpan, w.rowSpan)) {
       return true;
@@ -124,8 +112,14 @@ function overlapsAny(
 }
 
 function rectsOverlap(
-  c1: number, r1: number, cs1: number, rs1: number,
-  c2: number, r2: number, cs2: number, rs2: number,
+  c1: number,
+  r1: number,
+  cs1: number,
+  rs1: number,
+  c2: number,
+  r2: number,
+  cs2: number,
+  rs2: number,
 ): boolean {
   return c1 < c2 + cs2 && c1 + cs1 > c2 && r1 < r2 + rs2 && r1 + rs1 > r2;
 }
@@ -140,8 +134,17 @@ export function resolveCollisions(widgets: SpaceWidget[]): SpaceWidget[] {
     while (true) {
       const candidate = { ...w, row };
       const overlap = result.some((placed) =>
-        rectsOverlap(candidate.col, candidate.row, candidate.colSpan, candidate.rowSpan,
-          placed.col, placed.row, placed.colSpan, placed.rowSpan));
+        rectsOverlap(
+          candidate.col,
+          candidate.row,
+          candidate.colSpan,
+          candidate.rowSpan,
+          placed.col,
+          placed.row,
+          placed.colSpan,
+          placed.rowSpan,
+        ),
+      );
       if (!overlap) break;
       row++;
     }
@@ -161,8 +164,17 @@ export function compactLayout(widgets: SpaceWidget[]): SpaceWidget[] {
     for (let tryRow = 1; tryRow <= w.row; tryRow++) {
       const candidate = { ...w, row: tryRow };
       const overlap = result.some((placed) =>
-        rectsOverlap(candidate.col, candidate.row, candidate.colSpan, candidate.rowSpan,
-          placed.col, placed.row, placed.colSpan, placed.rowSpan));
+        rectsOverlap(
+          candidate.col,
+          candidate.row,
+          candidate.colSpan,
+          candidate.rowSpan,
+          placed.col,
+          placed.row,
+          placed.colSpan,
+          placed.rowSpan,
+        ),
+      );
       if (!overlap) {
         bestRow = tryRow;
         break;
@@ -309,9 +321,7 @@ export function reorderWidgets(spaceId: string, widgetOrder: string[]): void {
   const space = spaces.find((s) => s.id === spaceId);
   if (!space) return;
   const byPanel = new Map(space.widgets.map((w) => [w.panelId, w]));
-  const reordered = widgetOrder
-    .map((pid) => byPanel.get(pid))
-    .filter((w): w is SpaceWidget => w !== undefined);
+  const reordered = widgetOrder.map((pid) => byPanel.get(pid)).filter((w): w is SpaceWidget => w !== undefined);
   // Re-pack in order
   const packed: SpaceWidget[] = [];
   for (const w of reordered) {

@@ -36,13 +36,9 @@ async function getUser(
 // --- AES-GCM encryption using AUTH_SECRET ---
 
 async function deriveKey(secret: string): Promise<CryptoKey> {
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    'PBKDF2',
-    false,
-    ['deriveKey'],
-  );
+  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'PBKDF2', false, [
+    'deriveKey',
+  ]);
   return crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt: new TextEncoder().encode('dashview-api-keys'), iterations: 100000, hash: 'SHA-256' },
     keyMaterial,
@@ -55,11 +51,7 @@ async function deriveKey(secret: string): Promise<CryptoKey> {
 async function encrypt(plaintext: string, secret: string): Promise<string> {
   const key = await deriveKey(secret);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    new TextEncoder().encode(plaintext),
-  );
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext));
   // Concatenate iv + ciphertext, encode as base64
   const combined = new Uint8Array(iv.length + new Uint8Array(encrypted).length);
   combined.set(iv);

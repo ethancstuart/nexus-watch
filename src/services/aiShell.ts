@@ -21,8 +21,15 @@ function buildContext(): string {
   const spaceList = spaces.map((s) => `${s.name} (${s.id}): ${s.widgets.map((w) => w.panelId).join(', ')}`).join('\n');
 
   const availablePanels = [
-    'weather', 'stocks', 'news', 'crypto', 'sports',
-    'chat', 'calendar', 'entertainment', 'notes',
+    'weather',
+    'stocks',
+    'news',
+    'crypto',
+    'sports',
+    'chat',
+    'calendar',
+    'entertainment',
+    'notes',
   ];
 
   return [
@@ -42,7 +49,7 @@ export async function interpretQuery(query: string): Promise<AIAction> {
       body: JSON.stringify({ query, context }),
     });
 
-    const data = await res.json() as AIShellResponse | { error: string };
+    const data = (await res.json()) as AIShellResponse | { error: string };
 
     if ('error' in data) {
       return { action: 'answer', message: data.error };
@@ -62,7 +69,7 @@ export async function interpretQuery(query: string): Promise<AIAction> {
 export async function getRemainingQueries(): Promise<number> {
   try {
     const res = await fetch('/api/ai-shell?check=quota');
-    const data = await res.json() as { remaining: number };
+    const data = (await res.json()) as { remaining: number };
     return data.remaining ?? 0;
   } catch {
     return 0;

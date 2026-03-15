@@ -4,11 +4,18 @@ const CORS_HEADERS = { 'Content-Type': 'application/json', 'Access-Control-Allow
 
 function getSessionId(req: Request): string | null {
   const cookies = req.headers.get('cookie') || '';
-  const sessionCookie = cookies.split(';').map(c => c.trim()).find(c => c.startsWith('__Host-session='));
+  const sessionCookie = cookies
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith('__Host-session='));
   return sessionCookie?.split('=')[1] || null;
 }
 
-async function getUser(sessionId: string, kvUrl: string, kvToken: string): Promise<{ id: string; tier: string; name?: string } | null> {
+async function getUser(
+  sessionId: string,
+  kvUrl: string,
+  kvToken: string,
+): Promise<{ id: string; tier: string; name?: string } | null> {
   try {
     const res = await fetch(`${kvUrl}/get/session:${sessionId}`, { headers: { Authorization: `Bearer ${kvToken}` } });
     const data = (await res.json()) as { result: string | null };
@@ -16,7 +23,9 @@ async function getUser(sessionId: string, kvUrl: string, kvToken: string): Promi
     let user = JSON.parse(data.result);
     if (typeof user === 'string') user = JSON.parse(user);
     return user?.id ? { id: user.id, tier: user.tier || 'free', name: user.name } : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export default async function handler(req: Request) {
@@ -38,12 +47,18 @@ export default async function handler(req: Request) {
       const res = await fetch(`${kvUrl}/get/share:${code}`, { headers: { Authorization: `Bearer ${kvToken}` } });
       const data = (await res.json()) as { result: string | null };
       if (!data.result) {
-        return new Response(JSON.stringify({ error: 'Share not found or expired' }), { status: 404, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ error: 'Share not found or expired' }), {
+          status: 404,
+          headers: CORS_HEADERS,
+        });
       }
       const parsed = JSON.parse(data.result);
       return new Response(JSON.stringify(parsed), { headers: CORS_HEADERS });
     } catch {
-      return new Response(JSON.stringify({ error: 'Failed to retrieve share' }), { status: 500, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ error: 'Failed to retrieve share' }), {
+        status: 500,
+        headers: CORS_HEADERS,
+      });
     }
   }
 
@@ -65,23 +80,38 @@ export default async function handler(req: Request) {
       const rlData = (await rlRes.json()) as { result: string | null };
       const count = parseInt(rlData.result || '0', 10);
       if (count >= 5) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded (5 shares/hour)' }), { status: 429, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ error: 'Rate limit exceeded (5 shares/hour)' }), {
+          status: 429,
+          headers: CORS_HEADERS,
+        });
       }
       await fetch(`${kvUrl}/incr/${rlKey}`, { method: 'POST', headers: { Authorization: `Bearer ${kvToken}` } });
       if (!rlData.result) {
-        await fetch(`${kvUrl}/expire/${rlKey}/3600`, { method: 'POST', headers: { Authorization: `Bearer ${kvToken}` } });
+        await fetch(`${kvUrl}/expire/${rlKey}/3600`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${kvToken}` },
+        });
       }
-    } catch { /* allow through */ }
+    } catch {
+      /* allow through */
+    }
 
     // Free tier: max 1 active share
     if (user.tier !== 'premium') {
       try {
-        const countRes = await fetch(`${kvUrl}/keys/share-owner:${user.id}:*`, { headers: { Authorization: `Bearer ${kvToken}` } });
+        const countRes = await fetch(`${kvUrl}/keys/share-owner:${user.id}:*`, {
+          headers: { Authorization: `Bearer ${kvToken}` },
+        });
         const countData = (await countRes.json()) as { result: string[] };
         if ((countData.result || []).length >= 1) {
-          return new Response(JSON.stringify({ error: 'Free tier limited to 1 active share. Delete existing share or upgrade.' }), { status: 403, headers: CORS_HEADERS });
+          return new Response(
+            JSON.stringify({ error: 'Free tier limited to 1 active share. Delete existing share or upgrade.' }),
+            { status: 403, headers: CORS_HEADERS },
+          );
         }
-      } catch { /* allow through */ }
+      } catch {
+        /* allow through */
+      }
     }
 
     const body = (await req.json()) as { data: Record<string, unknown> };
@@ -131,17 +161,28 @@ export default async function handler(req: Request) {
 
     // Verify ownership
     try {
-      const ownerRes = await fetch(`${kvUrl}/get/share-owner:${user.id}:${code}`, { headers: { Authorization: `Bearer ${kvToken}` } });
+      const ownerRes = await fetch(`${kvUrl}/get/share-owner:${user.id}:${code}`, {
+        headers: { Authorization: `Bearer ${kvToken}` },
+      });
       const ownerData = (await ownerRes.json()) as { result: string | null };
       if (!ownerData.result) {
-        return new Response(JSON.stringify({ error: 'Not authorized to delete this share' }), { status: 403, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ error: 'Not authorized to delete this share' }), {
+          status: 403,
+          headers: CORS_HEADERS,
+        });
       }
     } catch {
-      return new Response(JSON.stringify({ error: 'Failed to verify ownership' }), { status: 500, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ error: 'Failed to verify ownership' }), {
+        status: 500,
+        headers: CORS_HEADERS,
+      });
     }
 
     await fetch(`${kvUrl}/del/share:${code}`, { method: 'POST', headers: { Authorization: `Bearer ${kvToken}` } });
-    await fetch(`${kvUrl}/del/share-owner:${user.id}:${code}`, { method: 'POST', headers: { Authorization: `Bearer ${kvToken}` } });
+    await fetch(`${kvUrl}/del/share-owner:${user.id}:${code}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
 
     return new Response(JSON.stringify({ deleted: code }), { headers: CORS_HEADERS });
   }

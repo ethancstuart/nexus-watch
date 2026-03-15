@@ -4,10 +4,10 @@ export type PanelCategory = 'markets' | 'world' | 'personal' | 'dev' | 'utility'
 export interface SpaceWidget {
   panelId: string;
   size: WidgetSize;
-  col: number;        // 1-based column start (1-12)
-  row: number;        // 1-based row start (1-N)
-  colSpan: number;    // width in columns (3-12)
-  rowSpan: number;    // height in rows (1-N, at 60px each)
+  col: number; // 1-based column start (1-12)
+  row: number; // 1-based row start (1-N)
+  colSpan: number; // width in columns (3-12)
+  rowSpan: number; // height in rows (1-N, at 60px each)
 }
 
 export interface Space {
@@ -20,7 +20,7 @@ export interface Space {
 export interface PulseItem {
   id: string;
   type: 'market' | 'weather' | 'news' | 'sports' | 'calendar' | 'crypto';
-  priority: number;   // 0=critical, 1=important, 2=info
+  priority: number; // 0=critical, 1=important, 2=info
   text: string;
   icon: string;
   panelId?: string;

@@ -15,7 +15,14 @@ import { initIntelligence, destroyIntelligence } from '../services/intelligence.
 import { autoPopulateInterests } from '../services/interests.ts';
 import { interpretQuery } from '../services/aiShell.ts';
 import { showAIOverlay } from '../ui/aiOverlay.ts';
-import { getSpaces, getActiveSpace, setActiveSpace, addWidgetToSpace, removeWidgetFromSpace, createSpace as createNewSpace } from '../services/spaces.ts';
+import {
+  getSpaces,
+  getActiveSpace,
+  setActiveSpace,
+  addWidgetToSpace,
+  removeWidgetFromSpace,
+  createSpace as createNewSpace,
+} from '../services/spaces.ts';
 import { WeatherPanel } from '../panels/WeatherPanel.ts';
 import { StocksPanel } from '../panels/StocksPanel.ts';
 import { NewsPanel } from '../panels/NewsPanel.ts';
@@ -136,20 +143,24 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   }
 
   // AI Bar (commands registered after app.init)
-  const aiBar = createAIBar(app, {
-    onCommand: (cmd) => {
-      executeSlashCommand(cmd, app, renderActiveSpace);
+  const aiBar = createAIBar(
+    app,
+    {
+      onCommand: (cmd) => {
+        executeSlashCommand(cmd, app, renderActiveSpace);
+      },
+      onAIQuery: async (query) => {
+        try {
+          showAIOverlay('Thinking...', undefined);
+          const result = await interpretQuery(query);
+          executeAIAction(result, renderActiveSpace);
+        } catch {
+          showAIOverlay('Something went wrong. Please try again.');
+        }
+      },
     },
-    onAIQuery: async (query) => {
-      try {
-        showAIOverlay('Thinking...', undefined);
-        const result = await interpretQuery(query);
-        executeAIAction(result, renderActiveSpace);
-      } catch {
-        showAIOverlay('Something went wrong. Please try again.');
-      }
-    },
-  }, signal);
+    signal,
+  );
 
   // Space Bar
   const spaceBar = createSpaceBar({
@@ -204,25 +215,37 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   autoPopulateInterests();
 
   // Re-render when spaces change (settings toggles, AI actions, size changes)
-  document.addEventListener('dashview:spaces-changed', () => {
-    renderActiveSpace();
-  }, { signal });
+  document.addEventListener(
+    'dashview:spaces-changed',
+    () => {
+      renderActiveSpace();
+    },
+    { signal },
+  );
 
   // Re-apply theme/density and re-render layout when prefs arrive from another device
-  document.addEventListener('dashview:prefs-synced', () => {
-    applyTheme();
-    applyDensity();
-    renderActiveSpace();
-  }, { signal });
+  document.addEventListener(
+    'dashview:prefs-synced',
+    () => {
+      applyTheme();
+      applyDensity();
+      renderActiveSpace();
+    },
+    { signal },
+  );
 
   // Cleanup intelligence on SPA navigation away from dashboard
-  window.addEventListener('hashchange', () => {
-    if (!window.location.hash.startsWith('#/dashboard')) {
-      destroyIntelligence();
-      dashboardAbort?.abort();
-      dashboardAbort = null;
-    }
-  }, { signal });
+  window.addEventListener(
+    'hashchange',
+    () => {
+      if (!window.location.hash.startsWith('#/dashboard')) {
+        destroyIntelligence();
+        dashboardAbort?.abort();
+        dashboardAbort = null;
+      }
+    },
+    { signal },
+  );
 }
 
 function executeSlashCommand(cmd: string, app: App, rerender: () => void): void {
@@ -308,9 +331,15 @@ function executeSlashCommand(cmd: string, app: App, rerender: () => void): void 
     default: {
       // Panel-name aliases: /weather → /go-to-weather, etc.
       const panelAliases: Record<string, string> = {
-        weather: 'weather', stocks: 'stocks', news: 'news',
-        sports: 'sports', chat: 'chat', calendar: 'calendar',
-        crypto: 'crypto', globe: 'globe', notes: 'notes',
+        weather: 'weather',
+        stocks: 'stocks',
+        news: 'news',
+        sports: 'sports',
+        chat: 'chat',
+        calendar: 'calendar',
+        crypto: 'crypto',
+        globe: 'globe',
+        notes: 'notes',
         entertainment: 'entertainment',
       };
       if (command && panelAliases[command]) {
@@ -326,7 +355,10 @@ function executeSlashCommand(cmd: string, app: App, rerender: () => void): void 
   }
 }
 
-function executeAIAction(result: { action: string; params?: Record<string, unknown>; message: string }, rerender: () => void): void {
+function executeAIAction(
+  result: { action: string; params?: Record<string, unknown>; message: string },
+  rerender: () => void,
+): void {
   switch (result.action) {
     case 'navigate_space': {
       const spaceId = result.params?.spaceId as string;
@@ -390,7 +422,10 @@ function executeAIAction(result: { action: string; params?: Record<string, unkno
   }
 }
 
-function buildCommands(app: App, rerender: () => void): { id: string; title: string; keywords: string; action: () => void }[] {
+function buildCommands(
+  app: App,
+  rerender: () => void,
+): { id: string; title: string; keywords: string; action: () => void }[] {
   const cmds: { id: string; title: string; keywords: string; action: () => void }[] = [];
 
   // Panel navigation

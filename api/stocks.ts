@@ -6,12 +6,12 @@ function setCors(res: VercelResponse): VercelResponse {
 }
 
 interface FinnhubQuote {
-  c: number;  // current price
-  d: number;  // change
+  c: number; // current price
+  d: number; // change
   dp: number; // change percent
-  h: number;  // high
-  l: number;  // low
-  o: number;  // open
+  h: number; // high
+  l: number; // low
+  o: number; // open
   pc: number; // previous close
 }
 
@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
         );
         if (!response.ok) throw new Error(`Finnhub error for ${symbol}`);
-        const data = await response.json() as FinnhubQuote;
+        const data = (await response.json()) as FinnhubQuote;
 
         // Filter invalid symbols (c=0 means no data)
         if (data.c === 0 || data.d === null) return null;
@@ -81,14 +81,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     const quotes = results
-      .filter((r): r is PromiseFulfilledResult<NonNullable<Awaited<ReturnType<typeof Object>>>> =>
-        r.status === 'fulfilled' && r.value !== null,
+      .filter(
+        (r): r is PromiseFulfilledResult<NonNullable<Awaited<ReturnType<typeof Object>>>> =>
+          r.status === 'fulfilled' && r.value !== null,
       )
       .map((r) => r.value);
 
-    return res
-      .setHeader('Cache-Control', 'max-age=60')
-      .json({ quotes, timestamp: Date.now() });
+    return res.setHeader('Cache-Control', 'max-age=60').json({ quotes, timestamp: Date.now() });
   } catch (err) {
     console.error('Stocks API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Market data service error' });
@@ -115,7 +114,7 @@ async function handleTicker(res: VercelResponse, apiKey: string) {
             `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(s.symbol)}&token=${apiKey}`,
           );
           if (!response.ok) return null;
-          const data = await response.json() as FinnhubQuote;
+          const data = (await response.json()) as FinnhubQuote;
           if (data.c === 0 || data.d === null) return null;
           return {
             symbol: s.symbol,
@@ -127,11 +126,22 @@ async function handleTicker(res: VercelResponse, apiKey: string) {
           };
         }),
       ),
-      fetch(`https://finnhub.io/api/v1/forex/rates?base=USD&token=${apiKey}`).then(r => r.json()) as Promise<{ quote?: Record<string, number> }>,
-      fetch(`https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${apiKey}`).then(r => r.json()) as Promise<{ isOpen?: boolean; session?: string }>,
+      fetch(`https://finnhub.io/api/v1/forex/rates?base=USD&token=${apiKey}`).then((r) => r.json()) as Promise<{
+        quote?: Record<string, number>;
+      }>,
+      fetch(`https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${apiKey}`).then((r) =>
+        r.json(),
+      ) as Promise<{ isOpen?: boolean; session?: string }>,
     ]);
 
-    const items: Array<{ symbol: string; label: string; price: number; change: number; changePercent: number; type: string }> = [];
+    const items: Array<{
+      symbol: string;
+      label: string;
+      price: number;
+      change: number;
+      changePercent: number;
+      type: string;
+    }> = [];
 
     // Process quotes
     if (quoteResults.status === 'fulfilled') {
@@ -187,9 +197,7 @@ async function handleTicker(res: VercelResponse, apiKey: string) {
       marketStatus = { isOpen, session };
     }
 
-    return res
-      .setHeader('Cache-Control', 'max-age=30')
-      .json({ items, marketStatus });
+    return res.setHeader('Cache-Control', 'max-age=30').json({ items, marketStatus });
   } catch (err) {
     console.error('Stocks API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Market data service error' });
@@ -213,7 +221,7 @@ async function handleSparklines(req: VercelRequest, res: VercelResponse, apiKey:
           `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=60&from=${from}&to=${now}&token=${apiKey}`,
         );
         if (!response.ok) return { symbol, prices: [] };
-        const data = await response.json() as { s?: string; c?: number[] };
+        const data = (await response.json()) as { s?: string; c?: number[] };
         if (data.s === 'no_data' || !data.c) return { symbol, prices: [] };
         return { symbol, prices: data.c };
       }),
@@ -226,9 +234,7 @@ async function handleSparklines(req: VercelRequest, res: VercelResponse, apiKey:
       }
     }
 
-    return res
-      .setHeader('Cache-Control', 'max-age=300')
-      .json({ sparklines });
+    return res.setHeader('Cache-Control', 'max-age=300').json({ sparklines });
   } catch (err) {
     console.error('Stocks API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Market data service error' });
@@ -264,23 +270,29 @@ async function handleCandle(req: VercelRequest, res: VercelResponse, apiKey: str
       return res.status(response.status).json({ error: 'Candle request failed' });
     }
 
-    const data = await response.json() as { s?: string; t?: number[]; c?: number[]; h?: number[]; l?: number[]; o?: number[]; v?: number[] };
+    const data = (await response.json()) as {
+      s?: string;
+      t?: number[];
+      c?: number[];
+      h?: number[];
+      l?: number[];
+      o?: number[];
+      v?: number[];
+    };
     if (data.s === 'no_data') {
       return res.json({ candles: { t: [], c: [], h: [], l: [], o: [], v: [] } });
     }
 
-    return res
-      .setHeader('Cache-Control', 'max-age=300')
-      .json({
-        candles: {
-          t: data.t || [],
-          c: data.c || [],
-          h: data.h || [],
-          l: data.l || [],
-          o: data.o || [],
-          v: data.v || [],
-        },
-      });
+    return res.setHeader('Cache-Control', 'max-age=300').json({
+      candles: {
+        t: data.t || [],
+        c: data.c || [],
+        h: data.h || [],
+        l: data.l || [],
+        o: data.o || [],
+        v: data.v || [],
+      },
+    });
   } catch (err) {
     console.error('Stocks API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Market data service error' });
@@ -304,26 +316,35 @@ async function handleCompanyNews(req: VercelRequest, res: VercelResponse, apiKey
       return res.status(response.status).json({ error: 'Company news request failed' });
     }
 
-    const data = await response.json() as { headline: string; summary: string; url: string; source: string; datetime: number; image: string }[];
-    const news = (Array.isArray(data) ? data : []).slice(0, 10).map((item: {
+    const data = (await response.json()) as {
       headline: string;
       summary: string;
       url: string;
       source: string;
       datetime: number;
       image: string;
-    }) => ({
-      headline: item.headline || '',
-      summary: item.summary || '',
-      url: item.url || '',
-      source: item.source || '',
-      datetime: item.datetime || 0,
-      image: item.image || '',
-    }));
+    }[];
+    const news = (Array.isArray(data) ? data : [])
+      .slice(0, 10)
+      .map(
+        (item: {
+          headline: string;
+          summary: string;
+          url: string;
+          source: string;
+          datetime: number;
+          image: string;
+        }) => ({
+          headline: item.headline || '',
+          summary: item.summary || '',
+          url: item.url || '',
+          source: item.source || '',
+          datetime: item.datetime || 0,
+          image: item.image || '',
+        }),
+      );
 
-    return res
-      .setHeader('Cache-Control', 'max-age=600')
-      .json({ news });
+    return res.setHeader('Cache-Control', 'max-age=600').json({ news });
   } catch (err) {
     console.error('Stocks API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Market data service error' });
@@ -342,19 +363,24 @@ async function handleProfile(req: VercelRequest, res: VercelResponse, apiKey: st
     if (!response.ok) {
       return res.status(response.status).json({ error: 'Profile request failed' });
     }
-    const data = await response.json() as { name?: string; ticker?: string; logo?: string; finnhubIndustry?: string; marketCapitalization?: number; weburl?: string };
-    return res
-      .setHeader('Cache-Control', 'max-age=86400')
-      .json({
-        profile: {
-          name: data.name || '',
-          ticker: data.ticker || symbol,
-          logo: data.logo || '',
-          industry: data.finnhubIndustry || '',
-          marketCap: data.marketCapitalization || 0,
-          weburl: data.weburl || '',
-        },
-      });
+    const data = (await response.json()) as {
+      name?: string;
+      ticker?: string;
+      logo?: string;
+      finnhubIndustry?: string;
+      marketCapitalization?: number;
+      weburl?: string;
+    };
+    return res.setHeader('Cache-Control', 'max-age=86400').json({
+      profile: {
+        name: data.name || '',
+        ticker: data.ticker || symbol,
+        logo: data.logo || '',
+        industry: data.finnhubIndustry || '',
+        marketCap: data.marketCapitalization || 0,
+        weburl: data.weburl || '',
+      },
+    });
   } catch (err) {
     console.error('Stocks API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Market data service error' });
@@ -373,20 +399,18 @@ async function handleMetrics(req: VercelRequest, res: VercelResponse, apiKey: st
     if (!response.ok) {
       return res.status(response.status).json({ error: 'Metrics request failed' });
     }
-    const data = await response.json() as { metric?: Record<string, number> };
+    const data = (await response.json()) as { metric?: Record<string, number> };
     const m = data.metric || {};
-    return res
-      .setHeader('Cache-Control', 'max-age=3600')
-      .json({
-        metrics: {
-          marketCap: m.marketCapitalization || 0,
-          peRatio: m.peNormalizedAnnual || m.peBasicExclExtraTTM || 0,
-          eps: m.epsNormalizedAnnual || m.epsBasicExclExtraItemsTTM || 0,
-          high52w: m['52WeekHigh'] || 0,
-          low52w: m['52WeekLow'] || 0,
-          beta: m.beta || 0,
-        },
-      });
+    return res.setHeader('Cache-Control', 'max-age=3600').json({
+      metrics: {
+        marketCap: m.marketCapitalization || 0,
+        peRatio: m.peNormalizedAnnual || m.peBasicExclExtraTTM || 0,
+        eps: m.epsNormalizedAnnual || m.epsBasicExclExtraItemsTTM || 0,
+        high52w: m['52WeekHigh'] || 0,
+        low52w: m['52WeekLow'] || 0,
+        beta: m.beta || 0,
+      },
+    });
   } catch (err) {
     console.error('Stocks API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Market data service error' });
@@ -403,14 +427,12 @@ async function handleSearch(req: VercelRequest, res: VercelResponse, apiKey: str
   }
 
   try {
-    const response = await fetch(
-      `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${apiKey}`,
-    );
+    const response = await fetch(`https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${apiKey}`);
     if (!response.ok) {
       return res.status(response.status).json({ error: 'Search request failed' });
     }
 
-    const data = await response.json() as { result?: { symbol: string; description: string; type: string }[] };
+    const data = (await response.json()) as { result?: { symbol: string; description: string; type: string }[] };
     const results = (data.result ?? [])
       .filter((r: { type: string }) => r.type === 'Common Stock')
       .slice(0, 8)

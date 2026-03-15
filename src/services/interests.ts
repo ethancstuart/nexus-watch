@@ -38,9 +38,7 @@ export function autoPopulateInterests(): void {
   // Auto-populate from weather locations
   const locations = storage.get<{ locations: { name?: string }[] } | null>('dashview-locations', null);
   if (locations?.locations && interests.cities.length === 0) {
-    interests.cities = locations.locations
-      .filter((l) => l.name)
-      .map((l) => l.name!);
+    interests.cities = locations.locations.filter((l) => l.name).map((l) => l.name!);
     changed = true;
   }
 

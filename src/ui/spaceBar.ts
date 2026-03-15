@@ -77,12 +77,7 @@ export function createSpaceBar(callbacks: SpaceBarCallbacks): HTMLElement {
   return bar;
 }
 
-function showContextMenu(
-  e: MouseEvent,
-  space: Space,
-  rerender: () => void,
-  callbacks: SpaceBarCallbacks,
-): void {
+function showContextMenu(e: MouseEvent, space: Space, rerender: () => void, callbacks: SpaceBarCallbacks): void {
   // Remove any existing context menu
   document.querySelectorAll('.space-context-menu').forEach((el) => el.remove());
 
@@ -112,7 +107,10 @@ function showContextMenu(
     }
   });
 
-  const deleteBtn = createElement('button', { className: 'space-context-item space-context-danger', textContent: 'Delete' });
+  const deleteBtn = createElement('button', {
+    className: 'space-context-item space-context-danger',
+    textContent: 'Delete',
+  });
   deleteBtn.addEventListener('click', () => {
     menu.remove();
     const spaces = getSpaces();

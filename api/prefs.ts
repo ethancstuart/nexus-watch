@@ -175,7 +175,7 @@ export default async function handler(req: Request) {
 
     let body: { data?: unknown; updatedAt?: number; baseUpdatedAt?: number };
     try {
-      body = await req.json() as { data?: unknown; updatedAt?: number; baseUpdatedAt?: number };
+      body = (await req.json()) as { data?: unknown; updatedAt?: number; baseUpdatedAt?: number };
     } catch {
       return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
         status: 400,
@@ -216,10 +216,10 @@ export default async function handler(req: Request) {
           let existing = JSON.parse(kv.result);
           if (typeof existing === 'string') existing = JSON.parse(existing);
           if (existing.updatedAt && existing.updatedAt !== body.baseUpdatedAt) {
-            return new Response(
-              JSON.stringify({ conflict: true, server: existing }),
-              { status: 409, headers: CORS_HEADERS },
-            );
+            return new Response(JSON.stringify({ conflict: true, server: existing }), {
+              status: 409,
+              headers: CORS_HEADERS,
+            });
           }
         }
       } catch {

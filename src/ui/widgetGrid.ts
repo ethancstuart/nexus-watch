@@ -1,10 +1,6 @@
 import { createElement } from '../utils/dom.ts';
 import type { Panel } from '../panels/Panel.ts';
-import {
-  getSpaces,
-  updateWidgetPlacement,
-  colSpanToSize,
-} from '../services/spaces.ts';
+import { getSpaces, updateWidgetPlacement, colSpanToSize } from '../services/spaces.ts';
 import type { Space } from '../types/index.ts';
 
 const MIN_COL_SPAN = 3;
@@ -41,11 +37,7 @@ function getGridMetrics(grid: HTMLElement): GridMetrics {
   };
 }
 
-function cellFromPoint(
-  x: number,
-  y: number,
-  metrics: GridMetrics,
-): { col: number; row: number } {
+function cellFromPoint(x: number, y: number, metrics: GridMetrics): { col: number; row: number } {
   const relX = x - metrics.gridLeft;
   const relY = y - metrics.gridTop;
   const cellWidth = metrics.colWidth + metrics.gap;
@@ -73,13 +65,7 @@ function removeGhostGrid(grid: HTMLElement): void {
   grid.querySelector('.space-grid-ghost')?.remove();
 }
 
-function showGhostPreview(
-  ghost: HTMLElement,
-  col: number,
-  row: number,
-  colSpan: number,
-  rowSpan: number,
-): void {
+function showGhostPreview(ghost: HTMLElement, col: number, row: number, colSpan: number, rowSpan: number): void {
   let preview = ghost.querySelector('.space-grid-ghost-preview') as HTMLElement | null;
   if (!preview) {
     preview = createElement('div', { className: 'space-grid-ghost-preview' });
@@ -115,11 +101,7 @@ let activeAbortController: AbortController | null = null;
 
 // ─── Render Space ────────────────────────────────────────────────
 
-export function renderSpace(
-  container: HTMLElement,
-  space: Space,
-  panels: Map<string, Panel>,
-): void {
+export function renderSpace(container: HTMLElement, space: Space, panels: Map<string, Panel>): void {
   // Abort previous listeners to prevent accumulation
   if (activeAbortController) {
     activeAbortController.abort();
@@ -158,11 +140,7 @@ export function renderSpace(
 
 // ─── Update Placements In-Place ─────────────────────────────────
 
-function updatePlacementsInPlace(
-  _container: HTMLElement,
-  space: Space,
-  panels: Map<string, Panel>,
-): void {
+function updatePlacementsInPlace(_container: HTMLElement, space: Space, panels: Map<string, Panel>): void {
   for (const widget of space.widgets) {
     const panel = panels.get(widget.panelId);
     if (!panel) continue;
@@ -195,12 +173,7 @@ function addResizeHandles(card: HTMLElement): void {
 
 // ─── Drag to Place ───────────────────────────────────────────────
 
-function initDragToPlace(
-  grid: HTMLElement,
-  spaceId: string,
-  panels: Map<string, Panel>,
-  signal: AbortSignal,
-): void {
+function initDragToPlace(grid: HTMLElement, spaceId: string, panels: Map<string, Panel>, signal: AbortSignal): void {
   const panelCards = grid.querySelectorAll('.panel-card[data-panel-id]');
 
   for (const card of panelCards) {
@@ -218,18 +191,26 @@ function initDragToPlace(
     }
 
     // Drag from entire header — not just the grip icon
-    header.addEventListener('mousedown', (e: MouseEvent) => {
-      // Don't start drag from collapse button
-      if ((e.target as HTMLElement).closest('.panel-collapse-btn')) return;
-      e.preventDefault();
-      startDrag(e.clientX, e.clientY, el, grid, spaceId, panels);
-    }, { signal });
+    header.addEventListener(
+      'mousedown',
+      (e: MouseEvent) => {
+        // Don't start drag from collapse button
+        if ((e.target as HTMLElement).closest('.panel-collapse-btn')) return;
+        e.preventDefault();
+        startDrag(e.clientX, e.clientY, el, grid, spaceId, panels);
+      },
+      { signal },
+    );
 
-    header.addEventListener('touchstart', (e: TouchEvent) => {
-      if ((e.target as HTMLElement).closest('.panel-collapse-btn')) return;
-      const touch = e.touches[0];
-      startDrag(touch.clientX, touch.clientY, el, grid, spaceId, panels);
-    }, { passive: true, signal });
+    header.addEventListener(
+      'touchstart',
+      (e: TouchEvent) => {
+        if ((e.target as HTMLElement).closest('.panel-collapse-btn')) return;
+        const touch = e.touches[0];
+        startDrag(touch.clientX, touch.clientY, el, grid, spaceId, panels);
+      },
+      { passive: true, signal },
+    );
   }
 }
 
@@ -315,7 +296,14 @@ function startDrag(
     if (!dragActive) return;
 
     // Suppress the click that follows mouseup to prevent header collapse toggle
-    card.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); }, { once: true, capture: true });
+    card.addEventListener(
+      'click',
+      (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      },
+      { once: true, capture: true },
+    );
 
     const target = cellFromPoint(x, y, cachedMetrics);
     const newCol = Math.max(1, Math.min(cachedMetrics.colCount - wColSpan + 1, target.col));
@@ -331,8 +319,12 @@ function startDrag(
     }
   }
 
-  function handleMouseMove(e: MouseEvent) { onMove(e.clientX, e.clientY); }
-  function handleMouseUp(e: MouseEvent) { onEnd(e.clientX, e.clientY); }
+  function handleMouseMove(e: MouseEvent) {
+    onMove(e.clientX, e.clientY);
+  }
+  function handleMouseUp(e: MouseEvent) {
+    onEnd(e.clientX, e.clientY);
+  }
   function handleTouchMove(e: TouchEvent) {
     e.preventDefault();
     const t = e.touches[0];
@@ -351,12 +343,7 @@ function startDrag(
 
 // ─── Edge Resize ─────────────────────────────────────────────────
 
-function initEdgeResize(
-  grid: HTMLElement,
-  spaceId: string,
-  panels: Map<string, Panel>,
-  signal: AbortSignal,
-): void {
+function initEdgeResize(grid: HTMLElement, spaceId: string, panels: Map<string, Panel>, signal: AbortSignal): void {
   const panelCards = grid.querySelectorAll('.panel-card[data-panel-id]');
 
   for (const card of panelCards) {
@@ -366,37 +353,61 @@ function initEdgeResize(
     const cornerHandle = el.querySelector('.widget-resize-corner');
 
     if (rightHandle) {
-      rightHandle.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        startResize(e as MouseEvent, el, grid, spaceId, panels, 'right');
-      }, { signal });
-      rightHandle.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        startResize(e as TouchEvent, el, grid, spaceId, panels, 'right');
-      }, { passive: true, signal });
+      rightHandle.addEventListener(
+        'mousedown',
+        (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          startResize(e as MouseEvent, el, grid, spaceId, panels, 'right');
+        },
+        { signal },
+      );
+      rightHandle.addEventListener(
+        'touchstart',
+        (e) => {
+          e.stopPropagation();
+          startResize(e as TouchEvent, el, grid, spaceId, panels, 'right');
+        },
+        { passive: true, signal },
+      );
     }
     if (bottomHandle) {
-      bottomHandle.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        startResize(e as MouseEvent, el, grid, spaceId, panels, 'bottom');
-      }, { signal });
-      bottomHandle.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        startResize(e as TouchEvent, el, grid, spaceId, panels, 'bottom');
-      }, { passive: true, signal });
+      bottomHandle.addEventListener(
+        'mousedown',
+        (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          startResize(e as MouseEvent, el, grid, spaceId, panels, 'bottom');
+        },
+        { signal },
+      );
+      bottomHandle.addEventListener(
+        'touchstart',
+        (e) => {
+          e.stopPropagation();
+          startResize(e as TouchEvent, el, grid, spaceId, panels, 'bottom');
+        },
+        { passive: true, signal },
+      );
     }
     if (cornerHandle) {
-      cornerHandle.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        startResize(e as MouseEvent, el, grid, spaceId, panels, 'corner');
-      }, { signal });
-      cornerHandle.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        startResize(e as TouchEvent, el, grid, spaceId, panels, 'corner');
-      }, { passive: true, signal });
+      cornerHandle.addEventListener(
+        'mousedown',
+        (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          startResize(e as MouseEvent, el, grid, spaceId, panels, 'corner');
+        },
+        { signal },
+      );
+      cornerHandle.addEventListener(
+        'touchstart',
+        (e) => {
+          e.stopPropagation();
+          startResize(e as TouchEvent, el, grid, spaceId, panels, 'corner');
+        },
+        { passive: true, signal },
+      );
     }
   }
 }
@@ -419,8 +430,12 @@ function startResize(
   if (!widget) return;
 
   const panel = panels.get(panelId);
-  const minColSpan = panel && !panel.supportedSizes.includes('compact') ?
-    (panel.supportedSizes.includes('medium') ? 5 : 9) : MIN_COL_SPAN;
+  const minColSpan =
+    panel && !panel.supportedSizes.includes('compact')
+      ? panel.supportedSizes.includes('medium')
+        ? 5
+        : 9
+      : MIN_COL_SPAN;
 
   const wCol = widget.col;
   const wRow = widget.row;
@@ -494,8 +509,12 @@ function startResize(
     }
   }
 
-  function handleMouseMove(e: MouseEvent) { onMove(e.clientX, e.clientY); }
-  function handleMouseUp(e: MouseEvent) { onEnd(e.clientX, e.clientY); }
+  function handleMouseMove(e: MouseEvent) {
+    onMove(e.clientX, e.clientY);
+  }
+  function handleMouseUp(e: MouseEvent) {
+    onEnd(e.clientX, e.clientY);
+  }
   function handleTouchMove(e: TouchEvent) {
     e.preventDefault();
     const t = e.touches[0];

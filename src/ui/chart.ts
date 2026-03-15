@@ -18,11 +18,19 @@ export function renderSparkline(
   const isUp = prices[prices.length - 1] >= prices[0];
   const lineColor = opts?.color ?? (isUp ? '#22c55e' : '#ef4444');
 
-  let min = prices[0], max = prices[0];
-  let minIdx = 0, maxIdx = 0;
+  let min = prices[0],
+    max = prices[0];
+  let minIdx = 0,
+    maxIdx = 0;
   for (let i = 1; i < prices.length; i++) {
-    if (prices[i] < min) { min = prices[i]; minIdx = i; }
-    if (prices[i] > max) { max = prices[i]; maxIdx = i; }
+    if (prices[i] < min) {
+      min = prices[i];
+      minIdx = i;
+    }
+    if (prices[i] > max) {
+      max = prices[i];
+      maxIdx = i;
+    }
   }
   const range = max - min || 1;
   const pad = opts?.showDots ? 14 : 2;
@@ -54,7 +62,10 @@ export function renderSparkline(
 
   // Min/max dots
   if (opts?.showDots) {
-    for (const [idx, color] of [[maxIdx, '#22c55e'], [minIdx, '#3b82f6']] as [number, string][]) {
+    for (const [idx, color] of [
+      [maxIdx, '#22c55e'],
+      [minIdx, '#3b82f6'],
+    ] as [number, string][]) {
       const x = toX(idx);
       const y = toY(prices[idx]);
       ctx.beginPath();
@@ -105,7 +116,8 @@ export function renderChart(
   const plotW = w - padding.left - padding.right;
   const plotH = h - padding.top - padding.bottom;
 
-  let minPrice = prices[0], maxPrice = prices[0];
+  let minPrice = prices[0],
+    maxPrice = prices[0];
   for (let i = 1; i < prices.length; i++) {
     if (prices[i] < minPrice) minPrice = prices[i];
     if (prices[i] > maxPrice) maxPrice = prices[i];

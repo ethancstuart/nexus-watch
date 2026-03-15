@@ -80,12 +80,16 @@ export class StocksPanel extends Panel {
 
   override async startDataCycle(): Promise<void> {
     await super.startDataCycle();
-    document.addEventListener('dashview:storage-changed', ((e: CustomEvent) => {
-      if (e.detail?.key === WATCHLIST_KEY) {
-        this.watchlist = storage.get<string[]>(WATCHLIST_KEY, DEFAULT_WATCHLIST);
-        void this.refresh();
-      }
-    }) as EventListener, { signal: this.cycleAbort!.signal });
+    document.addEventListener(
+      'dashview:storage-changed',
+      ((e: CustomEvent) => {
+        if (e.detail?.key === WATCHLIST_KEY) {
+          this.watchlist = storage.get<string[]>(WATCHLIST_KEY, DEFAULT_WATCHLIST);
+          void this.refresh();
+        }
+      }) as EventListener,
+      { signal: this.cycleAbort!.signal },
+    );
   }
 
   destroy(): void {
@@ -161,7 +165,12 @@ export class StocksPanel extends Panel {
     // Click to toggle detail view
     row.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
-      if (target.closest('.stocks-row-remove') || target.closest('.stocks-row-star') || target.closest('.stocks-row-grip')) return;
+      if (
+        target.closest('.stocks-row-remove') ||
+        target.closest('.stocks-row-star') ||
+        target.closest('.stocks-row-grip')
+      )
+        return;
       if (this.selectedSymbol === q.symbol) {
         this.selectedSymbol = null;
         this.detailNews = null;
@@ -182,7 +191,9 @@ export class StocksPanel extends Panel {
       className: 'stocks-row-grip',
       textContent: '\u2630',
     });
-    grip.addEventListener('mousedown', () => { this.gripActive = true; });
+    grip.addEventListener('mousedown', () => {
+      this.gripActive = true;
+    });
 
     row.addEventListener('dragstart', (e) => {
       if (!this.gripActive) {
@@ -290,7 +301,6 @@ export class StocksPanel extends Panel {
     row.appendChild(chevron);
     return row;
   }
-
 
   private reorderWatchlist(from: number, to: number): void {
     const [symbol] = this.watchlist.splice(from, 1);

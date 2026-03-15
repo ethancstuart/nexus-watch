@@ -35,7 +35,9 @@
   white-space: nowrap;
   cursor: pointer;
   flex-shrink: 0;
-  transition: border-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
   animation: pulseItemIn 0.3s ease;
 }
 
@@ -56,27 +58,27 @@
 }
 
 /* Category-colored left borders */
-.pulse-item[data-type="market"] {
+.pulse-item[data-type='market'] {
   border-left: 2px solid var(--color-accent);
 }
 
-.pulse-item[data-type="crypto"] {
+.pulse-item[data-type='crypto'] {
   border-left: 2px solid var(--color-accent);
 }
 
-.pulse-item[data-type="weather"] {
+.pulse-item[data-type='weather'] {
   border-left: 2px solid var(--color-positive);
 }
 
-.pulse-item[data-type="news"] {
+.pulse-item[data-type='news'] {
   border-left: 2px solid var(--color-positive);
 }
 
-.pulse-item[data-type="sports"] {
+.pulse-item[data-type='sports'] {
   border-left: 2px solid #8b5cf6;
 }
 
-.pulse-item[data-type="calendar"] {
+.pulse-item[data-type='calendar'] {
   border-left: 2px solid var(--color-text-muted);
 }
 

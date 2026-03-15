@@ -51,12 +51,10 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
 
   try {
     const endpoint = TAB_ENDPOINTS[tab];
-    const resp = await fetch(
-      `https://api.themoviedb.org/3${endpoint}?api_key=${apiKey}&language=en-US&page=1`,
-    );
-    const data = await resp.json() as { results: TMDBResult[] };
+    const resp = await fetch(`https://api.themoviedb.org/3${endpoint}?api_key=${apiKey}&language=en-US&page=1`);
+    const data = (await resp.json()) as { results: TMDBResult[] };
 
-    const items = (data.results)
+    const items = data.results
       .filter((r) => r.media_type !== 'person')
       .slice(0, 20)
       .map((r) => {

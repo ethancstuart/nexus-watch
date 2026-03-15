@@ -1,5 +1,13 @@
 import { fetchWithRetry } from '../utils/fetch.ts';
-import type { StockQuote, StocksData, SymbolSearchResult, CandleData, CompanyNews, CompanyProfile, KeyMetrics } from '../types/index.ts';
+import type {
+  StockQuote,
+  StocksData,
+  SymbolSearchResult,
+  CandleData,
+  CompanyNews,
+  CompanyProfile,
+  KeyMetrics,
+} from '../types/index.ts';
 
 export async function fetchStocks(watchlist: string[]): Promise<StocksData> {
   const res = await fetchWithRetry(`/api/stocks?symbols=${watchlist.join(',')}`);
@@ -16,12 +24,7 @@ export async function searchSymbols(query: string): Promise<SymbolSearchResult[]
   return data.results as SymbolSearchResult[];
 }
 
-export async function fetchCandles(
-  symbol: string,
-  resolution: string,
-  from: number,
-  to: number,
-): Promise<CandleData> {
+export async function fetchCandles(symbol: string, resolution: string, from: number, to: number): Promise<CandleData> {
   const res = await fetchWithRetry(
     `/api/stocks?action=candle&symbol=${encodeURIComponent(symbol)}&resolution=${encodeURIComponent(resolution)}&from=${from}&to=${to}`,
   );
@@ -30,11 +33,7 @@ export async function fetchCandles(
   return data.candles as CandleData;
 }
 
-export async function fetchCompanyNews(
-  symbol: string,
-  fromDate: string,
-  toDate: string,
-): Promise<CompanyNews[]> {
+export async function fetchCompanyNews(symbol: string, fromDate: string, toDate: string): Promise<CompanyNews[]> {
   const res = await fetchWithRetry(
     `/api/stocks?action=news&symbol=${encodeURIComponent(symbol)}&from=${fromDate}&to=${toDate}`,
   );
@@ -44,18 +43,14 @@ export async function fetchCompanyNews(
 }
 
 export async function fetchProfile(symbol: string): Promise<CompanyProfile> {
-  const res = await fetchWithRetry(
-    `/api/stocks?action=profile&symbol=${encodeURIComponent(symbol)}`,
-  );
+  const res = await fetchWithRetry(`/api/stocks?action=profile&symbol=${encodeURIComponent(symbol)}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data.profile as CompanyProfile;
 }
 
 export async function fetchMetrics(symbol: string): Promise<KeyMetrics> {
-  const res = await fetchWithRetry(
-    `/api/stocks?action=metrics&symbol=${encodeURIComponent(symbol)}`,
-  );
+  const res = await fetchWithRetry(`/api/stocks?action=metrics&symbol=${encodeURIComponent(symbol)}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data.metrics as KeyMetrics;

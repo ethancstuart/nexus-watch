@@ -11,7 +11,9 @@
   scrollbar-width: none;
 }
 
-.ticker-bar::-webkit-scrollbar { display: none; }
+.ticker-bar::-webkit-scrollbar {
+  display: none;
+}
 
 .ticker-cards {
   display: flex;
@@ -69,10 +71,20 @@
   flex-shrink: 0;
 }
 
-.ticker-positive { color: var(--color-positive); }
-.ticker-negative { color: var(--color-negative); }
+.ticker-positive {
+  color: var(--color-positive);
+}
+.ticker-negative {
+  color: var(--color-negative);
+}
 
 @media (max-width: 768px) {
-  .ticker-bar { padding: 6px 8px; gap: 6px; }
-  .ticker-card { min-width: 150px; padding: 6px 10px; }
+  .ticker-bar {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .ticker-card {
+    min-width: 150px;
+    padding: 6px 10px;
+  }
 }

@@ -164,7 +164,7 @@ Respond ONLY with the JSON object, no markdown or explanation.`;
       });
     }
 
-    const data = await res.json() as { content?: { type: string; text: string }[] };
+    const data = (await res.json()) as { content?: { type: string; text: string }[] };
     const text = (data.content || [])
       .filter((b: { type: string }) => b.type === 'text')
       .map((b: { text: string }) => b.text)

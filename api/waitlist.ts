@@ -72,7 +72,7 @@ export default async function handler(req: Request) {
         const rlRes = await fetch(`${kvUrl}/get/${rlKey}`, {
           headers: { Authorization: `Bearer ${kvToken}` },
         });
-        const rlData = await rlRes.json() as { result: string | null };
+        const rlData = (await rlRes.json()) as { result: string | null };
         if (rlData.result) {
           return new Response(JSON.stringify({ error: 'Please wait before submitting again' }), {
             status: 429,
@@ -104,10 +104,9 @@ export default async function handler(req: Request) {
       }
     }
 
-    return new Response(
-      JSON.stringify({ message: "You're on the list! We'll be in touch." }),
-      { headers: CORS_HEADERS },
-    );
+    return new Response(JSON.stringify({ message: "You're on the list! We'll be in touch." }), {
+      headers: CORS_HEADERS,
+    });
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid request body' }), {
       status: 400,

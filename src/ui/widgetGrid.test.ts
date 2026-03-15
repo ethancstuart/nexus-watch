@@ -47,7 +47,7 @@ describe('resolveCollisions for grid', () => {
       { panelId: 'b', size: 'large', col: 1, row: 1, colSpan: 12, rowSpan: 5 },
     ];
     const result = resolveCollisions(widgets);
-    const rows = result.map(w => w.row).sort((a, b) => a - b);
+    const rows = result.map((w) => w.row).sort((a, b) => a - b);
     expect(rows[0]).toBe(1);
     expect(rows[1]).toBe(6); // pushed below first widget
   });
@@ -55,9 +55,7 @@ describe('resolveCollisions for grid', () => {
 
 describe('compactLayout for grid', () => {
   it('compacts a lone widget to row 1', () => {
-    const widgets: SpaceWidget[] = [
-      { panelId: 'a', size: 'compact', col: 5, row: 20, colSpan: 3, rowSpan: 4 },
-    ];
+    const widgets: SpaceWidget[] = [{ panelId: 'a', size: 'compact', col: 5, row: 20, colSpan: 3, rowSpan: 4 }];
     const result = compactLayout(widgets);
     expect(result[0].row).toBe(1);
     expect(result[0].col).toBe(5); // col unchanged
@@ -69,8 +67,8 @@ describe('compactLayout for grid', () => {
       { panelId: 'b', size: 'large', col: 1, row: 20, colSpan: 12, rowSpan: 5 },
     ];
     const result = compactLayout(widgets);
-    const a = result.find(w => w.panelId === 'a')!;
-    const b = result.find(w => w.panelId === 'b')!;
+    const a = result.find((w) => w.panelId === 'a')!;
+    const b = result.find((w) => w.panelId === 'b')!;
     expect(a.row).toBe(1);
     expect(b.row).toBeLessThanOrEqual(6);
     // No overlap

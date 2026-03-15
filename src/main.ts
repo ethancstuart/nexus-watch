@@ -20,40 +20,50 @@ function showRouteError(root: HTMLElement, err: unknown) {
 
 router
   .on('/', () => {
-    import('./pages/landing.ts').then((m) => {
-      appRoot.textContent = '';
-      m.renderLanding(appRoot);
-    }).catch((err) => showRouteError(appRoot, err));
+    import('./pages/landing.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderLanding(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
   })
   .on('/app', () => {
-    import('./pages/dashboard.ts').then((m) => {
-      appRoot.textContent = '';
-      m.renderDashboard(appRoot);
-    }).catch((err) => showRouteError(appRoot, err));
+    import('./pages/dashboard.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderDashboard(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
   })
   .on('/roadmap', () => {
-    import('./pages/roadmap.ts').then((m) => {
-      appRoot.textContent = '';
-      m.renderRoadmap(appRoot);
-    }).catch((err) => showRouteError(appRoot, err));
+    import('./pages/roadmap.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderRoadmap(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
   })
   .on('/embed', () => {
-    import('./pages/embed.ts').then((m) => {
-      appRoot.textContent = '';
-      m.renderEmbed(appRoot);
-    }).catch((err) => showRouteError(appRoot, err));
+    import('./pages/embed.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderEmbed(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
   })
   .on('/import/:code', (params) => {
-    import('./pages/dashboard.ts').then((m) => {
-      appRoot.textContent = '';
-      m.renderDashboard(appRoot);
-      // After dashboard renders, open import modal
-      setTimeout(() => {
-        import('./ui/shareModal.ts').then((sm) => {
-          sm.openImportModal(params?.code || '');
-        });
-      }, 1000);
-    }).catch((err) => showRouteError(appRoot, err));
+    import('./pages/dashboard.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderDashboard(appRoot);
+        // After dashboard renders, open import modal
+        setTimeout(() => {
+          import('./ui/shareModal.ts').then((sm) => {
+            sm.openImportModal(params?.code || '');
+          });
+        }, 1000);
+      })
+      .catch((err) => showRouteError(appRoot, err));
   })
   .otherwise(() => router.navigate('/'))
   .start();

@@ -1,5 +1,11 @@
 const SENSITIVE_KEYS = ['dashview-user', 'dashview-session'];
-const SKIP_SYNC_KEYS = ['dashview-analytics', 'dashview-chat-messages', 'dashview:onboarding', 'dashview:install-dismissed', 'dashview-last-visit'];
+const SKIP_SYNC_KEYS = [
+  'dashview-analytics',
+  'dashview-chat-messages',
+  'dashview:onboarding',
+  'dashview:install-dismissed',
+  'dashview-last-visit',
+];
 const CONFIG_VERSION = 1;
 
 interface ExportedConfig {
@@ -36,7 +42,9 @@ export function exportConfig(includeAnalytics = false): void {
     try {
       const raw = localStorage.getItem('dashview-analytics');
       if (raw) data['dashview-analytics'] = JSON.parse(raw);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   const exported: ExportedConfig = {
@@ -98,12 +106,19 @@ export async function shareConfig(): Promise<{ code: string; expiresAt: number }
   return result as { code: string; expiresAt: number };
 }
 
-export async function importSharedConfig(code: string): Promise<{ success: boolean; message: string; preview?: Record<string, unknown> }> {
+export async function importSharedConfig(
+  code: string,
+): Promise<{ success: boolean; message: string; preview?: Record<string, unknown> }> {
   const res = await fetch(`/api/share?code=${encodeURIComponent(code)}`);
   const result = await res.json();
   if (!res.ok) return { success: false, message: result.error || 'Share not found' };
 
-  const shareData = result as { data: Record<string, unknown>; createdBy: string; createdAt: number; expiresAt: number };
+  const shareData = result as {
+    data: Record<string, unknown>;
+    createdBy: string;
+    createdAt: number;
+    expiresAt: number;
+  };
 
   // Return preview. The modal will call applySharedConfig to actually apply.
   return { success: true, message: 'Preview ready', preview: shareData.data };
@@ -113,7 +128,7 @@ export function applySharedConfig(data: Record<string, unknown>): { success: boo
   let count = 0;
   for (const [key, value] of Object.entries(data)) {
     if (!key.startsWith('dashview')) continue;
-    if (SENSITIVE_KEYS.some(s => key.includes(s))) continue;
+    if (SENSITIVE_KEYS.some((s) => key.includes(s))) continue;
     if (key.toLowerCase().includes('api') && key.toLowerCase().includes('key')) continue;
 
     const sanitized = sanitizeValue(value);
@@ -126,11 +141,11 @@ export function applySharedConfig(data: Record<string, unknown>): { success: boo
 function sanitizeValue(value: unknown): unknown {
   if (typeof value === 'string') {
     return value
-      .replace(/<[^>]*>/g, '')                          // Strip HTML tags
-      .replace(/javascript\s*:/gi, '')                   // Remove javascript: URIs
-      .replace(/on\w+\s*=/gi, '')                        // Remove event handler attributes
-      .replace(/\\u00[0-9a-f]{2}/gi, '')                 // Remove unicode escapes
-      .replace(/&#x?[0-9a-f]+;?/gi, '');                 // Remove HTML entities used for encoding
+      .replace(/<[^>]*>/g, '') // Strip HTML tags
+      .replace(/javascript\s*:/gi, '') // Remove javascript: URIs
+      .replace(/on\w+\s*=/gi, '') // Remove event handler attributes
+      .replace(/\\u00[0-9a-f]{2}/gi, '') // Remove unicode escapes
+      .replace(/&#x?[0-9a-f]+;?/gi, ''); // Remove HTML entities used for encoding
   }
   if (Array.isArray(value)) {
     return value.map(sanitizeValue);

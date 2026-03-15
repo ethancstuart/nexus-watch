@@ -63,15 +63,13 @@ describe('resolveCollisions', () => {
     const result = resolveCollisions(widgets);
     expect(result).toHaveLength(2);
     // One should stay at row 1, other pushed down
-    const rows = result.map(w => w.row).sort();
+    const rows = result.map((w) => w.row).sort();
     expect(rows[0]).toBe(1);
     expect(rows[1]).toBeGreaterThan(1);
   });
 
   it('handles single widget', () => {
-    const widgets: SpaceWidget[] = [
-      { panelId: 'a', size: 'compact', col: 1, row: 1, colSpan: 3, rowSpan: 4 },
-    ];
+    const widgets: SpaceWidget[] = [{ panelId: 'a', size: 'compact', col: 1, row: 1, colSpan: 3, rowSpan: 4 }];
     const result = resolveCollisions(widgets);
     expect(result).toHaveLength(1);
     expect(result[0].row).toBe(1);
@@ -84,9 +82,7 @@ describe('resolveCollisions', () => {
 
 describe('compactLayout', () => {
   it('compacts widgets upward to fill gaps', () => {
-    const widgets: SpaceWidget[] = [
-      { panelId: 'a', size: 'medium', col: 1, row: 5, colSpan: 6, rowSpan: 3 },
-    ];
+    const widgets: SpaceWidget[] = [{ panelId: 'a', size: 'medium', col: 1, row: 5, colSpan: 6, rowSpan: 3 }];
     const result = compactLayout(widgets);
     expect(result[0].row).toBe(1);
   });
@@ -98,7 +94,7 @@ describe('compactLayout', () => {
     ];
     const result = compactLayout(widgets);
     // b should compact to row 6 (right after a ends)
-    const bWidget = result.find(w => w.panelId === 'b')!;
+    const bWidget = result.find((w) => w.panelId === 'b')!;
     expect(bWidget.row).toBeLessThanOrEqual(6);
     expect(bWidget.row).toBeGreaterThanOrEqual(1);
   });
@@ -116,9 +112,7 @@ describe('addWidgetToSpace', () => {
         id: 'test-space',
         name: 'Test',
         icon: 'T',
-        widgets: [
-          { panelId: 'a', size: 'medium', col: 1, row: 1, colSpan: 6, rowSpan: 5 },
-        ],
+        widgets: [{ panelId: 'a', size: 'medium', col: 1, row: 1, colSpan: 6, rowSpan: 5 }],
       },
     ]);
 
@@ -140,9 +134,7 @@ describe('addWidgetToSpace', () => {
         id: 'test-space',
         name: 'Test',
         icon: 'T',
-        widgets: [
-          { panelId: 'a', size: 'medium', col: 1, row: 1, colSpan: 6, rowSpan: 5 },
-        ],
+        widgets: [{ panelId: 'a', size: 'medium', col: 1, row: 1, colSpan: 6, rowSpan: 5 }],
       },
     ]);
 
@@ -186,8 +178,11 @@ describe('updateWidgetPlacement', () => {
       for (let j = i + 1; j < widgets.length; j++) {
         const a = widgets[i];
         const b = widgets[j];
-        const overlaps = a.col < b.col + b.colSpan && a.col + a.colSpan > b.col &&
-                         a.row < b.row + b.rowSpan && a.row + a.rowSpan > b.row;
+        const overlaps =
+          a.col < b.col + b.colSpan &&
+          a.col + a.colSpan > b.col &&
+          a.row < b.row + b.rowSpan &&
+          a.row + a.rowSpan > b.row;
         expect(overlaps).toBe(false);
       }
     }
@@ -200,7 +195,7 @@ describe('getSpaces', () => {
     vi.mocked(storageModule.get).mockReturnValue(null);
     const spaces = getSpaces();
     expect(spaces.length).toBeGreaterThanOrEqual(4);
-    expect(spaces.some(s => s.id === 'overview')).toBe(true);
+    expect(spaces.some((s) => s.id === 'overview')).toBe(true);
   });
 
   it('widget at grid edge does not exceed 12 columns', () => {

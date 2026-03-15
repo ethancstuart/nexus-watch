@@ -75,7 +75,11 @@ function show(): void {
   let filtered = commands;
 
   // Pre-render all command items once
-  interface ItemEntry { el: HTMLElement; sectionEl: HTMLElement | null; cmd: Command }
+  interface ItemEntry {
+    el: HTMLElement;
+    sectionEl: HTMLElement | null;
+    cmd: Command;
+  }
   const allItems: ItemEntry[] = [];
   let currentSection = '';
 
@@ -379,7 +383,7 @@ function buildCommands(app: App): Command[] {
     section: 'Actions',
     keywords: 'share link export send url code',
     action: () => {
-      import('../ui/shareModal.ts').then(m => m.openShareModal());
+      import('../ui/shareModal.ts').then((m) => m.openShareModal());
     },
   });
 

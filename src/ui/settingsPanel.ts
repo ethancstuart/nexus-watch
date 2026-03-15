@@ -39,11 +39,15 @@ const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
 ];
 
 export function initSettingsPanel(app: App, signal?: AbortSignal): void {
-  document.addEventListener('dashview:open-settings', ((e: CustomEvent) => {
-    const tab = e.detail?.tab as SettingsTab | undefined;
-    if (tab) activeTab = tab;
-    openSettings(app, tab);
-  }) as EventListener, signal ? { signal } : undefined);
+  document.addEventListener(
+    'dashview:open-settings',
+    ((e: CustomEvent) => {
+      const tab = e.detail?.tab as SettingsTab | undefined;
+      if (tab) activeTab = tab;
+      openSettings(app, tab);
+    }) as EventListener,
+    signal ? { signal } : undefined,
+  );
 }
 
 function closeSettings(): void {
@@ -127,11 +131,21 @@ function openSettings(app: App, tab?: SettingsTab): void {
 function renderTabContent(body: HTMLElement, app: App): void {
   body.textContent = '';
   switch (activeTab) {
-    case 'general': renderGeneralTab(body, app); break;
-    case 'overview': renderOverviewTab(body, app); break;
-    case 'markets': renderMarketsTab(body); break;
-    case 'globe': renderGlobeTab(body); break;
-    case 'personal': renderPersonalTab(body); break;
+    case 'general':
+      renderGeneralTab(body, app);
+      break;
+    case 'overview':
+      renderOverviewTab(body, app);
+      break;
+    case 'markets':
+      renderMarketsTab(body);
+      break;
+    case 'globe':
+      renderGlobeTab(body);
+      break;
+    case 'personal':
+      renderPersonalTab(body);
+      break;
   }
 }
 
@@ -212,7 +226,10 @@ function renderGeneralTab(body: HTMLElement, app: App): void {
         };
         name.addEventListener('click', activateLoc);
         name.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateLoc(); }
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            activateLoc();
+          }
         });
         item.appendChild(name);
         if (locs.length > 1) {
@@ -253,18 +270,25 @@ function renderGeneralTab(body: HTMLElement, app: App): void {
         if (idx >= 0) weatherPanel.setActiveLocation(idx);
         input.value = '';
         renderLocs();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       goBtn.textContent = 'Add';
     };
     goBtn.addEventListener('click', () => void handleSearch());
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') void handleSearch(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void handleSearch();
+    });
   }
 
   // Units
   addSection(body, 'UNITS');
   const prefs = getPreferences();
   const tempRow = createElement('div', { className: 'settings-panel-radio-row' });
-  for (const opt of [{ id: 'F' as const, label: '\u00B0F' }, { id: 'C' as const, label: '\u00B0C' }]) {
+  for (const opt of [
+    { id: 'F' as const, label: '\u00B0F' },
+    { id: 'C' as const, label: '\u00B0C' },
+  ]) {
     const label = createElement('label', { className: 'settings-panel-radio' });
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -279,7 +303,10 @@ function renderGeneralTab(body: HTMLElement, app: App): void {
   body.appendChild(tempRow);
 
   const timeRow = createElement('div', { className: 'settings-panel-radio-row' });
-  for (const opt of [{ id: '12h' as const, label: '12h' }, { id: '24h' as const, label: '24h' }]) {
+  for (const opt of [
+    { id: '12h' as const, label: '12h' },
+    { id: '24h' as const, label: '24h' },
+  ]) {
     const label = createElement('label', { className: 'settings-panel-radio' });
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -360,13 +387,13 @@ function renderOverviewTab(body: HTMLElement, app: App): void {
   body.appendChild(hint);
 
   const spaces = getSpaces();
-  const overviewSpace = spaces.find(s => s.id === 'overview');
+  const overviewSpace = spaces.find((s) => s.id === 'overview');
   const allPanels = app.getPanels();
   const colSpanMap: Record<WidgetSize, number> = { compact: 3, medium: 6, large: 12 };
 
   for (const panel of allPanels) {
     const row = createElement('div', { className: 'settings-widget-row' });
-    const isInSpace = overviewSpace?.widgets.some(w => w.panelId === panel.id) ?? false;
+    const isInSpace = overviewSpace?.widgets.some((w) => w.panelId === panel.id) ?? false;
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -384,7 +411,7 @@ function renderOverviewTab(body: HTMLElement, app: App): void {
 
     const sizeSelect = document.createElement('select');
     sizeSelect.className = 'settings-widget-size';
-    const currentWidget = overviewSpace?.widgets.find(w => w.panelId === panel.id);
+    const currentWidget = overviewSpace?.widgets.find((w) => w.panelId === panel.id);
     for (const size of ['compact', 'medium', 'large'] as WidgetSize[]) {
       const opt = document.createElement('option');
       opt.value = size;
@@ -396,8 +423,8 @@ function renderOverviewTab(body: HTMLElement, app: App): void {
       const newSize = sizeSelect.value as WidgetSize;
       // Update the widget size in the space
       const spaces = getSpaces();
-      const space = spaces.find(s => s.id === 'overview');
-      const widget = space?.widgets.find(w => w.panelId === panel.id);
+      const space = spaces.find((s) => s.id === 'overview');
+      const widget = space?.widgets.find((w) => w.panelId === panel.id);
       if (widget) {
         widget.size = newSize;
         widget.colSpan = colSpanMap[newSize];
@@ -420,7 +447,12 @@ function renderOverviewTab(body: HTMLElement, app: App): void {
 
   const leagueRow = createElement('div', { className: 'settings-panel-radio-row' });
   const currentLeague = storage.get<string>('dashview-sports-league', 'nba');
-  for (const lg of [{ id: 'nba', label: 'NBA' }, { id: 'nfl', label: 'NFL' }, { id: 'mlb', label: 'MLB' }, { id: 'epl', label: 'EPL' }]) {
+  for (const lg of [
+    { id: 'nba', label: 'NBA' },
+    { id: 'nfl', label: 'NFL' },
+    { id: 'mlb', label: 'MLB' },
+    { id: 'epl', label: 'EPL' },
+  ]) {
     const label = createElement('label', { className: 'settings-panel-radio' });
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -450,7 +482,12 @@ function renderOverviewTab(body: HTMLElement, app: App): void {
 
   const entRow = createElement('div', { className: 'settings-panel-radio-row' });
   const currentEnt = storage.get<string>('dashview-entertainment-tab', 'trending');
-  for (const tab of [{ id: 'trending', label: 'Trending' }, { id: 'movies', label: 'Movies' }, { id: 'tv', label: 'TV' }, { id: 'upcoming', label: 'Upcoming' }]) {
+  for (const tab of [
+    { id: 'trending', label: 'Trending' },
+    { id: 'movies', label: 'Movies' },
+    { id: 'tv', label: 'TV' },
+    { id: 'upcoming', label: 'Upcoming' },
+  ]) {
     const label = createElement('label', { className: 'settings-panel-radio' });
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -481,7 +518,10 @@ function renderMarketsTab(body: HTMLElement): void {
     for (const symbol of currentList) {
       const row = createElement('div', { className: 'settings-watchlist-item' });
       const symbolEl = createElement('span', { className: 'settings-watchlist-symbol', textContent: symbol });
-      const nameEl = createElement('span', { className: 'settings-watchlist-name', textContent: nameCache[symbol] || '' });
+      const nameEl = createElement('span', {
+        className: 'settings-watchlist-name',
+        textContent: nameCache[symbol] || '',
+      });
 
       const isFav = favorites.has(symbol);
       const starBtn = createElement('button', {
@@ -502,7 +542,7 @@ function renderMarketsTab(body: HTMLElement): void {
       const removeBtn = createElement('button', { className: 'settings-watchlist-remove', textContent: '\u00D7' });
       removeBtn.addEventListener('click', () => {
         const list = storage.get<string[]>('dashview-watchlist', []);
-        const updated = list.filter(s => s !== symbol);
+        const updated = list.filter((s) => s !== symbol);
         storage.set('dashview-watchlist', updated);
         favorites.delete(symbol);
         storage.set('dashview-favorites', [...favorites]);
@@ -555,11 +595,17 @@ function renderMarketsTab(body: HTMLElement): void {
             for (const r of results.slice(0, 8)) {
               const row = createElement('div', { className: 'settings-search-result' });
               const sym = createElement('span', { className: 'settings-search-result-symbol', textContent: r.symbol });
-              const name = createElement('span', { className: 'settings-search-result-name', textContent: r.description });
+              const name = createElement('span', {
+                className: 'settings-search-result-name',
+                textContent: r.description,
+              });
               row.appendChild(sym);
               row.appendChild(name);
               if (!currentList.includes(r.symbol)) {
-                const addBtn = createElement('button', { className: 'settings-search-result-add', textContent: '+ Add' });
+                const addBtn = createElement('button', {
+                  className: 'settings-search-result-add',
+                  textContent: '+ Add',
+                });
                 addBtn.addEventListener('click', () => {
                   const list = storage.get<string[]>('dashview-watchlist', []);
                   if (list.length >= 10 || list.includes(r.symbol)) return;
@@ -588,7 +634,10 @@ function renderMarketsTab(body: HTMLElement): void {
 
   // Price Alerts
   addSection(body, 'PRICE ALERTS');
-  const alertsBtn = createElement('button', { className: 'settings-panel-action', textContent: `Manage Alerts (${getUntriggeredCount()} active)` });
+  const alertsBtn = createElement('button', {
+    className: 'settings-panel-action',
+    textContent: `Manage Alerts (${getUntriggeredCount()} active)`,
+  });
   alertsBtn.addEventListener('click', () => {
     closeSettings();
     openAlertsModal();
@@ -639,7 +688,7 @@ function renderGlobeTab(body: HTMLElement): void {
 
   function renderFeeds() {
     feedList.textContent = '';
-    const enabledFeeds = feeds.filter(f => f.enabled);
+    const enabledFeeds = feeds.filter((f) => f.enabled);
     if (enabledFeeds.length === 0) {
       const empty = createElement('div', { className: 'settings-panel-hint' });
       empty.textContent = 'No custom feeds enabled.';
@@ -650,7 +699,7 @@ function renderGlobeTab(body: HTMLElement): void {
         const nameEl = createElement('span', { className: 'settings-feed-name', textContent: feed.name });
         const removeBtn = createElement('button', { className: 'settings-feed-remove', textContent: '\u00D7' });
         removeBtn.addEventListener('click', () => {
-          feeds = feeds.filter(f => f.id !== feed.id);
+          feeds = feeds.filter((f) => f.id !== feed.id);
           saveCustomFeeds(feeds);
           renderFeeds();
         });
@@ -661,9 +710,7 @@ function renderGlobeTab(body: HTMLElement): void {
     }
 
     const limit = getCurrentTier() === 'premium' ? Infinity : 3;
-    const countText = limit === Infinity
-      ? `${enabledFeeds.length} feeds`
-      : `${enabledFeeds.length}/${limit} feeds`;
+    const countText = limit === Infinity ? `${enabledFeeds.length} feeds` : `${enabledFeeds.length}/${limit} feeds`;
     const countEl = createElement('div', { className: 'settings-panel-hint' });
     countEl.textContent = countText;
     feedList.appendChild(countEl);
@@ -682,11 +729,15 @@ function renderGlobeTab(body: HTMLElement): void {
   feedAddBtn.addEventListener('click', async () => {
     const url = feedInput.value.trim();
     if (!url) return;
-    try { new URL(url); } catch { return; }
+    try {
+      new URL(url);
+    } catch {
+      return;
+    }
 
     const limit = getCurrentTier() === 'premium' ? Infinity : 3;
-    if (feeds.filter(f => f.enabled).length >= limit) return;
-    if (feeds.some(f => f.url === url)) return;
+    if (feeds.filter((f) => f.enabled).length >= limit) return;
+    if (feeds.some((f) => f.url === url)) return;
 
     feedAddBtn.textContent = '\u2026';
     try {
@@ -707,7 +758,9 @@ function renderGlobeTab(body: HTMLElement): void {
         feedInput.value = '';
         renderFeeds();
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     feedAddBtn.textContent = 'Add';
   });
   feedInputRow.appendChild(feedInput);
@@ -795,7 +848,10 @@ function renderPersonalTab(body: HTMLElement): void {
       status.style.color = 'var(--color-negative)';
     }
     saveBtn.textContent = 'Save';
-    setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 3000);
+    setTimeout(() => {
+      status.textContent = '';
+      status.style.color = '';
+    }, 3000);
   });
 
   keyRow.appendChild(keyInput);
@@ -817,12 +873,17 @@ function renderPersonalTab(body: HTMLElement): void {
   chatHint.textContent = `${msgCount} messages in history`;
   body.appendChild(chatHint);
 
-  const clearBtn = createElement('button', { className: 'settings-panel-action', textContent: 'Clear conversation history' });
+  const clearBtn = createElement('button', {
+    className: 'settings-panel-action',
+    textContent: 'Clear conversation history',
+  });
   clearBtn.addEventListener('click', () => {
     storage.set('dashview-chat-messages', []);
     clearBtn.textContent = 'Cleared!';
     chatHint.textContent = '0 messages in history';
-    setTimeout(() => { clearBtn.textContent = 'Clear conversation history'; }, 1500);
+    setTimeout(() => {
+      clearBtn.textContent = 'Clear conversation history';
+    }, 1500);
   });
   body.appendChild(clearBtn);
 
@@ -831,7 +892,9 @@ function renderPersonalTab(body: HTMLElement): void {
 
   // Google Calendar
   const calRow = createElement('div', { className: 'settings-integration-row' });
-  const calDot = createElement('div', { className: 'settings-integration-status settings-integration-status-disconnected' });
+  const calDot = createElement('div', {
+    className: 'settings-integration-status settings-integration-status-disconnected',
+  });
   const calName = createElement('span', { className: 'settings-integration-name', textContent: 'Google Calendar' });
   const calBtn = createElement('button', { className: 'settings-integration-btn', textContent: 'Connect' });
   calRow.appendChild(calDot);
@@ -859,7 +922,9 @@ function renderPersonalTab(body: HTMLElement): void {
 
   // Apple Calendar (coming soon)
   const appleCalRow = createElement('div', { className: 'settings-integration-row' });
-  const appleCalDot = createElement('div', { className: 'settings-integration-status settings-integration-status-disconnected' });
+  const appleCalDot = createElement('div', {
+    className: 'settings-integration-status settings-integration-status-disconnected',
+  });
   const appleCalName = createElement('span', { className: 'settings-integration-name', textContent: 'Apple Calendar' });
   const appleCalBadge = createElement('span', { className: 'settings-integration-badge', textContent: 'Coming Soon' });
   appleCalBadge.title = 'CalDAV support is planned for a future release';
@@ -870,7 +935,9 @@ function renderPersonalTab(body: HTMLElement): void {
 
   // Apple Notes
   const notesRow = createElement('div', { className: 'settings-integration-row' });
-  const notesDot = createElement('div', { className: 'settings-integration-status settings-integration-status-disconnected' });
+  const notesDot = createElement('div', {
+    className: 'settings-integration-status settings-integration-status-disconnected',
+  });
   const notesName = createElement('span', { className: 'settings-integration-name', textContent: 'Apple Notes' });
   const notesBadge = createElement('span', { className: 'settings-integration-badge', textContent: 'Not Available' });
   notesBadge.title = 'No public API available for web apps';
@@ -898,11 +965,15 @@ function renderPersonalTab(body: HTMLElement): void {
           window.location.href = data.url;
         } else {
           manageBtn.textContent = 'Error — try again';
-          setTimeout(() => { manageBtn.textContent = 'Manage Billing'; }, 2000);
+          setTimeout(() => {
+            manageBtn.textContent = 'Manage Billing';
+          }, 2000);
         }
       } catch {
         manageBtn.textContent = 'Error — try again';
-        setTimeout(() => { manageBtn.textContent = 'Manage Billing'; }, 2000);
+        setTimeout(() => {
+          manageBtn.textContent = 'Manage Billing';
+        }, 2000);
       }
     });
     body.appendChild(manageBtn);
@@ -912,7 +983,8 @@ function renderPersonalTab(body: HTMLElement): void {
     pricingWrap.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px';
 
     const standardCard = createElement('div', { className: 'settings-pricing-card' });
-    standardCard.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:16px;text-align:center';
+    standardCard.style.cssText =
+      'background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:16px;text-align:center';
     const stdPrice = createElement('div', {});
     stdPrice.style.cssText = 'font-size:24px;font-weight:700;color:var(--color-text)';
     stdPrice.textContent = '$5';
@@ -929,7 +1001,8 @@ function renderPersonalTab(body: HTMLElement): void {
     standardCard.appendChild(standardBtn);
 
     const foundingCard = createElement('div', { className: 'settings-pricing-card' });
-    foundingCard.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-accent);border-radius:6px;padding:16px;text-align:center';
+    foundingCard.style.cssText =
+      'background:var(--color-surface);border:1px solid var(--color-accent);border-radius:6px;padding:16px;text-align:center';
     const fndPrice = createElement('div', {});
     fndPrice.style.cssText = 'font-size:24px;font-weight:700;color:var(--color-accent)';
     fndPrice.textContent = '$3';
@@ -956,14 +1029,19 @@ function renderPersonalTab(body: HTMLElement): void {
     features.textContent = 'Unlimited alerts, custom feeds, calendar integration, hosted AI chat, priority refresh.';
     body.appendChild(features);
 
-    const restoreLink = createElement('button', { className: 'settings-panel-action', textContent: 'Restore Purchase' });
+    const restoreLink = createElement('button', {
+      className: 'settings-panel-action',
+      textContent: 'Restore Purchase',
+    });
     restoreLink.style.opacity = '0.6';
     restoreLink.addEventListener('click', async () => {
       restoreLink.textContent = 'Checking\u2026';
       const { checkSession } = await import('../services/auth.ts');
       await checkSession();
       restoreLink.textContent = 'Session refreshed';
-      setTimeout(() => { restoreLink.textContent = 'Restore Purchase'; }, 2000);
+      setTimeout(() => {
+        restoreLink.textContent = 'Restore Purchase';
+      }, 2000);
     });
     body.appendChild(restoreLink);
   }
@@ -979,11 +1057,15 @@ async function handleUpgrade(btn: HTMLElement, founding: boolean): Promise<void>
       window.location.href = data.url;
     } else {
       btn.textContent = data.error || 'Error';
-      setTimeout(() => { btn.textContent = 'Upgrade'; }, 2000);
+      setTimeout(() => {
+        btn.textContent = 'Upgrade';
+      }, 2000);
     }
   } catch {
     btn.textContent = 'Error — try again';
-    setTimeout(() => { btn.textContent = 'Upgrade'; }, 2000);
+    setTimeout(() => {
+      btn.textContent = 'Upgrade';
+    }, 2000);
   }
 }
 

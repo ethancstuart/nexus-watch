@@ -61,10 +61,11 @@ async function handleGeocode(req: VercelRequest, res: VercelResponse, apiKey: st
   const queryLower = q.toLowerCase();
   const match =
     data.find((r: { name: string }) => r.name.toLowerCase() === queryLower) ??
-    data.find((r: { name: string; state?: string }) =>
-      r.name.toLowerCase().includes(queryLower) ||
-      queryLower.includes(r.name.toLowerCase()) ||
-      (r.state && r.state.toLowerCase().includes(queryLower)),
+    data.find(
+      (r: { name: string; state?: string }) =>
+        r.name.toLowerCase().includes(queryLower) ||
+        queryLower.includes(r.name.toLowerCase()) ||
+        (r.state && r.state.toLowerCase().includes(queryLower)),
     ) ??
     data[0];
 
@@ -88,12 +89,8 @@ async function handleWeather(req: VercelRequest, res: VercelResponse, apiKey: st
   const units = req.query.units === 'metric' ? 'metric' : 'imperial';
 
   const [currentRes, forecastRes] = await Promise.all([
-    fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=${units}&appid=${apiKey}`,
-    ),
-    fetch(
-      `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=${units}&appid=${apiKey}`,
-    ),
+    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=${units}&appid=${apiKey}`),
+    fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=${units}&appid=${apiKey}`),
   ]);
 
   if (!currentRes.ok) {
@@ -103,7 +100,7 @@ async function handleWeather(req: VercelRequest, res: VercelResponse, apiKey: st
     return res.status(forecastRes.status).json({ error: 'Forecast request failed' });
   }
 
-  const current = await currentRes.json() as {
+  const current = (await currentRes.json()) as {
     name: string;
     main: { temp: number; feels_like: number; temp_max: number; temp_min: number; humidity: number; pressure: number };
     weather: { description: string; icon: string }[];
@@ -111,7 +108,7 @@ async function handleWeather(req: VercelRequest, res: VercelResponse, apiKey: st
     wind: { speed: number; deg?: number };
     visibility?: number;
   };
-  const forecastData = await forecastRes.json() as {
+  const forecastData = (await forecastRes.json()) as {
     list: { dt: number; main: { temp: number; temp_max: number; temp_min: number }; weather: { icon: string }[] }[];
   };
 

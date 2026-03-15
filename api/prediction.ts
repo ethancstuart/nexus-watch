@@ -16,7 +16,14 @@ interface PolymarketEvent {
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
-    const markets: { id: string; question: string; probability: number; volume: number; source: string; url: string }[] = [];
+    const markets: {
+      id: string;
+      question: string;
+      probability: number;
+      volume: number;
+      source: string;
+      url: string;
+    }[] = [];
 
     // Fetch from Polymarket CLOB API (public, no key needed)
     try {
@@ -25,7 +32,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         { signal: AbortSignal.timeout(5000) },
       );
       if (polyRes.ok) {
-        const events = await polyRes.json() as PolymarketEvent[];
+        const events = (await polyRes.json()) as PolymarketEvent[];
         for (const event of events) {
           for (const m of event.markets.slice(0, 1)) {
             let prob = 50;
@@ -34,7 +41,9 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
               if (prices.length > 0) {
                 prob = Math.round(parseFloat(prices[0]) * 100);
               }
-            } catch { /* use default */ }
+            } catch {
+              /* use default */
+            }
 
             markets.push({
               id: m.id,
@@ -53,15 +62,24 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
     // Fetch from Kalshi public API
     try {
-      const kalshiRes = await fetch(
-        'https://api.elections.kalshi.com/trade-api/v2/markets?limit=10&status=open',
-        { signal: AbortSignal.timeout(5000) },
-      );
+      const kalshiRes = await fetch('https://api.elections.kalshi.com/trade-api/v2/markets?limit=10&status=open', {
+        signal: AbortSignal.timeout(5000),
+      });
       if (kalshiRes.ok) {
-        const data = await kalshiRes.json() as { markets?: { id?: string; ticker?: string; title?: string; subtitle?: string; last_price?: number; yes_ask?: number; volume?: number }[] };
+        const data = (await kalshiRes.json()) as {
+          markets?: {
+            id?: string;
+            ticker?: string;
+            title?: string;
+            subtitle?: string;
+            last_price?: number;
+            yes_ask?: number;
+            volume?: number;
+          }[];
+        };
         const kalshiMarkets = data.markets || [];
         for (const m of kalshiMarkets) {
-          const prob = m.last_price ? Math.round(m.last_price * 100) : (m.yes_ask ? Math.round(m.yes_ask * 100) : 50);
+          const prob = m.last_price ? Math.round(m.last_price * 100) : m.yes_ask ? Math.round(m.yes_ask * 100) : 50;
           markets.push({
             id: m.ticker || m.id || '',
             question: m.title || m.subtitle || '',
@@ -79,9 +97,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     // Sort by volume descending, take top items
     markets.sort((a, b) => b.volume - a.volume);
 
-    return res
-      .setHeader('Cache-Control', 'max-age=300')
-      .json({ markets: markets.slice(0, 12) });
+    return res.setHeader('Cache-Control', 'max-age=300').json({ markets: markets.slice(0, 12) });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return res.status(502).json({ error: message });

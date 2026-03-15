@@ -15,8 +15,8 @@ export function buildTerminatorPolygon(): TerminatorPoint[] {
   const dayOfYear = Math.floor(diff / 86400000);
 
   // Solar declination (Earth's axial tilt effect)
-  const declination = -23.44 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10));
-  const decRad = declination * Math.PI / 180;
+  const declination = -23.44 * Math.cos(((2 * Math.PI) / 365) * (dayOfYear + 10));
+  const decRad = (declination * Math.PI) / 180;
 
   // Sun longitude based on UTC time
   const hours = now.getUTCHours() + now.getUTCMinutes() / 60;
@@ -25,8 +25,8 @@ export function buildTerminatorPolygon(): TerminatorPoint[] {
   const points: TerminatorPoint[] = [];
 
   for (let lon = -180; lon <= 180; lon += 2) {
-    const lonRad = (lon - sunLon) * Math.PI / 180;
-    const lat = Math.atan(-Math.cos(lonRad) / Math.tan(decRad)) * 180 / Math.PI;
+    const lonRad = ((lon - sunLon) * Math.PI) / 180;
+    const lat = (Math.atan(-Math.cos(lonRad) / Math.tan(decRad)) * 180) / Math.PI;
     points.push({ lat, lng: lon });
   }
 
