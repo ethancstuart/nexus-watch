@@ -176,7 +176,7 @@
 .weather-loc-btn.active {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #111;
+  color: var(--color-bg);
   font-weight: 600;
 }
 

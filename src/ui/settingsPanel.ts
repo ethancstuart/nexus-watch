@@ -203,9 +203,16 @@ function renderGeneralTab(body: HTMLElement, app: App): void {
         });
         name.style.cursor = 'pointer';
         name.style.flex = '1';
-        name.addEventListener('click', () => {
+        name.setAttribute('role', 'button');
+        name.setAttribute('tabindex', '0');
+        name.setAttribute('aria-label', `Set active: ${loc.name ?? 'location'}`);
+        const activateLoc = () => {
           weatherPanel.setActiveLocation(i);
           renderLocs();
+        };
+        name.addEventListener('click', activateLoc);
+        name.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateLoc(); }
         });
         item.appendChild(name);
         if (locs.length > 1) {
@@ -227,6 +234,7 @@ function renderGeneralTab(body: HTMLElement, app: App): void {
     input.type = 'text';
     input.placeholder = 'Add city\u2026';
     input.className = 'settings-panel-input';
+    input.setAttribute('aria-label', 'Add city');
     const goBtn = createElement('button', { className: 'settings-panel-btn', textContent: 'Add' });
     inputRow.appendChild(input);
     inputRow.appendChild(goBtn);
@@ -905,7 +913,16 @@ function renderPersonalTab(body: HTMLElement): void {
 
     const standardCard = createElement('div', { className: 'settings-pricing-card' });
     standardCard.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:16px;text-align:center';
-    standardCard.innerHTML = `<div style="font-size:24px;font-weight:700;color:var(--color-text)">$5<span style="font-size:12px;font-weight:400;color:var(--color-text-muted)">/mo</span></div><div style="font-size:11px;color:var(--color-text-muted);margin-top:4px">Standard</div>`;
+    const stdPrice = createElement('div', {});
+    stdPrice.style.cssText = 'font-size:24px;font-weight:700;color:var(--color-text)';
+    stdPrice.textContent = '$5';
+    const stdUnit = createElement('span', { textContent: '/mo' });
+    stdUnit.style.cssText = 'font-size:12px;font-weight:400;color:var(--color-text-muted)';
+    stdPrice.appendChild(stdUnit);
+    standardCard.appendChild(stdPrice);
+    const stdLabel = createElement('div', { textContent: 'Standard' });
+    stdLabel.style.cssText = 'font-size:11px;color:var(--color-text-muted);margin-top:4px';
+    standardCard.appendChild(stdLabel);
     const standardBtn = createElement('button', { className: 'settings-panel-action', textContent: 'Upgrade' });
     standardBtn.style.marginTop = '12px';
     standardBtn.addEventListener('click', () => void handleUpgrade(standardBtn, false));
@@ -913,7 +930,19 @@ function renderPersonalTab(body: HTMLElement): void {
 
     const foundingCard = createElement('div', { className: 'settings-pricing-card' });
     foundingCard.style.cssText = 'background:var(--color-surface);border:1px solid var(--color-accent);border-radius:6px;padding:16px;text-align:center';
-    foundingCard.innerHTML = `<div style="font-size:24px;font-weight:700;color:var(--color-accent)">$3<span style="font-size:12px;font-weight:400;color:var(--color-text-muted)">/mo</span></div><div style="font-size:11px;color:var(--color-text-muted);margin-top:4px">Founding Member</div><div style="font-size:10px;color:var(--color-accent);margin-top:2px">Limited time</div>`;
+    const fndPrice = createElement('div', {});
+    fndPrice.style.cssText = 'font-size:24px;font-weight:700;color:var(--color-accent)';
+    fndPrice.textContent = '$3';
+    const fndUnit = createElement('span', { textContent: '/mo' });
+    fndUnit.style.cssText = 'font-size:12px;font-weight:400;color:var(--color-text-muted)';
+    fndPrice.appendChild(fndUnit);
+    foundingCard.appendChild(fndPrice);
+    const fndLabel = createElement('div', { textContent: 'Founding Member' });
+    fndLabel.style.cssText = 'font-size:11px;color:var(--color-text-muted);margin-top:4px';
+    foundingCard.appendChild(fndLabel);
+    const fndLimit = createElement('div', { textContent: 'Limited time' });
+    fndLimit.style.cssText = 'font-size:10px;color:var(--color-accent);margin-top:2px';
+    foundingCard.appendChild(fndLimit);
     const foundingBtn = createElement('button', { className: 'settings-panel-action', textContent: 'Upgrade' });
     foundingBtn.style.marginTop = '12px';
     foundingBtn.addEventListener('click', () => void handleUpgrade(foundingBtn, true));

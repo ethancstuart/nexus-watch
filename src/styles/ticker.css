@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0d0d0d;
+  background: var(--color-surface-sunken);
   border-bottom: 1px solid var(--color-border);
   padding: 8px 16px;
   gap: 8px;
