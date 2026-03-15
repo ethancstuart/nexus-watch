@@ -29,6 +29,10 @@ export function getPulseItems(): PulseItem[] {
   return pulseItems;
 }
 
+export function getPanelData(): Map<string, unknown> {
+  return panelData;
+}
+
 function runCorrelation(): void {
   const items: PulseItem[] = [];
 

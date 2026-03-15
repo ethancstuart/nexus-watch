@@ -118,9 +118,9 @@ export default async function handler(req: Request) {
 
   const body = (await req.json()) as ShellBody;
   const query = (body.query || '').slice(0, 500);
-  const context = (body.context || '').slice(0, 3000);
+  const context = (body.context || '').slice(0, 6000);
 
-  const systemPrompt = `You are the AI assistant for DashPulse, a personal intelligence terminal. You help users manage their dashboard spaces and widgets.
+  const systemPrompt = `You are the AI assistant for DashPulse, a personal intelligence terminal. You help users manage their dashboard and answer questions using live data from their panels.
 
 You MUST respond with a valid JSON object with these fields:
 - "action": one of "navigate_space", "add_widget", "remove_widget", "create_space", "answer", "highlight"
@@ -134,6 +134,8 @@ Action params:
 - create_space: { "name": "string", "icon": "emoji", "widgets": [{"panelId": "string", "size": "string"}] }
 - highlight: { "panelId": "string" }
 - answer: (no params, just message)
+
+When the user asks about weather, stocks, crypto, sports, or news, use the "Live data" section below to answer directly. Give concise, specific answers using the real data provided.
 
 Dashboard context:
 ${context}
@@ -150,7 +152,7 @@ Respond ONLY with the JSON object, no markdown or explanation.`;
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 256,
+        max_tokens: 512,
         system: systemPrompt,
         messages: [{ role: 'user', content: query }],
       }),
