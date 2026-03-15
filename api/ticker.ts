@@ -40,12 +40,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const symbols = INDICES.map(i => i.symbol).join(',');
     const url = `https://api.twelvedata.com/quote?symbol=${symbols}&apikey=${apiKey}`;
     const response = await fetch(url);
-    const data = await response.json() as Record<string, Record<string, string> & { code?: number }>;
+    interface QuoteEntry { close?: string; change?: string; percent_change?: string; code?: number; [key: string]: unknown }
+    const data = await response.json() as Record<string, QuoteEntry>;
 
     const quotes: IndexQuote[] = [];
 
     for (const idx of INDICES) {
-      const quote = data[idx.symbol] || data;
+      const quote: QuoteEntry = data[idx.symbol] || data;
       if (quote && quote.close && !quote.code) {
         const price = parseFloat(quote.close);
         const change = parseFloat(quote.change || '0');
