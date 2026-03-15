@@ -105,6 +105,8 @@ function buildContext(): string {
   const dataSummary = summarizePanelData();
   if (dataSummary) {
     sections.push(`Live data:\n${dataSummary}`);
+  } else {
+    sections.push('Live data: (no panel data collected yet — panels may still be loading)');
   }
 
   return sections.join('\n\n');
