@@ -1,0 +1,163 @@
+<!--
+  OG Image Generator for DashPulse
+
+  Instructions:
+  1. Open this file in your browser
+  2. The page renders at 1200x630px (standard og:image size)
+  3. Take a screenshot of the content area (or use a browser extension)
+  4. Save as public/og-image.png
+  5. Reference in your HTML: <meta property="og:image" content="/og-image.png">
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DashPulse OG Image</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .og-frame {
+    width: 1200px;
+    height: 630px;
+    background: #0a0a0f;
+    border: 1px solid #1a1a2e;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 80px;
+  }
+
+  /* Subtle grid background */
+  .og-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Corner accents */
+  .corner { position: absolute; width: 24px; height: 24px; }
+  .corner-tl { top: 16px; left: 16px; border-top: 2px solid #00ff88; border-left: 2px solid #00ff88; }
+  .corner-tr { top: 16px; right: 16px; border-top: 2px solid #00ff88; border-right: 2px solid #00ff88; }
+  .corner-bl { bottom: 16px; left: 16px; border-bottom: 2px solid #00ff88; border-left: 2px solid #00ff88; }
+  .corner-br { bottom: 16px; right: 16px; border-bottom: 2px solid #00ff88; border-right: 2px solid #00ff88; }
+
+  .content { position: relative; z-index: 1; }
+
+  .prompt-line {
+    color: #555;
+    font-size: 16px;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+  .prompt-line span { color: #00ff88; }
+
+  h1 {
+    font-size: 72px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -2px;
+    margin-bottom: 8px;
+  }
+  h1 span { color: #00ff88; }
+
+  .subtitle {
+    font-size: 22px;
+    color: #888;
+    font-weight: 400;
+    margin-bottom: 48px;
+    letter-spacing: 0.5px;
+  }
+
+  .features {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .feature {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .feature .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #00ff88;
+    flex-shrink: 0;
+  }
+
+  .url {
+    position: absolute;
+    bottom: 32px;
+    right: 40px;
+    color: #00ff88;
+    font-size: 18px;
+    font-weight: 500;
+    opacity: 0.8;
+    letter-spacing: 1px;
+  }
+
+  /* Glow effect behind title */
+  .glow {
+    position: absolute;
+    width: 400px;
+    height: 200px;
+    background: radial-gradient(ellipse, rgba(0, 255, 136, 0.08), transparent 70%);
+    top: 50%;
+    left: 30%;
+    transform: translate(-50%, -60%);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <div class="og-frame">
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+    <div class="glow"></div>
+
+    <div class="content">
+      <div class="prompt-line"><span>~/</span> dashpulse</div>
+      <h1>Dash<span>Pulse</span></h1>
+      <div class="subtitle">Your personal intelligence terminal</div>
+
+      <div class="features">
+        <div class="feature"><div class="dot"></div>Stocks</div>
+        <div class="feature"><div class="dot"></div>Weather</div>
+        <div class="feature"><div class="dot"></div>News</div>
+        <div class="feature"><div class="dot"></div>Sports</div>
+        <div class="feature"><div class="dot"></div>Crypto</div>
+        <div class="feature"><div class="dot"></div>AI Chat</div>
+        <div class="feature"><div class="dot"></div>Hacker News</div>
+        <div class="feature"><div class="dot"></div>GitHub</div>
+      </div>
+    </div>
+
+    <div class="url">dashpulse.app</div>
+  </div>
+</body>
+</html>
