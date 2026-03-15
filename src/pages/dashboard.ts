@@ -190,6 +190,9 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   root.appendChild(hiddenContainer);
   app.panelGridContainer = hiddenContainer;
 
+  // Start intelligence listener BEFORE panels fetch so we capture initial data events
+  initIntelligence();
+
   await app.init();
 
   // Mark all enabled panels as initialized — app.init() already started their data cycles
@@ -211,7 +214,6 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   initBriefing(app);
   initOfflineIndicator();
   initInstallPrompt(aiBar);
-  initIntelligence();
   autoPopulateInterests();
 
   // Re-render when spaces change (settings toggles, AI actions, size changes)
