@@ -233,7 +233,7 @@ export default async function handler(req: Request) {
     await fetch(`${kvUrl}/set/${prefsKey}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(JSON.stringify(prefsBlob)),
+      body: JSON.stringify(prefsBlob),
     });
     await fetch(`${kvUrl}/expire/${prefsKey}/${PREFS_TTL_SECONDS}`, {
       method: 'POST',

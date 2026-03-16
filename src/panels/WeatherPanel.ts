@@ -78,12 +78,12 @@ export class WeatherPanel extends Panel {
       (existing) => Math.abs(existing.lat - loc.lat) < 0.01 && Math.abs(existing.lon - loc.lon) < 0.01,
     );
     if (isDuplicate) {
-      // Update existing entry if auto-detected
+      // Update existing entry only if it was also auto-detected (don't overwrite user-named locations)
       if (loc.isAutoDetected) {
         const idx = this.locations.findIndex(
           (existing) => Math.abs(existing.lat - loc.lat) < 0.01 && Math.abs(existing.lon - loc.lon) < 0.01,
         );
-        if (idx >= 0) {
+        if (idx >= 0 && this.locations[idx].isAutoDetected) {
           this.locations[idx] = { ...this.locations[idx], ...loc };
           this.saveLocations();
         }

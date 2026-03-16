@@ -1,5 +1,17 @@
 export const config = { runtime: 'edge' };
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const encoder = new TextEncoder();
+  const aBytes = encoder.encode(a);
+  const bBytes = encoder.encode(b);
+  let result = 0;
+  for (let i = 0; i < aBytes.length; i++) {
+    result |= aBytes[i] ^ bBytes[i];
+  }
+  return result === 0;
+}
+
 interface StripeEvent {
   id: string;
   type: string;
@@ -39,7 +51,7 @@ async function verifySignature(payload: string, sigHeader: string, secret: strin
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
-  return parts.signatures.some((sig) => sig === computed);
+  return parts.signatures.some((sig) => timingSafeEqual(sig, computed));
 }
 
 export default async function handler(req: Request) {
@@ -152,9 +164,10 @@ export default async function handler(req: Request) {
       headers: { Authorization: `Bearer ${kvToken}` },
     });
   } catch {
-    // Return 200 even on processing errors to prevent Stripe retries for malformed data
-    // Stripe will retry on 5xx, but we want idempotency to handle re-processing
-    return new Response('Processing error', { status: 500 });
+    // Return 200 on processing errors to prevent Stripe retries after idempotency key is set.
+    // The event is already marked processed above — a 5xx would cause Stripe to retry
+    // against a stale idempotency check.
+    return new Response('Processing error', { status: 200 });
   }
 
   return new Response('OK', { status: 200 });

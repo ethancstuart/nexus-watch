@@ -55,12 +55,16 @@ export class GlobePanel extends Panel {
       category: 'world',
       supportedSizes: ['large'],
     });
-    this.listenForPanelData();
-    this.setupVisibilityHandler();
   }
 
   getLastData(): GlobeNewsArticle[] | null {
     return this.allArticles.length > 0 ? this.allArticles : null;
+  }
+
+  override async startDataCycle(): Promise<void> {
+    await super.startDataCycle();
+    this.listenForPanelData();
+    this.setupVisibilityHandler();
   }
 
   async fetchData(): Promise<void> {
@@ -495,7 +499,7 @@ export class GlobePanel extends Panel {
         this.updateWeatherPins(detail.data);
       }
     };
-    document.addEventListener('dashview:panel-data', this.panelDataHandler);
+    document.addEventListener('dashview:panel-data', this.panelDataHandler, { signal: this.cycleSignal });
   }
 
   private updateWeatherPins(data: unknown): void {
@@ -539,7 +543,7 @@ export class GlobePanel extends Panel {
         controls.autoRotate = true;
       }
     };
-    document.addEventListener('visibilitychange', this.visibilityHandler);
+    document.addEventListener('visibilitychange', this.visibilityHandler, { signal: this.cycleSignal });
   }
 
   private relativeTime(dateStr: string): string {
@@ -608,17 +612,9 @@ export class GlobePanel extends Panel {
 
   destroy(): void {
     this.cleanup();
-
-    if (this.visibilityHandler) {
-      document.removeEventListener('visibilitychange', this.visibilityHandler);
-      this.visibilityHandler = null;
-    }
-
-    if (this.panelDataHandler) {
-      document.removeEventListener('dashview:panel-data', this.panelDataHandler);
-      this.panelDataHandler = null;
-    }
-
+    // Listeners registered with cycleSignal are cleaned up by super.destroy() → stopDataCycle()
+    this.visibilityHandler = null;
+    this.panelDataHandler = null;
     super.destroy();
   }
 }

@@ -206,7 +206,7 @@ export abstract class Panel {
   }
 
   destroy(): void {
-    this.stopInterval();
+    this.stopDataCycle();
     this.container.remove();
   }
 

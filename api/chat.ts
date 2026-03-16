@@ -182,7 +182,7 @@ export default async function handler(req: Request) {
       });
     }
     const user = JSON.parse(sessionData.result);
-    if (user.tier !== 'premium') {
+    if (!user || user.tier !== 'premium') {
       return new Response(JSON.stringify({ error: 'Premium tier required' }), {
         status: 403,
         headers: CORS_HEADERS,

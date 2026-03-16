@@ -222,50 +222,62 @@ export function showOnboarding(): Promise<void> {
         textContent: 'Pick Manually',
       });
 
-      askBtn.addEventListener('click', async () => {
-        const query = aiInput.value.trim();
-        if (!query) {
-          next();
-          return;
-        }
+      let askBtnAbort = new AbortController();
+      askBtn.addEventListener(
+        'click',
+        async () => {
+          const query = aiInput.value.trim();
+          if (!query) {
+            next();
+            return;
+          }
 
-        askBtn.textContent = 'Thinking...';
-        askBtn.setAttribute('disabled', '');
+          askBtn.textContent = 'Thinking...';
+          askBtn.setAttribute('disabled', '');
 
-        try {
-          const result = await interpretQuery(
-            `The user just signed up for DashPulse. They said their interests are: "${query}". Based on this, suggest which panels to prioritize. Respond with an answer action describing what you set up.`,
-          );
+          try {
+            const result = await interpretQuery(
+              `The user just signed up for DashPulse. They said their interests are: "${query}". Based on this, suggest which panels to prioritize. Respond with an answer action describing what you set up.`,
+            );
 
-          // Parse interests from input
-          const lower = query.toLowerCase();
-          if (lower.includes('market') || lower.includes('stock')) selectedInterests.add('markets');
-          if (lower.includes('crypto') || lower.includes('bitcoin')) selectedInterests.add('crypto');
-          if (lower.includes('news') || lower.includes('world')) selectedInterests.add('news');
-          if (lower.includes('sport')) selectedInterests.add('sports');
-          if (lower.includes('entertain') || lower.includes('movie') || lower.includes('tv'))
-            selectedInterests.add('entertainment');
-          if (lower.includes('weather')) selectedInterests.add('weather');
-          if (lower.includes('product') || lower.includes('note') || lower.includes('focus'))
-            selectedInterests.add('productivity');
+            // Parse interests from input
+            const lower = query.toLowerCase();
+            if (lower.includes('market') || lower.includes('stock')) selectedInterests.add('markets');
+            if (lower.includes('crypto') || lower.includes('bitcoin')) selectedInterests.add('crypto');
+            if (lower.includes('news') || lower.includes('world')) selectedInterests.add('news');
+            if (lower.includes('sport')) selectedInterests.add('sports');
+            if (lower.includes('entertain') || lower.includes('movie') || lower.includes('tv'))
+              selectedInterests.add('entertainment');
+            if (lower.includes('weather')) selectedInterests.add('weather');
+            if (lower.includes('product') || lower.includes('note') || lower.includes('focus'))
+              selectedInterests.add('productivity');
 
-          // Show AI response
-          aiResult.textContent = result.message;
-          aiResult.style.display = 'block';
+            // Show AI response
+            aiResult.textContent = result.message;
+            aiResult.style.display = 'block';
 
-          askBtn.textContent = 'Continue';
-          askBtn.removeAttribute('disabled');
-          askBtn.onclick = () => {
-            // Skip interests step since AI handled it
-            currentStep = 2;
-            renderStep();
-          };
-        } catch {
-          askBtn.textContent = 'Ask AI';
-          askBtn.removeAttribute('disabled');
-          next();
-        }
-      });
+            askBtn.textContent = 'Continue';
+            askBtn.removeAttribute('disabled');
+            // Abort initial listener, register new one for "Continue" behavior
+            askBtnAbort.abort();
+            askBtnAbort = new AbortController();
+            askBtn.addEventListener(
+              'click',
+              () => {
+                // Skip interests step since AI handled it
+                currentStep = 2;
+                renderStep();
+              },
+              { signal: askBtnAbort.signal },
+            );
+          } catch {
+            askBtn.textContent = 'Ask AI';
+            askBtn.removeAttribute('disabled');
+            next();
+          }
+        },
+        { signal: askBtnAbort.signal },
+      );
 
       skipBtn.addEventListener('click', next);
 
@@ -294,6 +306,7 @@ export function showOnboarding(): Promise<void> {
         const pill = createElement('button', {
           className: `onboarding-interest-pill ${selectedInterests.has(opt.id) ? 'active' : ''}`,
         });
+        pill.dataset.interest = opt.id;
         const icon = createElement('span', { textContent: opt.icon });
         const label = createElement('span', { textContent: opt.label });
         pill.appendChild(icon);
@@ -336,7 +349,7 @@ export function showOnboarding(): Promise<void> {
             );
             detectBtn.textContent = 'Location Set';
             selectedInterests.add('weather');
-            const weatherPill = grid.querySelector('.onboarding-interest-pill:nth-child(6)');
+            const weatherPill = grid.querySelector('.onboarding-interest-pill[data-interest="weather"]');
             if (weatherPill) weatherPill.classList.add('active');
           },
           () => {

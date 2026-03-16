@@ -1,6 +1,5 @@
 import { createElement } from '../utils/dom.ts';
 import { getUser, login, logout, onAuthChange } from '../services/auth.ts';
-import type { App } from '../App.ts';
 
 export interface AIBarCallbacks {
   onCommand: (command: string) => void;
@@ -20,7 +19,7 @@ export function registerCommands(commands: CommandEntry[]): void {
   commandRegistry = commands;
 }
 
-export function createAIBar(_app: App, callbacks: AIBarCallbacks, signal?: AbortSignal): HTMLElement {
+export function createAIBar(callbacks: AIBarCallbacks, signal?: AbortSignal): HTMLElement {
   const bar = createElement('header', { className: 'ai-bar' });
   bar.setAttribute('role', 'banner');
 

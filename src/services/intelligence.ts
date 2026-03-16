@@ -4,14 +4,18 @@ const panelData = new Map<string, unknown>();
 let pulseItems: PulseItem[] = [];
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
-export function initIntelligence(): void {
+export function initIntelligence(signal?: AbortSignal): void {
   // Subscribe to panel data events
-  document.addEventListener('dashview:panel-data', (e) => {
-    const detail = (e as CustomEvent).detail;
-    if (detail.panelId && detail.data) {
-      panelData.set(detail.panelId, detail.data);
-    }
-  });
+  document.addEventListener(
+    'dashview:panel-data',
+    (e) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail.panelId && detail.data) {
+        panelData.set(detail.panelId, detail.data);
+      }
+    },
+    signal ? { signal } : undefined,
+  );
 
   // Run correlation rules periodically
   runCorrelation();
@@ -23,6 +27,7 @@ export function destroyIntelligence(): void {
     clearInterval(intervalId);
     intervalId = null;
   }
+  panelData.clear();
 }
 
 export function getPulseItems(): PulseItem[] {

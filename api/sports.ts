@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export const config = { runtime: 'edge' };
 
+const CORS_HEADERS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://dashpulse.app' };
+
 const LEAGUE_URLS: Record<string, { scoreboard: string; news: string }> = {
   nba: {
     scoreboard: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
@@ -116,7 +118,7 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
   if (!VALID_LEAGUES.has(league)) {
     return new Response(JSON.stringify({ error: 'Invalid league' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
     });
   }
 
@@ -129,7 +131,7 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
       const headlines = transformHeadlines(data);
       return new Response(JSON.stringify({ league, headlines, fetchedAt: Date.now() }), {
         headers: {
-          'Content-Type': 'application/json',
+          ...CORS_HEADERS,
           'Cache-Control': 'max-age=300',
         },
       });
@@ -152,7 +154,7 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
 
     return new Response(JSON.stringify({ league, games, headlines, fetchedAt: Date.now() }), {
       headers: {
-        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
         'Cache-Control': 'max-age=30',
       },
     });
@@ -160,7 +162,7 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
     const message = err instanceof Error ? err.message : 'Failed to fetch sports data';
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: CORS_HEADERS,
     });
   }
 }

@@ -30,13 +30,22 @@ export function createPulseBar(): HTMLElement {
 
       // Click to navigate to relevant panel
       if (item.panelId) {
-        pill.addEventListener('click', () => {
+        pill.setAttribute('role', 'button');
+        pill.setAttribute('tabindex', '0');
+        const activate = () => {
           const panel = document.querySelector(`.panel-card[data-panel-id="${item.panelId}"]`);
           if (panel) {
             panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             // Flash highlight
             panel.classList.add('pulse-highlight');
             setTimeout(() => panel.classList.remove('pulse-highlight'), 1500);
+          }
+        };
+        pill.addEventListener('click', activate);
+        pill.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            activate();
           }
         });
       }

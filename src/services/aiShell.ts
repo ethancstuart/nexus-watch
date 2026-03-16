@@ -115,9 +115,6 @@ function buildContext(): string {
 export async function interpretQuery(query: string): Promise<AIAction> {
   const context = buildContext();
 
-  // Debug: log context to console (remove after verifying)
-  console.log('[AI Shell] context sent:', context);
-
   try {
     const res = await fetchWithRetry('/api/ai-shell', {
       method: 'POST',

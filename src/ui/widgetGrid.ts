@@ -98,6 +98,7 @@ function removeResizeTooltip(): void {
 // ─── Listener Cleanup ───────────────────────────────────────────
 
 let activeAbortController: AbortController | null = null;
+let activeDragCleanups: (() => void)[] = [];
 
 // ─── Render Space ────────────────────────────────────────────────
 
@@ -106,6 +107,9 @@ export function renderSpace(container: HTMLElement, space: Space, panels: Map<st
   if (activeAbortController) {
     activeAbortController.abort();
   }
+  // Clean up any in-progress drag/resize document listeners
+  for (const cleanup of activeDragCleanups) cleanup();
+  activeDragCleanups = [];
   activeAbortController = new AbortController();
 
   container.textContent = '';
@@ -283,11 +287,16 @@ function startDrag(
     }
   }
 
-  function onEnd(x: number, y: number) {
+  function removeDragListeners() {
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
+    activeDragCleanups = activeDragCleanups.filter((fn) => fn !== removeDragListeners);
+  }
+
+  function onEnd(x: number, y: number) {
+    removeDragListeners();
 
     card.classList.remove('panel-dragging');
     clone?.remove();
@@ -339,6 +348,7 @@ function startDrag(
   document.addEventListener('mouseup', handleMouseUp);
   document.addEventListener('touchmove', handleTouchMove, { passive: false });
   document.addEventListener('touchend', handleTouchEnd);
+  activeDragCleanups.push(removeDragListeners);
 }
 
 // ─── Edge Resize ─────────────────────────────────────────────────
@@ -468,11 +478,16 @@ function startResize(
     showResizeTooltip(x, y, newColSpan, newRowSpan);
   }
 
-  function onEnd(x: number, y: number) {
+  function removeResizeListeners() {
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
+    activeDragCleanups = activeDragCleanups.filter((fn) => fn !== removeResizeListeners);
+  }
+
+  function onEnd(x: number, y: number) {
+    removeResizeListeners();
 
     card.classList.remove('widget-resizing');
     removeGhostGrid(grid);
@@ -529,4 +544,5 @@ function startResize(
   document.addEventListener('mouseup', handleMouseUp);
   document.addEventListener('touchmove', handleTouchMove, { passive: false });
   document.addEventListener('touchend', handleTouchEnd);
+  activeDragCleanups.push(removeResizeListeners);
 }

@@ -129,14 +129,15 @@ function showContextMenu(e: MouseEvent, space: Space, rerender: () => void, call
   menu.appendChild(deleteBtn);
   document.body.appendChild(menu);
 
+  const closeController = new AbortController();
   const close = (ev: MouseEvent) => {
     if (!menu.contains(ev.target as Node)) {
       menu.remove();
-      document.removeEventListener('click', close);
+      closeController.abort();
     }
   };
   // Delay to prevent immediate close
   requestAnimationFrame(() => {
-    document.addEventListener('click', close);
+    document.addEventListener('click', close, { signal: closeController.signal });
   });
 }

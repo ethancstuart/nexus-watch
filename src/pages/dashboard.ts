@@ -144,7 +144,6 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
 
   // AI Bar (commands registered after app.init)
   const aiBar = createAIBar(
-    app,
     {
       onCommand: (cmd) => {
         executeSlashCommand(cmd, app, renderActiveSpace);
@@ -191,7 +190,7 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   app.panelGridContainer = hiddenContainer;
 
   // Start intelligence listener BEFORE panels fetch so we capture initial data events
-  initIntelligence();
+  initIntelligence(signal);
 
   await app.init();
 

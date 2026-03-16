@@ -39,6 +39,7 @@ export class StocksPanel extends Panel {
   private detailLoading: boolean = false;
   private detailProfile: CompanyProfile | null = null;
   private detailMetrics: KeyMetrics | null = null;
+  private detailAbort: AbortController | null = null;
 
   constructor() {
     super({
@@ -327,6 +328,11 @@ export class StocksPanel extends Panel {
   }
 
   private async loadDetailData(symbol: string): Promise<void> {
+    // Abort previous detail load if still in-flight
+    this.detailAbort?.abort();
+    const abort = new AbortController();
+    this.detailAbort = abort;
+
     this.detailLoading = true;
     if (this.data) this.render(this.data);
 
@@ -340,6 +346,9 @@ export class StocksPanel extends Panel {
       fetchProfile(symbol),
       fetchMetrics(symbol),
     ]);
+
+    // Only apply results if this load wasn't aborted by a newer one
+    if (abort.signal.aborted) return;
 
     if (this.selectedSymbol === symbol) {
       this.detailNews = newsResult.status === 'fulfilled' ? newsResult.value : [];

@@ -1,7 +1,7 @@
 /* PWA Install Button */
 .install-btn {
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  color: #fff;
+  background: var(--color-accent, #3b82f6);
+  color: var(--color-bg, #fff);
   border: none;
   border-radius: 6px;
   padding: 6px 14px;
@@ -19,7 +19,7 @@
 /* Offline Banner */
 .offline-banner {
   background: rgba(245, 158, 11, 0.9);
-  color: #000;
+  color: var(--color-bg, #000);
   text-align: center;
   padding: 6px 16px;
   font-size: 12px;
