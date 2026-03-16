@@ -1,0 +1,84 @@
+/* Hacker News panel */
+.hn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 550px;
+  overflow-y: auto;
+}
+
+.hn-story {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.hn-story:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hn-story:last-child {
+  border-bottom: none;
+}
+
+.hn-story-score {
+  flex-shrink: 0;
+  width: 32px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--color-accent);
+  line-height: 20px;
+}
+
+.hn-story-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.hn-story-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+  line-height: 1.4;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.hn-story-title:hover {
+  color: var(--color-accent);
+}
+
+.hn-story-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.hn-story-domain {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border);
+}
+
+.hn-story-comments {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.hn-story-comments:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}

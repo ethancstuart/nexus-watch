@@ -33,6 +33,9 @@ import { NotesPanel } from '../panels/NotesPanel.ts';
 import { CalendarPanel } from '../panels/CalendarPanel.ts';
 import { EntertainmentPanel } from '../panels/EntertainmentPanel.ts';
 import { GlobePanel } from '../panels/GlobePanel.ts';
+import { HackerNewsPanel } from '../panels/HackerNewsPanel.ts';
+import { GitHubPanel } from '../panels/GitHubPanel.ts';
+import { SpotifyPanel } from '../panels/SpotifyPanel.ts';
 import { showWelcome } from '../ui/welcome.ts';
 import { isOnboardingComplete, showOnboarding } from '../ui/onboarding.ts';
 import { checkSession } from '../services/auth.ts';
@@ -95,6 +98,9 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   app.registerPanel(new CalendarPanel());
   app.registerPanel(new EntertainmentPanel());
   app.registerPanel(new NotesPanel());
+  app.registerPanel(new HackerNewsPanel());
+  app.registerPanel(new GitHubPanel());
+  app.registerPanel(new SpotifyPanel());
 
   // Build panel map for quick lookup
   const panelMap = new Map<string, Panel>();
@@ -342,6 +348,10 @@ function executeSlashCommand(cmd: string, app: App, rerender: () => void): void 
         globe: 'globe',
         notes: 'notes',
         entertainment: 'entertainment',
+        hackernews: 'hackernews',
+        hn: 'hackernews',
+        github: 'github',
+        spotify: 'spotify',
       };
       if (command && panelAliases[command]) {
         const panel = app.getPanel(panelAliases[command]);

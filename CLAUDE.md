@@ -104,6 +104,9 @@ vercel             → Deploy to Vercel
 - [x] Notes (localStorage) — utility, priority 2, no network
 - [x] Calendar (Google Calendar API) — personal, priority 1, premium-gated
 - [x] Entertainment (TMDB) — world, priority 2, compact variant
+- [x] Hacker News (Firebase API) — dev, priority 2, tabs (Top/Best/New/Show/Ask), compact variant
+- [x] GitHub Activity (GitHub API) — dev, priority 2, username setup, compact variant
+- [x] Spotify (Spotify API) — personal, priority 2, premium-gated, OAuth connect, now playing + recent
 
 ## Shared Context — home-base
 This project is part of a portfolio managed from ~/Projects/home-base.

@@ -407,3 +407,56 @@ export interface GlobeWeatherPin {
   condition: string;
   name: string;
 }
+
+// Hacker News
+export type HNTab = 'top' | 'best' | 'new' | 'show' | 'ask';
+
+export interface HNStory {
+  id: number;
+  title: string;
+  url: string;
+  domain: string;
+  score: number;
+  by: string;
+  time: number;
+  descendants: number;
+}
+
+export interface HackerNewsData {
+  stories: HNStory[];
+  tab: HNTab;
+  fetchedAt: number;
+}
+
+// GitHub Activity
+export interface GitHubEvent {
+  id: string;
+  type: string;
+  repo: string;
+  action: string;
+  createdAt: string;
+}
+
+export interface GitHubData {
+  events: GitHubEvent[];
+  username: string;
+  fetchedAt: number;
+}
+
+// Spotify
+export interface SpotifyTrack {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  albumArt: string;
+  durationMs: number;
+  progressMs: number;
+}
+
+export interface SpotifyData {
+  currentTrack: SpotifyTrack | null;
+  recentTracks: SpotifyTrack[];
+  isPlaying: boolean;
+  fetchedAt: number;
+}
