@@ -37,7 +37,12 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
   }
   const userId = sessionMatch[1];
 
-  const origin = url.origin === 'https://localhost' ? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173') : url.origin;
+  const origin =
+    url.origin === 'https://localhost'
+      ? process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:5173'
+      : url.origin;
   const redirectUri = `${origin}/api/spotify/callback`;
 
   // Exchange code for tokens

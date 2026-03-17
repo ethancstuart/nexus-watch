@@ -12,7 +12,12 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
   }
 
   const url = new URL(req.url!, 'https://localhost');
-  const origin = url.origin === 'https://localhost' ? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173') : url.origin;
+  const origin =
+    url.origin === 'https://localhost'
+      ? process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:5173'
+      : url.origin;
   const redirectUri = `${origin}/api/spotify/callback`;
 
   const scopes = 'user-read-currently-playing user-read-recently-played';

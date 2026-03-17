@@ -65,7 +65,10 @@ export class SpotifyPanel extends Panel {
     const spotifyData = data as SpotifyData | null;
 
     if (!spotifyData) {
-      const empty = createElement('div', { className: 'spotify-now-playing', textContent: 'Unable to load Spotify data' });
+      const empty = createElement('div', {
+        className: 'spotify-now-playing',
+        textContent: 'Unable to load Spotify data',
+      });
       this.contentEl.appendChild(empty);
       this.renderDisconnectBtn();
       return;
@@ -120,7 +123,7 @@ export class SpotifyPanel extends Panel {
 
     const text = createElement('div', {
       className: 'spotify-connect-text',
-      textContent: 'Connect your Spotify account to see what you\'re listening to right on your dashboard.',
+      textContent: "Connect your Spotify account to see what you're listening to right on your dashboard.",
     });
     wrap.appendChild(text);
 
@@ -151,7 +154,8 @@ export class SpotifyPanel extends Panel {
     const info = createElement('div', { className: 'spotify-track-info' });
 
     const statusLabel = createElement('div', {});
-    statusLabel.style.cssText = 'font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--color-text-muted);margin-bottom:4px';
+    statusLabel.style.cssText =
+      'font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--color-text-muted);margin-bottom:4px';
     statusLabel.textContent = isPlaying ? 'Now Playing' : 'Paused';
     info.appendChild(statusLabel);
 
@@ -177,7 +181,8 @@ export class SpotifyPanel extends Panel {
       bar.appendChild(fill);
 
       const times = createElement('div', {});
-      times.style.cssText = 'display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-muted);margin-top:2px';
+      times.style.cssText =
+        'display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-muted);margin-top:2px';
       const current = createElement('span', { textContent: this.formatMs(track.progressMs) });
       const total = createElement('span', { textContent: this.formatMs(track.durationMs) });
       times.appendChild(current);
@@ -197,7 +202,8 @@ export class SpotifyPanel extends Panel {
 
     if (recentTracks.length > 0) {
       const recentLabel = createElement('div', {});
-      recentLabel.style.cssText = 'font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--color-text-muted);padding:8px 12px 4px;border-top:1px solid var(--color-border)';
+      recentLabel.style.cssText =
+        'font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--color-text-muted);padding:8px 12px 4px;border-top:1px solid var(--color-border)';
       recentLabel.textContent = 'Recently Played';
       this.contentEl.appendChild(recentLabel);
 
@@ -211,7 +217,8 @@ export class SpotifyPanel extends Panel {
         name.style.cssText = 'font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
         name.textContent = track.name;
         const artist = createElement('div', {});
-        artist.style.cssText = 'font-size:11px;color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+        artist.style.cssText =
+          'font-size:11px;color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
         artist.textContent = track.artist;
         trackInfo.appendChild(name);
         trackInfo.appendChild(artist);

@@ -146,7 +146,10 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
     });
 
     if (!recentRes.ok) {
-      return new Response(JSON.stringify({ currentTrack: null, recentTracks: [], isPlaying: false, fetchedAt: Date.now() }), { headers });
+      return new Response(
+        JSON.stringify({ currentTrack: null, recentTracks: [], isPlaying: false, fetchedAt: Date.now() }),
+        { headers },
+      );
     }
 
     const recentData = (await recentRes.json()) as { items: SpotifyRecentItem[] };
@@ -155,12 +158,17 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
       name: item.track.name,
       artist: item.track.artists.map((a) => a.name).join(', '),
       album: item.track.album.name,
-      albumArt: item.track.album.images.find((i) => i.width === 64)?.url || item.track.album.images[item.track.album.images.length - 1]?.url || '',
+      albumArt:
+        item.track.album.images.find((i) => i.width === 64)?.url ||
+        item.track.album.images[item.track.album.images.length - 1]?.url ||
+        '',
       durationMs: item.track.duration_ms,
       progressMs: 0,
     }));
 
-    return new Response(JSON.stringify({ currentTrack: null, recentTracks, isPlaying: false, fetchedAt: Date.now() }), { headers });
+    return new Response(JSON.stringify({ currentTrack: null, recentTracks, isPlaying: false, fetchedAt: Date.now() }), {
+      headers,
+    });
   }
 
   if (!currentRes.ok) {
@@ -178,7 +186,10 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
     name: track.name,
     artist: track.artists.map((a) => a.name).join(', '),
     album: track.album.name,
-    albumArt: track.album.images.find((i) => i.width === 64)?.url || track.album.images[track.album.images.length - 1]?.url || '',
+    albumArt:
+      track.album.images.find((i) => i.width === 64)?.url ||
+      track.album.images[track.album.images.length - 1]?.url ||
+      '',
     durationMs: track.duration_ms,
     progressMs: currentData.progress_ms || 0,
   };

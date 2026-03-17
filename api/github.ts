@@ -68,10 +68,9 @@ export default async function handler(req: VercelRequest, _res: VercelResponse) 
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const resp = await fetch(
-      `https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=30`,
-      { headers },
-    );
+    const resp = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}/events/public?per_page=30`, {
+      headers,
+    });
 
     if (!resp.ok) {
       const msg = resp.status === 404 ? 'User not found' : `GitHub API error: ${resp.status}`;
