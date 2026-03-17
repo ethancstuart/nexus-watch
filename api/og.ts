@@ -74,7 +74,7 @@ export default function handler() {
                 justifyContent: 'center',
                 maxWidth: '900px',
               },
-              children: ['Weather', 'Markets', 'News', 'Sports', 'Crypto', 'AI Chat', 'Calendar', 'PWA'].map(
+              children: ['Weather', 'Markets', 'News', 'Sports', 'Crypto', 'AI Chat', 'Calendar', 'GitHub'].map(
                 (label) => ({
                   type: 'div',
                   props: {

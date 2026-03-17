@@ -12,11 +12,11 @@ Built entirely with [Claude Code](https://claude.ai/claude-code). Open source un
 
 ## Why DashPulse
 
-The personal dashboard category hasn't evolved. Momentum and its clones are passive wallpaper -- a clock, a greeting, a photo. DashPulse treats your browser tab as a control surface: real-time data from 10 sources, AI-powered queries, and a terminal aesthetic built for information density.
+The personal dashboard category hasn't evolved. Momentum and its clones are passive wallpaper -- a clock, a greeting, a photo. DashPulse treats your browser tab as a control surface: real-time data from 13 sources, AI-powered queries, and a terminal aesthetic built for information density.
 
 ## Features
 
-**10 Data Panels**
+**13 Data Panels**
 - **Weather** -- Hyperlocal forecasts, hourly sparklines, multi-location support, interactive world map
 - **Markets** -- 10-stock watchlist with real-time quotes, detail views, sparklines (Finnhub)
 - **Crypto** -- Top 10 coins with 7-day sparklines, market cap, volume, ATH tracking (CoinGecko)
@@ -27,6 +27,9 @@ The personal dashboard category hasn't evolved. Momentum and its clones are pass
 - **Calendar** -- Google Calendar integration with today/tomorrow view (premium)
 - **Notes** -- Quick-capture to-dos, fully offline
 - **Globe** -- Interactive 3D map with news correlation and weather overlay
+- **Hacker News** -- Top, Best, New, Show HN, Ask HN with scores and comment counts
+- **GitHub** -- Activity feed for any username, event type icons
+- **Spotify** -- Now playing with album art, recent tracks (premium)
 
 **AI-Native Interface**
 - AI Bar (Cmd+K) -- natural language queries and slash commands
@@ -67,20 +70,20 @@ Open [localhost:5173](http://localhost:5173).
 | [Mapbox](https://www.mapbox.com) | Free tier | News map + globe |
 | [TMDB](https://www.themoviedb.org/documentation/api) | Free | Entertainment data |
 
-Optional: Stripe keys (premium tier), Anthropic key (hosted AI shell), BYO key for AI Chat (Anthropic/OpenAI/Google/xAI).
+Optional: Stripe keys (premium tier), Anthropic key (hosted AI shell), Spotify client ID (now playing), BYO key for AI Chat (Anthropic/OpenAI/Google/xAI).
 
 ## Architecture
 
 ```
 src/
-  panels/        # 10 self-contained panel classes
+  panels/        # 13 self-contained panel classes
   services/      # API clients, auth, storage, tier, sync
   pages/         # Landing, dashboard, roadmap
   ui/            # AI bar, settings, command palette, widgets
   config/        # Themes, density, preferences
   types/         # Centralized TypeScript types
-  styles/        # 28 CSS files, all using CSS custom properties
-api/             # 18 Vercel Edge Functions (API proxies, auth, Stripe)
+  styles/        # 39 CSS files, all using CSS custom properties
+api/             # 34 Vercel Edge Functions (API proxies, auth, Stripe)
 ```
 
 Panel-based -- every data source is a self-contained TypeScript class with its own refresh cycle. No React, no framework. DOM updates are direct. API keys proxied through Edge Functions.
@@ -92,7 +95,7 @@ Panel-based -- every data source is a self-contained TypeScript class with its o
 ```bash
 npm run dev        # Dev server (localhost:5173)
 npm run build      # TypeScript + Vite build + SW manifest
-npm run test       # Vitest (100+ tests)
+npm run test       # Vitest (104 tests)
 npm run lint       # ESLint
 npm run validate   # Typecheck + lint + test
 vercel             # Deploy to Vercel
