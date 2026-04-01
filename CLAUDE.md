@@ -1,21 +1,58 @@
-# DashPulse — Personal Intelligence Terminal
+# DashPulse — Geopolitical Intelligence Platform
 
 ## Project Overview
-Vite + vanilla TypeScript dashboard with a space-based, widget-driven architecture.
+Vite + vanilla TypeScript intelligence platform combining a real-time geopolitical map
+(MapLibre GL + deck.gl) with a space-based personal dashboard.
 Open-source, MIT licensed. Ships with smart defaults, fully configurable.
 Deployed to Vercel at https://dashpulse.app. Built with Claude Code.
-Inspired by Bloomberg Terminal and worldmonitor.app — information-dense, keyboard-driven, AI-native.
+Inspired by SitDeck, World Monitor, and Bloomberg Terminal — information-dense, map-centric, AI-native.
 Part of Ethan Stuart's portfolio: "I don't just manage products — I build them."
 
 ## Tech Stack
 - Vite (build tool, dev server, HMR)
 - TypeScript (strict mode, no framework)
+- MapLibre GL JS (interactive vector tile maps, CARTO dark matter basemap)
 - CSS custom properties for theming (terminal aesthetic, JetBrains Mono)
-- Vercel Edge Functions for API proxying
-- Anthropic SDK for AI chat panel (opt-in, BYO key) + deployer-hosted Haiku for AI shell
+- Vercel Edge Functions for API proxying (41 total)
+- Anthropic SDK for AI sitreps + AI chat panel + deployer-hosted Haiku for AI shell
 - Service Worker for PWA offline support (hand-written, no Workbox)
+- 7 real-time data sources: USGS, GDELT, NASA FIRMS, Open-Meteo, Polymarket, OpenSky, Cloudflare
 
-## Architecture
+## Intel Map (v2)
+The primary view at `#/intel` — a full-screen MapLibre GL map with 7 real-time data layers:
+
+### Data Layers
+- **Earthquakes** (USGS): magnitude-sized dots, depth-colored, 1min refresh
+- **Global News** (GDELT): tone-colored clusters by country, 15min refresh
+- **Wildfires** (NASA FIRMS): heatmap + point markers, 10min refresh
+- **Weather Alerts** (Open-Meteo): 20 major cities, severity-colored, 30min refresh
+- **Prediction Markets** (Polymarket/Kalshi): geocoded by topic, 5min refresh
+- **Live Aircraft** (OpenSky Network): altitude-colored dots, 15sec refresh
+- **Cyber Threats** (Cloudflare Radar): great circle arc lines between threat corridors, 1hr refresh
+
+### Intelligence System
+- **Geo-correlation engine** (`src/services/geoIntelligence.ts`): detects earthquake clusters, fire convergence, negative news surges, multi-signal events
+- **Country Intelligence Index** (`src/services/countryIndex.ts`): 23 nations scored 0-100 across events/disasters/sentiment/predictions
+- **Intel Bar** (`src/ui/intelBar.ts`): severity-colored alert pills with fly-to-location on click
+- **AI Sitreps** (`api/sitrep.ts`): Claude Haiku generates situation reports from current layer data
+
+### Map Architecture
+- `src/map/MapView.ts` — MapLibre GL init with CARTO dark matter tiles
+- `src/map/MapLayerManager.ts` — layer registry, toggle, persistence, refresh cycles
+- `src/map/MapOverlayManager.ts` — floating draggable/resizable widget overlays
+- `src/map/layers/` — 7 MapDataLayer implementations (each owns its MapLibre sources/layers)
+- `src/map/controls/` — LayerPanel (right), CountryPanel (left), ViewToggle
+- `src/pages/intel.ts` — page orchestrator (mirrors dashboard.ts pattern)
+
+### Keyboard Shortcuts (Intel View)
+- `L` — toggle layer panel
+- `C` — toggle country index
+- `S` — generate sitrep
+- `1-7` — toggle data layers
+- `Esc` — close overlays
+- `?` — shortcuts help
+
+## Architecture (Classic Dashboard)
 - **Space-based**: dashboard organized into named Spaces (Overview, Markets, World, Personal), each with its own 12-column CSS grid of widgets
 - **Widget system**: Panels render at different sizes (compact/medium/large) via `renderAtSize()` — each widget has a `colSpan` in the grid
 - **AI Bar**: persistent top bar replacing header/ticker/command palette — handles `/` commands and natural language AI queries

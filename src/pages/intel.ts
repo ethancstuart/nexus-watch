@@ -223,6 +223,52 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   // Restore saved overlays
   overlayManager.restoreOverlays();
 
+  // ── Keyboard Shortcuts ──
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      // Ignore if typing in an input
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      switch (e.key.toLowerCase()) {
+        case 'l':
+          document.querySelector('.layer-panel')?.classList.toggle('layer-panel-collapsed');
+          break;
+        case 'c':
+          document.querySelector('.country-panel')?.classList.toggle('country-panel-hidden');
+          break;
+        case 's':
+          if (!e.ctrlKey && !e.metaKey) sitrepBtn.click();
+          break;
+        case 'escape': {
+          // Close sitrep overlay, minimize overlays
+          document.querySelector('.sitrep-overlay')?.remove();
+          break;
+        }
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7': {
+          const layers = layerManager.getAllLayers();
+          const idx = parseInt(e.key) - 1;
+          if (idx < layers.length) {
+            layerManager.toggle(layers[idx].id);
+          }
+          break;
+        }
+        case '?': {
+          showShortcutsHelp(mapContainer);
+          break;
+        }
+      }
+    },
+    { signal },
+  );
+
   // ── Cleanup on navigation ──
   window.addEventListener(
     'hashchange',
@@ -264,4 +310,20 @@ function showSitrepOverlay(container: HTMLElement, text: string, region: string,
   overlay.appendChild(header);
   overlay.appendChild(body);
   container.appendChild(overlay);
+}
+
+function showShortcutsHelp(container: HTMLElement): void {
+  container.querySelector('.sitrep-overlay')?.remove();
+
+  const shortcuts = [
+    ['L', 'Toggle layer panel'],
+    ['C', 'Toggle country index'],
+    ['S', 'Generate sitrep'],
+    ['1-7', 'Toggle data layers'],
+    ['Esc', 'Close overlays'],
+    ['?', 'This help'],
+  ];
+
+  const text = shortcuts.map(([key, desc]) => `${key.padEnd(6)} ${desc}`).join('\n');
+  showSitrepOverlay(container, text, 'Keyboard Shortcuts', '');
 }
