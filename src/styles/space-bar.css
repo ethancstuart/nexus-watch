@@ -104,6 +104,24 @@
   color: var(--color-negative);
 }
 
+.dashboard-intel-link {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 4px;
+  color: #93c5fd;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.dashboard-intel-link:hover {
+  background: rgba(59, 130, 246, 0.22);
+}
+
 @media (max-width: 768px) {
   .space-bar {
     padding: 4px 8px;

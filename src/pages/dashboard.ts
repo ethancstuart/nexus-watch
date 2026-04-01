@@ -180,10 +180,18 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   // Ticker strip
   const ticker = createTicker();
 
+  // Intel Map link
+  const intelLink = document.createElement('a');
+  intelLink.href = '#/intel';
+  intelLink.className = 'dashboard-intel-link';
+  intelLink.textContent = 'Intel Map';
+  intelLink.title = 'Open geopolitical intelligence map';
+
   // Assemble page
   root.appendChild(aiBar);
   root.appendChild(ticker);
   root.appendChild(spaceBar);
+  spaceBar.appendChild(intelLink);
   root.appendChild(layout.root);
   layout.pulseBarSlot.appendChild(pulseBar);
   root.appendChild(layout.pulseBarSlot);
