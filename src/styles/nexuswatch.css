@@ -345,6 +345,127 @@
   }
 }
 
+/* ── Markets Tab ── */
+
+.nw-market-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-bottom: 1px solid #0d0d0d;
+  font-size: 11px;
+  gap: 8px;
+}
+
+.nw-market-row:hover {
+  background: #0a0a0a;
+}
+
+.nw-market-symbol {
+  width: 52px;
+  font-weight: 700;
+  color: #999999;
+  flex-shrink: 0;
+}
+
+.nw-market-price {
+  flex: 1;
+  text-align: right;
+  color: #cccccc;
+}
+
+.nw-market-change {
+  width: 64px;
+  text-align: right;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.nw-section-body {
+  /* container for market rows, feed rows, etc. */
+}
+
+/* ── Feeds Tab ── */
+
+.nw-feeds-cats {
+  display: flex;
+  border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0;
+}
+
+.nw-feeds-cat {
+  flex: 1;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: #444444;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.nw-feeds-cat:hover {
+  color: #777777;
+}
+
+.nw-feeds-cat.active {
+  color: #ff6600;
+  border-bottom-color: #ff6600;
+}
+
+.nw-feeds-body {
+  overflow-y: auto;
+}
+
+.nw-feed-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #0d0d0d;
+  cursor: pointer;
+  transition: background 0.1s;
+  font-size: 11px;
+}
+
+.nw-feed-row:hover {
+  background: #0a0a0a;
+}
+
+.nw-feed-source {
+  font-size: 9px;
+  font-weight: 700;
+  color: #ff6600;
+  min-width: 48px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  padding-top: 1px;
+}
+
+.nw-feed-title {
+  flex: 1;
+  color: #999999;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.nw-feed-time {
+  font-size: 9px;
+  color: #444444;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* ── Map Container (70%) ── */
 
 .nw-map-container {

@@ -112,8 +112,8 @@ export class MapLayerManager {
     } catch {
       // ignore
     }
-    // Default: earthquakes enabled
-    return ['earthquakes'];
+    // Default: enable key layers
+    return ['earthquakes', 'news', 'fires', 'weather-alerts'];
   }
 
   private saveEnabledLayers(): void {

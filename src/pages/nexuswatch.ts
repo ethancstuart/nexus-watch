@@ -17,6 +17,8 @@ import {
 } from '../services/geoIntelligence.ts';
 import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
 import { generateSitrep } from '../services/sitrep.ts';
+import { createMarketsTab } from '../ui/sidebarMarkets.ts';
+import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import type { IntelItem, CountryIntelScore } from '../types/index.ts';
 
 let nwAbort: AbortController | null = null;
@@ -162,16 +164,25 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   tabMarkets.addEventListener('click', () => setActiveTab('markets'));
   tabFeeds.addEventListener('click', () => setActiveTab('feeds'));
 
-  // ── Sidebar rendering ──
+  // ── Sidebar tab components ──
+  const marketsTab = createMarketsTab();
+  const feedsTab = createFeedsTab();
+
   function renderSidebarContent() {
     sidebarContent.textContent = '';
+
+    // Stop data cycles for inactive tabs
+    marketsTab.stopDataCycle();
+    feedsTab.stopDataCycle();
 
     if (activeTab === 'intel') {
       renderIntelTab(sidebarContent, mapView);
     } else if (activeTab === 'markets') {
-      renderPlaceholder(sidebarContent, 'MARKETS', 'Stocks & crypto data loading in Phase 2...');
+      sidebarContent.appendChild(marketsTab.element);
+      marketsTab.startDataCycle();
     } else {
-      renderPlaceholder(sidebarContent, 'FEEDS', 'News & social feeds loading in Phase 2...');
+      sidebarContent.appendChild(feedsTab.element);
+      feedsTab.startDataCycle();
     }
   }
 
@@ -414,25 +425,6 @@ function createCountryRow(score: CountryIntelScore, mapView: MapView): HTMLEleme
   }
 
   return row;
-}
-
-// ── Placeholder ──
-
-function renderPlaceholder(container: HTMLElement, title: string, message: string): void {
-  const header = createElement('div', { className: 'nw-section-header', textContent: title });
-  container.appendChild(header);
-
-  // Show skeletons
-  for (let i = 0; i < 12; i++) {
-    const sk = createElement('div', { className: 'nw-skeleton-row' });
-    const bar = createElement('div', { className: 'nw-skeleton-bar' });
-    bar.style.width = `${40 + Math.random() * 50}%`;
-    bar.style.height = '10px';
-    sk.appendChild(bar);
-    container.appendChild(sk);
-  }
-
-  container.appendChild(createElement('div', { className: 'nw-placeholder', textContent: message }));
 }
 
 // ── Sitrep Overlay ──
