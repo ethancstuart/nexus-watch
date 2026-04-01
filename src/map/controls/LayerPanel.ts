@@ -22,7 +22,8 @@ export function createLayerPanel(
 
   // Toggle button (always visible)
   const toggleBtn = createElement('button', { className: 'layer-panel-toggle' });
-  toggleBtn.innerHTML = '<span class="layer-panel-toggle-icon">☰</span><span class="layer-panel-toggle-label">Layers</span>';
+  toggleBtn.innerHTML =
+    '<span class="layer-panel-toggle-icon">☰</span><span class="layer-panel-toggle-label">Layers</span>';
   toggleBtn.addEventListener('click', () => {
     wrapper.classList.toggle('layer-panel-collapsed');
   });

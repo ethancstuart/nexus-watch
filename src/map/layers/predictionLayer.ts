@@ -91,9 +91,7 @@ export class PredictionLayer implements MapDataLayer {
 
       this.lastUpdated = Date.now();
       if (this.enabled) this.renderLayer();
-      document.dispatchEvent(
-        new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }),
-      );
+      document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
     } catch (err) {
       console.error('Prediction layer refresh error:', err);
     }
@@ -197,7 +195,12 @@ export class PredictionLayer implements MapDataLayer {
       const props = e.features[0].properties!;
       const coords = (e.features[0].geometry as GeoJSON.Point).coordinates;
       const vol = Number(props.volume);
-      const volStr = vol > 1_000_000 ? `$${(vol / 1_000_000).toFixed(1)}M` : vol > 1_000 ? `$${(vol / 1_000).toFixed(0)}K` : `$${vol}`;
+      const volStr =
+        vol > 1_000_000
+          ? `$${(vol / 1_000_000).toFixed(1)}M`
+          : vol > 1_000
+            ? `$${(vol / 1_000).toFixed(0)}K`
+            : `$${vol}`;
 
       this.popup?.remove();
       this.popup = new maplibregl.Popup({

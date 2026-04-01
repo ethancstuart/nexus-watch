@@ -60,9 +60,7 @@ export class WeatherAlertLayer implements MapDataLayer {
       this.data = await fetchWeatherAlerts();
       this.lastUpdated = Date.now();
       if (this.enabled) this.renderLayer();
-      document.dispatchEvent(
-        new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }),
-      );
+      document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
     } catch (err) {
       console.error('Weather alert layer refresh error:', err);
     }
@@ -221,8 +219,24 @@ async function fetchWeatherAlerts(): Promise<WeatherAlert[]> {
   if (!res.ok) throw new Error('Open-Meteo API error');
 
   const data = (await res.json()) as
-    | { current: { temperature_2m: number; wind_speed_10m: number; rain: number; snowfall: number; weather_code: number } }[]
-    | { current: { temperature_2m: number; wind_speed_10m: number; rain: number; snowfall: number; weather_code: number } };
+    | {
+        current: {
+          temperature_2m: number;
+          wind_speed_10m: number;
+          rain: number;
+          snowfall: number;
+          weather_code: number;
+        };
+      }[]
+    | {
+        current: {
+          temperature_2m: number;
+          wind_speed_10m: number;
+          rain: number;
+          snowfall: number;
+          weather_code: number;
+        };
+      };
 
   const results = Array.isArray(data) ? data : [data];
   const alerts: WeatherAlert[] = [];

@@ -45,9 +45,7 @@ export class NewsLayer implements MapDataLayer {
       this.data = await fetchGdeltArticles();
       this.lastUpdated = Date.now();
       if (this.enabled) this.renderLayer();
-      document.dispatchEvent(
-        new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }),
-      );
+      document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
     } catch (err) {
       console.error('News layer refresh error:', err);
     }

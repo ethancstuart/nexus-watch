@@ -36,9 +36,7 @@ export class FireLayer implements MapDataLayer {
       this.data = await fetchFireHotspots();
       this.lastUpdated = Date.now();
       if (this.enabled) this.renderLayer();
-      document.dispatchEvent(
-        new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }),
-      );
+      document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
     } catch (err) {
       console.error('Fire layer refresh error:', err);
     }
@@ -95,12 +93,18 @@ export class FireLayer implements MapDataLayer {
           'interpolate',
           ['linear'],
           ['heatmap-density'],
-          0, 'rgba(0,0,0,0)',
-          0.2, 'rgba(255,140,0,0.3)',
-          0.4, 'rgba(255,100,0,0.5)',
-          0.6, 'rgba(255,60,0,0.7)',
-          0.8, 'rgba(255,30,0,0.85)',
-          1, 'rgba(255,0,0,1)',
+          0,
+          'rgba(0,0,0,0)',
+          0.2,
+          'rgba(255,140,0,0.3)',
+          0.4,
+          'rgba(255,100,0,0.5)',
+          0.6,
+          'rgba(255,60,0,0.7)',
+          0.8,
+          'rgba(255,30,0,0.85)',
+          1,
+          'rgba(255,0,0,1)',
         ],
         'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 2, 4, 6, 8, 20],
         'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.9, 8, 0.6],
@@ -115,7 +119,17 @@ export class FireLayer implements MapDataLayer {
       minzoom: 5,
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['get', 'frp'], 0, 2, 50, 5, 200, 10],
-        'circle-color': ['interpolate', ['linear'], ['get', 'brightness'], 300, '#ff8c00', 350, '#ff4500', 400, '#ff0000'],
+        'circle-color': [
+          'interpolate',
+          ['linear'],
+          ['get', 'brightness'],
+          300,
+          '#ff8c00',
+          350,
+          '#ff4500',
+          400,
+          '#ff0000',
+        ],
         'circle-stroke-width': 0.5,
         'circle-stroke-color': 'rgba(255,255,255,0.2)',
         'circle-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.3, 8, 0.8],

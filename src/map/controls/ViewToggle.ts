@@ -2,10 +2,7 @@ import { createElement } from '../../utils/dom.ts';
 
 export type IntelViewMode = 'map' | 'classic';
 
-export function createViewToggle(
-  currentMode: IntelViewMode,
-  onToggle: (mode: IntelViewMode) => void,
-): HTMLElement {
+export function createViewToggle(currentMode: IntelViewMode, onToggle: (mode: IntelViewMode) => void): HTMLElement {
   const wrapper = createElement('div', { className: 'view-toggle' });
 
   const mapBtn = createElement('button', { className: 'view-toggle-btn' });

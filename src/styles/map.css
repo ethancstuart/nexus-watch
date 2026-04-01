@@ -50,8 +50,13 @@
 }
 
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* ── Map Container ── */
@@ -271,7 +276,9 @@
   overflow-y: auto;
   padding: 12px;
   padding-top: 52px;
-  transition: transform 0.25s ease, opacity 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
 }
 
 .layer-panel-header {

@@ -65,9 +65,16 @@ async function handlePublicFeed(res: VercelResponse) {
   }
 }
 
-function parseCsv(
-  csv: string,
-): { lat: number; lon: number; brightness: number; confidence: number | string; satellite: string; acqDate: string; acqTime: string; frp: number }[] {
+function parseCsv(csv: string): {
+  lat: number;
+  lon: number;
+  brightness: number;
+  confidence: number | string;
+  satellite: string;
+  acqDate: string;
+  acqTime: string;
+  frp: number;
+}[] {
   const lines = csv.trim().split('\n');
   if (lines.length < 2) return [];
 
@@ -83,8 +90,16 @@ function parseCsv(
 
   if (latIdx === -1 || lonIdx === -1) return [];
 
-  const results: { lat: number; lon: number; brightness: number; confidence: number | string; satellite: string; acqDate: string; acqTime: string; frp: number }[] =
-    [];
+  const results: {
+    lat: number;
+    lon: number;
+    brightness: number;
+    confidence: number | string;
+    satellite: string;
+    acqDate: string;
+    acqTime: string;
+    frp: number;
+  }[] = [];
 
   // Sample for performance — max 2000 hotspots
   const step = lines.length > 2001 ? Math.ceil((lines.length - 1) / 2000) : 1;

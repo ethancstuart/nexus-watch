@@ -15,21 +15,15 @@ import type { Panel } from '../panels/Panel.ts';
 
 // Lazy-load panel constructors to avoid loading all panels upfront
 async function loadPanelRegistry(): Promise<Map<string, Panel>> {
-  const [
-    { WeatherPanel },
-    { StocksPanel },
-    { NewsPanel },
-    { CryptoPanel },
-    { SportsPanel },
-    { HackerNewsPanel },
-  ] = await Promise.all([
-    import('../panels/WeatherPanel.ts'),
-    import('../panels/StocksPanel.ts'),
-    import('../panels/NewsPanel.ts'),
-    import('../panels/CryptoPanel.ts'),
-    import('../panels/SportsPanel.ts'),
-    import('../panels/HackerNewsPanel.ts'),
-  ]);
+  const [{ WeatherPanel }, { StocksPanel }, { NewsPanel }, { CryptoPanel }, { SportsPanel }, { HackerNewsPanel }] =
+    await Promise.all([
+      import('../panels/WeatherPanel.ts'),
+      import('../panels/StocksPanel.ts'),
+      import('../panels/NewsPanel.ts'),
+      import('../panels/CryptoPanel.ts'),
+      import('../panels/SportsPanel.ts'),
+      import('../panels/HackerNewsPanel.ts'),
+    ]);
 
   const panels: Panel[] = [
     new WeatherPanel(),
@@ -95,11 +89,23 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   // ── Bottom Bar ──
   const bottomBar = createElement('div', { className: 'intel-bottombar' });
   const layerCounts: Record<string, { el: HTMLElement; color: string; label: string }> = {
-    earthquakes: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#ff3c3c', label: 'Quakes' },
+    earthquakes: {
+      el: createElement('span', { className: 'intel-bottombar-item' }),
+      color: '#ff3c3c',
+      label: 'Quakes',
+    },
     news: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#eab308', label: 'News' },
     fires: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#ff6b00', label: 'Fires' },
-    'weather-alerts': { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#3b82f6', label: 'Weather' },
-    predictions: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#22c55e', label: 'Predictions' },
+    'weather-alerts': {
+      el: createElement('span', { className: 'intel-bottombar-item' }),
+      color: '#3b82f6',
+      label: 'Weather',
+    },
+    predictions: {
+      el: createElement('span', { className: 'intel-bottombar-item' }),
+      color: '#22c55e',
+      label: 'Predictions',
+    },
   };
   for (const info of Object.values(layerCounts)) {
     info.el.innerHTML = `<span class="layer-dot" style="background:${info.color}"></span> ${info.label}: --`;
