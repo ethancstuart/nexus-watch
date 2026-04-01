@@ -67,6 +67,32 @@ export interface WeatherAlert {
   description: string;
 }
 
+export interface IntelItem {
+  id: string;
+  type: 'earthquake' | 'fire' | 'weather' | 'news' | 'prediction' | 'convergence';
+  priority: 0 | 1 | 2; // 0=critical, 1=elevated, 2=monitor
+  text: string;
+  icon: string;
+  lat: number;
+  lon: number;
+  layerId?: string;
+  expiry?: number;
+}
+
+export interface CountryIntelScore {
+  code: string;
+  name: string;
+  score: number; // 0-100 (0=stable, 100=critical)
+  components: {
+    events: number;
+    disasters: number;
+    sentiment: number;
+    predictions: number;
+  };
+  recentEvents: string[];
+  lastUpdated: number;
+}
+
 export interface EarthquakeFeature {
   id: string;
   magnitude: number;

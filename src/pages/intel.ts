@@ -1,4 +1,5 @@
 import '../styles/map.css';
+import '../styles/intel-bar.css';
 import { createElement } from '../utils/dom.ts';
 import { MapView } from '../map/MapView.ts';
 import { MapLayerManager } from '../map/MapLayerManager.ts';
@@ -9,7 +10,11 @@ import { FireLayer } from '../map/layers/fireLayer.ts';
 import { WeatherAlertLayer } from '../map/layers/weatherLayer.ts';
 import { PredictionLayer } from '../map/layers/predictionLayer.ts';
 import { createLayerPanel } from '../map/controls/LayerPanel.ts';
+import { createCountryPanel } from '../map/controls/CountryPanel.ts';
 import { createViewToggle } from '../map/controls/ViewToggle.ts';
+import { createIntelBar } from '../ui/intelBar.ts';
+import { initGeoIntelligence, destroyGeoIntelligence, getLayerData } from '../services/geoIntelligence.ts';
+import { computeCountryScores } from '../services/countryIndex.ts';
 import { checkSession } from '../services/auth.ts';
 import type { Panel } from '../panels/Panel.ts';
 
@@ -86,8 +91,13 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   // ── Map Container ──
   const mapContainer = createElement('div', { className: 'intel-map-container' });
 
-  // ── Bottom Bar ──
-  const bottomBar = createElement('div', { className: 'intel-bottombar' });
+  // ── Intel Bar (replaces simple bottom bar) ──
+  const intelBar = createIntelBar((lat, lon) => {
+    mapView.flyTo(lon, lat, 6);
+  });
+
+  // ── Status Bar ──
+  const statusBar = createElement('div', { className: 'intel-bottombar' });
   const layerCounts: Record<string, { el: HTMLElement; color: string; label: string }> = {
     earthquakes: {
       el: createElement('span', { className: 'intel-bottombar-item' }),
@@ -109,13 +119,14 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   };
   for (const info of Object.values(layerCounts)) {
     info.el.innerHTML = `<span class="layer-dot" style="background:${info.color}"></span> ${info.label}: --`;
-    bottomBar.appendChild(info.el);
+    statusBar.appendChild(info.el);
   }
 
   // Assemble
   view.appendChild(topbar);
   view.appendChild(mapContainer);
-  view.appendChild(bottomBar);
+  view.appendChild(intelBar);
+  view.appendChild(statusBar);
   root.appendChild(view);
 
   // ── Initialize Map ──
@@ -148,7 +159,25 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   const layerPanel = createLayerPanel(layerManager, overlayManager, panelRegistry);
   mapContainer.appendChild(layerPanel);
 
-  // ── Update bottom bar on layer data ──
+  // ── Country Panel (left side) ──
+  const countryPanel = createCountryPanel((_code, lat, lon) => {
+    mapView.flyTo(lon, lat, 5);
+  });
+  mapContainer.appendChild(countryPanel);
+
+  // ── Geo-Intelligence Engine ──
+  initGeoIntelligence(signal);
+
+  // Recompute country scores when layer data changes
+  document.addEventListener(
+    'dashview:layer-data',
+    () => {
+      computeCountryScores(getLayerData());
+    },
+    { signal },
+  );
+
+  // ── Update status bar on layer data ──
   document.addEventListener(
     'dashview:layer-data',
     ((e: CustomEvent) => {
@@ -173,6 +202,7 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
         mapView.destroy();
         layerManager.destroy();
         overlayManager.destroy();
+        destroyGeoIntelligence();
         intelAbort?.abort();
         intelAbort = null;
       }

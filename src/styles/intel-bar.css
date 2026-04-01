@@ -1,0 +1,111 @@
+/* ── Intel Bar ── */
+
+.intel-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px;
+  background: rgba(10, 10, 10, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  height: 36px;
+  flex-shrink: 0;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.intel-bar-label {
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+  padding-right: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.intel-bar-empty {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
+.intel-bar-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1;
+}
+
+.intel-bar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.intel-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.intel-bar-item:hover {
+  transform: translateY(-1px);
+}
+
+.intel-bar-item:active {
+  transform: translateY(0);
+}
+
+/* Priority 0 — Critical (red) */
+.intel-bar-p0 {
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #fca5a5;
+}
+
+.intel-bar-p0:hover {
+  background: rgba(220, 38, 38, 0.25);
+}
+
+/* Priority 1 — Elevated (orange) */
+.intel-bar-p1 {
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  color: #fdba74;
+}
+
+.intel-bar-p1:hover {
+  background: rgba(249, 115, 22, 0.22);
+}
+
+/* Priority 2 — Monitor (yellow) */
+.intel-bar-p2 {
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  color: #fde68a;
+}
+
+.intel-bar-p2:hover {
+  background: rgba(234, 179, 8, 0.2);
+}
+
+.intel-bar-item-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.intel-bar-item-text {
+  font-size: 11px;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
