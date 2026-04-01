@@ -1,0 +1,472 @@
+import '../styles/nexuswatch.css';
+import { createElement } from '../utils/dom.ts';
+import { MapView } from '../map/MapView.ts';
+import { MapLayerManager } from '../map/MapLayerManager.ts';
+import { EarthquakeLayer } from '../map/layers/earthquakeLayer.ts';
+import { NewsLayer } from '../map/layers/newsLayer.ts';
+import { FireLayer } from '../map/layers/fireLayer.ts';
+import { WeatherAlertLayer } from '../map/layers/weatherLayer.ts';
+import { PredictionLayer } from '../map/layers/predictionLayer.ts';
+import { FlightLayer } from '../map/layers/flightLayer.ts';
+import { CyberLayer } from '../map/layers/cyberLayer.ts';
+import {
+  initGeoIntelligence,
+  destroyGeoIntelligence,
+  getIntelItems,
+  getLayerData,
+} from '../services/geoIntelligence.ts';
+import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
+import { generateSitrep } from '../services/sitrep.ts';
+import type { IntelItem, CountryIntelScore } from '../types/index.ts';
+
+let nwAbort: AbortController | null = null;
+
+export async function renderNexusWatch(root: HTMLElement): Promise<void> {
+  if (nwAbort) nwAbort.abort();
+  nwAbort = new AbortController();
+  const signal = nwAbort.signal;
+
+  root.textContent = '';
+
+  // ── Build DOM structure synchronously ──
+  const app = createElement('div', { className: 'nw-app' });
+
+  // Top bar
+  const topbar = createElement('div', { className: 'nw-topbar' });
+  const logo = createElement('span', { className: 'nw-logo', textContent: 'NexusWatch' });
+  const sep1 = createElement('span', { className: 'nw-topbar-sep' });
+  const layerChips = createElement('div', { className: 'nw-topbar-layers' });
+
+  const sitrepBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SITREP' });
+
+  const statusArea = createElement('div', { className: 'nw-topbar-status' });
+  const liveDot = createElement('span', { className: 'nw-live-dot' });
+  const clockEl = createElement('span', {});
+
+  statusArea.appendChild(liveDot);
+  statusArea.appendChild(clockEl);
+
+  topbar.appendChild(logo);
+  topbar.appendChild(sep1);
+  topbar.appendChild(layerChips);
+  topbar.appendChild(sitrepBtn);
+  topbar.appendChild(statusArea);
+
+  // Main area
+  const main = createElement('div', { className: 'nw-main' });
+
+  // Sidebar
+  const sidebar = createElement('div', { className: 'nw-sidebar' });
+  const tabBar = createElement('div', { className: 'nw-sidebar-tabs' });
+  const tabIntel = createElement('button', { className: 'nw-sidebar-tab active', textContent: 'INTEL' });
+  const tabMarkets = createElement('button', { className: 'nw-sidebar-tab', textContent: 'MARKETS' });
+  const tabFeeds = createElement('button', { className: 'nw-sidebar-tab', textContent: 'FEEDS' });
+  tabBar.appendChild(tabIntel);
+  tabBar.appendChild(tabMarkets);
+  tabBar.appendChild(tabFeeds);
+
+  const sidebarContent = createElement('div', { className: 'nw-sidebar-content' });
+  sidebar.appendChild(tabBar);
+  sidebar.appendChild(sidebarContent);
+
+  // Map container
+  const mapContainer = createElement('div', { className: 'nw-map-container' });
+
+  main.appendChild(sidebar);
+  main.appendChild(mapContainer);
+
+  // Status bar
+  const statusBar = createElement('div', { className: 'nw-statusbar' });
+
+  // Assemble and render immediately
+  app.appendChild(topbar);
+  app.appendChild(main);
+  app.appendChild(statusBar);
+  root.appendChild(app);
+
+  // ── Initialize map ──
+  const mapView = new MapView(mapContainer);
+  const map = mapView.init();
+
+  // ── Layer manager ──
+  const layerManager = new MapLayerManager();
+  layerManager.setMap(map);
+
+  const allLayers = [
+    new EarthquakeLayer(),
+    new NewsLayer(),
+    new FireLayer(),
+    new WeatherAlertLayer(),
+    new PredictionLayer(),
+    new FlightLayer(),
+    new CyberLayer(),
+  ];
+
+  for (const layer of allLayers) {
+    layerManager.register(layer);
+  }
+
+  map.on('load', () => {
+    layerManager.initAll();
+  });
+
+  // ── Layer chips in topbar ──
+  const LAYER_COLORS: Record<string, string> = {
+    earthquakes: '#ff3c3c',
+    news: '#eab308',
+    fires: '#ff6b00',
+    'weather-alerts': '#3b82f6',
+    predictions: '#22c55e',
+    flights: '#818cf8',
+    cyber: '#dc2626',
+  };
+
+  function renderLayerChips() {
+    layerChips.textContent = '';
+    for (const layer of layerManager.getAllLayers()) {
+      const chip = createElement('button', { className: 'nw-layer-chip' });
+      if (layer.isEnabled()) chip.classList.add('active');
+
+      const dot = createElement('span', { className: 'chip-dot' });
+      dot.style.background = LAYER_COLORS[layer.id] || '#666';
+      const label = createElement('span', {});
+      const count = layer.getFeatureCount();
+      label.textContent = count > 0 ? `${layer.name} (${count})` : layer.name;
+
+      chip.appendChild(dot);
+      chip.appendChild(label);
+
+      chip.addEventListener('click', () => {
+        layerManager.toggle(layer.id);
+        renderLayerChips();
+      });
+
+      layerChips.appendChild(chip);
+    }
+  }
+
+  renderLayerChips();
+
+  // ── Tab switching ──
+  let activeTab: 'intel' | 'markets' | 'feeds' = 'intel';
+
+  function setActiveTab(tab: typeof activeTab) {
+    activeTab = tab;
+    tabIntel.classList.toggle('active', tab === 'intel');
+    tabMarkets.classList.toggle('active', tab === 'markets');
+    tabFeeds.classList.toggle('active', tab === 'feeds');
+    renderSidebarContent();
+  }
+
+  tabIntel.addEventListener('click', () => setActiveTab('intel'));
+  tabMarkets.addEventListener('click', () => setActiveTab('markets'));
+  tabFeeds.addEventListener('click', () => setActiveTab('feeds'));
+
+  // ── Sidebar rendering ──
+  function renderSidebarContent() {
+    sidebarContent.textContent = '';
+
+    if (activeTab === 'intel') {
+      renderIntelTab(sidebarContent, mapView);
+    } else if (activeTab === 'markets') {
+      renderPlaceholder(sidebarContent, 'MARKETS', 'Stocks & crypto data loading in Phase 2...');
+    } else {
+      renderPlaceholder(sidebarContent, 'FEEDS', 'News & social feeds loading in Phase 2...');
+    }
+  }
+
+  renderSidebarContent();
+
+  // ── Status bar ──
+  function updateStatusBar() {
+    statusBar.textContent = '';
+    for (const layer of layerManager.getAllLayers()) {
+      if (!layer.isEnabled()) continue;
+      const item = createElement('span', { className: 'nw-statusbar-item' });
+      const dot = createElement('span', { className: 'nw-statusbar-dot' });
+      dot.style.background = LAYER_COLORS[layer.id] || '#666';
+      const text = createElement('span', {});
+      text.textContent = `${layer.name}: ${layer.getFeatureCount()}`;
+      item.appendChild(dot);
+      item.appendChild(text);
+      statusBar.appendChild(item);
+    }
+
+    const clock = createElement('span', { className: 'nw-statusbar-clock' });
+    clock.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+    statusBar.appendChild(clock);
+  }
+
+  updateStatusBar();
+
+  // ── Clock update ──
+  const clockInterval = setInterval(() => {
+    clockEl.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+    updateStatusBar();
+  }, 1000);
+
+  // ── Geo-intelligence ──
+  initGeoIntelligence(signal);
+
+  document.addEventListener(
+    'dashview:layer-data',
+    () => {
+      computeCountryScores(getLayerData());
+      renderLayerChips();
+      if (activeTab === 'intel') renderSidebarContent();
+    },
+    { signal },
+  );
+
+  document.addEventListener(
+    'dashview:intel-update',
+    () => {
+      if (activeTab === 'intel') renderSidebarContent();
+    },
+    { signal },
+  );
+
+  // ── Sitrep button ──
+  sitrepBtn.addEventListener('click', async () => {
+    sitrepBtn.textContent = 'GENERATING...';
+    sitrepBtn.disabled = true;
+    try {
+      const result = await generateSitrep('Global', getLayerData());
+      showSitrep(mapContainer, result.sitrep, result.generatedAt);
+    } catch (err) {
+      showSitrep(mapContainer, `Error: ${err instanceof Error ? err.message : 'Failed'}`, '');
+    } finally {
+      sitrepBtn.textContent = 'SITREP';
+      sitrepBtn.disabled = false;
+    }
+  });
+
+  // ── Keyboard shortcuts ──
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      switch (e.key) {
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7': {
+          const layers = layerManager.getAllLayers();
+          const idx = parseInt(e.key) - 1;
+          if (idx < layers.length) {
+            layerManager.toggle(layers[idx].id);
+            renderLayerChips();
+          }
+          break;
+        }
+        case 's':
+          if (!e.ctrlKey && !e.metaKey) sitrepBtn.click();
+          break;
+        case 'Escape':
+          mapContainer.querySelector('.nw-sitrep-overlay')?.remove();
+          break;
+      }
+    },
+    { signal },
+  );
+
+  // ── Cleanup ──
+  signal.addEventListener('abort', () => {
+    clearInterval(clockInterval);
+    mapView.destroy();
+    layerManager.destroy();
+    destroyGeoIntelligence();
+  });
+
+  window.addEventListener(
+    'hashchange',
+    () => {
+      if (!['#/', '#/app', ''].includes(window.location.hash)) {
+        nwAbort?.abort();
+        nwAbort = null;
+      }
+    },
+    { signal },
+  );
+}
+
+// ── Intel Tab ──
+
+function renderIntelTab(container: HTMLElement, mapView: MapView): void {
+  // Alerts section
+  const alertHeader = createElement('div', { className: 'nw-section-header', textContent: 'ALERTS' });
+  container.appendChild(alertHeader);
+
+  const items = getIntelItems();
+  if (items.length === 0) {
+    container.appendChild(
+      createElement('div', { className: 'nw-placeholder', textContent: 'Monitoring — no alerts yet' }),
+    );
+  } else {
+    for (const item of items.slice(0, 20)) {
+      container.appendChild(createAlertRow(item, mapView));
+    }
+  }
+
+  // Country index section
+  const countryHeader = createElement('div', { className: 'nw-section-header', textContent: 'COUNTRY INDEX' });
+  container.appendChild(countryHeader);
+
+  const scores = getCachedScores();
+  if (scores.length === 0) {
+    // Show skeletons
+    for (let i = 0; i < 8; i++) {
+      const sk = createElement('div', { className: 'nw-skeleton-row' });
+      const bar1 = createElement('div', { className: 'nw-skeleton-bar' });
+      bar1.style.width = '20px';
+      bar1.style.flexShrink = '0';
+      const bar2 = createElement('div', { className: 'nw-skeleton-bar' });
+      bar2.style.flex = '1';
+      const bar3 = createElement('div', { className: 'nw-skeleton-bar' });
+      bar3.style.width = '32px';
+      sk.appendChild(bar1);
+      sk.appendChild(bar2);
+      sk.appendChild(bar3);
+      container.appendChild(sk);
+    }
+  } else {
+    for (const score of scores) {
+      container.appendChild(createCountryRow(score, mapView));
+    }
+  }
+}
+
+function createAlertRow(item: IntelItem, mapView: MapView): HTMLElement {
+  const row = createElement('div', { className: 'nw-alert-row' });
+
+  const dot = createElement('span', { className: 'nw-alert-dot' });
+  dot.classList.add(item.priority === 0 ? 'critical' : item.priority === 1 ? 'elevated' : 'monitor');
+
+  const text = createElement('span', { className: 'nw-alert-text', textContent: item.text });
+
+  row.appendChild(dot);
+  row.appendChild(text);
+
+  if (item.lat !== 0 || item.lon !== 0) {
+    row.addEventListener('click', () => mapView.flyTo(item.lon, item.lat, 6));
+  }
+
+  return row;
+}
+
+function createCountryRow(score: CountryIntelScore, mapView: MapView): HTMLElement {
+  const row = createElement('div', { className: 'nw-country-row' });
+  const { label, color } = scoreToLabel(score.score);
+
+  const flag = createElement('span', { className: 'nw-country-flag' });
+  flag.textContent = countryFlag(score.code);
+
+  const name = createElement('span', { className: 'nw-country-name', textContent: score.name });
+
+  const labelEl = createElement('span', { className: 'nw-country-label' });
+  labelEl.style.color = color;
+  labelEl.textContent = label;
+
+  const scoreEl = createElement('span', { className: 'nw-country-score' });
+  scoreEl.style.color = color;
+  scoreEl.textContent = String(score.score);
+
+  row.appendChild(flag);
+  row.appendChild(name);
+  row.appendChild(labelEl);
+  row.appendChild(scoreEl);
+
+  // Fly to country on click
+  const COORDS: Record<string, [number, number]> = {
+    US: [-98.5, 39.8],
+    RU: [105.3, 61.5],
+    CN: [104.2, 35.9],
+    UA: [31.2, 48.4],
+    IL: [34.9, 31.0],
+    IR: [53.7, 32.4],
+    IN: [78.9, 20.6],
+    GB: [-2.0, 54.0],
+    FR: [2.2, 46.2],
+    DE: [10.4, 51.2],
+    JP: [138.3, 36.2],
+    BR: [-51.9, -14.2],
+    TR: [35.2, 38.9],
+    SA: [45.1, 23.9],
+    EG: [30.8, 26.8],
+    PK: [69.3, 30.4],
+    NG: [8.7, 9.1],
+    MX: [-102.6, 23.6],
+    KR: [127.8, 35.9],
+    AU: [133.8, -25.3],
+    SY: [38.9, 34.8],
+    AF: [67.7, 33.9],
+    IQ: [43.7, 33.2],
+  };
+
+  const coords = COORDS[score.code];
+  if (coords) {
+    row.addEventListener('click', () => mapView.flyTo(coords[0], coords[1], 5));
+  }
+
+  return row;
+}
+
+// ── Placeholder ──
+
+function renderPlaceholder(container: HTMLElement, title: string, message: string): void {
+  const header = createElement('div', { className: 'nw-section-header', textContent: title });
+  container.appendChild(header);
+
+  // Show skeletons
+  for (let i = 0; i < 12; i++) {
+    const sk = createElement('div', { className: 'nw-skeleton-row' });
+    const bar = createElement('div', { className: 'nw-skeleton-bar' });
+    bar.style.width = `${40 + Math.random() * 50}%`;
+    bar.style.height = '10px';
+    sk.appendChild(bar);
+    container.appendChild(sk);
+  }
+
+  container.appendChild(createElement('div', { className: 'nw-placeholder', textContent: message }));
+}
+
+// ── Sitrep Overlay ──
+
+function showSitrep(container: HTMLElement, text: string, generatedAt: string): void {
+  container.querySelector('.nw-sitrep-overlay')?.remove();
+
+  const overlay = createElement('div', { className: 'nw-sitrep-overlay' });
+
+  const header = createElement('div', { className: 'nw-sitrep-header' });
+  const title = createElement('span', { className: 'nw-sitrep-title', textContent: 'SITUATION REPORT' });
+  const closeBtn = createElement('button', { className: 'nw-sitrep-close', textContent: 'X' });
+  closeBtn.addEventListener('click', () => overlay.remove());
+  header.appendChild(title);
+  if (generatedAt) {
+    const time = createElement('span', {});
+    time.style.color = '#444444';
+    time.style.fontSize = '9px';
+    time.textContent = new Date(generatedAt).toLocaleTimeString();
+    header.appendChild(time);
+  }
+  header.appendChild(closeBtn);
+
+  const body = createElement('div', { className: 'nw-sitrep-body' });
+  body.textContent = text;
+
+  overlay.appendChild(header);
+  overlay.appendChild(body);
+  container.appendChild(overlay);
+}
+
+// ── Utils ──
+
+function countryFlag(code: string): string {
+  const OFFSET = 0x1f1e6 - 65;
+  return String.fromCodePoint(code.charCodeAt(0) + OFFSET, code.charCodeAt(1) + OFFSET);
+}

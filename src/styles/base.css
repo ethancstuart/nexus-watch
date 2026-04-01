@@ -7,13 +7,10 @@
 }
 
 body {
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    sans-serif;
-  background: var(--color-bg, #0a0a0a);
-  color: var(--color-text, #fafafa);
+  font-family: var(--font-mono, 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace);
+  background: var(--color-bg, #000000);
+  color: var(--color-text, #cccccc);
+  font-size: 12px;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

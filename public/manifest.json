@@ -1,11 +1,11 @@
 {
-  "name": "DashPulse",
-  "short_name": "DashPulse",
-  "description": "Your real-time intelligence dashboard",
-  "start_url": "/#/app",
+  "name": "NexusWatch",
+  "short_name": "NexusWatch",
+  "description": "Real-time geopolitical intelligence platform",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#3b82f6",
-  "background_color": "#0a0a0a",
+  "theme_color": "#ff6600",
+  "background_color": "#000000",
   "icons": [
     {
       "src": "/icons/icon-192.svg",
