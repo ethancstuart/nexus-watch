@@ -1,7 +1,7 @@
 /// @ts-nocheck
-const CACHE_VERSION = 'dashpulse-v4';
-const API_CACHE = 'dashpulse-api-v2';
-const STATIC_CACHE = 'dashpulse-static-v2';
+const CACHE_VERSION = 'nexuswatch-v1';
+const API_CACHE = 'nexuswatch-api-v1';
+const STATIC_CACHE = 'nexuswatch-static-v1';
 
 // Injected at build time by scripts/inject-sw-manifest.js
 const PRECACHE_ASSETS = []; // __PRECACHE_INJECT__
@@ -51,10 +51,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigate requests: serve index.html for SPA routing
+  // Navigate requests: network-first so new deploys take effect immediately
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then((cached) => cached || fetch(event.request))
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put('/index.html', clone));
+          return response;
+        })
+        .catch(() => caches.match('/index.html').then((cached) => cached || new Response('Offline', { status: 503 })))
     );
     return;
   }
