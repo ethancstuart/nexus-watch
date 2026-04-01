@@ -30,6 +30,43 @@ export interface MapViewState {
   overlays: MapOverlayWidget[];
 }
 
+export interface GdeltArticle {
+  title: string;
+  url: string;
+  source: string;
+  sourceCountry: string;
+  tone: number;
+  lat: number;
+  lon: number;
+  date: string;
+  domain: string;
+  language: string;
+  image: string;
+}
+
+export interface FireHotspot {
+  lat: number;
+  lon: number;
+  brightness: number;
+  confidence: number | string;
+  satellite: string;
+  acqDate: string;
+  acqTime: string;
+  frp: number;
+}
+
+export interface WeatherAlert {
+  lat: number;
+  lon: number;
+  city: string;
+  country: string;
+  type: 'extreme_heat' | 'extreme_cold' | 'heavy_rain' | 'heavy_snow' | 'high_wind';
+  severity: 'moderate' | 'severe' | 'extreme';
+  value: number;
+  unit: string;
+  description: string;
+}
+
 export interface EarthquakeFeature {
   id: string;
   magnitude: number;

@@ -4,6 +4,10 @@ import { MapView } from '../map/MapView.ts';
 import { MapLayerManager } from '../map/MapLayerManager.ts';
 import { MapOverlayManager } from '../map/MapOverlayManager.ts';
 import { EarthquakeLayer } from '../map/layers/earthquakeLayer.ts';
+import { NewsLayer } from '../map/layers/newsLayer.ts';
+import { FireLayer } from '../map/layers/fireLayer.ts';
+import { WeatherAlertLayer } from '../map/layers/weatherLayer.ts';
+import { PredictionLayer } from '../map/layers/predictionLayer.ts';
 import { createLayerPanel } from '../map/controls/LayerPanel.ts';
 import { createViewToggle } from '../map/controls/ViewToggle.ts';
 import { checkSession } from '../services/auth.ts';
@@ -90,9 +94,17 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
 
   // ── Bottom Bar ──
   const bottomBar = createElement('div', { className: 'intel-bottombar' });
-  const eqCount = createElement('span', { className: 'intel-bottombar-item' });
-  eqCount.innerHTML = '<span class="layer-dot" style="background:#ff3c3c"></span> Earthquakes: loading...';
-  bottomBar.appendChild(eqCount);
+  const layerCounts: Record<string, { el: HTMLElement; color: string; label: string }> = {
+    earthquakes: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#ff3c3c', label: 'Quakes' },
+    news: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#eab308', label: 'News' },
+    fires: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#ff6b00', label: 'Fires' },
+    'weather-alerts': { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#3b82f6', label: 'Weather' },
+    predictions: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#22c55e', label: 'Predictions' },
+  };
+  for (const info of Object.values(layerCounts)) {
+    info.el.innerHTML = `<span class="layer-dot" style="background:${info.color}"></span> ${info.label}: --`;
+    bottomBar.appendChild(info.el);
+  }
 
   // Assemble
   view.appendChild(topbar);
@@ -108,9 +120,12 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   const layerManager = new MapLayerManager();
   layerManager.setMap(map);
 
-  // Register layers
-  const earthquakeLayer = new EarthquakeLayer();
-  layerManager.register(earthquakeLayer);
+  // Register all data layers
+  layerManager.register(new EarthquakeLayer());
+  layerManager.register(new NewsLayer());
+  layerManager.register(new FireLayer());
+  layerManager.register(new WeatherAlertLayer());
+  layerManager.register(new PredictionLayer());
 
   // Wait for map to load, then initialize layers
   map.on('load', () => {
@@ -131,9 +146,11 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   document.addEventListener(
     'dashview:layer-data',
     ((e: CustomEvent) => {
-      if (e.detail.layerId === 'earthquakes') {
+      const layerId = e.detail.layerId as string;
+      const info = layerCounts[layerId];
+      if (info) {
         const data = e.detail.data as { length: number };
-        eqCount.innerHTML = `<span class="layer-dot" style="background:#ff3c3c"></span> Earthquakes: ${data.length}`;
+        info.el.innerHTML = `<span class="layer-dot" style="background:${info.color}"></span> ${info.label}: ${data.length}`;
       }
     }) as EventListener,
     { signal },
