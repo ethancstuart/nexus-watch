@@ -35,6 +35,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/intel', () => {
+    import('./pages/intel.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderIntelView(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/roadmap', () => {
     import('./pages/roadmap.ts')
       .then((m) => {

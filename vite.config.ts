@@ -7,6 +7,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           globe: ['globe.gl'],
+          maplibre: ['maplibre-gl'],
+          deckgl: ['@deck.gl/core', '@deck.gl/layers', '@deck.gl/mapbox'],
         },
       },
     },

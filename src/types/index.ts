@@ -1,4 +1,46 @@
 export type WidgetSize = 'compact' | 'medium' | 'large';
+
+// ── Intel Map Types ──
+
+export type MapLayerCategory = 'natural' | 'conflict' | 'infrastructure' | 'intelligence' | 'weather';
+
+export interface MapDataLayerMeta {
+  id: string;
+  name: string;
+  category: MapLayerCategory;
+  icon: string;
+  description: string;
+}
+
+export interface MapOverlayWidget {
+  panelId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  minimized: boolean;
+}
+
+export interface MapViewState {
+  center: [number, number];
+  zoom: number;
+  pitch: number;
+  bearing: number;
+  activeLayers: string[];
+  overlays: MapOverlayWidget[];
+}
+
+export interface EarthquakeFeature {
+  id: string;
+  magnitude: number;
+  depth: number;
+  place: string;
+  time: number;
+  lat: number;
+  lon: number;
+  url: string;
+  tsunami: boolean;
+}
 export type PanelCategory = 'markets' | 'world' | 'personal' | 'dev' | 'utility';
 
 export interface SpaceWidget {
