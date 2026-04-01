@@ -9,6 +9,10 @@ import { WeatherAlertLayer } from '../map/layers/weatherLayer.ts';
 import { PredictionLayer } from '../map/layers/predictionLayer.ts';
 import { FlightLayer } from '../map/layers/flightLayer.ts';
 import { CyberLayer } from '../map/layers/cyberLayer.ts';
+import { MilitaryBasesLayer } from '../map/layers/militaryBasesLayer.ts';
+import { NuclearLayer } from '../map/layers/nuclearLayer.ts';
+import { PortsLayer } from '../map/layers/portsLayer.ts';
+import { ConflictZonesLayer } from '../map/layers/conflictZonesLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -102,6 +106,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new PredictionLayer(),
     new FlightLayer(),
     new CyberLayer(),
+    new MilitaryBasesLayer(),
+    new NuclearLayer(),
+    new PortsLayer(),
+    new ConflictZonesLayer(),
   ];
 
   for (const layer of allLayers) {
@@ -121,6 +129,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     predictions: '#22c55e',
     flights: '#818cf8',
     cyber: '#dc2626',
+    military: '#3b82f6',
+    nuclear: '#eab308',
+    ports: '#ff6600',
+    conflicts: '#ef4444',
   };
 
   function renderLayerChips() {
