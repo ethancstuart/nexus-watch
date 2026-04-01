@@ -9,12 +9,15 @@ import { NewsLayer } from '../map/layers/newsLayer.ts';
 import { FireLayer } from '../map/layers/fireLayer.ts';
 import { WeatherAlertLayer } from '../map/layers/weatherLayer.ts';
 import { PredictionLayer } from '../map/layers/predictionLayer.ts';
+import { FlightLayer } from '../map/layers/flightLayer.ts';
+import { CyberLayer } from '../map/layers/cyberLayer.ts';
 import { createLayerPanel } from '../map/controls/LayerPanel.ts';
 import { createCountryPanel } from '../map/controls/CountryPanel.ts';
 import { createViewToggle } from '../map/controls/ViewToggle.ts';
 import { createIntelBar } from '../ui/intelBar.ts';
 import { initGeoIntelligence, destroyGeoIntelligence, getLayerData } from '../services/geoIntelligence.ts';
 import { computeCountryScores } from '../services/countryIndex.ts';
+import { generateSitrep } from '../services/sitrep.ts';
 import { checkSession } from '../services/auth.ts';
 import type { Panel } from '../panels/Panel.ts';
 
@@ -84,8 +87,30 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   status.appendChild(dot);
   status.appendChild(statusText);
 
+  // Sitrep button
+  const sitrepBtn = createElement('button', { className: 'intel-sitrep-btn', textContent: '📋 Sitrep' });
+  sitrepBtn.addEventListener('click', async () => {
+    sitrepBtn.textContent = '⏳ Generating...';
+    sitrepBtn.disabled = true;
+    try {
+      const result = await generateSitrep('Global', getLayerData());
+      showSitrepOverlay(mapContainer, result.sitrep, result.region, result.generatedAt);
+    } catch (err) {
+      showSitrepOverlay(
+        mapContainer,
+        `Failed to generate sitrep: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        'Error',
+        '',
+      );
+    } finally {
+      sitrepBtn.textContent = '📋 Sitrep';
+      sitrepBtn.disabled = false;
+    }
+  });
+
   topbar.appendChild(logo);
   topbar.appendChild(viewToggle);
+  topbar.appendChild(sitrepBtn);
   topbar.appendChild(status);
 
   // ── Map Container ──
@@ -116,6 +141,8 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
       color: '#22c55e',
       label: 'Predictions',
     },
+    flights: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#818cf8', label: 'Aircraft' },
+    cyber: { el: createElement('span', { className: 'intel-bottombar-item' }), color: '#dc2626', label: 'Cyber' },
   };
   for (const info of Object.values(layerCounts)) {
     info.el.innerHTML = `<span class="layer-dot" style="background:${info.color}"></span> ${info.label}: --`;
@@ -143,6 +170,8 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
   layerManager.register(new FireLayer());
   layerManager.register(new WeatherAlertLayer());
   layerManager.register(new PredictionLayer());
+  layerManager.register(new FlightLayer());
+  layerManager.register(new CyberLayer());
 
   // Wait for map to load, then initialize layers
   map.on('load', () => {
@@ -209,4 +238,30 @@ export async function renderIntelView(root: HTMLElement): Promise<void> {
     },
     { signal },
   );
+}
+
+function showSitrepOverlay(container: HTMLElement, text: string, region: string, generatedAt: string): void {
+  // Remove existing overlay
+  container.querySelector('.sitrep-overlay')?.remove();
+
+  const overlay = createElement('div', { className: 'sitrep-overlay' });
+  const header = createElement('div', { className: 'sitrep-header' });
+  header.innerHTML = `<span class="sitrep-title">SITUATION REPORT — ${region.toUpperCase()}</span>`;
+
+  if (generatedAt) {
+    const time = createElement('span', { className: 'sitrep-time' });
+    time.textContent = new Date(generatedAt).toLocaleTimeString();
+    header.appendChild(time);
+  }
+
+  const closeBtn = createElement('button', { className: 'sitrep-close', textContent: '✕' });
+  closeBtn.addEventListener('click', () => overlay.remove());
+  header.appendChild(closeBtn);
+
+  const body = createElement('div', { className: 'sitrep-body' });
+  body.textContent = text;
+
+  overlay.appendChild(header);
+  overlay.appendChild(body);
+  container.appendChild(overlay);
 }
