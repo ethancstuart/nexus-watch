@@ -20,6 +20,9 @@ import { SatelliteLayer } from '../map/layers/satelliteLayer.ts';
 import { ShipLayer } from '../map/layers/shipLayer.ts';
 import { AcledLayer } from '../map/layers/acledLayer.ts';
 import { GdacsLayer } from '../map/layers/gdacsLayer.ts';
+import { ChokepointStatusLayer } from '../map/layers/chokepointStatusLayer.ts';
+import { AirQualityLayer } from '../map/layers/airQualityLayer.ts';
+import { DiseaseLayer } from '../map/layers/diseaseLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -164,6 +167,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new ShipLayer(),
     new AcledLayer(),
     new GdacsLayer(),
+    new ChokepointStatusLayer(),
+    new AirQualityLayer(),
+    new DiseaseLayer(),
   ];
 
   for (const layer of allLayers) {
