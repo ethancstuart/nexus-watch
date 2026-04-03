@@ -25,6 +25,7 @@ import {
 } from '../services/geoIntelligence.ts';
 import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
 import { generateSitrep } from '../services/sitrep.ts';
+import { loadRules, checkRules, getTriggeredAlerts, requestNotificationPermission } from '../services/alertRules.ts';
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
@@ -234,8 +235,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     updateStatusBar();
   }, 1000);
 
-  // ── Geo-intelligence ──
+  // ── Geo-intelligence + Alert Rules ──
   initGeoIntelligence(signal);
+  loadRules();
+  requestNotificationPermission();
 
   document.addEventListener(
     'dashview:layer-data',
@@ -243,6 +246,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       computeCountryScores(getLayerData());
       layerDrawer.refresh();
       if (activeTab === 'intel') renderSidebarContent();
+
+      // Check alert rules
+      checkRules(getLayerData());
 
       // Refresh pulse animation
       const flash = createElement('div', { className: 'nw-refresh-flash' });
@@ -365,8 +371,27 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
   }
   container.appendChild(summary);
 
-  // Alerts section
-  const alertHeader = createElement('div', { className: 'nw-section-header', textContent: 'ALERTS' });
+  // Triggered alert rules
+  const triggered = getTriggeredAlerts();
+  if (triggered.length > 0) {
+    const ruleHeader = createElement('div', { className: 'nw-section-header', textContent: 'TRIGGERED RULES' });
+    container.appendChild(ruleHeader);
+    for (const alert of triggered.slice(0, 5)) {
+      const row = createElement('div', { className: 'nw-alert-row' });
+      const dot = createElement('span', { className: 'nw-alert-dot critical' });
+      const text = createElement('span', { className: 'nw-alert-text', textContent: alert.message });
+      const time = createElement('span', { className: 'nw-alert-time' });
+      const ago = Math.floor((Date.now() - alert.timestamp) / 60000);
+      time.textContent = ago < 1 ? 'now' : `${ago}m`;
+      row.appendChild(dot);
+      row.appendChild(text);
+      row.appendChild(time);
+      container.appendChild(row);
+    }
+  }
+
+  // Geo-intelligence alerts
+  const alertHeader = createElement('div', { className: 'nw-section-header', textContent: 'INTELLIGENCE' });
   container.appendChild(alertHeader);
 
   const items = getIntelItems();
