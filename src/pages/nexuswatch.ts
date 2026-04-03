@@ -29,6 +29,7 @@ import {
 import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts, requestNotificationPermission } from '../services/alertRules.ts';
+import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
@@ -290,6 +291,31 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     'dashview:layer-data',
     ((e: CustomEvent) => {
       computeCountryScores(getLayerData());
+
+      // Update tension index
+      const tension = computeTensionIndex(getLayerData());
+      const tensionValue = tensionSlot.querySelector('.nw-tension-value');
+      if (tensionValue) {
+        tensionValue.textContent = String(tension.global);
+        (tensionValue as HTMLElement).style.color = tensionColor(tension.global);
+      }
+      // Update or add trend arrow
+      let trendEl = tensionSlot.querySelector('.nw-tension-trend') as HTMLElement;
+      if (!trendEl) {
+        trendEl = createElement('span', { className: 'nw-tension-trend' });
+        tensionSlot.appendChild(trendEl);
+      }
+      trendEl.textContent = tension.trend === 'rising' ? '▲' : tension.trend === 'falling' ? '▼' : '—';
+      trendEl.style.color =
+        tension.trend === 'rising' ? '#ef4444' : tension.trend === 'falling' ? '#22c55e' : '#666666';
+      // Update label
+      let labelEl = tensionSlot.querySelector('.nw-tension-level') as HTMLElement;
+      if (!labelEl) {
+        labelEl = createElement('span', { className: 'nw-tension-level' });
+        tensionSlot.appendChild(labelEl);
+      }
+      labelEl.textContent = tensionLabel(tension.global);
+      labelEl.style.color = tensionColor(tension.global);
       layerDrawer.refresh();
       if (activeTab === 'intel') renderSidebarContent();
 
