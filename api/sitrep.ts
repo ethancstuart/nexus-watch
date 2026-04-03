@@ -10,6 +10,12 @@ interface SitrepBody {
     news?: { title: string; source: string; tone: number }[];
     weather?: { city: string; description: string }[];
     predictions?: { question: string; probability: number }[];
+    personalContext?: {
+      tensionIndex: number;
+      tensionTrend: string;
+      watchlistTopics: string;
+      watchlistMatches: string;
+    };
   };
 }
 
@@ -68,9 +74,23 @@ export default async function handler(req: Request) {
     );
   }
 
-  const dataContext = sections.length > 0 ? sections.join('\n\n') : 'No current data available.';
+  if (data.personalContext) {
+    const pc = data.personalContext;
+    sections.push(`GLOBAL TENSION INDEX: ${pc.tensionIndex}/100 (trend: ${pc.tensionTrend})`);
+    if (pc.watchlistTopics) {
+      sections.push(`USER WATCHLIST TOPICS: ${pc.watchlistTopics}`);
+    }
+    if (pc.watchlistMatches) {
+      sections.push(`WATCHLIST MATCHES:\n${pc.watchlistMatches}`);
+    }
+  }
 
-  const systemPrompt = `You are a concise geopolitical intelligence analyst for DashPulse Intel. Generate a situation report based on the provided real-time data.
+  const dataContext = sections.length > 0 ? sections.join('\n\n') : 'No current data available.';
+  const isPersonal = !!data.personalContext;
+
+  const systemPrompt = isPersonal
+    ? `You are a personal intelligence briefing analyst for NexusWatch. Generate a PERSONALIZED morning brief focused on the user's watchlist topics. Prioritize events matching their interests. Include the Global Tension Index context. Write 2-3 focused paragraphs. End with a one-sentence outlook for the day ahead.`
+    : `You are a concise geopolitical intelligence analyst for NexusWatch. Generate a situation report based on the provided real-time data.
 
 Rules:
 - Write 2-3 focused paragraphs

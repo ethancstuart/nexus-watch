@@ -23,6 +23,7 @@ import { GdacsLayer } from '../map/layers/gdacsLayer.ts';
 import { ChokepointStatusLayer } from '../map/layers/chokepointStatusLayer.ts';
 import { AirQualityLayer } from '../map/layers/airQualityLayer.ts';
 import { DiseaseLayer } from '../map/layers/diseaseLayer.ts';
+import { DisplacementLayer } from '../map/layers/displacementLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -30,7 +31,7 @@ import {
   getLayerData,
 } from '../services/geoIntelligence.ts';
 import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
-import { generateSitrep } from '../services/sitrep.ts';
+import { generateSitrep, generatePersonalBrief } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts, requestNotificationPermission } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
 import { loadWatchlist, scanForMatches, getWatchMatches } from '../services/watchlist.ts';
@@ -75,6 +76,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const drawerToggleSlot = createElement('div', {});
 
   const sitrepBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SITREP' });
+  const briefBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'MY BRIEF' });
   const popoutSlot = createElement('div', {});
 
   // Map style toggle (collapsed into right zone)
@@ -97,6 +99,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   topRight.appendChild(drawerToggleSlot);
   topRight.appendChild(sitrepBtn);
+  topRight.appendChild(briefBtn);
   topRight.appendChild(popoutSlot);
   topRight.appendChild(styleToggle);
   topRight.appendChild(statusArea);
@@ -170,6 +173,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new ChokepointStatusLayer(),
     new AirQualityLayer(),
     new DiseaseLayer(),
+    new DisplacementLayer(),
   ];
 
   for (const layer of allLayers) {
@@ -371,6 +375,21 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     } finally {
       sitrepBtn.textContent = 'SITREP';
       sitrepBtn.disabled = false;
+    }
+  });
+
+  // ── Personal brief button ──
+  briefBtn.addEventListener('click', async () => {
+    briefBtn.textContent = 'GENERATING...';
+    briefBtn.disabled = true;
+    try {
+      const result = await generatePersonalBrief(getLayerData());
+      showSitrep(mapContainer, result.sitrep, result.generatedAt);
+    } catch (err) {
+      showSitrep(mapContainer, `Error: ${err instanceof Error ? err.message : 'Failed'}`, '');
+    } finally {
+      briefBtn.textContent = 'MY BRIEF';
+      briefBtn.disabled = false;
     }
   });
 
