@@ -953,6 +953,33 @@
   margin-top: 2px;
 }
 
+.nw-drawer-opacity {
+  width: 48px;
+  height: 4px;
+  appearance: none;
+  background: #1a1a1a;
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.nw-drawer-opacity::-webkit-slider-thumb {
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  background: #ff6600;
+  cursor: pointer;
+}
+
+.nw-drawer-opacity::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  background: #ff6600;
+  border: none;
+  cursor: pointer;
+}
+
 .nw-drawer-export {
   background: transparent;
   border: 1px solid #222222;

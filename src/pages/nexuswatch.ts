@@ -186,7 +186,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   searchSlot.appendChild(searchBar);
 
   // ── Layer drawer ──
-  const layerDrawer = createLayerDrawer(layerManager, getLayerData);
+  const layerDrawer = createLayerDrawer(layerManager, getLayerData, () => mapView.getMap());
   drawerToggleSlot.appendChild(layerDrawer.toggleBtn);
   mapContainer.appendChild(layerDrawer.element);
 

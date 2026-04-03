@@ -1,3 +1,4 @@
+import type maplibregl from 'maplibre-gl';
 import { createElement } from '../utils/dom.ts';
 import type { MapLayerManager } from './MapLayerManager.ts';
 import type { MapLayerCategory } from '../types/index.ts';
@@ -16,6 +17,7 @@ const CATEGORY_ORDER: MapLayerCategory[] = ['conflict', 'natural', 'intelligence
 export function createLayerDrawer(
   layerManager: MapLayerManager,
   getLayerData: () => Map<string, unknown>,
+  getMap?: () => maplibregl.Map | null,
 ): {
   element: HTMLElement;
   toggleBtn: HTMLElement;
@@ -98,12 +100,51 @@ export function createLayerDrawer(
           exportLayerAsGeoJSON(layer, getLayerData());
         });
 
+        // Opacity slider
+        const opacitySlider = document.createElement('input');
+        opacitySlider.type = 'range';
+        opacitySlider.min = '0';
+        opacitySlider.max = '100';
+        opacitySlider.value = '100';
+        opacitySlider.className = 'nw-drawer-opacity';
+        opacitySlider.title = 'Layer opacity';
+        opacitySlider.addEventListener('input', () => {
+          const opacity = parseInt(opacitySlider.value) / 100;
+          setLayerOpacity(layer.id, opacity);
+        });
+
         row.appendChild(toggle);
         row.appendChild(nameWrap);
         row.appendChild(count);
+        row.appendChild(opacitySlider);
         row.appendChild(exportBtn);
         row.appendChild(exportGeoBtn);
         drawerBody.appendChild(row);
+      }
+    }
+  }
+
+  function setLayerOpacity(layerId: string, opacity: number): void {
+    const map = getMap?.();
+    if (!map) return;
+    // Find all MapLibre layers that belong to this data layer (convention: layerId-*)
+    const style = map.getStyle();
+    if (!style?.layers) return;
+    for (const ml of style.layers) {
+      if (ml.id.startsWith(layerId + '-') || ml.id === layerId) {
+        try {
+          if (ml.type === 'circle') {
+            map.setPaintProperty(ml.id, 'circle-opacity', opacity);
+          } else if (ml.type === 'line') {
+            map.setPaintProperty(ml.id, 'line-opacity', opacity);
+          } else if (ml.type === 'symbol') {
+            map.setPaintProperty(ml.id, 'text-opacity', opacity);
+          } else if (ml.type === 'heatmap') {
+            map.setPaintProperty(ml.id, 'heatmap-opacity', opacity);
+          }
+        } catch {
+          // Some layers may not support opacity changes
+        }
       }
     }
   }
