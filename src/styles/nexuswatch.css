@@ -1261,6 +1261,38 @@
   }
 }
 
+/* ── Fullscreen Mode ── */
+
+.nw-app.nw-fullscreen .nw-topbar,
+.nw-app.nw-fullscreen .nw-statusbar,
+.nw-app.nw-fullscreen .nw-sidebar {
+  display: none;
+}
+
+.nw-app.nw-fullscreen .nw-map-container {
+  width: 100%;
+}
+
+.nw-fullscreen-exit {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 300;
+  padding: 4px 10px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid #1a1a1a;
+  color: #888888;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.nw-fullscreen-exit:hover {
+  border-color: #ff6600;
+  color: #ff6600;
+}
+
 /* ── Onboarding ── */
 
 .nw-onboard-overlay {

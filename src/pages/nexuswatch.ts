@@ -326,6 +326,22 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     }
   });
 
+  // ── Fullscreen toggle ──
+  let exitBtn: HTMLElement | null = null;
+  function toggleFullscreen() {
+    const isFS = app.classList.toggle('nw-fullscreen');
+    if (isFS) {
+      exitBtn = createElement('button', { className: 'nw-fullscreen-exit', textContent: 'EXIT FULLSCREEN (Esc)' });
+      exitBtn.addEventListener('click', toggleFullscreen);
+      mapContainer.appendChild(exitBtn);
+    } else {
+      exitBtn?.remove();
+      exitBtn = null;
+    }
+    // Trigger map resize after layout change
+    setTimeout(() => mapView.getMap()?.resize(), 100);
+  }
+
   // ── Keyboard shortcuts ──
   document.addEventListener(
     'keydown',
@@ -354,6 +370,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           break;
         case 'Escape':
           mapContainer.querySelector('.nw-sitrep-overlay')?.remove();
+          if (app.classList.contains('nw-fullscreen')) toggleFullscreen();
+          break;
+        case 'f':
+          if (!e.ctrlKey && !e.metaKey) toggleFullscreen();
           break;
         case '?':
           showShortcutsHelp(mapContainer);
@@ -626,7 +646,8 @@ function showShortcutsHelp(container: HTMLElement): void {
   const text = [
     '1-7     Toggle first 7 layers',
     'S       Generate SITREP',
-    'Esc     Close overlays',
+    'F       Fullscreen mode',
+    'Esc     Close overlays / exit fullscreen',
     '?       This help',
     '',
     'Click   Layer chips to toggle',
