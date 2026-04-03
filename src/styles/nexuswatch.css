@@ -310,6 +310,17 @@
   flex: 1;
 }
 
+.nw-watch-tag {
+  font-size: 8px;
+  font-weight: 700;
+  color: #000;
+  background: #ff6600;
+  padding: 1px 4px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
 .nw-alert-time {
   font-size: 9px;
   color: #444444;

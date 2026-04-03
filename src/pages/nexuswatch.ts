@@ -30,6 +30,7 @@ import { computeCountryScores, getCachedScores, scoreToLabel } from '../services
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts, requestNotificationPermission } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
+import { loadWatchlist, scanForMatches, getWatchMatches } from '../services/watchlist.ts';
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
@@ -285,6 +286,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // ── Geo-intelligence + Alert Rules ──
   initGeoIntelligence(signal);
   loadRules();
+  loadWatchlist();
   requestNotificationPermission();
 
   document.addEventListener(
@@ -319,8 +321,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       layerDrawer.refresh();
       if (activeTab === 'intel') renderSidebarContent();
 
-      // Check alert rules
+      // Check alert rules + watchlist
       checkRules(getLayerData());
+      scanForMatches(getLayerData());
 
       // Refresh pulse animation
       const flash = createElement('div', { className: 'nw-refresh-flash' });
@@ -463,6 +466,29 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
     summary.appendChild(cell);
   }
   container.appendChild(summary);
+
+  // Watchlist matches
+  const watchMatches = getWatchMatches();
+  if (watchMatches.length > 0) {
+    const watchHeader = createElement('div', { className: 'nw-section-header', textContent: 'WATCHLIST' });
+    container.appendChild(watchHeader);
+    for (const match of watchMatches.slice(0, 10)) {
+      const row = createElement('div', { className: 'nw-alert-row' });
+      const dot = createElement('span', { className: 'nw-alert-dot' });
+      dot.style.background = '#ff6600';
+      const tag = createElement('span', { className: 'nw-watch-tag' });
+      tag.textContent = match.watchLabel;
+      const text = createElement('span', { className: 'nw-alert-text' });
+      text.textContent = `[${match.source}] ${match.text}`;
+      row.appendChild(dot);
+      row.appendChild(tag);
+      row.appendChild(text);
+      if (match.lat !== 0 || match.lon !== 0) {
+        row.addEventListener('click', () => mapView.flyTo(match.lon, match.lat, 6));
+      }
+      container.appendChild(row);
+    }
+  }
 
   // Triggered alert rules
   const triggered = getTriggeredAlerts();
