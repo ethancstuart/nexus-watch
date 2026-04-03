@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { fetchAircraft, type Aircraft } from '../../services/flights.ts';
+import { flightPopup } from '../PopupCard.ts';
 
 export class FlightLayer implements MapDataLayer {
   readonly id = 'flights';
@@ -139,11 +140,6 @@ export class FlightLayer implements MapDataLayer {
       const props = e.features[0].properties!;
       const coords = (e.features[0].geometry as GeoJSON.Point).coordinates;
 
-      const alt = Number(props.altitude);
-      const vel = Number(props.velocity);
-      const altStr = alt > 0 ? `${(alt * 3.281).toFixed(0)}ft` : 'ground';
-      const velStr = vel > 0 ? `${(vel * 1.944).toFixed(0)}kts` : '--';
-
       this.popup?.remove();
       this.popup = new maplibregl.Popup({
         closeButton: false,
@@ -152,13 +148,7 @@ export class FlightLayer implements MapDataLayer {
         offset: 12,
       })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content">
-            <div class="eq-popup-mag" style="color:#818cf8">${props.callsign || props.icao}</div>
-            <div class="eq-popup-place">${props.country}</div>
-            <div class="eq-popup-meta">${altStr} · ${velStr} · HDG ${Number(props.heading).toFixed(0)}°</div>
-          </div>`,
-        )
+        .setHTML(flightPopup(props))
         .addTo(this.map);
     });
   }

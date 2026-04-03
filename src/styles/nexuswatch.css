@@ -681,6 +681,71 @@
   border-top-color: #0a0a0a;
 }
 
+/* ── Popup Cards ── */
+
+.nw-popup-card {
+  min-width: 180px;
+  max-width: 260px;
+}
+
+.nw-popup-header {
+  margin-bottom: 4px;
+}
+
+.nw-popup-type {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.nw-popup-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cccccc;
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.nw-popup-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin-bottom: 6px;
+}
+
+.nw-popup-field {
+  display: contents;
+}
+
+.nw-popup-field-label {
+  font-size: 9px;
+  color: #555555;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nw-popup-field-value {
+  font-size: 11px;
+  color: #999999;
+  text-align: right;
+}
+
+.nw-popup-action {
+  display: block;
+  font-size: 9px;
+  color: #ff6600;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-top: 4px;
+  border-top: 1px solid #1a1a1a;
+}
+
+.nw-popup-action:hover {
+  color: #ff8533;
+}
+
 /* ── Mobile ── */
 
 @media (max-width: 768px) {

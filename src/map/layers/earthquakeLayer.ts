@@ -3,6 +3,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import type { EarthquakeFeature } from '../../types/index.ts';
 import { fetchEarthquakes } from '../../services/earthquakes.ts';
+import { earthquakePopup } from '../PopupCard.ts';
 
 export class EarthquakeLayer implements MapDataLayer {
   readonly id = 'earthquakes';
@@ -162,7 +163,6 @@ export class EarthquakeLayer implements MapDataLayer {
       const f = e.features[0];
       const props = f.properties!;
       const coords = (f.geometry as GeoJSON.Point).coordinates;
-      const timeAgo = this.formatTimeAgo(props.time as number);
 
       this.popup?.remove();
       this.popup = new maplibregl.Popup({
@@ -172,13 +172,7 @@ export class EarthquakeLayer implements MapDataLayer {
         offset: 12,
       })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content">
-            <div class="eq-popup-mag">M${props.magnitude}</div>
-            <div class="eq-popup-place">${props.place}</div>
-            <div class="eq-popup-meta">${timeAgo} · ${Number(props.depth).toFixed(1)}km deep${props.tsunami ? ' · TSUNAMI' : ''}</div>
-          </div>`,
-        )
+        .setHTML(earthquakePopup(props))
         .addTo(this.map);
     });
 
@@ -197,16 +191,6 @@ export class EarthquakeLayer implements MapDataLayer {
     if (this.map.getSource('earthquakes')) this.map.removeSource('earthquakes');
     this.popup?.remove();
     this.popup = null;
-  }
-
-  private formatTimeAgo(ts: number): string {
-    const diff = Date.now() - ts;
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
   }
 
   destroy(): void {
