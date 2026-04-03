@@ -13,6 +13,10 @@ import { MilitaryBasesLayer } from '../map/layers/militaryBasesLayer.ts';
 import { NuclearLayer } from '../map/layers/nuclearLayer.ts';
 import { PortsLayer } from '../map/layers/portsLayer.ts';
 import { ConflictZonesLayer } from '../map/layers/conflictZonesLayer.ts';
+import { CablesLayer } from '../map/layers/cablesLayer.ts';
+import { PipelinesLayer } from '../map/layers/pipelinesLayer.ts';
+import { GpsJammingLayer } from '../map/layers/gpsJammingLayer.ts';
+import { SatelliteLayer } from '../map/layers/satelliteLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -110,6 +114,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new NuclearLayer(),
     new PortsLayer(),
     new ConflictZonesLayer(),
+    new CablesLayer(),
+    new PipelinesLayer(),
+    new GpsJammingLayer(),
+    new SatelliteLayer(),
   ];
 
   for (const layer of allLayers) {
@@ -133,6 +141,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     nuclear: '#eab308',
     ports: '#ff6600',
     conflicts: '#ef4444',
+    cables: '#06b6d4',
+    pipelines: '#f59e0b',
+    'gps-jamming': '#ef4444',
+    satellites: '#22c55e',
   };
 
   function renderLayerChips() {
