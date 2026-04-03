@@ -91,13 +91,49 @@ export class EarthquakeLayer implements MapDataLayer {
       })),
     };
 
-    this.map.addSource('earthquakes', { type: 'geojson', data: geojson });
+    this.map.addSource('earthquakes', {
+      type: 'geojson',
+      data: geojson,
+      cluster: true,
+      clusterMaxZoom: 8,
+      clusterRadius: 50,
+    });
 
-    // Outer glow
+    // Cluster circles
+    this.map.addLayer({
+      id: 'earthquakes-clusters',
+      type: 'circle',
+      source: 'earthquakes',
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-radius': ['step', ['get', 'point_count'], 14, 10, 18, 30, 24, 50, 30],
+        'circle-color': '#ff3c3c',
+        'circle-opacity': 0.7,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': 'rgba(255,60,60,0.3)',
+      },
+    });
+
+    // Cluster count labels
+    this.map.addLayer({
+      id: 'earthquakes-cluster-count',
+      type: 'symbol',
+      source: 'earthquakes',
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': '{point_count_abbreviated}',
+        'text-size': 11,
+        'text-font': ['Open Sans Bold'],
+      },
+      paint: { 'text-color': '#ffffff' },
+    });
+
+    // Outer glow (unclustered only)
     this.map.addLayer({
       id: 'earthquakes-glow',
       type: 'circle',
       source: 'earthquakes',
+      filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['get', 'magnitude'], 2.5, 6, 4, 12, 5, 20, 6, 32, 7, 48, 8, 64],
         'circle-color': [
@@ -115,11 +151,12 @@ export class EarthquakeLayer implements MapDataLayer {
       },
     });
 
-    // Core dot
+    // Core dot (unclustered only)
     this.map.addLayer({
       id: 'earthquakes-core',
       type: 'circle',
       source: 'earthquakes',
+      filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['get', 'magnitude'], 2.5, 3, 4, 6, 5, 10, 6, 16, 7, 24, 8, 32],
         'circle-color': ['interpolate', ['linear'], ['get', 'depth'], 0, '#ff3c3c', 70, '#ffa500', 300, '#3c78ff'],
@@ -134,7 +171,7 @@ export class EarthquakeLayer implements MapDataLayer {
       id: 'earthquakes-labels',
       type: 'symbol',
       source: 'earthquakes',
-      filter: ['>=', ['get', 'magnitude'], 4.5],
+      filter: ['all', ['!', ['has', 'point_count']], ['>=', ['get', 'magnitude'], 4.5]],
       layout: {
         'text-field': ['concat', 'M', ['to-string', ['get', 'magnitude']]],
         'text-size': 11,
@@ -181,11 +218,31 @@ export class EarthquakeLayer implements MapDataLayer {
       const url = e.features[0].properties?.url as string;
       if (url) window.open(url, '_blank', 'noopener');
     });
+
+    // Click cluster to zoom in
+    this.map.on('click', 'earthquakes-clusters', (e) => {
+      if (!this.map || !e.features?.length) return;
+      const coords = (e.features[0].geometry as GeoJSON.Point).coordinates;
+      this.map.flyTo({ center: [coords[0], coords[1]], zoom: this.map.getZoom() + 2, duration: 500 });
+    });
+
+    this.map.on('mouseenter', 'earthquakes-clusters', () => {
+      if (this.map) this.map.getCanvas().style.cursor = 'pointer';
+    });
+    this.map.on('mouseleave', 'earthquakes-clusters', () => {
+      if (this.map) this.map.getCanvas().style.cursor = '';
+    });
   }
 
   private removeLayer(): void {
     if (!this.map) return;
-    for (const id of ['earthquakes-labels', 'earthquakes-core', 'earthquakes-glow']) {
+    for (const id of [
+      'earthquakes-labels',
+      'earthquakes-core',
+      'earthquakes-glow',
+      'earthquakes-cluster-count',
+      'earthquakes-clusters',
+    ]) {
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     }
     if (this.map.getSource('earthquakes')) this.map.removeSource('earthquakes');
