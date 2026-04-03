@@ -17,6 +17,12 @@ export class MapView {
   }
 
   init(): maplibregl.Map {
+    // Clear stale viewport from pre-globe era
+    const GLOBE_VERSION = 'globe-v1';
+    if (localStorage.getItem('nw:globe-version') !== GLOBE_VERSION) {
+      localStorage.removeItem(VIEWPORT_KEY);
+      localStorage.setItem('nw:globe-version', GLOBE_VERSION);
+    }
     const saved = this.loadViewport();
 
     this.map = new maplibregl.Map({
