@@ -29,6 +29,7 @@ import { loadRules, checkRules, getTriggeredAlerts, requestNotificationPermissio
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
+import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
@@ -70,6 +71,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   });
 
   const sitrepBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SITREP' });
+  const popoutSlot = createElement('div', {});
 
   const statusArea = createElement('div', { className: 'nw-topbar-status' });
   const liveDot = createElement('span', { className: 'nw-live-dot' });
@@ -84,6 +86,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   topbar.appendChild(drawerToggleSlot);
   topbar.appendChild(styleToggle);
   topbar.appendChild(sitrepBtn);
+  topbar.appendChild(popoutSlot);
   topbar.appendChild(statusArea);
 
   // Main area
@@ -150,6 +153,32 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   map.on('load', () => {
     layerManager.initAll();
+  });
+
+  // ── Floating widgets ──
+  const floatMgr = new FloatingWidgetManager(mapContainer);
+
+  // Add pop-out button
+  const popoutBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'POP-OUT' });
+  popoutSlot.appendChild(popoutBtn);
+  popoutBtn.addEventListener('click', () => {
+    // Open a floating intel summary widget
+    floatMgr.open('intel-summary', 'INTEL SUMMARY', (body) => {
+      const items = getIntelItems();
+      if (items.length === 0) {
+        body.textContent = 'No active alerts';
+        return;
+      }
+      for (const item of items.slice(0, 10)) {
+        const row = createElement('div', { className: 'nw-alert-row' });
+        const dot = createElement('span', { className: 'nw-alert-dot' });
+        dot.classList.add(item.priority === 0 ? 'critical' : item.priority === 1 ? 'elevated' : 'monitor');
+        const text = createElement('span', { className: 'nw-alert-text', textContent: item.text });
+        row.appendChild(dot);
+        row.appendChild(text);
+        body.appendChild(row);
+      }
+    });
   });
 
   // ── Search bar ──
@@ -335,6 +364,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     clearInterval(clockInterval);
     mapView.destroy();
     layerManager.destroy();
+    floatMgr.destroy();
     destroyGeoIntelligence();
   });
 

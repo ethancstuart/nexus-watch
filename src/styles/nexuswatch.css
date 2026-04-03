@@ -1054,6 +1054,116 @@
   color: #ff8533;
 }
 
+/* ── Floating Widgets ── */
+
+.nw-float-widget {
+  position: absolute;
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  z-index: 150;
+}
+
+.nw-float-widget:hover {
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8);
+}
+
+.nw-float-minimized .nw-float-body,
+.nw-float-minimized .nw-float-resize {
+  display: none;
+}
+
+.nw-float-minimized {
+  height: auto !important;
+}
+
+.nw-float-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: #111111;
+  border-bottom: 1px solid #1a1a1a;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.nw-float-header:active {
+  cursor: grabbing;
+}
+
+.nw-float-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #ff6600;
+}
+
+.nw-float-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.nw-float-btn {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #555555;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.nw-float-btn:hover {
+  color: #999999;
+}
+
+.nw-float-close-btn:hover {
+  color: #ff3333;
+}
+
+.nw-float-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+  font-size: 11px;
+  color: #999999;
+}
+
+.nw-float-resize {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.nw-float-widget:hover .nw-float-resize {
+  opacity: 1;
+}
+
+.nw-float-resize::before {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid #333333;
+  border-bottom: 2px solid #333333;
+}
+
 /* ── Data Refresh Pulse ── */
 
 .nw-refresh-flash {
