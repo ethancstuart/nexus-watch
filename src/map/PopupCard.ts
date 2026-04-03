@@ -100,6 +100,124 @@ export function firePopup(props: Record<string, unknown>): string {
   });
 }
 
+export function militaryPopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: `${String(props.alliance).toUpperCase()} ${String(props.type).toUpperCase()}`,
+    typeColor: String(props.color),
+    title: String(props.name),
+    fields: [{ label: 'Country', value: String(props.country) }],
+  });
+}
+
+export function nuclearPopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: `NUCLEAR ${String(props.type).toUpperCase()}`,
+    typeColor: String(props.color),
+    title: String(props.name),
+    fields: [
+      { label: 'Country', value: String(props.country) },
+      { label: 'Status', value: String(props.status) },
+    ],
+  });
+}
+
+export function portPopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: String(props.type).toUpperCase(),
+    typeColor: String(props.color),
+    title: String(props.name),
+    fields: [{ label: 'Country', value: String(props.country) }],
+  });
+}
+
+export function conflictPopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: `${String(props.intensity).toUpperCase()} CONFLICT`,
+    typeColor: String(props.color),
+    title: String(props.name),
+    fields: [{ label: 'Region', value: String(props.region) }],
+  });
+}
+
+export function weatherPopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: String(props.severity).toUpperCase(),
+    typeColor: String(props.color),
+    title: String(props.description),
+    fields: [{ label: 'Location', value: `${props.city}, ${props.country}` }],
+  });
+}
+
+export function cyberPopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: `${String(props.level).toUpperCase()} THREAT`,
+    typeColor: String(props.color),
+    title: String(props.label),
+    fields: [{ label: 'Type', value: 'Cyber threat corridor' }],
+  });
+}
+
+export function cablePopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: 'SUBSEA CABLE',
+    typeColor: '#06b6d4',
+    title: String(props.name),
+    fields: [
+      { label: 'Owner', value: String(props.owner) },
+      { label: 'Year', value: String(props.year) },
+    ],
+  });
+}
+
+export function pipelinePopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: `${String(props.type).toUpperCase()} · ${String(props.status).toUpperCase()}`,
+    typeColor: String(props.color),
+    title: String(props.name),
+    fields: [],
+  });
+}
+
+export function gpsPopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: `GPS JAMMING · ${String(props.severity).toUpperCase()}`,
+    typeColor: String(props.color),
+    title: String(props.name),
+    fields: [
+      { label: 'Region', value: String(props.region) },
+      { label: 'Radius', value: `~${props.radius}km` },
+    ],
+  });
+}
+
+export function satellitePopup(props: Record<string, unknown>): string {
+  return renderPopupCard({
+    type: String(props.type).toUpperCase(),
+    typeColor: String(props.color),
+    title: String(props.name),
+    fields: [
+      { label: 'Country', value: String(props.country) },
+      { label: 'Altitude', value: `${props.altitude}km` },
+    ],
+  });
+}
+
+export function predictionPopup(props: Record<string, unknown>): string {
+  const vol = Number(props.volume);
+  const volStr = vol > 1e6 ? `$${(vol / 1e6).toFixed(1)}M` : vol > 1e3 ? `$${(vol / 1e3).toFixed(0)}K` : `$${vol}`;
+  return renderPopupCard({
+    type: `${props.probability}% PROBABILITY`,
+    typeColor: String(props.color),
+    title: String(props.question),
+    fields: [
+      { label: 'Source', value: String(props.source) },
+      { label: 'Volume', value: volStr },
+    ],
+    actionUrl: String(props.url),
+    actionLabel: 'View Market',
+  });
+}
+
 function formatTimeAgo(ts: number): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);

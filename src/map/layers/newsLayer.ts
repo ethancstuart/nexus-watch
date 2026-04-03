@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { newsPopup } from '../PopupCard.ts';
 import type { GdeltArticle } from '../../types/index.ts';
 import { fetchGdeltArticles } from '../../services/gdelt.ts';
 
@@ -172,13 +173,7 @@ export class NewsLayer implements MapDataLayer {
         offset: 12,
       })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content">
-            <div class="eq-popup-mag" style="color:${props.color}">${props.count} article${props.count > 1 ? 's' : ''}</div>
-            <div class="eq-popup-place">${props.title}</div>
-            <div class="eq-popup-meta">${props.source} · ${props.country}</div>
-          </div>`,
-        )
+        .setHTML(newsPopup(props))
         .addTo(this.map);
     });
   }

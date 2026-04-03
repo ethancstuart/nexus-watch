@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { predictionPopup } from '../PopupCard.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
 
 interface PredictionEvent {
@@ -194,14 +195,6 @@ export class PredictionLayer implements MapDataLayer {
       if (!this.map || !e.features?.length) return;
       const props = e.features[0].properties!;
       const coords = (e.features[0].geometry as GeoJSON.Point).coordinates;
-      const vol = Number(props.volume);
-      const volStr =
-        vol > 1_000_000
-          ? `$${(vol / 1_000_000).toFixed(1)}M`
-          : vol > 1_000
-            ? `$${(vol / 1_000).toFixed(0)}K`
-            : `$${vol}`;
-
       this.popup?.remove();
       this.popup = new maplibregl.Popup({
         closeButton: false,
@@ -210,13 +203,7 @@ export class PredictionLayer implements MapDataLayer {
         offset: 12,
       })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content">
-            <div class="eq-popup-mag" style="color:${props.color}">${props.probability}%</div>
-            <div class="eq-popup-place">${props.question}</div>
-            <div class="eq-popup-meta">${props.source} · Vol: ${volStr}</div>
-          </div>`,
-        )
+        .setHTML(predictionPopup(props))
         .addTo(this.map);
     });
 

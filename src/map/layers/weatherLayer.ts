@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { weatherPopup } from '../PopupCard.ts';
 import type { WeatherAlert } from '../../types/index.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
 
@@ -155,13 +156,7 @@ export class WeatherAlertLayer implements MapDataLayer {
         offset: 12,
       })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content">
-            <div class="eq-popup-mag" style="color:${props.color}">${String(props.severity).toUpperCase()}</div>
-            <div class="eq-popup-place">${props.description}</div>
-            <div class="eq-popup-meta">${props.city}, ${props.country}</div>
-          </div>`,
-        )
+        .setHTML(weatherPopup(props))
         .addTo(this.map);
     });
   }

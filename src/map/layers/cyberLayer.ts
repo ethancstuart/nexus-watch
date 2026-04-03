@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { cyberPopup } from '../PopupCard.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
 
 interface ThreatCorridor {
@@ -212,13 +213,7 @@ export class CyberLayer implements MapDataLayer {
         offset: 12,
       })
         .setLngLat(e.lngLat)
-        .setHTML(
-          `<div class="eq-popup-content">
-            <div class="eq-popup-mag" style="color:${props.color}">${String(props.level).toUpperCase()}</div>
-            <div class="eq-popup-place">${props.label}</div>
-            <div class="eq-popup-meta">Cyber threat corridor</div>
-          </div>`,
-        )
+        .setHTML(cyberPopup(props))
         .addTo(this.map);
     });
   }

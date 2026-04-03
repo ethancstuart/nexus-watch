@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { cablePopup } from '../PopupCard.ts';
 
 interface SubseaCable {
   name: string;
@@ -275,9 +276,7 @@ export class CablesLayer implements MapDataLayer {
       this.popup?.remove();
       this.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'eq-popup', offset: 10 })
         .setLngLat(e.lngLat)
-        .setHTML(
-          `<div class="eq-popup-content"><div class="eq-popup-mag" style="color:#06b6d4">CABLE</div><div class="eq-popup-place">${p.name}</div><div class="eq-popup-meta">${p.owner} · ${p.year}</div></div>`,
-        )
+        .setHTML(cablePopup(p))
         .addTo(this.map);
     });
   }

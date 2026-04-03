@@ -27,6 +27,9 @@ import { computeCountryScores, getCachedScores, scoreToLabel } from '../services
 import { generateSitrep } from '../services/sitrep.ts';
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
+import { createMapSearch } from '../map/MapSearch.ts';
+import { createLayerDrawer } from '../map/LayerDrawer.ts';
+import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
 
 let nwAbort: AbortController | null = null;
@@ -45,7 +48,25 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const topbar = createElement('div', { className: 'nw-topbar' });
   const logo = createElement('span', { className: 'nw-logo', textContent: 'NexusWatch' });
   const sep1 = createElement('span', { className: 'nw-topbar-sep' });
-  const layerChips = createElement('div', { className: 'nw-topbar-layers' });
+
+  // Search (placeholder — wired after mapView init)
+  const searchSlot = createElement('div', {});
+
+  // Layer drawer toggle (placeholder — wired after layerManager init)
+  const drawerToggleSlot = createElement('div', {});
+
+  // Map style toggle
+  const styleToggle = createMapStyleToggle((styleUrl) => {
+    mapView.getMap()?.setStyle(styleUrl);
+    // Re-render all enabled layers after style change
+    setTimeout(() => {
+      for (const layer of layerManager.getEnabledLayers()) {
+        layer.disable();
+        layer.enable();
+        void layer.refresh();
+      }
+    }, 1000);
+  });
 
   const sitrepBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SITREP' });
 
@@ -58,7 +79,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   topbar.appendChild(logo);
   topbar.appendChild(sep1);
-  topbar.appendChild(layerChips);
+  topbar.appendChild(searchSlot);
+  topbar.appendChild(drawerToggleSlot);
+  topbar.appendChild(styleToggle);
   topbar.appendChild(sitrepBtn);
   topbar.appendChild(statusArea);
 
@@ -128,50 +151,14 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     layerManager.initAll();
   });
 
-  // ── Layer chips in topbar ──
-  const LAYER_COLORS: Record<string, string> = {
-    earthquakes: '#ff3c3c',
-    news: '#eab308',
-    fires: '#ff6b00',
-    'weather-alerts': '#3b82f6',
-    predictions: '#22c55e',
-    flights: '#818cf8',
-    cyber: '#dc2626',
-    military: '#3b82f6',
-    nuclear: '#eab308',
-    ports: '#ff6600',
-    conflicts: '#ef4444',
-    cables: '#06b6d4',
-    pipelines: '#f59e0b',
-    'gps-jamming': '#ef4444',
-    satellites: '#22c55e',
-  };
+  // ── Search bar ──
+  const searchBar = createMapSearch(mapView);
+  searchSlot.appendChild(searchBar);
 
-  function renderLayerChips() {
-    layerChips.textContent = '';
-    for (const layer of layerManager.getAllLayers()) {
-      const chip = createElement('button', { className: 'nw-layer-chip' });
-      if (layer.isEnabled()) chip.classList.add('active');
-
-      const dot = createElement('span', { className: 'chip-dot' });
-      dot.style.background = LAYER_COLORS[layer.id] || '#666';
-      const label = createElement('span', {});
-      const count = layer.getFeatureCount();
-      label.textContent = count > 0 ? `${layer.name} (${count})` : layer.name;
-
-      chip.appendChild(dot);
-      chip.appendChild(label);
-
-      chip.addEventListener('click', () => {
-        layerManager.toggle(layer.id);
-        renderLayerChips();
-      });
-
-      layerChips.appendChild(chip);
-    }
-  }
-
-  renderLayerChips();
+  // ── Layer drawer ──
+  const layerDrawer = createLayerDrawer(layerManager);
+  drawerToggleSlot.appendChild(layerDrawer.toggleBtn);
+  mapContainer.appendChild(layerDrawer.element);
 
   // ── Tab switching ──
   let activeTab: 'intel' | 'markets' | 'feeds' =
@@ -226,7 +213,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       if (!layer.isEnabled()) continue;
       const item = createElement('span', { className: 'nw-statusbar-item' });
       const dot = createElement('span', { className: 'nw-statusbar-dot' });
-      dot.style.background = LAYER_COLORS[layer.id] || '#666';
+      dot.style.background = '#ff6600';
       const text = createElement('span', {});
       text.textContent = `${layer.name}: ${layer.getFeatureCount()}`;
       item.appendChild(dot);
@@ -254,7 +241,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     'dashview:layer-data',
     () => {
       computeCountryScores(getLayerData());
-      renderLayerChips();
+      layerDrawer.refresh();
       if (activeTab === 'intel') renderSidebarContent();
     },
     { signal },
@@ -302,7 +289,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           const idx = parseInt(e.key) - 1;
           if (idx < layers.length) {
             layerManager.toggle(layers[idx].id);
-            renderLayerChips();
+            layerDrawer.refresh();
           }
           break;
         }

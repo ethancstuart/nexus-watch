@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { nuclearPopup } from '../PopupCard.ts';
 
 interface NuclearFacility {
   name: string;
@@ -153,9 +154,7 @@ export class NuclearLayer implements MapDataLayer {
       this.popup?.remove();
       this.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'eq-popup', offset: 10 })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content"><div class="eq-popup-mag" style="color:${p.color}">${String(p.type).toUpperCase()}</div><div class="eq-popup-place">${p.name}</div><div class="eq-popup-meta">${p.country} · ${p.status}</div></div>`,
-        )
+        .setHTML(nuclearPopup(p))
         .addTo(this.map);
     });
   }

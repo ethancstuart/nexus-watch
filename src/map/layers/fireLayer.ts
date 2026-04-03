@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { firePopup } from '../PopupCard.ts';
 import type { FireHotspot } from '../../types/index.ts';
 import { fetchFireHotspots } from '../../services/fires.ts';
 
@@ -159,13 +160,7 @@ export class FireLayer implements MapDataLayer {
         offset: 12,
       })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content">
-            <div class="eq-popup-mag" style="color:#ff6b00">Fire Hotspot</div>
-            <div class="eq-popup-place">FRP: ${Number(props.frp).toFixed(1)} MW · ${props.satellite}</div>
-            <div class="eq-popup-meta">${props.acqDate} ${props.acqTime} · Conf: ${props.confidence}</div>
-          </div>`,
-        )
+        .setHTML(firePopup(props))
         .addTo(this.map);
     });
   }

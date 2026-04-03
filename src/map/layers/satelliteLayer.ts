@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { satellitePopup } from '../PopupCard.ts';
 
 // Notable satellites with pre-computed approximate orbital parameters
 // In production, these would be computed from TLE data using SGP4
@@ -162,9 +163,7 @@ export class SatelliteLayer implements MapDataLayer {
       this.popup?.remove();
       this.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'eq-popup', offset: 10 })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content"><div class="eq-popup-mag" style="color:${p.color}">${String(p.type).toUpperCase()}</div><div class="eq-popup-place">${p.name}</div><div class="eq-popup-meta">${p.country} · ${p.altitude}km alt</div></div>`,
-        )
+        .setHTML(satellitePopup(p))
         .addTo(this.map);
     });
   }

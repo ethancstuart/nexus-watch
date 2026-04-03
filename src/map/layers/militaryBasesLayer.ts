@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { militaryPopup } from '../PopupCard.ts';
 
 interface MilitaryBase {
   name: string;
@@ -157,9 +158,7 @@ export class MilitaryBasesLayer implements MapDataLayer {
       this.popup?.remove();
       this.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'eq-popup', offset: 10 })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content"><div class="eq-popup-mag" style="color:${p.color}">${String(p.alliance).toUpperCase()}</div><div class="eq-popup-place">${p.name}</div><div class="eq-popup-meta">${p.country} · ${p.type}</div></div>`,
-        )
+        .setHTML(militaryPopup(p))
         .addTo(this.map);
     });
   }

@@ -681,6 +681,279 @@
   border-top-color: #0a0a0a;
 }
 
+/* ── Search Bar ── */
+
+.nw-search {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.nw-search-input {
+  width: 180px;
+  padding: 3px 8px;
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  color: #cccccc;
+  font-family: inherit;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.nw-search-input:focus {
+  border-color: #ff6600;
+  width: 240px;
+}
+
+.nw-search-input::placeholder {
+  color: #444444;
+}
+
+.nw-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  border-top: none;
+  z-index: 300;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.nw-search-result {
+  padding: 6px 8px;
+  font-size: 10px;
+  color: #999999;
+  cursor: pointer;
+  border-bottom: 1px solid #111111;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nw-search-result:hover {
+  background: #111111;
+  color: #cccccc;
+}
+
+/* ── Layer Drawer ── */
+
+.nw-drawer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid #1a1a1a;
+  color: #888888;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+
+.nw-drawer-toggle:hover {
+  border-color: #333333;
+  color: #cccccc;
+}
+
+.nw-drawer-toggle-icon {
+  color: #ff6600;
+  font-size: 10px;
+}
+
+.nw-drawer-count {
+  background: #ff6600;
+  color: #000000;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 4px;
+  min-width: 14px;
+  text-align: center;
+}
+
+.nw-layer-drawer {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  width: 320px;
+  max-height: calc(100vh - 88px);
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  border-top: none;
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.nw-drawer-closed {
+  transform: translateY(-8px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nw-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #1a1a1a;
+  font-size: 10px;
+  font-weight: 700;
+  color: #666666;
+  letter-spacing: 1.5px;
+}
+
+.nw-drawer-close {
+  background: transparent;
+  border: none;
+  color: #444444;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.nw-drawer-close:hover {
+  color: #888888;
+}
+
+.nw-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #1a1a1a transparent;
+}
+
+.nw-drawer-cat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 4px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #444444;
+}
+
+.nw-drawer-cat-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nw-drawer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.nw-drawer-row:hover {
+  background: #111111;
+}
+
+.nw-drawer-check {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #333333;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+  position: relative;
+}
+
+.nw-drawer-check:checked {
+  background: #ff6600;
+  border-color: #ff6600;
+}
+
+.nw-drawer-check:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  left: 1px;
+  font-size: 9px;
+  color: #000;
+  font-weight: 700;
+}
+
+.nw-drawer-name-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.nw-drawer-name {
+  display: block;
+  font-size: 11px;
+  color: #cccccc;
+}
+
+.nw-drawer-desc {
+  display: block;
+  font-size: 9px;
+  color: #444444;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nw-drawer-feature-count {
+  font-size: 9px;
+  color: #555555;
+  min-width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Map Style Toggle ── */
+
+.nw-style-toggle {
+  display: flex;
+  gap: 1px;
+}
+
+.nw-style-btn {
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid #1a1a1a;
+  color: #555555;
+  font-family: inherit;
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.nw-style-btn:first-child {
+  border-right: none;
+}
+
+.nw-style-btn:last-child {
+  border-left: none;
+}
+
+.nw-style-btn:hover {
+  color: #888888;
+}
+
+.nw-style-btn.active {
+  background: rgba(255, 102, 0, 0.1);
+  border-color: rgba(255, 102, 0, 0.3);
+  color: #ff6600;
+}
+
 /* ── Popup Cards ── */
 
 .nw-popup-card {

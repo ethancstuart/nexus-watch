@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { gpsPopup } from '../PopupCard.ts';
 
 interface JammingZone {
   name: string;
@@ -181,9 +182,7 @@ export class GpsJammingLayer implements MapDataLayer {
       this.popup?.remove();
       this.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'eq-popup', offset: 10 })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content"><div class="eq-popup-mag" style="color:${p.color}">GPS JAMMING · ${String(p.severity).toUpperCase()}</div><div class="eq-popup-place">${p.name}</div><div class="eq-popup-meta">${p.region} · ~${p.radius}km radius</div></div>`,
-        )
+        .setHTML(gpsPopup(p))
         .addTo(this.map);
     });
   }

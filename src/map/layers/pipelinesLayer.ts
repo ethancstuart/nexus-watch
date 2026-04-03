@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { pipelinePopup } from '../PopupCard.ts';
 
 interface Pipeline {
   name: string;
@@ -233,9 +234,7 @@ export class PipelinesLayer implements MapDataLayer {
       this.popup?.remove();
       this.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'eq-popup', offset: 10 })
         .setLngLat(e.lngLat)
-        .setHTML(
-          `<div class="eq-popup-content"><div class="eq-popup-mag" style="color:${p.color}">${String(p.type).toUpperCase()} · ${String(p.status).toUpperCase()}</div><div class="eq-popup-place">${p.name}</div></div>`,
-        )
+        .setHTML(pipelinePopup(p))
         .addTo(this.map);
     });
   }

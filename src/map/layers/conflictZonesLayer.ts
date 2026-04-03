@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
+import { conflictPopup } from '../PopupCard.ts';
 
 interface ConflictZone {
   name: string;
@@ -168,9 +169,7 @@ export class ConflictZonesLayer implements MapDataLayer {
       this.popup?.remove();
       this.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'eq-popup', offset: 10 })
         .setLngLat([coords[0], coords[1]])
-        .setHTML(
-          `<div class="eq-popup-content"><div class="eq-popup-mag" style="color:${p.color}">${String(p.intensity).toUpperCase()}</div><div class="eq-popup-place">${p.name}</div><div class="eq-popup-meta">${p.region}</div></div>`,
-        )
+        .setHTML(conflictPopup(p))
         .addTo(this.map);
     });
   }

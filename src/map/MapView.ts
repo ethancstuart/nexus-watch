@@ -1,6 +1,5 @@
 import maplibregl from 'maplibre-gl';
-
-const CARTO_DARK_MATTER = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+import { getMapStyleUrl } from './MapStyleToggle.ts';
 const VIEWPORT_KEY = 'nw:map-viewport';
 
 interface SavedViewport {
@@ -22,7 +21,7 @@ export class MapView {
 
     this.map = new maplibregl.Map({
       container: this.container,
-      style: CARTO_DARK_MATTER,
+      style: getMapStyleUrl(),
       center: saved?.center || [20, 30],
       zoom: saved?.zoom || 2.5,
       pitch: 0,
