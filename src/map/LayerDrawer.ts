@@ -1,6 +1,7 @@
 import { createElement } from '../utils/dom.ts';
 import type { MapLayerManager } from './MapLayerManager.ts';
 import type { MapLayerCategory } from '../types/index.ts';
+import { exportLayerAsCSV, exportLayerAsGeoJSON } from './DataExport.ts';
 
 const CATEGORY_INFO: Record<MapLayerCategory, { label: string; color: string }> = {
   natural: { label: 'NATURAL HAZARDS', color: '#ff6b6b' },
@@ -12,7 +13,10 @@ const CATEGORY_INFO: Record<MapLayerCategory, { label: string; color: string }> 
 
 const CATEGORY_ORDER: MapLayerCategory[] = ['conflict', 'natural', 'intelligence', 'infrastructure', 'weather'];
 
-export function createLayerDrawer(layerManager: MapLayerManager): {
+export function createLayerDrawer(
+  layerManager: MapLayerManager,
+  getLayerData: () => Map<string, unknown>,
+): {
   element: HTMLElement;
   toggleBtn: HTMLElement;
   refresh: () => void;
@@ -78,9 +82,27 @@ export function createLayerDrawer(layerManager: MapLayerManager): {
         const fc = layer.getFeatureCount();
         if (fc > 0) count.textContent = String(fc);
 
+        const exportBtn = createElement('button', { className: 'nw-drawer-export', textContent: 'CSV' });
+        exportBtn.title = 'Export as CSV';
+        exportBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          exportLayerAsCSV(layer, getLayerData());
+        });
+
+        const exportGeoBtn = createElement('button', { className: 'nw-drawer-export', textContent: 'GEO' });
+        exportGeoBtn.title = 'Export as GeoJSON';
+        exportGeoBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          exportLayerAsGeoJSON(layer, getLayerData());
+        });
+
         row.appendChild(toggle);
         row.appendChild(nameWrap);
         row.appendChild(count);
+        row.appendChild(exportBtn);
+        row.appendChild(exportGeoBtn);
         drawerBody.appendChild(row);
       }
     }
