@@ -112,8 +112,8 @@ export class MapLayerManager {
     } catch {
       // ignore
     }
-    // Default: enable key layers
-    return ['earthquakes', 'news', 'fires', 'weather-alerts'];
+    // Default: enable high-impact layers
+    return ['earthquakes', 'news', 'fires', 'weather-alerts', 'conflicts', 'military', 'cables', 'cyber'];
   }
 
   private saveEnabledLayers(): void {

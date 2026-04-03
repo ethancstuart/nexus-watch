@@ -345,6 +345,82 @@
   }
 }
 
+/* ── Sidebar Layers Section ── */
+
+.nw-section-collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+
+.nw-section-collapsible::after {
+  content: ' ▾';
+  color: #444444;
+}
+
+.nw-section-collapsible.collapsed::after {
+  content: ' ▸';
+}
+
+.nw-layer-cat-label {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #333333;
+  padding: 6px 12px 2px;
+}
+
+.nw-layer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.nw-layer-row:hover {
+  background: #0a0a0a;
+}
+
+.nw-layer-toggle {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #333333;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.nw-layer-toggle:checked {
+  background: #ff6600;
+  border-color: #ff6600;
+}
+
+.nw-layer-toggle:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -2px;
+  left: 1px;
+  font-size: 9px;
+  color: #000;
+  font-weight: 700;
+}
+
+.nw-layer-name {
+  flex: 1;
+  color: #888888;
+}
+
+.nw-layer-count {
+  font-size: 9px;
+  color: #444444;
+  min-width: 20px;
+  text-align: right;
+}
+
 /* ── Markets Tab ── */
 
 .nw-market-row {

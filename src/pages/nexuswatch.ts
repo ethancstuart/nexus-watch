@@ -27,7 +27,7 @@ import { computeCountryScores, getCachedScores, scoreToLabel } from '../services
 import { generateSitrep } from '../services/sitrep.ts';
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
-import type { IntelItem, CountryIntelScore } from '../types/index.ts';
+import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
 
 let nwAbort: AbortController | null = null;
 
@@ -68,7 +68,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // Sidebar
   const sidebar = createElement('div', { className: 'nw-sidebar' });
   const tabBar = createElement('div', { className: 'nw-sidebar-tabs' });
-  const tabIntel = createElement('button', { className: 'nw-sidebar-tab active', textContent: 'INTEL' });
+  const tabIntel = createElement('button', { className: 'nw-sidebar-tab', textContent: 'INTEL' });
   const tabMarkets = createElement('button', { className: 'nw-sidebar-tab', textContent: 'MARKETS' });
   const tabFeeds = createElement('button', { className: 'nw-sidebar-tab', textContent: 'FEEDS' });
   tabBar.appendChild(tabIntel);
@@ -174,10 +174,17 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   renderLayerChips();
 
   // ── Tab switching ──
-  let activeTab: 'intel' | 'markets' | 'feeds' = 'intel';
+  let activeTab: 'intel' | 'markets' | 'feeds' =
+    (localStorage.getItem('nw:active-tab') as 'intel' | 'markets' | 'feeds') || 'intel';
+
+  // Set initial active tab
+  if (activeTab === 'markets') tabMarkets.classList.add('active');
+  else if (activeTab === 'feeds') tabFeeds.classList.add('active');
+  else tabIntel.classList.add('active');
 
   function setActiveTab(tab: typeof activeTab) {
     activeTab = tab;
+    localStorage.setItem('nw:active-tab', tab);
     tabIntel.classList.toggle('active', tab === 'intel');
     tabMarkets.classList.toggle('active', tab === 'markets');
     tabFeeds.classList.toggle('active', tab === 'feeds');
@@ -200,7 +207,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     feedsTab.stopDataCycle();
 
     if (activeTab === 'intel') {
-      renderIntelTab(sidebarContent, mapView);
+      renderIntelTab(sidebarContent, mapView, layerManager);
     } else if (activeTab === 'markets') {
       sidebarContent.appendChild(marketsTab.element);
       marketsTab.startDataCycle();
@@ -305,6 +312,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         case 'Escape':
           mapContainer.querySelector('.nw-sitrep-overlay')?.remove();
           break;
+        case '?':
+          showShortcutsHelp(mapContainer);
+          break;
       }
     },
     { signal },
@@ -332,7 +342,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
 // ── Intel Tab ──
 
-function renderIntelTab(container: HTMLElement, mapView: MapView): void {
+function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapLayerManager): void {
   // Alerts section
   const alertHeader = createElement('div', { className: 'nw-section-header', textContent: 'ALERTS' });
   container.appendChild(alertHeader);
@@ -354,7 +364,6 @@ function renderIntelTab(container: HTMLElement, mapView: MapView): void {
 
   const scores = getCachedScores();
   if (scores.length === 0) {
-    // Show skeletons
     for (let i = 0; i < 8; i++) {
       const sk = createElement('div', { className: 'nw-skeleton-row' });
       const bar1 = createElement('div', { className: 'nw-skeleton-bar' });
@@ -374,6 +383,58 @@ function renderIntelTab(container: HTMLElement, mapView: MapView): void {
       container.appendChild(createCountryRow(score, mapView));
     }
   }
+
+  // Layers section
+  const layersHeader = createElement('div', { className: 'nw-section-header nw-section-collapsible' });
+  layersHeader.textContent = 'DATA LAYERS (15)';
+  let layersExpanded = true;
+  layersHeader.addEventListener('click', () => {
+    layersExpanded = !layersExpanded;
+    layersBody.style.display = layersExpanded ? '' : 'none';
+    layersHeader.classList.toggle('collapsed', !layersExpanded);
+  });
+  container.appendChild(layersHeader);
+
+  const layersBody = createElement('div', {});
+  const CATEGORY_ORDER: MapLayerCategory[] = ['natural', 'conflict', 'infrastructure', 'intelligence', 'weather'];
+  const CATEGORY_LABELS: Record<string, string> = {
+    natural: 'NATURAL',
+    conflict: 'CONFLICT',
+    infrastructure: 'INFRASTRUCTURE',
+    intelligence: 'INTELLIGENCE',
+    weather: 'WEATHER',
+  };
+
+  for (const cat of CATEGORY_ORDER) {
+    const catLayers = layerMgr.getLayersByCategory(cat);
+    if (catLayers.length === 0) continue;
+
+    const catLabel = createElement('div', { className: 'nw-layer-cat-label', textContent: CATEGORY_LABELS[cat] });
+    layersBody.appendChild(catLabel);
+
+    for (const layer of catLayers) {
+      const row = createElement('label', { className: 'nw-layer-row' });
+      const toggle = document.createElement('input');
+      toggle.type = 'checkbox';
+      toggle.checked = layer.isEnabled();
+      toggle.className = 'nw-layer-toggle';
+      toggle.addEventListener('change', () => {
+        layerMgr.toggle(layer.id);
+      });
+
+      const name = createElement('span', { className: 'nw-layer-name', textContent: layer.name });
+      const count = createElement('span', { className: 'nw-layer-count' });
+      if (layer.isEnabled() && layer.getFeatureCount() > 0) {
+        count.textContent = String(layer.getFeatureCount());
+      }
+
+      row.appendChild(toggle);
+      row.appendChild(name);
+      row.appendChild(count);
+      layersBody.appendChild(row);
+    }
+  }
+  container.appendChild(layersBody);
 }
 
 function createAlertRow(item: IntelItem, mapView: MapView): HTMLElement {
@@ -478,6 +539,21 @@ function showSitrep(container: HTMLElement, text: string, generatedAt: string): 
   overlay.appendChild(header);
   overlay.appendChild(body);
   container.appendChild(overlay);
+}
+
+function showShortcutsHelp(container: HTMLElement): void {
+  const text = [
+    '1-7     Toggle first 7 layers',
+    'S       Generate SITREP',
+    'Esc     Close overlays',
+    '?       This help',
+    '',
+    'Click   Layer chips to toggle',
+    'Click   Country row to fly to location',
+    'Click   Alert row to fly to event',
+    'Hover   Map features for details',
+  ].join('\n');
+  showSitrep(container, text, '');
 }
 
 // ── Utils ──
