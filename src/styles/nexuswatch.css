@@ -345,6 +345,41 @@
   }
 }
 
+/* ── Data Summary Strip ── */
+
+.nw-data-summary {
+  display: flex;
+  border-bottom: 1px solid #1a1a1a;
+  background: #050505;
+}
+
+.nw-stat-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-right: 1px solid #111111;
+}
+
+.nw-stat-cell:last-child {
+  border-right: none;
+}
+
+.nw-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.nw-stat-label {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #444444;
+  margin-top: 3px;
+}
+
 /* ── Sidebar Layers Section ── */
 
 .nw-section-collapsible {

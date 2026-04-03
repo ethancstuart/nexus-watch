@@ -347,6 +347,24 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 // ── Intel Tab ──
 
 function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapLayerManager): void {
+  // Data summary strip
+  const summary = createElement('div', { className: 'nw-data-summary' });
+  const stats = [
+    { id: 'earthquakes', label: 'QUAKES', color: '#ff3c3c' },
+    { id: 'fires', label: 'FIRES', color: '#ff6b00' },
+    { id: 'news', label: 'NEWS', color: '#eab308' },
+    { id: 'flights', label: 'FLIGHTS', color: '#818cf8' },
+    { id: 'conflicts', label: 'CONFLICTS', color: '#ef4444' },
+  ];
+  for (const stat of stats) {
+    const layer = layerMgr.getLayer(stat.id);
+    const count = layer?.getFeatureCount() || 0;
+    const cell = createElement('div', { className: 'nw-stat-cell' });
+    cell.innerHTML = `<span class="nw-stat-value" style="color:${stat.color}">${count}</span><span class="nw-stat-label">${stat.label}</span>`;
+    summary.appendChild(cell);
+  }
+  container.appendChild(summary);
+
   // Alerts section
   const alertHeader = createElement('div', { className: 'nw-section-header', textContent: 'ALERTS' });
   container.appendChild(alertHeader);
