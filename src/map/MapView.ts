@@ -22,17 +22,30 @@ export class MapView {
     this.map = new maplibregl.Map({
       container: this.container,
       style: getMapStyleUrl(),
-      center: saved?.center || [20, 30],
-      zoom: saved?.zoom || 2.5,
+      center: saved?.center || [0, 20],
+      zoom: saved?.zoom || 1.8,
       pitch: 0,
       bearing: 0,
       attributionControl: false,
       maxZoom: 18,
-      minZoom: 1.5,
-    });
+      minZoom: 0.8,
+      ...({ projection: { type: 'globe' } } as Record<string, unknown>),
+    } as maplibregl.MapOptions);
 
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
     this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 200 }), 'bottom-left');
+
+    // Add atmosphere glow for globe projection
+    this.map.on('style.load', () => {
+      const m = this.map as unknown as { setFog?: (opts: Record<string, unknown>) => void };
+      m.setFog?.({
+        color: 'rgba(0, 0, 0, 1)',
+        'high-color': 'rgba(10, 10, 30, 1)',
+        'horizon-blend': 0.05,
+        'space-color': 'rgba(0, 0, 0, 1)',
+        'star-intensity': 0.3,
+      });
+    });
 
     this.resizeObserver = new ResizeObserver(() => {
       this.map?.resize();
