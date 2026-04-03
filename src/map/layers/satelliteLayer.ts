@@ -2,70 +2,103 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { renderPopupCard } from '../PopupCard.ts';
-import { twoline2satrec, propagate, gstime, eciToGeodetic, degreesLong, degreesLat } from 'satellite.js';
 
-const SATELLITE_TLES: { name: string; type: string; country: string; line1: string; line2: string }[] = [
+interface SatelliteOrbit {
+  name: string;
+  type: string;
+  country: string;
+  inclination: number; // degrees
+  altitude: number; // km
+  period: number; // minutes
+  raan0: number; // initial right ascension of ascending node
+  phase0: number; // initial phase offset
+}
+
+const SATELLITES: SatelliteOrbit[] = [
   {
     name: 'ISS (ZARYA)',
     type: 'station',
     country: 'Intl',
-    line1: '1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9002',
-    line2: '2 25544  51.6400 208.9163 0006703  35.5889  43.1796 15.49560532  9993',
+    inclination: 51.6,
+    altitude: 420,
+    period: 93,
+    raan0: 208,
+    phase0: 35,
   },
   {
     name: 'TIANGONG',
     type: 'station',
     country: 'CN',
-    line1: '1 48274U 21035A   24001.50000000  .00020000  00000-0  26500-3 0  9008',
-    line2: '2 48274  41.4700  60.0000 0005000 280.0000  80.0000 15.62000000  9990',
+    inclination: 41.5,
+    altitude: 390,
+    period: 92,
+    raan0: 60,
+    phase0: 280,
   },
   {
     name: 'STARLINK-1007',
     type: 'communication',
     country: 'US',
-    line1: '1 44713U 19074A   24001.50000000  .00001200  00000-0  87000-4 0  9990',
-    line2: '2 44713  53.0500 120.0000 0001500  90.0000 270.0000 15.06400000  9990',
+    inclination: 53.0,
+    altitude: 550,
+    period: 96,
+    raan0: 120,
+    phase0: 90,
   },
   {
     name: 'COSMOS 2558',
     type: 'reconnaissance',
     country: 'RU',
-    line1: '1 53328U 22089A   24001.50000000  .00002000  00000-0  10000-3 0  9990',
-    line2: '2 53328  97.3000  45.0000 0010000 200.0000 160.0000 15.18000000  9990',
+    inclination: 97.3,
+    altitude: 440,
+    period: 93,
+    raan0: 45,
+    phase0: 200,
   },
   {
     name: 'USA-326 (KH-11)',
     type: 'reconnaissance',
     country: 'US',
-    line1: '1 54234U 22150A   24001.50000000  .00005000  00000-0  30000-3 0  9990',
-    line2: '2 54234  97.4000  80.0000 0010000 150.0000 210.0000 15.24000000  9990',
+    inclination: 97.4,
+    altitude: 260,
+    period: 90,
+    raan0: 80,
+    phase0: 150,
   },
   {
     name: 'YAOGAN-39',
     type: 'reconnaissance',
     country: 'CN',
-    line1: '1 57320U 23120A   24001.50000000  .00001500  00000-0  90000-4 0  9990',
-    line2: '2 57320  35.0000 200.0000 0010000 100.0000 260.0000 14.95000000  9990',
+    inclination: 35.0,
+    altitude: 600,
+    period: 97,
+    raan0: 200,
+    phase0: 100,
   },
   {
     name: 'GPS IIF-12',
     type: 'navigation',
     country: 'US',
-    line1: '1 41019U 15062A   24001.50000000  .00000010  00000-0  10000-3 0  9990',
-    line2: '2 41019  55.0000 150.0000 0050000  50.0000 310.0000  2.00560000  9990',
+    inclination: 55.0,
+    altitude: 20200,
+    period: 718,
+    raan0: 150,
+    phase0: 50,
   },
   {
     name: 'GLONASS-M 751',
     type: 'navigation',
     country: 'RU',
-    line1: '1 40001U 14032A   24001.50000000  .00000010  00000-0  10000-3 0  9990',
-    line2: '2 40001  64.8000  90.0000 0010000 270.0000  90.0000  2.13100000  9990',
+    inclination: 64.8,
+    altitude: 19130,
+    period: 676,
+    raan0: 90,
+    phase0: 270,
   },
 ];
 
 const TYPE_COLORS: Record<string, string> = {
   station: '#22c55e',
-  military: '#ef4444',
   communication: '#3b82f6',
   reconnaissance: '#f59e0b',
   navigation: '#8b5cf6',
@@ -76,19 +109,16 @@ export class SatelliteLayer implements MapDataLayer {
   readonly name = 'Satellites';
   readonly category = 'intelligence' as const;
   readonly icon = '🛰';
-  readonly description = 'Notable satellites with real orbital positions';
+  readonly description = 'Notable military and intelligence satellites';
 
   private map: MaplibreMap | null = null;
   private enabled = false;
   private popup: maplibregl.Popup | null = null;
   private tickTimer: ReturnType<typeof setTimeout> | null = null;
-  private satrecs: ReturnType<typeof twoline2satrec>[] = [];
 
   init(map: MaplibreMap): void {
     this.map = map;
-    this.satrecs = SATELLITE_TLES.map((s) => twoline2satrec(s.line1, s.line2));
   }
-
   enable(): void {
     this.enabled = true;
     this.renderLayer();
@@ -99,13 +129,9 @@ export class SatelliteLayer implements MapDataLayer {
     this.stopAnimation();
     this.removeLayer();
   }
-
   async refresh(): Promise<void> {
-    document.dispatchEvent(
-      new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: SATELLITE_TLES } }),
-    );
+    document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: SATELLITES } }));
   }
-
   getRefreshInterval(): number {
     return 0;
   }
@@ -116,29 +142,36 @@ export class SatelliteLayer implements MapDataLayer {
     return Date.now();
   }
   getFeatureCount(): number {
-    return SATELLITE_TLES.length;
+    return SATELLITES.length;
   }
 
   private computePositions(): GeoJSON.FeatureCollection {
-    const now = new Date();
-    const gmst = gstime(now);
+    const now = Date.now();
+    const toRad = Math.PI / 180;
 
     return {
       type: 'FeatureCollection',
-      features: this.satrecs.map((satrec, i) => {
-        const sat = SATELLITE_TLES[i];
-        const posVel = propagate(satrec, now);
+      features: SATELLITES.map((sat) => {
+        // Simplified Keplerian orbit model
+        const angularRate = 360 / (sat.period * 60 * 1000); // deg/ms
+        const meanAnomaly = ((now * angularRate + sat.phase0) % 360) * toRad;
 
-        let lat = 0;
-        let lon = 0;
-        let alt = 0;
+        // Earth rotation: ~360 deg / 86164s (sidereal day)
+        const earthRotation = ((now / 86164000) * 360) % 360;
 
-        if (posVel.position && typeof posVel.position !== 'boolean') {
-          const geo = eciToGeodetic(posVel.position, gmst);
-          lat = degreesLat(geo.latitude);
-          lon = degreesLong(geo.longitude);
-          alt = geo.height;
-        }
+        // RAAN precession (simplified): J2 perturbation
+        const raanRate = -1.5 * 0.00108263 * Math.cos(sat.inclination * toRad) * (360 / sat.period); // deg/orbit
+        const raan = (sat.raan0 + (now / (sat.period * 60000)) * raanRate - earthRotation) * toRad;
+
+        // Latitude from inclination and mean anomaly
+        const lat = Math.asin(Math.sin(sat.inclination * toRad) * Math.sin(meanAnomaly)) / toRad;
+        // Longitude from RAAN and position in orbit
+        const lon =
+          ((Math.atan2(Math.cos(sat.inclination * toRad) * Math.sin(meanAnomaly), Math.cos(meanAnomaly)) / toRad +
+            raan / toRad +
+            180) %
+            360) -
+          180;
 
         return {
           type: 'Feature' as const,
@@ -147,7 +180,7 @@ export class SatelliteLayer implements MapDataLayer {
             name: sat.name,
             type: sat.type,
             country: sat.country,
-            altitude: Math.round(alt),
+            altitude: sat.altitude,
             color: TYPE_COLORS[sat.type] || '#6b7280',
           },
         };
