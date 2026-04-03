@@ -232,7 +232,7 @@ export class PredictionLayer implements MapDataLayer {
 }
 
 function probToColor(prob: number): string {
-  if (prob >= 80) return '#22c55e'; // Very likely — green
+  if (prob >= 80) return '#00ff00'; // Very likely — green
   if (prob >= 60) return '#84cc16'; // Likely — lime
   if (prob >= 40) return '#eab308'; // Toss-up — yellow
   if (prob >= 20) return '#f97316'; // Unlikely — orange

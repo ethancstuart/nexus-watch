@@ -7,7 +7,7 @@ import { renderPopupCard } from '../PopupCard.ts';
 const TYPE_COLORS: Record<string, string> = {
   cargo: '#3b82f6',
   tanker: '#f59e0b',
-  passenger: '#22c55e',
+  passenger: '#00ff00',
   military: '#ef4444',
 };
 

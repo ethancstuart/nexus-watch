@@ -11,7 +11,7 @@ function toneToColor(tone: number): string {
   if (tone < -1) return '#f97316';
   if (tone < 1) return '#eab308';
   if (tone < 3) return '#84cc16';
-  return '#22c55e';
+  return '#00ff00';
 }
 
 export class NewsLayer implements MapDataLayer {

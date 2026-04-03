@@ -23,12 +23,17 @@ export class MapLayerManager {
   initAll(): void {
     if (!this.map) return;
     const enabledIds = this.loadEnabledLayers();
+    let delay = 0;
     for (const [id, layer] of this.layers) {
       layer.init(this.map);
       if (enabledIds.includes(id)) {
         layer.enable();
-        void layer.refresh();
-        this.startRefreshCycle(layer);
+        // Stagger API calls to avoid thundering herd on page load
+        setTimeout(() => {
+          void layer.refresh();
+          this.startRefreshCycle(layer);
+        }, delay);
+        delay += 200;
       }
     }
   }

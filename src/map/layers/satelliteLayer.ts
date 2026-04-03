@@ -98,7 +98,7 @@ const SATELLITES: SatelliteOrbit[] = [
 ];
 
 const TYPE_COLORS: Record<string, string> = {
-  station: '#22c55e',
+  station: '#00ff00',
   communication: '#3b82f6',
   reconnaissance: '#f59e0b',
   navigation: '#8b5cf6',

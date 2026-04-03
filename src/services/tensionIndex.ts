@@ -101,7 +101,7 @@ export function tensionColor(score: number): string {
   if (score >= 75) return '#dc2626';
   if (score >= 50) return '#f97316';
   if (score >= 25) return '#eab308';
-  return '#22c55e';
+  return '#00ff00';
 }
 
 export function tensionLabel(score: number): string {

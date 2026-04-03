@@ -152,7 +152,12 @@ Before planning features or making architectural decisions, reference:
 - `~/Projects/home-base/apis/catalog.md` — curated API catalog for potential integrations and new panels
 - `~/Projects/home-base/standards/quality.md` — shared quality standards
 - `~/Projects/home-base/standards/design-principles.md` — shared design philosophy
+- `~/Projects/home-base/standards/design-toolkit.md` — skills, component libraries, and design references
 - `~/Projects/home-base/personal/CLAUDE.local.md` — who Ethan is, how he works
+
+When designing UI, consult the design toolkit before building components from scratch.
+Use `/brand-guidelines` to auto-apply this project's brand identity.
+Use `/frontend-design` for intentional aesthetic direction on new UI work.
 
 When planning new panels, check the API catalog first — it maps APIs to DashPulse features.
 

@@ -30,10 +30,6 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@deck.gl/core": "^9.2.11",
-    "@deck.gl/layers": "^9.2.11",
-    "@deck.gl/mapbox": "^9.2.11",
-    "@turf/turf": "^7.3.4",
     "@vercel/analytics": "^2.0.0",
     "@vercel/og": "^0.11.1",
     "maplibre-gl": "^5.21.1",

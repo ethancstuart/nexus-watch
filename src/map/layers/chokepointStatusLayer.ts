@@ -23,7 +23,7 @@ const CHOKEPOINTS: Chokepoint[] = [
 type Status = 'green' | 'yellow' | 'red';
 
 const STATUS_COLORS: Record<Status, string> = {
-  green: '#22c55e',
+  green: '#00ff00',
   yellow: '#eab308',
   red: '#ef4444',
 };

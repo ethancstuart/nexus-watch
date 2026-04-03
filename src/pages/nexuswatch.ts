@@ -32,13 +32,12 @@ import {
 } from '../services/geoIntelligence.ts';
 import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
 import { generateSitrep, generatePersonalBrief } from '../services/sitrep.ts';
-import { loadRules, checkRules, getTriggeredAlerts, requestNotificationPermission } from '../services/alertRules.ts';
+import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
 import { loadWatchlist, scanForMatches, getWatchMatches } from '../services/watchlist.ts';
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
-import { createTimeline } from '../ui/timeline.ts';
 import { showOnboarding } from '../ui/onboardingOverlay.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
@@ -211,15 +210,6 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     });
   });
 
-  // ── Timeline scrubber (overlaid on map) ──
-  const timeline = createTimeline({
-    onTimeChange: (_timestamp) => {
-      // Future: filter visible layer features by timestamp
-      // For now, the timeline is a visual control that shows current time position
-    },
-  });
-  mapContainer.appendChild(timeline);
-
   // ── Search bar ──
   const searchBar = createMapSearch(mapView);
   searchSlot.appendChild(searchBar);
@@ -254,6 +244,12 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // ── Sidebar tab components ──
   const marketsTab = createMarketsTab();
   const feedsTab = createFeedsTab();
+
+  let sidebarDebounce: ReturnType<typeof setTimeout> | null = null;
+  function debouncedSidebarRender() {
+    if (sidebarDebounce) clearTimeout(sidebarDebounce);
+    sidebarDebounce = setTimeout(renderSidebarContent, 1000);
+  }
 
   function renderSidebarContent() {
     sidebarContent.textContent = '';
@@ -307,7 +303,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   initGeoIntelligence(signal);
   loadRules();
   loadWatchlist();
-  requestNotificationPermission();
+  // Notification permission requested on first alert trigger, not page load
 
   document.addEventListener(
     'dashview:layer-data',
@@ -329,7 +325,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       }
       trendEl.textContent = tension.trend === 'rising' ? '▲' : tension.trend === 'falling' ? '▼' : '—';
       trendEl.style.color =
-        tension.trend === 'rising' ? '#ef4444' : tension.trend === 'falling' ? '#22c55e' : '#666666';
+        tension.trend === 'rising' ? '#ef4444' : tension.trend === 'falling' ? '#00ff00' : '#666666';
       // Update label
       let labelEl = tensionSlot.querySelector('.nw-tension-level') as HTMLElement;
       if (!labelEl) {
@@ -339,7 +335,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       labelEl.textContent = tensionLabel(tension.global);
       labelEl.style.color = tensionColor(tension.global);
       layerDrawer.refresh();
-      if (activeTab === 'intel') renderSidebarContent();
+      if (activeTab === 'intel') debouncedSidebarRender();
 
       // Check alert rules + watchlist
       checkRules(getLayerData());
@@ -368,7 +364,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   document.addEventListener(
     'dashview:intel-update',
     () => {
-      if (activeTab === 'intel') renderSidebarContent();
+      if (activeTab === 'intel') debouncedSidebarRender();
     },
     { signal },
   );
@@ -587,7 +583,7 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
 
   // Layers section
   const layersHeader = createElement('div', { className: 'nw-section-header nw-section-collapsible' });
-  layersHeader.textContent = 'DATA LAYERS (15)';
+  layersHeader.textContent = `DATA LAYERS (${layerMgr.getAllLayers().length})`;
   let layersExpanded = true;
   layersHeader.addEventListener('click', () => {
     layersExpanded = !layersExpanded;

@@ -15,7 +15,7 @@ interface AqiReading {
 }
 
 function aqiColor(aqi: number): string {
-  if (aqi <= 50) return '#22c55e'; // Good
+  if (aqi <= 50) return '#00ff00'; // Good
   if (aqi <= 100) return '#eab308'; // Moderate
   if (aqi <= 150) return '#f97316'; // Unhealthy for sensitive
   if (aqi <= 200) return '#ef4444'; // Unhealthy

@@ -1,4 +1,5 @@
 import type { EarthquakeFeature, FireHotspot } from '../types/index.ts';
+import { haversineKm } from '../utils/geo.ts';
 
 const STORAGE_KEY = 'nw:alert-rules';
 
@@ -152,8 +153,16 @@ export function checkRules(layerData: Map<string, unknown>): TriggeredAlert[] {
 }
 
 function sendNotification(message: string): void {
-  if ('Notification' in window && Notification.permission === 'granted') {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
     new Notification('NexusWatch Alert', { body: message, icon: '/icons/icon-192.svg' });
+  } else if (Notification.permission === 'default') {
+    // Request on first alert, not page load
+    void Notification.requestPermission().then((perm) => {
+      if (perm === 'granted') {
+        new Notification('NexusWatch Alert', { body: message, icon: '/icons/icon-192.svg' });
+      }
+    });
   }
 }
 
@@ -161,14 +170,4 @@ export function requestNotificationPermission(): void {
   if ('Notification' in window && Notification.permission === 'default') {
     void Notification.requestPermission();
   }
-}
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
