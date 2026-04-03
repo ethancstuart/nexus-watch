@@ -58,8 +58,20 @@ export function createLayerDrawer(
       if (layers.length === 0) continue;
 
       const info = CATEGORY_INFO[cat];
-      const catHeader = createElement('div', { className: 'nw-drawer-cat' });
-      catHeader.innerHTML = `<span class="nw-drawer-cat-dot" style="background:${info.color}"></span>${info.label}`;
+      const enabledCount = layers.filter((l) => l.isEnabled()).length;
+
+      const catHeader = createElement('div', { className: 'nw-drawer-cat nw-drawer-cat-toggle' });
+      catHeader.innerHTML = `<span class="nw-drawer-cat-dot" style="background:${info.color}"></span>${info.label} <span class="nw-drawer-cat-count">(${enabledCount}/${layers.length})</span>`;
+
+      const catBody = createElement('div', { className: 'nw-drawer-cat-body' });
+      // First category expanded, rest collapsed
+      if (cat !== CATEGORY_ORDER[0]) catBody.style.display = 'none';
+      catHeader.addEventListener('click', () => {
+        catBody.style.display = catBody.style.display === 'none' ? '' : 'none';
+        catHeader.classList.toggle('collapsed', catBody.style.display === 'none');
+      });
+      if (cat !== CATEGORY_ORDER[0]) catHeader.classList.add('collapsed');
+
       drawerBody.appendChild(catHeader);
 
       for (const layer of layers) {
@@ -119,8 +131,9 @@ export function createLayerDrawer(
         row.appendChild(opacitySlider);
         row.appendChild(exportBtn);
         row.appendChild(exportGeoBtn);
-        drawerBody.appendChild(row);
+        catBody.appendChild(row);
       }
+      drawerBody.appendChild(catBody);
     }
   }
 

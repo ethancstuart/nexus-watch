@@ -19,8 +19,49 @@
   padding: 0 12px;
   border-bottom: 1px solid #1a1a1a;
   flex-shrink: 0;
-  gap: 12px;
   font-size: 11px;
+}
+
+.nw-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.nw-topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+}
+
+.nw-tension-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #444444;
+}
+
+.nw-tension-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff6600;
+  min-width: 28px;
+  text-align: center;
+}
+
+.nw-tension-trend {
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.nw-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .nw-logo {
@@ -874,6 +915,30 @@
   font-weight: 700;
   letter-spacing: 1.5px;
   color: #444444;
+}
+
+.nw-drawer-cat-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.nw-drawer-cat-toggle::after {
+  content: ' ▾';
+  color: #333333;
+  font-size: 8px;
+}
+
+.nw-drawer-cat-toggle.collapsed::after {
+  content: ' ▸';
+}
+
+.nw-drawer-cat-count {
+  font-size: 8px;
+  color: #333333;
+}
+
+.nw-drawer-cat-body {
+  /* collapsible container for layer rows */
 }
 
 .nw-drawer-cat-dot {

@@ -50,21 +50,31 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // ── Build DOM structure synchronously ──
   const app = createElement('div', { className: 'nw-app' });
 
-  // Top bar
+  // Top bar — 3 zones: left (brand), center (tension index), right (controls)
   const topbar = createElement('div', { className: 'nw-topbar' });
+
+  // LEFT ZONE: logo + search
+  const topLeft = createElement('div', { className: 'nw-topbar-left' });
   const logo = createElement('span', { className: 'nw-logo', textContent: 'NexusWatch' });
-  const sep1 = createElement('span', { className: 'nw-topbar-sep' });
-
-  // Search (placeholder — wired after mapView init)
   const searchSlot = createElement('div', {});
+  topLeft.appendChild(logo);
+  topLeft.appendChild(searchSlot);
 
-  // Layer drawer toggle (placeholder — wired after layerManager init)
+  // CENTER ZONE: tension index (wired after data loads)
+  const tensionSlot = createElement('div', { className: 'nw-topbar-center' });
+  tensionSlot.innerHTML =
+    '<span class="nw-tension-label">GLOBAL TENSION</span><span class="nw-tension-value">--</span>';
+
+  // RIGHT ZONE: layers toggle + controls dropdown + status
+  const topRight = createElement('div', { className: 'nw-topbar-right' });
   const drawerToggleSlot = createElement('div', {});
 
-  // Map style toggle
+  const sitrepBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SITREP' });
+  const popoutSlot = createElement('div', {});
+
+  // Map style toggle (collapsed into right zone)
   const styleToggle = createMapStyleToggle((styleUrl) => {
     mapView.getMap()?.setStyle(styleUrl);
-    // Re-render all enabled layers after style change
     setTimeout(() => {
       for (const layer of layerManager.getEnabledLayers()) {
         layer.disable();
@@ -74,24 +84,21 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     }, 1000);
   });
 
-  const sitrepBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SITREP' });
-  const popoutSlot = createElement('div', {});
-
   const statusArea = createElement('div', { className: 'nw-topbar-status' });
   const liveDot = createElement('span', { className: 'nw-live-dot' });
   const clockEl = createElement('span', {});
-
   statusArea.appendChild(liveDot);
   statusArea.appendChild(clockEl);
 
-  topbar.appendChild(logo);
-  topbar.appendChild(sep1);
-  topbar.appendChild(searchSlot);
-  topbar.appendChild(drawerToggleSlot);
-  topbar.appendChild(styleToggle);
-  topbar.appendChild(sitrepBtn);
-  topbar.appendChild(popoutSlot);
-  topbar.appendChild(statusArea);
+  topRight.appendChild(drawerToggleSlot);
+  topRight.appendChild(sitrepBtn);
+  topRight.appendChild(popoutSlot);
+  topRight.appendChild(styleToggle);
+  topRight.appendChild(statusArea);
+
+  topbar.appendChild(topLeft);
+  topbar.appendChild(tensionSlot);
+  topbar.appendChild(topRight);
 
   // Main area
   const main = createElement('div', { className: 'nw-main' });
