@@ -29,6 +29,7 @@ import { loadRules, checkRules, getTriggeredAlerts, requestNotificationPermissio
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
+import { showOnboarding } from '../ui/onboardingOverlay.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
@@ -120,6 +121,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   app.appendChild(main);
   app.appendChild(statusBar);
   root.appendChild(app);
+
+  // ── Onboarding (first visit only) ──
+  showOnboarding(root);
 
   // ── Initialize map ──
   const mapView = new MapView(mapContainer);
