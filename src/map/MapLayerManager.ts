@@ -113,7 +113,18 @@ export class MapLayerManager {
       // ignore
     }
     // Default: enable high-impact layers
-    return ['earthquakes', 'news', 'fires', 'weather-alerts', 'conflicts', 'military', 'cables', 'cyber'];
+    return [
+      'earthquakes',
+      'news',
+      'fires',
+      'weather-alerts',
+      'conflicts',
+      'military',
+      'cables',
+      'cyber',
+      'flights',
+      'ships',
+    ];
   }
 
   private saveEnabledLayers(): void {

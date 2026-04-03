@@ -17,6 +17,7 @@ import { CablesLayer } from '../map/layers/cablesLayer.ts';
 import { PipelinesLayer } from '../map/layers/pipelinesLayer.ts';
 import { GpsJammingLayer } from '../map/layers/gpsJammingLayer.ts';
 import { SatelliteLayer } from '../map/layers/satelliteLayer.ts';
+import { ShipLayer } from '../map/layers/shipLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -149,6 +150,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new PipelinesLayer(),
     new GpsJammingLayer(),
     new SatelliteLayer(),
+    new ShipLayer(),
   ];
 
   for (const layer of allLayers) {
