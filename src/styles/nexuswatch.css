@@ -1344,6 +1344,89 @@
   }
 }
 
+/* ── Timeline Scrubber ── */
+
+.nw-timeline {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid #1a1a1a;
+  z-index: 100;
+  min-width: 360px;
+}
+
+.nw-timeline-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #22c55e;
+  min-width: 44px;
+  text-align: center;
+}
+
+.nw-timeline-track {
+  flex: 1;
+  height: 4px;
+  background: #1a1a1a;
+  position: relative;
+  cursor: pointer;
+}
+
+.nw-timeline-fill {
+  height: 100%;
+  background: #ff6600;
+  transition: width 0.1s;
+}
+
+.nw-timeline-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  background: #ff6600;
+  cursor: grab;
+  transition: left 0.1s;
+}
+
+.nw-timeline-thumb:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.3);
+}
+
+.nw-timeline-range {
+  display: flex;
+  gap: 2px;
+}
+
+.nw-timeline-range-btn {
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid #1a1a1a;
+  color: #555555;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.nw-timeline-range-btn:hover {
+  color: #888888;
+  border-color: #333333;
+}
+
+.nw-timeline-range-btn.active {
+  background: rgba(255, 102, 0, 0.1);
+  border-color: rgba(255, 102, 0, 0.3);
+  color: #ff6600;
+}
+
 /* ── Fullscreen Mode ── */
 
 .nw-app.nw-fullscreen .nw-topbar,

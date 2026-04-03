@@ -38,6 +38,7 @@ import { loadWatchlist, scanForMatches, getWatchMatches } from '../services/watc
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
+import { createTimeline } from '../ui/timeline.ts';
 import { showOnboarding } from '../ui/onboardingOverlay.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
@@ -209,6 +210,15 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       }
     });
   });
+
+  // ── Timeline scrubber (overlaid on map) ──
+  const timeline = createTimeline({
+    onTimeChange: (_timestamp) => {
+      // Future: filter visible layer features by timestamp
+      // For now, the timeline is a visual control that shows current time position
+    },
+  });
+  mapContainer.appendChild(timeline);
 
   // ── Search bar ──
   const searchBar = createMapSearch(mapView);
