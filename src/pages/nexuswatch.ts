@@ -239,11 +239,28 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   document.addEventListener(
     'dashview:layer-data',
-    () => {
+    ((e: CustomEvent) => {
       computeCountryScores(getLayerData());
       layerDrawer.refresh();
       if (activeTab === 'intel') renderSidebarContent();
-    },
+
+      // Refresh pulse animation
+      const flash = createElement('div', { className: 'nw-refresh-flash' });
+      mapContainer.appendChild(flash);
+      setTimeout(() => flash.remove(), 900);
+
+      // Pulse the status bar item for this layer
+      const layerId = e.detail?.layerId as string;
+      if (layerId) {
+        const items = statusBar.querySelectorAll('.nw-statusbar-item');
+        for (const item of items) {
+          if (item.textContent?.includes(layerManager.getLayer(layerId)?.name || '')) {
+            item.classList.add('refreshing');
+            setTimeout(() => item.classList.remove('refreshing'), 800);
+          }
+        }
+      }
+    }) as EventListener,
     { signal },
   );
 
