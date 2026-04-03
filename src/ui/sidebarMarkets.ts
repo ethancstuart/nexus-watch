@@ -34,7 +34,11 @@ export function createMarketsTab(): {
       const data = await fetchStocks(DEFAULT_WATCHLIST);
       renderStockTable(section as HTMLElement, data.watchlist);
     } catch {
-      (section as HTMLElement).querySelector('.nw-section-body')!.textContent = 'Failed to load';
+      const body = (section as HTMLElement).querySelector('.nw-section-body') as HTMLElement;
+      body.textContent = '';
+      body.appendChild(
+        createElement('div', { className: 'nw-placeholder', textContent: 'FINNHUB_API_KEY required for stock data' }),
+      );
     }
   }
 
@@ -44,7 +48,9 @@ export function createMarketsTab(): {
       const data = await fetchCryptoData();
       renderCryptoTable(section as HTMLElement, data.coins.slice(0, 10));
     } catch {
-      (section as HTMLElement).querySelector('.nw-section-body')!.textContent = 'Failed to load';
+      const body = (section as HTMLElement).querySelector('.nw-section-body') as HTMLElement;
+      body.textContent = '';
+      body.appendChild(createElement('div', { className: 'nw-placeholder', textContent: 'Crypto data unavailable' }));
     }
   }
 

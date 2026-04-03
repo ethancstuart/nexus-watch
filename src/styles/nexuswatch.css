@@ -356,9 +356,7 @@
   gap: 8px;
 }
 
-.nw-market-row:hover {
-  background: #0a0a0a;
-}
+/* no hover — rows are display-only */
 
 .nw-market-symbol {
   width: 52px;

@@ -1,6 +1,8 @@
 import { createElement } from '../utils/dom.ts';
 import { getUser } from '../services/auth.ts';
-import { getCurrentTier } from '../services/tier.ts';
+function getCurrentTier(): string {
+  return 'free';
+}
 
 export function renderRoadmap(root: HTMLElement): void {
   root.textContent = '';
