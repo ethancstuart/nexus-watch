@@ -31,6 +31,7 @@ import { TradeRoutesLayer } from '../map/layers/tradeRoutesLayer.ts';
 import { LaunchLayer } from '../map/layers/launchLayer.ts';
 import { FrontlinesLayer } from '../map/layers/frontlinesLayer.ts';
 import { EnergyLayer } from '../map/layers/energyLayer.ts';
+import { SentimentLayer } from '../map/layers/sentimentLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -189,6 +190,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new LaunchLayer(),
     new FrontlinesLayer(),
     new EnergyLayer(),
+    new SentimentLayer(),
   ];
 
   for (const layer of allLayers) {
