@@ -259,7 +259,7 @@ export class DisplacementLayer implements MapDataLayer {
       type: 'line',
       source: 'displacement',
       paint: {
-        'line-color': '#0ea5e9',
+        'line-color': '#38bdf8',
         'line-width': ['*', ['get', 'width'], 3],
         'line-opacity': 0.06,
         'line-blur': 4,
@@ -272,7 +272,7 @@ export class DisplacementLayer implements MapDataLayer {
       type: 'line',
       source: 'displacement',
       paint: {
-        'line-color': '#0ea5e9',
+        'line-color': '#38bdf8',
         'line-width': ['get', 'width'],
         'line-opacity': 0.5,
         'line-dasharray': [2, 2],
@@ -296,7 +296,7 @@ export class DisplacementLayer implements MapDataLayer {
         .setHTML(
           renderPopupCard({
             type: 'DISPLACEMENT CORRIDOR',
-            typeColor: '#0ea5e9',
+            typeColor: '#38bdf8',
             title: String(p.label),
             fields: [
               { label: 'Displaced', value: Number(p.population).toLocaleString() },
