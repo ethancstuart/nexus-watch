@@ -35,6 +35,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/about', () => {
+    import('./pages/casestudy.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderCaseStudy(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/roadmap', () => {
     import('./pages/roadmap.ts')
       .then((m) => {
