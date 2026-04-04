@@ -153,7 +153,7 @@ const PIPELINES: Pipeline[] = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  active: '#f59e0b',
+  active: '#888888',
   disputed: '#6b7280',
   damaged: '#ef4444',
 };

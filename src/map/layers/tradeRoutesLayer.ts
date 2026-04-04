@@ -199,7 +199,7 @@ export class TradeRoutesLayer implements MapDataLayer {
       id: 'trade-routes-line',
       type: 'line',
       source: 'trade-routes',
-      paint: { 'line-color': '#f59e0b', 'line-width': 1.5, 'line-opacity': 0.4, 'line-dasharray': [4, 4] },
+      paint: { 'line-color': '#f59e0b', 'line-width': 2, 'line-opacity': 0.5, 'line-dasharray': [8, 4] },
     });
 
     this.map.on('mouseenter', 'trade-routes-line', () => {

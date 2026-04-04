@@ -244,7 +244,7 @@ export class FrontlinesLayer implements MapDataLayer {
         'line-color': ['get', 'color'],
         'line-width': 1.5,
         'line-opacity': 0.5,
-        'line-dasharray': [4, 2],
+        'line-dasharray': [1],
       },
     });
 
