@@ -5,7 +5,7 @@ const STORAGE_KEY = 'nw:onboarded';
 const STEPS = [
   {
     title: 'NEXUSWATCH',
-    text: 'Real-time geopolitical intelligence. 22 data layers, AI sitreps, and country risk scoring — all on an interactive map.',
+    text: 'Real-time geopolitical intelligence. 27 data layers, AI sitreps, and country risk scoring — all on an interactive map.',
   },
   {
     title: 'DATA LAYERS',

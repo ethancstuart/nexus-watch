@@ -14,7 +14,7 @@ export function renderRoadmap(root: HTMLElement): void {
   const navBrand = document.createElement('a');
   navBrand.href = '#/';
   navBrand.className = 'landing-nav-brand';
-  navBrand.textContent = 'DashPulse';
+  navBrand.textContent = 'NexusWatch';
   navBrand.style.textDecoration = 'none';
   navBrand.style.color = 'inherit';
 
