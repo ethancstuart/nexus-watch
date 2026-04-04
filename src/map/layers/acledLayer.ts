@@ -114,6 +114,40 @@ export class AcledLayer implements MapDataLayer {
       clusterRadius: 40,
     });
 
+    // Separate non-clustered source for heatmap
+    this.map.addSource('acled-heat', { type: 'geojson', data: geojson });
+
+    // Casualty heatmap (visible at low zoom)
+    this.map.addLayer({
+      id: 'acled-heatmap',
+      type: 'heatmap',
+      source: 'acled-heat',
+      maxzoom: 7,
+      paint: {
+        'heatmap-weight': ['interpolate', ['linear'], ['get', 'fatalities'], 0, 0.1, 5, 0.4, 20, 0.7, 100, 1],
+        'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.3, 5, 1, 7, 2],
+        'heatmap-color': [
+          'interpolate',
+          ['linear'],
+          ['heatmap-density'],
+          0,
+          'rgba(0,0,0,0)',
+          0.2,
+          'rgba(255,60,60,0.2)',
+          0.4,
+          'rgba(255,60,60,0.4)',
+          0.6,
+          'rgba(255,30,0,0.6)',
+          0.8,
+          'rgba(255,0,0,0.8)',
+          1,
+          'rgba(255,0,0,1)',
+        ],
+        'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 4, 3, 10, 5, 20, 7, 30],
+        'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.8, 7, 0.4],
+      },
+    });
+
     // Clusters
     this.map.addLayer({
       id: 'acled-clusters',
@@ -196,10 +230,11 @@ export class AcledLayer implements MapDataLayer {
 
   private removeLayer(): void {
     if (!this.map) return;
-    for (const id of ['acled-points', 'acled-cluster-count', 'acled-clusters']) {
+    for (const id of ['acled-points', 'acled-cluster-count', 'acled-clusters', 'acled-heatmap']) {
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     }
     if (this.map.getSource('acled')) this.map.removeSource('acled');
+    if (this.map.getSource('acled-heat')) this.map.removeSource('acled-heat');
     this.popup?.remove();
   }
   destroy(): void {
