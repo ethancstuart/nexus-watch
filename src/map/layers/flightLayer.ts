@@ -75,34 +75,51 @@ export class FlightLayer implements MapDataLayer {
           velocity: a.velocity,
           heading: a.heading,
           verticalRate: a.verticalRate,
+          military: 'military' in a ? !!(a as unknown as { military: boolean }).military : false,
         },
       })),
     };
 
     this.map.addSource('flights', { type: 'geojson', data: geojson });
 
-    // Aircraft icons as small triangles rotated by heading
+    // Civilian aircraft
     this.map.addLayer({
-      id: 'flights-icons',
+      id: 'flights-civilian',
       type: 'circle',
       source: 'flights',
+      filter: ['!=', ['get', 'military'], true],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 1.5, 5, 3, 8, 5],
-        'circle-color': [
-          'interpolate',
-          ['linear'],
-          ['get', 'altitude'],
-          0,
-          '#60a5fa',
-          5000,
-          '#818cf8',
-          10000,
-          '#c084fc',
-          15000,
-          '#f472b6',
-        ],
-        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5, 0.7, 8, 0.9],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 1.5, 5, 3, 8, 4],
+        'circle-color': '#818cf8',
+        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.3, 5, 0.5, 8, 0.7],
         'circle-stroke-width': 0,
+      },
+    });
+
+    // Military aircraft — larger, red, with glow
+    this.map.addLayer({
+      id: 'flights-military-glow',
+      type: 'circle',
+      source: 'flights',
+      filter: ['==', ['get', 'military'], true],
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 6, 5, 10, 8, 14],
+        'circle-color': '#ef4444',
+        'circle-opacity': 0.12,
+        'circle-blur': 0.6,
+      },
+    });
+    this.map.addLayer({
+      id: 'flights-military',
+      type: 'circle',
+      source: 'flights',
+      filter: ['==', ['get', 'military'], true],
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 3, 5, 5, 8, 7],
+        'circle-color': '#ef4444',
+        'circle-stroke-width': 1,
+        'circle-stroke-color': 'rgba(255,255,255,0.4)',
+        'circle-opacity': 0.9,
       },
     });
 
@@ -126,16 +143,16 @@ export class FlightLayer implements MapDataLayer {
     });
 
     // Hover
-    this.map.on('mouseenter', 'flights-icons', () => {
+    this.map.on('mouseenter', 'flights-civilian', () => {
       if (this.map) this.map.getCanvas().style.cursor = 'pointer';
     });
 
-    this.map.on('mouseleave', 'flights-icons', () => {
+    this.map.on('mouseleave', 'flights-civilian', () => {
       if (this.map) this.map.getCanvas().style.cursor = '';
       this.popup?.remove();
     });
 
-    this.map.on('mousemove', 'flights-icons', (e) => {
+    this.map.on('mousemove', 'flights-civilian', (e) => {
       if (!this.map || !e.features?.length) return;
       const props = e.features[0].properties!;
       const coords = (e.features[0].geometry as GeoJSON.Point).coordinates;
@@ -151,11 +168,35 @@ export class FlightLayer implements MapDataLayer {
         .setHTML(flightPopup(props))
         .addTo(this.map);
     });
+
+    // Military hover (same popup, different source layer)
+    this.map.on('mouseenter', 'flights-military', () => {
+      if (this.map) this.map.getCanvas().style.cursor = 'pointer';
+    });
+    this.map.on('mouseleave', 'flights-military', () => {
+      if (this.map) this.map.getCanvas().style.cursor = '';
+      this.popup?.remove();
+    });
+    this.map.on('mousemove', 'flights-military', (e) => {
+      if (!this.map || !e.features?.length) return;
+      const props = e.features[0].properties!;
+      const coords = (e.features[0].geometry as GeoJSON.Point).coordinates;
+      this.popup?.remove();
+      this.popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        className: 'eq-popup',
+        offset: 12,
+      })
+        .setLngLat([coords[0], coords[1]])
+        .setHTML(flightPopup(props))
+        .addTo(this.map);
+    });
   }
 
   private removeLayer(): void {
     if (!this.map) return;
-    for (const id of ['flights-labels', 'flights-icons']) {
+    for (const id of ['flights-labels', 'flights-civilian', 'flights-military', 'flights-military-glow']) {
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     }
     if (this.map.getSource('flights')) this.map.removeSource('flights');

@@ -62,25 +62,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // [8] on_ground, [9] velocity, [10] true_track, [11] vertical_rate,
     // [12] sensors, [13] geo_altitude, [14] squawk, [15] spi, [16] position_source
 
-    // Sample for performance — max 500 aircraft
+    // Military callsign prefixes
+    const MIL_PREFIXES = [
+      'RCH',
+      'REACH',
+      'NAVY',
+      'DUKE',
+      'EVAC',
+      'HOMER',
+      'IRON',
+      'JAKE',
+      'KING',
+      'MOOSE',
+      'NCHO',
+      'OTIS',
+      'PACK',
+      'RAGE',
+      'SPAR',
+      'TORQ',
+      'VIPER',
+      'WOLF',
+      'RRR',
+      'CNV',
+      'CFC',
+      'IAM',
+      'MMF',
+      'RFR',
+      'SHF',
+      'GAF',
+      'BAF',
+      'NAF',
+      'PAF',
+      'FAB',
+      'HAF',
+      'PLF',
+      'HIF',
+      'TAF',
+    ];
+
+    // Sample for performance — max 1500 aircraft
     const states =
-      data.states.length > 500
-        ? data.states.filter((_, i) => i % Math.ceil(data.states!.length / 500) === 0)
+      data.states.length > 1500
+        ? data.states.filter((_, i) => i % Math.ceil(data.states!.length / 1500) === 0)
         : data.states;
 
     const aircraft = states
-      .filter((s) => s[5] !== null && s[6] !== null && !s[8]) // has position, not on ground
-      .map((s) => ({
-        icao: s[0] as string,
-        callsign: ((s[1] as string) || '').trim(),
-        country: s[2] as string,
-        lon: s[5] as number,
-        lat: s[6] as number,
-        altitude: (s[7] as number) || 0,
-        velocity: (s[9] as number) || 0,
-        heading: (s[10] as number) || 0,
-        verticalRate: (s[11] as number) || 0,
-      }));
+      .filter((s) => s[5] !== null && s[6] !== null && !s[8])
+      .map((s) => {
+        const callsign = ((s[1] as string) || '').trim();
+        const isMilitary = MIL_PREFIXES.some((p) => callsign.startsWith(p));
+        return {
+          icao: s[0] as string,
+          callsign,
+          country: s[2] as string,
+          lon: s[5] as number,
+          lat: s[6] as number,
+          altitude: (s[7] as number) || 0,
+          velocity: (s[9] as number) || 0,
+          heading: (s[10] as number) || 0,
+          verticalRate: (s[11] as number) || 0,
+          military: isMilitary,
+        };
+      });
 
     return res.setHeader('Cache-Control', 'public, max-age=10, s-maxage=10').json({
       aircraft,
