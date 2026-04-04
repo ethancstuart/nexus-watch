@@ -406,6 +406,38 @@
   }
 }
 
+/* ── Context Note ── */
+
+.nw-context-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #050505;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.nw-context-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #444444;
+}
+
+.nw-context-region {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff6600;
+  letter-spacing: 0.5px;
+}
+
+.nw-context-coords {
+  font-size: 9px;
+  color: #444444;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Data Summary Strip ── */
 
 .nw-data-summary {

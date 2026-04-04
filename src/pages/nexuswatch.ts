@@ -238,6 +238,29 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   drawerToggleSlot.appendChild(layerDrawer.toggleBtn);
   mapContainer.appendChild(layerDrawer.element);
 
+  // ── Contextual AI narration on map click ──
+  const mapInst = mapView.getMap();
+  if (mapInst) {
+    mapInst.on('click', (e) => {
+      const features = mapInst.queryRenderedFeatures(e.point);
+      const hasLayerFeature = features.some((f) => f.source && !f.source.startsWith('carto'));
+      if (hasLayerFeature) return;
+
+      // Show region context in sidebar
+      const lat = e.lngLat.lat;
+      const lon = e.lngLat.lng;
+      const region = identifyRegion(lat, lon);
+      if (region && activeTab === 'intel') {
+        // Add a contextual note at the top of the sidebar
+        const contextNote = sidebarContent.querySelector('.nw-context-note');
+        if (contextNote) contextNote.remove();
+        const note = createElement('div', { className: 'nw-context-note' });
+        note.innerHTML = `<span class="nw-context-label">VIEWING</span><span class="nw-context-region">${region}</span><span class="nw-context-coords">${lat.toFixed(2)}°, ${lon.toFixed(2)}°</span>`;
+        sidebarContent.insertBefore(note, sidebarContent.firstChild);
+      }
+    });
+  }
+
   // ── Map Legend ──
   const legend = createMapLegend(layerManager);
   mapContainer.appendChild(legend);
@@ -805,6 +828,39 @@ function showShortcutsHelp(container: HTMLElement): void {
 }
 
 // ── Utils ──
+
+function identifyRegion(lat: number, lon: number): string | null {
+  const regions: { name: string; lat: number; lon: number; radius: number }[] = [
+    { name: 'EASTERN EUROPE / UKRAINE THEATER', lat: 48, lon: 35, radius: 8 },
+    { name: 'MIDDLE EAST / PERSIAN GULF', lat: 28, lon: 50, radius: 12 },
+    { name: 'EASTERN MEDITERRANEAN', lat: 33, lon: 35, radius: 6 },
+    { name: 'HORN OF AFRICA', lat: 8, lon: 45, radius: 10 },
+    { name: 'SAHEL REGION', lat: 14, lon: 0, radius: 12 },
+    { name: 'SOUTH CHINA SEA', lat: 12, lon: 114, radius: 8 },
+    { name: 'TAIWAN STRAIT', lat: 24, lon: 120, radius: 4 },
+    { name: 'KOREAN PENINSULA', lat: 37, lon: 127, radius: 5 },
+    { name: 'SOUTH ASIA', lat: 24, lon: 75, radius: 12 },
+    { name: 'CENTRAL ASIA', lat: 40, lon: 65, radius: 10 },
+    { name: 'WEST AFRICA', lat: 8, lon: -5, radius: 10 },
+    { name: 'CENTRAL AFRICA / GREAT LAKES', lat: -2, lon: 28, radius: 8 },
+    { name: 'NORTH ATLANTIC', lat: 50, lon: -30, radius: 15 },
+    { name: 'ARCTIC', lat: 75, lon: 0, radius: 15 },
+    { name: 'CARIBBEAN / CENTRAL AMERICA', lat: 15, lon: -75, radius: 10 },
+    { name: 'SOUTH AMERICA', lat: -15, lon: -55, radius: 15 },
+    { name: 'SOUTHEAST ASIA', lat: 5, lon: 105, radius: 10 },
+    { name: 'WESTERN EUROPE', lat: 48, lon: 5, radius: 10 },
+    { name: 'NORTH AMERICA', lat: 40, lon: -100, radius: 15 },
+    { name: 'EAST AFRICA', lat: -5, lon: 37, radius: 8 },
+    { name: 'SOUTHERN AFRICA', lat: -28, lon: 25, radius: 10 },
+    { name: 'OCEANIA', lat: -25, lon: 135, radius: 15 },
+  ];
+
+  for (const r of regions) {
+    const dist = Math.sqrt((lat - r.lat) ** 2 + (lon - r.lon) ** 2);
+    if (dist < r.radius) return r.name;
+  }
+  return null;
+}
 
 function countryFlag(code: string): string {
   const OFFSET = 0x1f1e6 - 65;
