@@ -178,7 +178,7 @@ function processCommand(cmd: string, config: TerminalConfig, output: HTMLElement
   void aiInterpret(cmd, config, output);
 }
 
-async function generateTerminalSitrep(config: TerminalConfig, output: HTMLElement): Promise<void> {
+async function generateTerminalSitrep(_config: TerminalConfig, output: HTMLElement): Promise<void> {
   try {
     const res = await fetchWithRetry('/api/sitrep', {
       method: 'POST',
@@ -193,7 +193,7 @@ async function generateTerminalSitrep(config: TerminalConfig, output: HTMLElemen
   }
 }
 
-async function aiInterpret(cmd: string, config: TerminalConfig, output: HTMLElement): Promise<void> {
+async function aiInterpret(cmd: string, _config: TerminalConfig, output: HTMLElement): Promise<void> {
   try {
     const res = await fetchWithRetry('/api/sitrep', {
       method: 'POST',
