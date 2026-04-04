@@ -1,13 +1,14 @@
 import { createElement } from '../utils/dom.ts';
 import { fetchNews } from '../services/news.ts';
+import { fetchWithRetry } from '../utils/fetch.ts';
 import type { NewsArticle, NewsCategory } from '../types/index.ts';
 
-const CATEGORIES: { id: NewsCategory; label: string }[] = [
+const CATEGORIES: { id: NewsCategory | 'osint'; label: string }[] = [
   { id: 'world', label: 'WORLD' },
   { id: 'us', label: 'US' },
   { id: 'markets', label: 'MKT' },
   { id: 'tech', label: 'TECH' },
-  { id: 'science', label: 'SCI' },
+  { id: 'osint', label: 'OSINT' },
 ];
 
 export function createFeedsTab(): {
@@ -17,7 +18,7 @@ export function createFeedsTab(): {
 } {
   const el = createElement('div', { className: 'nw-feeds-tab' });
   let interval: ReturnType<typeof setInterval> | null = null;
-  let activeCategory: NewsCategory = 'world';
+  let activeCategory: NewsCategory | 'osint' = 'world';
 
   // Category tabs
   const catBar = createElement('div', { className: 'nw-feeds-cats' });
@@ -62,11 +63,32 @@ export function createFeedsTab(): {
     }
 
     try {
-      const data = await fetchNews(activeCategory);
-      renderArticles(body, data.articles);
+      if (activeCategory === 'osint') {
+        const res = await fetchWithRetry('/api/osint-feed');
+        if (!res.ok) throw new Error('OSINT feed error');
+        const result = (await res.json()) as {
+          posts: { title: string; link: string; source: string; pubDate: string; summary: string }[];
+        };
+        renderArticles(
+          body,
+          result.posts.map((p) => ({
+            title: p.title,
+            link: p.link,
+            source: p.source,
+            pubDate: p.pubDate,
+            description: p.summary,
+            sourceCountry: '',
+            lat: 0,
+            lon: 0,
+          })),
+        );
+      } else {
+        const data = await fetchNews(activeCategory);
+        renderArticles(body, data.articles);
+      }
     } catch {
       body.textContent = '';
-      body.appendChild(createElement('div', { className: 'nw-placeholder', textContent: 'Failed to load news' }));
+      body.appendChild(createElement('div', { className: 'nw-placeholder', textContent: 'Failed to load feed' }));
     }
   }
 
