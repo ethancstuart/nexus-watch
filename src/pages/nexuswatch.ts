@@ -29,6 +29,7 @@ import { SanctionsLayer } from '../map/layers/sanctionsLayer.ts';
 import { ElectionLayer } from '../map/layers/electionLayer.ts';
 import { TradeRoutesLayer } from '../map/layers/tradeRoutesLayer.ts';
 import { LaunchLayer } from '../map/layers/launchLayer.ts';
+import { FrontlinesLayer } from '../map/layers/frontlinesLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -184,6 +185,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new ElectionLayer(),
     new TradeRoutesLayer(),
     new LaunchLayer(),
+    new FrontlinesLayer(),
   ];
 
   for (const layer of allLayers) {
