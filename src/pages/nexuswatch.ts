@@ -24,6 +24,11 @@ import { ChokepointStatusLayer } from '../map/layers/chokepointStatusLayer.ts';
 import { AirQualityLayer } from '../map/layers/airQualityLayer.ts';
 import { DiseaseLayer } from '../map/layers/diseaseLayer.ts';
 import { DisplacementLayer } from '../map/layers/displacementLayer.ts';
+import { InternetOutagesLayer } from '../map/layers/internetOutagesLayer.ts';
+import { SanctionsLayer } from '../map/layers/sanctionsLayer.ts';
+import { ElectionLayer } from '../map/layers/electionLayer.ts';
+import { TradeRoutesLayer } from '../map/layers/tradeRoutesLayer.ts';
+import { LaunchLayer } from '../map/layers/launchLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -174,6 +179,11 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new AirQualityLayer(),
     new DiseaseLayer(),
     new DisplacementLayer(),
+    new InternetOutagesLayer(),
+    new SanctionsLayer(),
+    new ElectionLayer(),
+    new TradeRoutesLayer(),
+    new LaunchLayer(),
   ];
 
   for (const layer of allLayers) {
