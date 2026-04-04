@@ -48,6 +48,7 @@ import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
 import { showOnboarding } from '../ui/onboardingOverlay.ts';
 import { createMapLegend } from '../ui/mapLegend.ts';
+import { createAiTerminal } from '../ui/aiTerminal.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
@@ -239,6 +240,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // ── Map Legend ──
   const legend = createMapLegend(layerManager);
   mapContainer.appendChild(legend);
+
+  // ── AI Terminal ──
+  const terminal = createAiTerminal({ mapView, layerManager, getLayerData });
+  mapContainer.appendChild(terminal);
 
   // ── Tab switching ──
   let activeTab: 'intel' | 'markets' | 'feeds' =

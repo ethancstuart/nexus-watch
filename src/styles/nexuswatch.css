@@ -1349,6 +1349,71 @@
   }
 }
 
+/* ── AI Terminal ── */
+
+.nw-terminal {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.92);
+  border-top: 1px solid #1a1a1a;
+  z-index: 100;
+}
+
+.nw-terminal-prompt {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff6600;
+  flex-shrink: 0;
+}
+
+.nw-terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #cccccc;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  caret-color: #ff6600;
+}
+
+.nw-terminal-input::placeholder {
+  color: #333333;
+}
+
+.nw-terminal-output {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.95);
+  border-top: 1px solid #1a1a1a;
+  font-size: 11px;
+  line-height: 1.6;
+  max-height: 30vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.nw-terminal-success {
+  color: #00ff00;
+}
+
+.nw-terminal-error {
+  color: #ff3333;
+}
+
+.nw-terminal-info {
+  color: #888888;
+}
+
 /* ── Map Legend ── */
 
 .nw-legend {
