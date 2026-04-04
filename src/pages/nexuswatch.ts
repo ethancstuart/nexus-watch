@@ -42,6 +42,7 @@ import { computeCountryScores, getCachedScores, scoreToLabel } from '../services
 import { generateSitrep, generatePersonalBrief } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
+import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import { loadWatchlist, scanForMatches, getWatchMatches } from '../services/watchlist.ts';
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
@@ -363,9 +364,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       layerDrawer.refresh();
       if (activeTab === 'intel') debouncedSidebarRender();
 
-      // Check alert rules + watchlist
+      // Check alert rules + watchlist + auto threat detection
       checkRules(getLayerData());
       scanForMatches(getLayerData());
+      runThreatDetection(getLayerData());
 
       // Refresh pulse animation
       const flash = createElement('div', { className: 'nw-refresh-flash' });
@@ -523,6 +525,28 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
     summary.appendChild(cell);
   }
   container.appendChild(summary);
+
+  // Auto-generated threat alerts
+  const autoAlerts = getAutoAlerts();
+  if (autoAlerts.length > 0) {
+    const autoHeader = createElement('div', { className: 'nw-section-header', textContent: 'THREAT DETECTION' });
+    container.appendChild(autoHeader);
+    for (const alert of autoAlerts.slice(0, 5)) {
+      const row = createElement('div', { className: 'nw-alert-row' });
+      const dot = createElement('span', { className: 'nw-alert-dot' });
+      dot.classList.add(
+        alert.severity === 'critical' ? 'critical' : alert.severity === 'elevated' ? 'elevated' : 'monitor',
+      );
+      const text = createElement('span', { className: 'nw-alert-text' });
+      text.textContent = `[${alert.type.toUpperCase()}] ${alert.title}`;
+      row.appendChild(dot);
+      row.appendChild(text);
+      if (alert.lat !== 0 || alert.lon !== 0) {
+        row.addEventListener('click', () => mapView.flyTo(alert.lon, alert.lat, 6));
+      }
+      container.appendChild(row);
+    }
+  }
 
   // Watchlist matches
   const watchMatches = getWatchMatches();
