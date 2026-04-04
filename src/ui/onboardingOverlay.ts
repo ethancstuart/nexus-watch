@@ -5,23 +5,23 @@ const STORAGE_KEY = 'nw:onboarded';
 const STEPS = [
   {
     title: 'NEXUSWATCH',
-    text: 'Real-time geopolitical intelligence. 27 data layers, AI sitreps, and country risk scoring — all on an interactive map.',
+    text: 'Real-time geopolitical intelligence platform. 30 data layers on a 3D globe, AI command center, auto-threat detection, and personalized watchlists.',
   },
   {
     title: 'DATA LAYERS',
-    text: 'Click LAYERS in the topbar to toggle data sources: earthquakes, wildfires, flights, military bases, conflict zones, cyber threats, and more.',
+    text: 'Click LAYERS in the topbar to toggle 30 data sources: conflicts, earthquakes, flights, ships, energy infrastructure, disease outbreaks, sanctions, elections, and more.',
   },
   {
-    title: 'SIDEBAR',
-    text: 'Three tabs — INTEL shows alerts and country scores, MARKETS shows stocks and crypto, FEEDS shows categorized news headlines.',
+    title: 'AI COMMAND CENTER',
+    text: 'Type commands in the terminal at the bottom of the map. Try "ukraine", "enable sanctions", "status", or "sitrep". The AI monitors data and generates auto-alerts.',
   },
   {
-    title: 'COUNTRY INDEX',
-    text: 'Each country scored 0-100 across events, disasters, sentiment, and predictions. Click any country to fly to its location.',
+    title: 'INTEL SIDEBAR',
+    text: 'Three tabs — INTEL (threat detection, watchlist, country scores), MARKETS (stocks + crypto), FEEDS (news + OSINT). Click any alert to fly to its location.',
   },
   {
-    title: 'KEYBOARD SHORTCUTS',
-    text: '1-7: toggle layers · S: generate sitrep · ?: help · Esc: close overlays. Click any map feature for details.',
+    title: 'EXPLORE',
+    text: 'Click the globe to identify regions. Use the LEGEND button for symbol reference. Press F for fullscreen. Press ? for all keyboard shortcuts.',
   },
 ];
 

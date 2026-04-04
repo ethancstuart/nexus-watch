@@ -322,6 +322,77 @@
   margin-top: 2px;
 }
 
+.nw-watch-mgmt {
+  padding: 4px 12px 8px;
+  border-bottom: 1px solid #111111;
+}
+
+.nw-watch-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.nw-watch-item-label {
+  font-size: 10px;
+  color: #888888;
+}
+
+.nw-watch-remove {
+  background: transparent;
+  border: none;
+  color: #444444;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.nw-watch-remove:hover {
+  color: #ff3333;
+}
+
+.nw-watch-add {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.nw-watch-input {
+  flex: 1;
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  color: #cccccc;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 3px 6px;
+  outline: none;
+}
+
+.nw-watch-input:focus {
+  border-color: #ff6600;
+}
+
+.nw-watch-input::placeholder {
+  color: #333333;
+}
+
+.nw-watch-add-btn {
+  background: transparent;
+  border: 1px solid #333333;
+  color: #888888;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.nw-watch-add-btn:hover {
+  border-color: #ff6600;
+  color: #ff6600;
+}
+
 .nw-alert-time {
   font-size: 9px;
   color: #444444;

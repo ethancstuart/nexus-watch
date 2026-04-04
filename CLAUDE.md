@@ -1,8 +1,9 @@
-# DashPulse — Geopolitical Intelligence Platform
+# NexusWatch — Geopolitical Intelligence Platform
 
 ## Project Overview
-Vite + vanilla TypeScript intelligence platform combining a real-time geopolitical map
-(MapLibre GL + deck.gl) with a space-based personal dashboard.
+Vite + vanilla TypeScript intelligence platform: 30 data layers on a 3D MapLibre GL globe,
+AI command center with terminal interface, auto-threat detection, 4 intelligence systems,
+and personalized watchlists. Bloomberg terminal aesthetic.
 Open-source, MIT licensed. Ships with smart defaults, fully configurable.
 Deployed to Vercel at https://dashpulse.app. Built with Claude Code.
 Inspired by SitDeck, World Monitor, and Bloomberg Terminal — information-dense, map-centric, AI-native.
@@ -13,34 +14,54 @@ Part of Ethan Stuart's portfolio: "I don't just manage products — I build them
 - TypeScript (strict mode, no framework)
 - MapLibre GL JS (interactive vector tile maps, CARTO dark matter basemap)
 - CSS custom properties for theming (terminal aesthetic, JetBrains Mono)
-- Vercel Edge Functions for API proxying (41 total)
-- Anthropic SDK for AI sitreps + AI chat panel + deployer-hosted Haiku for AI shell
+- Vercel Edge Functions for API proxying (16 endpoints)
+- Anthropic SDK for AI terminal, sitreps, auto-threat narration, AI chat panel, deployer-hosted Haiku
 - Service Worker for PWA offline support (hand-written, no Workbox)
-- 7 real-time data sources: USGS, GDELT, NASA FIRMS, Open-Meteo, Polymarket, OpenSky, Cloudflare
+- 10+ data sources: USGS, GDELT, NASA FIRMS, Open-Meteo, Polymarket, OpenSky, Cloudflare, ACLED, GDACS, WHO, AIS, OpenAQ, OSINT feeds
 
 ## Intel Map (v2)
-The primary view at `#/intel` — a full-screen MapLibre GL map with 7 real-time data layers:
+The primary view at `#/intel` — a full-screen MapLibre GL 3D globe with 30 data layers across 5 categories:
 
-### Data Layers
-- **Earthquakes** (USGS): magnitude-sized dots, depth-colored, 1min refresh
-- **Global News** (GDELT): tone-colored clusters by country, 15min refresh
-- **Wildfires** (NASA FIRMS): heatmap + point markers, 10min refresh
-- **Weather Alerts** (Open-Meteo): 20 major cities, severity-colored, 30min refresh
-- **Prediction Markets** (Polymarket/Kalshi): geocoded by topic, 5min refresh
-- **Live Aircraft** (OpenSky Network): altitude-colored dots, 15sec refresh
-- **Cyber Threats** (Cloudflare Radar): great circle arc lines between threat corridors, 1hr refresh
+### Data Layers (30 total)
 
-### Intelligence System
+**Conflict & Military (7):** ACLED Live Conflicts, Conflict Zones, Military Bases (28), Cyber Threat Corridors, OFAC Sanctions, GPS Jamming Zones, Frontlines
+
+**Natural Hazards (5):** Earthquakes (USGS, 1min), Wildfires (NASA FIRMS, 10min), GDACS Disasters, WHO Disease Outbreaks, Weather Alerts (20 cities)
+
+**Infrastructure (9):** Ship Tracking (26), Chokepoint Status (6), Undersea Cables (12), Oil/Gas Pipelines (10), Nuclear Facilities (22), Strategic Ports (18), Trade Routes (8), Space Launches (11), Energy
+
+**Intelligence (7):** GDELT News Events, Prediction Markets, Satellites (animated orbits), Internet Outages (15), Election Calendar (12), Refugee Displacement Arcs (15), Sentiment
+
+**Environment (2):** Air Quality AQI (30 cities), Live Aircraft (OpenSky)
+
+### Intelligence Systems (4)
+- **Tension Index Algorithm**: composite 0-100 score from conflict, disasters, sentiment, instability. 7-day rolling history
 - **Geo-correlation engine** (`src/services/geoIntelligence.ts`): detects earthquake clusters, fire convergence, negative news surges, multi-signal events
 - **Country Intelligence Index** (`src/services/countryIndex.ts`): 23 nations scored 0-100 across events/disasters/sentiment/predictions
+- **Personal Intel Engine**: user-defined watchlists, keyword/country matching, AI morning briefs, browser notifications
 - **Intel Bar** (`src/ui/intelBar.ts`): severity-colored alert pills with fly-to-location on click
 - **AI Sitreps** (`api/sitrep.ts`): Claude Haiku generates situation reports from current layer data
+
+### AI Terminal
+- `nexuswatch>` command-line interface for querying layers, generating sitreps, filtering by region/threat type
+- Natural language commands against live intelligence data
+- Powered by Anthropic SDK (Claude Haiku)
+
+### Auto-Threat Detection
+- Continuous scanning across all 30 layers for anomalous patterns
+- Automatic alert generation on multi-signal convergence or threshold breaches
+- Feeds into Intel Bar and AI narration
+
+### Contextual Narration
+- AI-generated situation reports synthesizing active layer data
+- On-demand briefs via terminal or sidebar
+- Personalized morning briefs for watchlist subscribers
 
 ### Map Architecture
 - `src/map/MapView.ts` — MapLibre GL init with CARTO dark matter tiles
 - `src/map/MapLayerManager.ts` — layer registry, toggle, persistence, refresh cycles
 - `src/map/MapOverlayManager.ts` — floating draggable/resizable widget overlays
-- `src/map/layers/` — 7 MapDataLayer implementations (each owns its MapLibre sources/layers)
+- `src/map/layers/` — 30 MapDataLayer implementations (each owns its MapLibre sources/layers)
 - `src/map/controls/` — LayerPanel (right), CountryPanel (left), ViewToggle
 - `src/pages/intel.ts` — page orchestrator (mirrors dashboard.ts pattern)
 
@@ -112,9 +133,11 @@ The primary view at `#/intel` — a full-screen MapLibre GL map with 7 real-time
 
 ## File Structure
 - Panel classes: `src/panels/` (WeatherPanel.ts, StocksPanel.ts, etc.)
-- Services: `src/services/` (weather.ts, spaces.ts, intelligence.ts, interests.ts, aiShell.ts, etc.)
-- Edge Functions: `api/` (weather.ts, ai-shell.ts, etc.)
-- UI modules: `src/ui/` (aiBar.ts, spaceBar.ts, widgetGrid.ts, pulseBar.ts, settingsPanel.ts, aiOverlay.ts, etc.)
+- Map layers: `src/map/layers/` (30 MapDataLayer files: earthquakeLayer.ts, acledLayer.ts, energyLayer.ts, frontlinesLayer.ts, sentimentLayer.ts, etc.)
+- Services: `src/services/` (weather.ts, spaces.ts, intelligence.ts, interests.ts, aiShell.ts, geoIntelligence.ts, countryIndex.ts, etc.)
+- Edge Functions: `api/` (weather-alerts.ts, acled.ts, fires.ts, flights.ts, ships.ts, osint-feed.ts, sitrep.ts, etc. — 16 endpoints)
+- UI modules: `src/ui/` (aiBar.ts, spaceBar.ts, widgetGrid.ts, pulseBar.ts, settingsPanel.ts, aiOverlay.ts, aiTerminal.ts, etc.)
+- Pages: `src/pages/` (nexuswatch.ts, casestudy.ts)
 - Config: `src/config/` (theme.ts, themes.ts, density.ts, preferences.ts)
 - Types: `src/types/index.ts`
 - Styles: `src/styles/` (panel.css, layout.css, ai-bar.css, space-bar.css, pulse-bar.css, etc.)

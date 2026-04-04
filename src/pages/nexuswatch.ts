@@ -43,7 +43,14 @@ import { generateSitrep, generatePersonalBrief } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
-import { loadWatchlist, scanForMatches, getWatchMatches } from '../services/watchlist.ts';
+import {
+  loadWatchlist,
+  scanForMatches,
+  getWatchMatches,
+  getWatchlist,
+  addWatchItem,
+  removeWatchItem,
+} from '../services/watchlist.ts';
 import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
@@ -420,6 +427,14 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     { signal },
   );
 
+  document.addEventListener(
+    'dashview:watchlist-changed',
+    () => {
+      if (activeTab === 'intel') renderSidebarContent();
+    },
+    { signal },
+  );
+
   // ── Sitrep button ──
   sitrepBtn.addEventListener('click', async () => {
     sitrepBtn.textContent = 'GENERATING...';
@@ -593,6 +608,44 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
       container.appendChild(row);
     }
   }
+
+  // Watchlist management
+  const watchMgmt = createElement('div', { className: 'nw-watch-mgmt' });
+  const watchItems = getWatchlist();
+  for (const item of watchItems) {
+    const row = createElement('div', { className: 'nw-watch-item' });
+    const label = createElement('span', { className: 'nw-watch-item-label', textContent: item.label });
+    const removeBtn = createElement('button', { className: 'nw-watch-remove', textContent: '×' });
+    removeBtn.addEventListener('click', () => {
+      removeWatchItem(item.id);
+      document.dispatchEvent(new CustomEvent('dashview:watchlist-changed'));
+    });
+    row.appendChild(label);
+    row.appendChild(removeBtn);
+    watchMgmt.appendChild(row);
+  }
+  // Add new item form
+  const addRow = createElement('div', { className: 'nw-watch-add' });
+  const addInput = document.createElement('input');
+  addInput.type = 'text';
+  addInput.className = 'nw-watch-input';
+  addInput.placeholder = 'Add keyword...';
+  const addBtn = createElement('button', { className: 'nw-watch-add-btn', textContent: '+' });
+  addBtn.addEventListener('click', () => {
+    const val = addInput.value.trim();
+    if (val) {
+      addWatchItem({ id: `w-${Date.now()}`, type: 'keyword', value: val.toLowerCase(), label: val });
+      addInput.value = '';
+      document.dispatchEvent(new CustomEvent('dashview:watchlist-changed'));
+    }
+  });
+  addInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addBtn.click();
+  });
+  addRow.appendChild(addInput);
+  addRow.appendChild(addBtn);
+  watchMgmt.appendChild(addRow);
+  container.appendChild(watchMgmt);
 
   // Triggered alert rules
   const triggered = getTriggeredAlerts();

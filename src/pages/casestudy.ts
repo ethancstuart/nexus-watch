@@ -20,9 +20,9 @@ export function renderCaseStudy(root: HTMLElement): void {
         <h1 class="cs-hero-title">NEXUSWATCH</h1>
         <div class="cs-hero-subtitle">REAL-TIME GEOPOLITICAL INTELLIGENCE PLATFORM</div>
         <div class="cs-hero-desc">
-          27 data layers. 4 intelligence systems. Globe projection.
-          Computed tension index. Personalized watchlists. AI situation reports.
-          Vanilla TypeScript. Zero framework dependencies.
+          30 data layers. 4 intelligence systems. AI command center.
+          Globe projection. Auto-threat detection. Personalized watchlists.
+          AI terminal. Vanilla TypeScript. Zero framework dependencies.
         </div>
         <div class="cs-hero-actions">
           <a href="#/" class="cs-btn cs-btn-primary">LAUNCH PLATFORM →</a>
@@ -32,7 +32,7 @@ export function renderCaseStudy(root: HTMLElement): void {
       <div class="cs-hero-right">
         <div class="cs-hero-stats">
           <div class="cs-stat">
-            <div class="cs-stat-value">27</div>
+            <div class="cs-stat-value">30</div>
             <div class="cs-stat-label">DATA LAYERS</div>
           </div>
           <div class="cs-stat">
@@ -40,7 +40,7 @@ export function renderCaseStudy(root: HTMLElement): void {
             <div class="cs-stat-label">INTEL SYSTEMS</div>
           </div>
           <div class="cs-stat">
-            <div class="cs-stat-value">12</div>
+            <div class="cs-stat-value">16</div>
             <div class="cs-stat-label">EDGE FUNCTIONS</div>
           </div>
           <div class="cs-stat">
@@ -103,6 +103,15 @@ export function renderCaseStudy(root: HTMLElement): void {
           thresholds.
         </div>
       </div>
+      <div class="cs-arch-box">
+        <div class="cs-arch-header">05 // AI COMMAND CENTER</div>
+        <div class="cs-arch-body">
+          AI terminal with nexuswatch> prompt for natural language
+          queries against live intelligence data. Auto-threat detection
+          scans all 30 layers for anomalous patterns. Contextual
+          narration generates situation briefs on demand.
+        </div>
+      </div>
     </div>
   `;
   page.appendChild(arch);
@@ -119,7 +128,7 @@ export function renderCaseStudy(root: HTMLElement): void {
         <ul class="cs-tech-list">
           <li>Zero framework dependencies</li>
           <li>Direct DOM manipulation via typed abstractions</li>
-          <li>MapDataLayer interface — 27 implementations</li>
+          <li>MapDataLayer interface — 30 implementations</li>
           <li>TypeScript strict mode, no \`any\`</li>
           <li>~130KB gzipped app bundle</li>
           <li>Event-driven architecture (CustomEvent bus)</li>
@@ -132,18 +141,18 @@ export function renderCaseStudy(root: HTMLElement): void {
           <li>CARTO dark matter vector tiles</li>
           <li>3 switchable map styles (dark/light/voyager)</li>
           <li>GeoJSON clustering with click-to-zoom</li>
-          <li>Bloomberg-styled popup cards (15 types)</li>
+          <li>Bloomberg-styled popup cards (30 types)</li>
           <li>Layer drawer with opacity + CSV/GeoJSON export</li>
         </ul>
       </div>
       <div class="cs-tech-col">
         <div class="cs-tech-header">DATA PIPELINE</div>
         <ul class="cs-tech-list">
-          <li>12 Vercel Edge Functions (API proxying)</li>
+          <li>16 Vercel Edge Functions (API proxying)</li>
           <li>Circuit breaker fetch (3 failures → 5min backoff)</li>
           <li>Staggered layer initialization (200ms spacing)</li>
           <li>Debounced sidebar re-renders (1/sec max)</li>
-          <li>7 real-time APIs + 20 curated static datasets</li>
+          <li>10+ real-time APIs + OSINT feeds + curated static datasets</li>
           <li>AbortController cleanup on route changes</li>
         </ul>
       </div>
@@ -166,6 +175,7 @@ export function renderCaseStudy(root: HTMLElement): void {
         'Cyber Threat Corridors',
         'OFAC Sanctions',
         'GPS Jamming Zones',
+        'Frontlines',
       ],
     },
     {
@@ -189,6 +199,7 @@ export function renderCaseStudy(root: HTMLElement): void {
         'Strategic Ports (18)',
         'Trade Routes (8)',
         'Space Launches (11)',
+        'Energy Infrastructure',
       ],
     },
     {
@@ -200,6 +211,7 @@ export function renderCaseStudy(root: HTMLElement): void {
         'Internet Outages (15)',
         'Election Calendar (12)',
         'Refugee Displacement Arcs (15)',
+        'Sentiment Analysis',
       ],
     },
     { cat: 'ENVIRONMENT', items: ['Air Quality AQI (30 cities)', 'Live Aircraft (OpenSky)'] },
@@ -228,26 +240,56 @@ export function renderCaseStudy(root: HTMLElement): void {
     <div class="cs-pipeline">
       <div class="cs-pipe-stage">
         <div class="cs-pipe-label">DATA SOURCES</div>
-        <div class="cs-pipe-items">USGS · GDELT · NASA · ACLED · OpenSky · Open-Meteo · Polymarket · WHO · Cloudflare</div>
+        <div class="cs-pipe-items">USGS · GDELT · NASA · ACLED · OpenSky · Open-Meteo · Polymarket · WHO · Cloudflare · GDACS · AIS · OpenAQ · OSINT Feeds</div>
       </div>
       <div class="cs-pipe-arrow">→</div>
       <div class="cs-pipe-stage">
         <div class="cs-pipe-label">EDGE FUNCTIONS</div>
-        <div class="cs-pipe-items">12 Vercel serverless proxies. API keys server-side. CORS + caching headers. Circuit breakers.</div>
+        <div class="cs-pipe-items">16 Vercel serverless proxies. API keys server-side. CORS + caching headers. Circuit breakers.</div>
       </div>
       <div class="cs-pipe-arrow">→</div>
       <div class="cs-pipe-stage">
         <div class="cs-pipe-label">MAP LAYERS</div>
-        <div class="cs-pipe-items">27 MapDataLayer classes. GeoJSON sources. Clustered, heatmapped, arc-rendered. Popup cards.</div>
+        <div class="cs-pipe-items">30 MapDataLayer classes. GeoJSON sources. Clustered, heatmapped, arc-rendered. Popup cards.</div>
       </div>
       <div class="cs-pipe-arrow">→</div>
       <div class="cs-pipe-stage">
         <div class="cs-pipe-label">INTELLIGENCE</div>
-        <div class="cs-pipe-items">Tension Index. Country Scores. Geo-correlation. Alert Rules. Watchlist matching. AI Sitreps.</div>
+        <div class="cs-pipe-items">Tension Index. Country Scores. Geo-correlation. Alert Rules. Watchlist matching. AI Terminal. Auto-Threat Detection. Sitreps.</div>
       </div>
     </div>
   `;
   page.appendChild(pipeline);
+
+  // ── DIVIDER ──
+  page.appendChild(createDivider('SECTION 5 // AI TERMINAL'));
+
+  // ── AI TERMINAL ──
+  const terminal = createElement('section', { className: 'cs-section' });
+  terminal.innerHTML = `
+    <div class="cs-arch-grid">
+      <div class="cs-arch-box">
+        <div class="cs-arch-header">NEXUSWATCH> COMMAND LINE</div>
+        <div class="cs-arch-body">
+          Full AI terminal interface for querying live intelligence data.
+          Natural language commands against all 30 layers. Generate situation
+          reports, filter by region or threat type, inspect specific events,
+          and control the map — all from a Bloomberg-style command prompt.
+          Powered by Claude Haiku via Anthropic SDK.
+        </div>
+      </div>
+      <div class="cs-arch-box">
+        <div class="cs-arch-header">AUTO-THREAT DETECTION</div>
+        <div class="cs-arch-body">
+          Continuous background scanning across all active layers for
+          anomalous patterns and multi-signal convergence. Automatic
+          alert generation when thresholds are breached. Feeds into
+          the Intel Bar and contextual AI narration system.
+        </div>
+      </div>
+    </div>
+  `;
+  page.appendChild(terminal);
 
   // ── FOOTER ──
   const footer = createElement('footer', { className: 'cs-footer' });
