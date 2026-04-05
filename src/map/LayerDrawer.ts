@@ -9,7 +9,7 @@ const CATEGORY_INFO: Record<MapLayerCategory, { label: string; color: string }> 
   conflict: { label: 'CONFLICT & MILITARY', color: '#ef4444' },
   infrastructure: { label: 'INFRASTRUCTURE', color: '#06b6d4' },
   intelligence: { label: 'INTELLIGENCE', color: '#f59e0b' },
-  weather: { label: 'WEATHER', color: '#3b82f6' },
+  weather: { label: 'WEATHER', color: '#06b6d4' },
 };
 
 const CATEGORY_ORDER: MapLayerCategory[] = ['conflict', 'natural', 'intelligence', 'infrastructure', 'weather'];
