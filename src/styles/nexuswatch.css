@@ -509,6 +509,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Sparkline ── */
+
+.nw-sparkline {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.nw-sparkline svg {
+  display: block;
+}
+
 /* ── Data Summary Strip ── */
 
 .nw-data-summary {

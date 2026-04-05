@@ -41,7 +41,8 @@ import {
 import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
 import { generateSitrep, generatePersonalBrief } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
-import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
+import { computeTensionIndex, tensionColor, tensionLabel, getTensionState } from '../services/tensionIndex.ts';
+import { createSparkline } from '../ui/sparkline.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -392,6 +393,13 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       }
       labelEl.textContent = tensionLabel(tension.global);
       labelEl.style.color = tensionColor(tension.global);
+      // Sparkline for tension history
+      const existingSpark = tensionSlot.querySelector('.nw-sparkline');
+      if (existingSpark) existingSpark.remove();
+      if (tension.history.length > 2) {
+        const sparkValues = tension.history.slice(-24).map((h) => h.value);
+        tensionSlot.appendChild(createSparkline(sparkValues, 40, 14, tensionColor(tension.global)));
+      }
       layerDrawer.refresh();
       if (activeTab === 'intel') debouncedSidebarRender();
 
