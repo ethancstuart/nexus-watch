@@ -102,7 +102,7 @@ export class ShipLayer implements MapDataLayer {
       type: 'circle',
       source: 'ships',
       paint: {
-        'circle-radius': ['match', ['get', 'type'], 'military', 5, 4],
+        'circle-radius': ['match', ['get', 'type'], 'military', 8, 6],
         'circle-color': ['get', 'color'],
         'circle-stroke-width': 1.5,
         'circle-stroke-color': 'rgba(255,255,255,0.3)',
@@ -115,7 +115,7 @@ export class ShipLayer implements MapDataLayer {
       id: 'ships-labels',
       type: 'symbol',
       source: 'ships',
-      minzoom: 5,
+      minzoom: 3,
       layout: {
         'text-field': ['get', 'name'],
         'text-size': 9,

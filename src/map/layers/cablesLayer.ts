@@ -599,6 +599,46 @@ export class CablesLayer implements MapDataLayer {
     return CABLES.length;
   }
 
+  // Generate great circle arc between two points
+  private generateArc(lon1: number, lat1: number, lon2: number, lat2: number, n: number): [number, number][] {
+    const toRad = Math.PI / 180;
+    const toDeg = 180 / Math.PI;
+    const p1 = lat1 * toRad;
+    const l1 = lon1 * toRad;
+    const p2 = lat2 * toRad;
+    const l2 = lon2 * toRad;
+    const d =
+      2 *
+      Math.asin(Math.sqrt(Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin((l2 - l1) / 2) ** 2));
+    if (d < 0.001)
+      return [
+        [lon1, lat1],
+        [lon2, lat2],
+      ]; // Too close, skip arc
+    const pts: [number, number][] = [];
+    for (let i = 0; i <= n; i++) {
+      const f = i / n;
+      const a = Math.sin((1 - f) * d) / Math.sin(d);
+      const b = Math.sin(f * d) / Math.sin(d);
+      const x = a * Math.cos(p1) * Math.cos(l1) + b * Math.cos(p2) * Math.cos(l2);
+      const y = a * Math.cos(p1) * Math.sin(l1) + b * Math.cos(p2) * Math.sin(l2);
+      const z = a * Math.sin(p1) + b * Math.sin(p2);
+      pts.push([Math.atan2(y, x) * toDeg, Math.atan2(z, Math.sqrt(x ** 2 + y ** 2)) * toDeg]);
+    }
+    return pts;
+  }
+
+  // Interpolate all segments of a cable into smooth arcs
+  private smoothCablePoints(points: [number, number][]): [number, number][] {
+    const result: [number, number][] = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const arc = this.generateArc(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1], 15);
+      // Skip first point of arc (except first segment) to avoid duplicates
+      result.push(...(i === 0 ? arc : arc.slice(1)));
+    }
+    return result;
+  }
+
   private renderLayer(): void {
     if (!this.map) return;
     this.removeLayer();
@@ -607,7 +647,7 @@ export class CablesLayer implements MapDataLayer {
       type: 'FeatureCollection',
       features: CABLES.map((c) => ({
         type: 'Feature' as const,
-        geometry: { type: 'LineString' as const, coordinates: c.points },
+        geometry: { type: 'LineString' as const, coordinates: this.smoothCablePoints(c.points) },
         properties: { name: c.name, owner: c.owner, year: c.year },
       })),
     };
@@ -618,14 +658,14 @@ export class CablesLayer implements MapDataLayer {
       id: 'cables-glow',
       type: 'line',
       source: 'cables',
-      paint: { 'line-color': '#06b6d4', 'line-width': 4, 'line-opacity': 0.08, 'line-blur': 3 },
+      paint: { 'line-color': '#06b6d4', 'line-width': 2, 'line-opacity': 0.04, 'line-blur': 2 },
     });
 
     this.map.addLayer({
       id: 'cables-line',
       type: 'line',
       source: 'cables',
-      paint: { 'line-color': '#06b6d4', 'line-width': 1.5, 'line-opacity': 0.5 },
+      paint: { 'line-color': '#06b6d4', 'line-width': 0.8, 'line-opacity': 0.3 },
     });
 
     this.map.on('mouseenter', 'cables-line', () => {

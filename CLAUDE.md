@@ -208,6 +208,12 @@ Always label new bugs with their severity tier.
 4. **Feature Roadmap** — check which items are open vs done. Note the Meridian geo-layer integration as a priority dependency.
 5. Then begin work.
 
+### Session end — always:
+- Append a Feature Roadmap note: what was worked on this session, what was completed, what's next open item.
+  Format: `## [YYYY-MM-DD] Session: [what was done] | Next: [next open roadmap item]`
+- If any data layers are broken or returning stale data, add a P1 bug to Bugs & Issues.
+- If the Meridian geo-layer integration was discussed or progressed, update the Dependency Register in Command Center.
+
 ## Important Notes
 - No React or UI framework — vanilla TypeScript + DOM
 - .env.local for deployer API keys (gitignored), .env.example committed
