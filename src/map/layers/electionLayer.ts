@@ -25,6 +25,25 @@ const ELECTIONS: Election[] = [
   { country: 'Singapore', type: 'parliamentary', date: '2025-05-03', lat: 1.3, lon: 103.8, significance: 'medium' },
   { country: 'Poland', type: 'presidential', date: '2025-05-18', lat: 52.2, lon: 21.0, significance: 'high' },
   { country: 'Ivory Coast', type: 'presidential', date: '2025-10-25', lat: 5.3, lon: -4.0, significance: 'medium' },
+  { country: 'Bolivia', type: 'presidential', date: '2025-08-17', lat: -16.5, lon: -68.1, significance: 'medium' },
+  {
+    country: 'Czech Republic',
+    type: 'parliamentary',
+    date: '2025-10-10',
+    lat: 50.1,
+    lon: 14.4,
+    significance: 'medium',
+  },
+  { country: 'Tanzania', type: 'presidential', date: '2025-10-01', lat: -6.8, lon: 39.3, significance: 'medium' },
+  { country: 'Guinea', type: 'presidential', date: '2025-12-01', lat: 9.5, lon: -13.7, significance: 'medium' },
+  { country: 'Japan', type: 'parliamentary', date: '2025-07-27', lat: 35.7, lon: 139.7, significance: 'high' },
+  { country: 'Belarus', type: 'presidential', date: '2025-01-26', lat: 53.9, lon: 27.6, significance: 'high' },
+  { country: 'Honduras', type: 'presidential', date: '2025-11-30', lat: 14.1, lon: -87.2, significance: 'medium' },
+  { country: 'Argentina', type: 'parliamentary', date: '2025-10-26', lat: -34.6, lon: -58.4, significance: 'high' },
+  { country: 'United States', type: 'presidential', date: '2028-11-07', lat: 38.9, lon: -77.0, significance: 'high' },
+  { country: 'Brazil', type: 'presidential', date: '2026-10-04', lat: -15.8, lon: -47.9, significance: 'high' },
+  { country: 'Nigeria', type: 'presidential', date: '2027-02-18', lat: 9.1, lon: 7.5, significance: 'high' },
+  { country: 'India', type: 'parliamentary', date: '2029-05-01', lat: 28.6, lon: 77.2, significance: 'high' },
 ];
 
 function daysUntil(dateStr: string): number {
