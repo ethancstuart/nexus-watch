@@ -193,10 +193,17 @@ This project is tracked in Notion under NexusWatch.
 - **Weekly Execution Brief (global):** `33945c2d-baf4-81d6-8e6e-e401346c03d1`
 - **Prompt Library (global):** `33945c2d-baf4-81dc-9f20-c8f04a134c5f`
 
+### Bugs & Issues Severity
+- **P0 — Critical**: data loss, broken auth, payment failures, crashes in core flows. Drop everything and fix immediately.
+- **P1 — High**: broken feature, bad UX blocking a key user task. Fix in current session before starting new work.
+- **P2 — Normal**: cosmetic issues, edge cases, minor UX degradation. Fix in order when capacity allows.
+Always label new bugs with their severity tier.
+
 ### Session start — read in this order:
 1. **Weekly Execution Brief** — read the most recent week entry for priority context.
+   - **Staleness check**: if the most recent entry is more than 7 days old or the page is empty, flag this immediately and ask Ethan for today's priorities before proceeding.
 2. **Session Brief** — check for a same-day brief. Overrides the weekly brief if present.
-3. **Bugs & Issues** — check for any OPEN items.
+3. **Bugs & Issues** — check for any OPEN items. P0 blocks all other work. P1 blocks new features unless brief says otherwise.
 4. **Feature Roadmap** — check which items are open vs done. Note the Meridian geo-layer integration as a priority dependency.
 5. Then begin work.
 

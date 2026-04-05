@@ -173,30 +173,29 @@ export function createAiTerminal(config: TerminalConfig): HTMLElement {
 function processCommand(cmd: string, config: TerminalConfig, output: HTMLElement): void {
   const lower = cmd.toLowerCase();
 
-  // Location matching — check if command contains any known location
-  // Strip common prefixes for cleaner matching
-  const stripped = lower
-    .replace(/^(show|go|fly|zoom|navigate|find|search|where is|take me to|go to)\s+(me\s+)?(to\s+)?/i, '')
-    .trim();
+  // ── 1. QUESTIONS — detect and answer from layer data ──
+  const isQuestion =
+    lower.startsWith('what') ||
+    lower.startsWith('how') ||
+    lower.startsWith('where') ||
+    lower.startsWith('which') ||
+    lower.startsWith('is there') ||
+    lower.startsWith('are there') ||
+    lower.startsWith('tell me') ||
+    lower.includes('?');
 
-  // Try exact match first, then fuzzy match
-  for (const [name, coords] of Object.entries(LOCATIONS)) {
-    if (stripped === name || lower === name) {
-      config.mapView.flyTo(coords[0], coords[1], coords[2]);
-      showOutput(output, `Flying to ${name.toUpperCase()}`, 'success');
-      return;
-    }
-  }
-  // Partial/contains match
-  for (const [name, coords] of Object.entries(LOCATIONS)) {
-    if (stripped.includes(name) || name.includes(stripped)) {
-      config.mapView.flyTo(coords[0], coords[1], coords[2]);
-      showOutput(output, `Flying to ${name.toUpperCase()}`, 'success');
-      return;
-    }
+  if (isQuestion) {
+    answerQuestion(lower, config, output);
+    return;
   }
 
-  // Enable/disable layers
+  // ── 2. SHOW ALL / SHOW ME — data queries, not locations ──
+  if (lower.startsWith('show me all') || lower.startsWith('show all') || lower.startsWith('list')) {
+    answerQuestion(lower, config, output);
+    return;
+  }
+
+  // ── 3. Enable/disable layers ──
   if (lower.startsWith('enable') || lower.startsWith('show layer') || lower.startsWith('turn on')) {
     for (const [layerId, keywords] of Object.entries(LAYER_KEYWORDS)) {
       if (keywords.some((kw) => lower.includes(kw))) {
@@ -217,7 +216,7 @@ function processCommand(cmd: string, config: TerminalConfig, output: HTMLElement
     }
   }
 
-  // Status command
+  // ── 4. Utility commands ──
   if (lower === 'status' || lower === 'layers') {
     const enabled = config.layerManager.getEnabledLayers();
     const names = enabled.map((l) => l.name).join(', ');
@@ -225,14 +224,26 @@ function processCommand(cmd: string, config: TerminalConfig, output: HTMLElement
     return;
   }
 
-  // Help
   if (lower === 'help' || lower === '?') {
     showOutput(
       output,
-      'Commands: [location] — fly to location | enable/disable [layer] — toggle layers | status — show active layers | sitrep — generate report',
+      'Commands:\n• Ask questions: "what conflicts are near Iran?"\n• Fly to locations: "ukraine", "tokyo", "strait of hormuz"\n• Toggle layers: "enable sanctions", "disable flights"\n• Queries: "show me all earthquakes", "flights status"\n• Reports: "sitrep", "brief"\n• System: "status", "help"',
       'info',
     );
     return;
+  }
+
+  // ── 5. Location fly-to (non-question commands) ──
+  const stripped = lower
+    .replace(/^(show|go|fly|zoom|navigate|find|search|take me to|go to)\s+(me\s+)?(to\s+)?/i, '')
+    .trim();
+
+  for (const [name, coords] of Object.entries(LOCATIONS)) {
+    if (stripped === name || lower === name || stripped.includes(name) || name.includes(stripped)) {
+      config.mapView.flyTo(coords[0], coords[1], coords[2]);
+      showOutput(output, `Flying to ${name.toUpperCase()}`, 'success');
+      return;
+    }
   }
 
   // Sitrep
@@ -245,6 +256,262 @@ function processCommand(cmd: string, config: TerminalConfig, output: HTMLElement
   // Geocoding fallback: try to find the location via Nominatim
   showOutput(output, `Searching for "${cmd}"...`, 'info');
   void geocodeAndFly(cmd, config, output);
+}
+
+function answerQuestion(query: string, config: TerminalConfig, output: HTMLElement): void {
+  const data = config.getLayerData();
+  const lines: string[] = [];
+
+  // ── Conflict queries ──
+  if (query.includes('conflict') || query.includes('war') || query.includes('fighting') || query.includes('battle')) {
+    const acled =
+      (data.get('acled') as { country: string; actor1: string; fatalities: number; type: string; date: string }[]) ||
+      [];
+
+    // Check for specific location in the query
+    const locationMatch = findLocationInQuery(query);
+    if (locationMatch && acled.length > 0) {
+      const filtered = acled.filter(
+        (e) => e.country.toLowerCase().includes(locationMatch) || query.includes(e.country.toLowerCase()),
+      );
+      if (filtered.length > 0) {
+        lines.push(`CONFLICT DATA — ${filtered.length} events found:`);
+        for (const e of filtered.slice(0, 8)) {
+          lines.push(`• [${e.date}] ${e.type}: ${e.actor1} — ${e.country} (${e.fatalities} casualties)`);
+        }
+      } else {
+        lines.push(`No ACLED conflict events found matching "${locationMatch}".`);
+        lines.push(`Active conflict data covers ${new Set(acled.map((e) => e.country)).size} countries.`);
+      }
+    } else if (acled.length > 0) {
+      const countries = new Set(acled.map((e) => e.country));
+      const totalFatalities = acled.reduce((s, e) => s + (e.fatalities || 0), 0);
+      lines.push(`GLOBAL CONFLICT SUMMARY — ${acled.length} events across ${countries.size} countries`);
+      lines.push(`Total casualties (7-day): ${totalFatalities}`);
+      lines.push(`Top theaters: ${[...countries].slice(0, 10).join(', ')}`);
+    } else {
+      lines.push('ACLED conflict data not loaded. Enable the "Live Conflicts" layer.');
+    }
+  }
+
+  // ── Flight queries ──
+  else if (
+    query.includes('flight') ||
+    query.includes('aircraft') ||
+    query.includes('plane') ||
+    query.includes('aviation')
+  ) {
+    const flights =
+      (data.get('flights') as { callsign: string; country: string; altitude: number; military?: boolean }[]) || [];
+    if (flights.length > 0) {
+      const military = flights.filter((f) => f.military);
+      const civilian = flights.filter((f) => !f.military);
+      const countries = new Set(flights.map((f) => f.country));
+      lines.push(`AIRCRAFT STATUS — ${flights.length} tracked`);
+      lines.push(`• Civilian: ${civilian.length}`);
+      lines.push(`• Military: ${military.length}`);
+      lines.push(`• Countries: ${countries.size}`);
+      if (military.length > 0) {
+        lines.push(`\nMilitary aircraft:`);
+        for (const f of military.slice(0, 10)) {
+          lines.push(`• ${f.callsign || 'Unknown'} (${f.country}) — ${Math.round((f.altitude || 0) * 3.281)}ft`);
+        }
+      }
+    } else {
+      lines.push('Flight data not loaded. Enable the "Live Aircraft" layer.');
+    }
+  }
+
+  // ── Ship queries ──
+  else if (
+    query.includes('ship') ||
+    query.includes('vessel') ||
+    query.includes('maritime') ||
+    query.includes('naval')
+  ) {
+    const ships = (data.get('ships') as { name: string; type: string; flag: string; speed: number }[]) || [];
+    if (ships.length > 0) {
+      const military = ships.filter((s) => s.type === 'military');
+      lines.push(`VESSEL STATUS — ${ships.length} tracked`);
+      lines.push(`• Military: ${military.length}`);
+      lines.push(`• Cargo/Tanker: ${ships.filter((s) => s.type === 'cargo' || s.type === 'tanker').length}`);
+      for (const s of ships.slice(0, 10)) {
+        lines.push(`• ${s.name} (${s.flag}) — ${s.type}, ${s.speed}kts`);
+      }
+    } else {
+      lines.push('Ship data not loaded. Enable the "Ship Tracking" layer.');
+    }
+  }
+
+  // ── Earthquake queries ──
+  else if (query.includes('earthquake') || query.includes('quake') || query.includes('seismic')) {
+    const quakes =
+      (data.get('earthquakes') as { magnitude: number; place: string; time: number; depth: number }[]) || [];
+    if (quakes.length > 0) {
+      const major = quakes.filter((q) => q.magnitude >= 5.0);
+      lines.push(`SEISMIC STATUS — ${quakes.length} earthquakes (last 24h)`);
+      lines.push(`• M5.0+: ${major.length}`);
+      lines.push(`• Strongest: M${Math.max(...quakes.map((q) => q.magnitude)).toFixed(1)}`);
+      lines.push('');
+      for (const q of quakes.slice(0, 8)) {
+        const ago = Math.round((Date.now() - q.time) / 60000);
+        lines.push(`• M${q.magnitude.toFixed(1)} — ${q.place} (${ago}m ago, ${q.depth.toFixed(0)}km deep)`);
+      }
+    } else {
+      lines.push('Earthquake data not loaded. Enable the "Earthquakes" layer.');
+    }
+  }
+
+  // ── Weather queries ──
+  else if (query.includes('weather') || query.includes('forecast') || query.includes('temperature')) {
+    const weather = (data.get('weather-alerts') as { city: string; description: string }[]) || [];
+    const aqi = (data.get('air-quality') as { name: string; aqi: number; pm25: number }[]) || [];
+    if (weather.length > 0 || aqi.length > 0) {
+      lines.push('WEATHER & AIR QUALITY STATUS');
+      if (weather.length > 0) {
+        lines.push(`\n${weather.length} weather alerts active:`);
+        for (const w of weather) lines.push(`• ${w.city}: ${w.description}`);
+      }
+      if (aqi.length > 0) {
+        const worst = [...aqi].sort((a, b) => b.aqi - a.aqi).slice(0, 5);
+        lines.push(`\nWorst air quality:`);
+        for (const a of worst) lines.push(`• ${a.name}: AQI ${a.aqi} (PM2.5: ${a.pm25.toFixed(1)})`);
+      }
+    } else {
+      lines.push('Weather/AQI data not loaded. Enable "Weather Alerts" and "Air Quality" layers.');
+    }
+    lines.push(
+      '\nNote: NexusWatch tracks weather alerts and AQI, not forecasts. For forecasts, use a weather service.',
+    );
+  }
+
+  // ── Energy queries ──
+  else if (query.includes('energy') || query.includes('oil') || query.includes('gas') || query.includes('trading')) {
+    lines.push('ENERGY INTELLIGENCE');
+    lines.push('• 84 energy facilities tracked (rigs, refineries, LNG terminals)');
+    lines.push('• 30 pipelines mapped (active, disputed, damaged)');
+    lines.push('• 6 maritime chokepoints with status assessment');
+    lines.push('• 8 major trade routes visualized');
+    lines.push(
+      '\nEnable "Energy Infrastructure", "Pipelines", "Chokepoints", and "Trade Routes" layers for full coverage.',
+    );
+    lines.push(
+      '\nNote: Real-time energy prices and trading data require additional API integration (not yet implemented).',
+    );
+  }
+
+  // ── Financial market queries ──
+  else if (
+    query.includes('market') ||
+    query.includes('stock') ||
+    query.includes('financial') ||
+    query.includes('crypto')
+  ) {
+    lines.push('FINANCIAL MARKETS');
+    lines.push('Switch to the MARKETS tab in the sidebar for stock quotes and crypto prices.');
+    lines.push(
+      '\nNote: NexusWatch focuses on geopolitical intelligence. For detailed financial data, the Markets sidebar tab shows stocks and crypto when the Finnhub API key is configured.',
+    );
+  }
+
+  // ── Prediction queries ──
+  else if (
+    query.includes('predict') ||
+    query.includes('forecast') ||
+    query.includes('future') ||
+    query.includes('probability')
+  ) {
+    const predictions = (data.get('predictions') as { question: string; probability: number }[]) || [];
+    if (predictions.length > 0) {
+      lines.push(`PREDICTION MARKETS — ${predictions.length} active`);
+      for (const p of predictions) {
+        lines.push(`• ${p.probability}% — ${p.question}`);
+      }
+    } else {
+      lines.push('Prediction market data not loaded. Enable the "Prediction Markets" layer.');
+    }
+  }
+
+  // ── Generic / fallback ──
+  else {
+    // Try to detect a location in the query and fly there
+    const locationMatch = findLocationInQuery(query);
+    if (locationMatch) {
+      for (const [name, coords] of Object.entries(LOCATIONS)) {
+        if (name.includes(locationMatch) || locationMatch.includes(name)) {
+          config.mapView.flyTo(coords[0], coords[1], coords[2]);
+          showOutput(output, `Flying to ${name.toUpperCase()}`, 'success');
+          return;
+        }
+      }
+      // Geocode fallback
+      showOutput(output, `Searching for "${locationMatch}"...`, 'info');
+      void geocodeAndFly(locationMatch, config, output);
+      return;
+    }
+
+    lines.push(`I couldn't understand that query. Try:`);
+    lines.push('• "what conflicts are happening in Sudan?"');
+    lines.push('• "show me all flights"');
+    lines.push('• "earthquake status"');
+    lines.push('• "energy infrastructure"');
+    lines.push('• Type a location name to fly there');
+  }
+
+  if (lines.length > 0) {
+    showOutput(output, lines.join('\n'), 'info');
+  }
+}
+
+function findLocationInQuery(query: string): string | null {
+  // Check for known country/region names in the query
+  const knownLocations = [
+    'california',
+    'united states',
+    'usa',
+    'america',
+    'ukraine',
+    'russia',
+    'china',
+    'taiwan',
+    'iran',
+    'israel',
+    'gaza',
+    'sudan',
+    'myanmar',
+    'syria',
+    'iraq',
+    'afghanistan',
+    'pakistan',
+    'india',
+    'japan',
+    'germany',
+    'france',
+    'uk',
+    'brazil',
+    'mexico',
+    'nigeria',
+    'egypt',
+    'turkey',
+    'saudi',
+    'australia',
+    'europe',
+    'middle east',
+    'africa',
+    'asia',
+    'pacific',
+    'atlantic',
+    'red sea',
+    'hormuz',
+    'suez',
+    'malacca',
+    'mediterranean',
+    'caribbean',
+  ];
+  for (const loc of knownLocations) {
+    if (query.includes(loc)) return loc;
+  }
+  return null;
 }
 
 async function geocodeAndFly(query: string, config: TerminalConfig, output: HTMLElement): Promise<void> {
