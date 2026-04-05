@@ -41,7 +41,7 @@ import {
 import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
 import { generateSitrep, generatePersonalBrief } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
-import { computeTensionIndex, tensionColor, tensionLabel, getTensionState } from '../services/tensionIndex.ts';
+import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
 import { createSparkline } from '../ui/sparkline.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
