@@ -28,9 +28,9 @@ export class MapView {
     this.map = new maplibregl.Map({
       container: this.container,
       style: getMapStyleUrl(),
-      center: saved?.center || [0, 20],
-      zoom: saved?.zoom || 1.8,
-      pitch: 0,
+      center: saved?.center || [30, 20],
+      zoom: saved?.zoom || 1.5,
+      pitch: 15,
       bearing: 0,
       attributionControl: false,
       maxZoom: 18,

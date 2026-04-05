@@ -628,12 +628,52 @@ export class CablesLayer implements MapDataLayer {
     return pts;
   }
 
-  // Interpolate all segments of a cable into smooth arcs
-  private smoothCablePoints(points: [number, number][]): [number, number][] {
+  // Split cable into segments at dateline crossings, interpolate each segment as arc
+  private cableToFeatures(c: {
+    name: string;
+    owner: string;
+    year: number;
+    points: [number, number][];
+  }): GeoJSON.Feature[] {
+    const features: GeoJSON.Feature[] = [];
+    let currentSegment: [number, number][] = [];
+
+    for (let i = 0; i < c.points.length - 1; i++) {
+      const lonDiff = Math.abs(c.points[i][0] - c.points[i + 1][0]);
+
+      if (lonDiff > 160) {
+        // Dateline crossing — finalize current segment, start new one
+        if (currentSegment.length === 0) currentSegment.push(c.points[i]);
+        if (currentSegment.length > 1) {
+          features.push({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: this.arcInterpolate(currentSegment) },
+            properties: { name: c.name, owner: c.owner, year: c.year },
+          });
+        }
+        currentSegment = [c.points[i + 1]];
+      } else {
+        if (currentSegment.length === 0) currentSegment.push(c.points[i]);
+        currentSegment.push(c.points[i + 1]);
+      }
+    }
+
+    if (currentSegment.length > 1) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: this.arcInterpolate(currentSegment) },
+        properties: { name: c.name, owner: c.owner, year: c.year },
+      });
+    }
+
+    return features;
+  }
+
+  // Interpolate waypoints into smooth arcs
+  private arcInterpolate(points: [number, number][]): [number, number][] {
     const result: [number, number][] = [];
     for (let i = 0; i < points.length - 1; i++) {
       const arc = this.generateArc(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1], 15);
-      // Skip first point of arc (except first segment) to avoid duplicates
       result.push(...(i === 0 ? arc : arc.slice(1)));
     }
     return result;
@@ -643,13 +683,15 @@ export class CablesLayer implements MapDataLayer {
     if (!this.map) return;
     this.removeLayer();
 
+    // Split dateline-crossing cables into separate segments
+    const allFeatures: GeoJSON.Feature[] = [];
+    for (const cable of CABLES) {
+      allFeatures.push(...this.cableToFeatures(cable));
+    }
+
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: CABLES.map((c) => ({
-        type: 'Feature' as const,
-        geometry: { type: 'LineString' as const, coordinates: this.smoothCablePoints(c.points) },
-        properties: { name: c.name, owner: c.owner, year: c.year },
-      })),
+      features: allFeatures,
     };
 
     this.map.addSource('cables', { type: 'geojson', data: geojson });
