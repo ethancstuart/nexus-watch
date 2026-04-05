@@ -178,6 +178,7 @@ export class FrontlinesLayer implements MapDataLayer {
   private map: MaplibreMap | null = null;
   private enabled = false;
   private popup: maplibregl.Popup | null = null;
+  private pulseTimer: ReturnType<typeof setInterval> | null = null;
 
   init(map: MaplibreMap): void {
     this.map = map;
@@ -185,9 +186,11 @@ export class FrontlinesLayer implements MapDataLayer {
   enable(): void {
     this.enabled = true;
     this.renderLayer();
+    this.startPulse();
   }
   disable(): void {
     this.enabled = false;
+    this.stopPulse();
     this.removeLayer();
   }
   async refresh(): Promise<void> {
@@ -373,7 +376,34 @@ export class FrontlinesLayer implements MapDataLayer {
     this.popup?.remove();
   }
 
+  private startPulse(): void {
+    this.stopPulse();
+    let phase = 0;
+    this.pulseTimer = setInterval(() => {
+      if (!this.map || !this.enabled) return;
+      phase = (phase + 0.05) % (Math.PI * 2);
+      const opacity = 0.06 + Math.sin(phase) * 0.04; // oscillates 0.02 - 0.10
+      const borderOpacity = 0.3 + Math.sin(phase) * 0.2; // oscillates 0.1 - 0.5
+      try {
+        if (this.map.getLayer('frontline-zones-fill')) {
+          this.map.setPaintProperty('frontline-zones-fill', 'fill-opacity', opacity);
+        }
+        if (this.map.getLayer('frontline-zones-border')) {
+          this.map.setPaintProperty('frontline-zones-border', 'line-opacity', borderOpacity);
+        }
+      } catch {
+        // Layer may not exist yet
+      }
+    }, 50);
+  }
+
+  private stopPulse(): void {
+    if (this.pulseTimer) clearInterval(this.pulseTimer);
+    this.pulseTimer = null;
+  }
+
   destroy(): void {
+    this.stopPulse();
     this.removeLayer();
     this.map = null;
   }
