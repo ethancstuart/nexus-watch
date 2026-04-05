@@ -1,7 +1,7 @@
 /// @ts-nocheck
-const CACHE_VERSION = 'nexuswatch-v2';
-const API_CACHE = 'nexuswatch-api-v2';
-const STATIC_CACHE = 'nexuswatch-static-v2';
+const CACHE_VERSION = 'nexuswatch-v3';
+const API_CACHE = 'nexuswatch-api-v3';
+const STATIC_CACHE = 'nexuswatch-static-v3';
 
 // Injected at build time by scripts/inject-sw-manifest.js
 const PRECACHE_ASSETS = []; // __PRECACHE_INJECT__

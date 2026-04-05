@@ -35,16 +35,17 @@ export class MapView {
       attributionControl: false,
       maxZoom: 18,
       minZoom: 0.8,
-      ...({ projection: { type: 'globe' } } as Record<string, unknown>),
-    } as maplibregl.MapOptions);
+    });
+
+    // Enable globe projection using the proper API
+    this.map.setProjection({ type: 'globe' });
 
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
     this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 200 }), 'bottom-left');
 
     // Add atmosphere glow for globe projection
     this.map.on('style.load', () => {
-      const m = this.map as unknown as { setFog?: (opts: Record<string, unknown>) => void };
-      m.setFog?.({
+      (this.map as unknown as { setFog: (opts: Record<string, unknown>) => void })?.setFog({
         color: 'rgba(0, 0, 0, 1)',
         'high-color': 'rgba(10, 10, 30, 1)',
         'horizon-blend': 0.05,
