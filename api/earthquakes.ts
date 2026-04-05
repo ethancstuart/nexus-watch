@@ -21,7 +21,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!response.ok) return res.status(response.status).json({ error: 'USGS API error' });
 
     const data = (await response.json()) as {
-      features: { id: string; properties: { mag: number; place: string; time: number; url: string; tsunami: number }; geometry: { coordinates: [number, number, number] } }[];
+      features: {
+        id: string;
+        properties: { mag: number; place: string; time: number; url: string; tsunami: number };
+        geometry: { coordinates: [number, number, number] };
+      }[];
     };
 
     const minMag = parseFloat(minmagnitude);
@@ -30,12 +34,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .filter((f) => f.properties.mag >= minMag)
       .slice(0, maxCount)
       .map((f) => ({
-        id: f.id, magnitude: f.properties.mag, place: f.properties.place,
-        time: f.properties.time, url: f.properties.url, tsunami: f.properties.tsunami === 1,
-        lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], depth: f.geometry.coordinates[2],
+        id: f.id,
+        magnitude: f.properties.mag,
+        place: f.properties.place,
+        time: f.properties.time,
+        url: f.properties.url,
+        tsunami: f.properties.tsunami === 1,
+        lon: f.geometry.coordinates[0],
+        lat: f.geometry.coordinates[1],
+        depth: f.geometry.coordinates[2],
       }));
 
-    return res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60').json({ earthquakes, count: earthquakes.length });
+    return res
+      .setHeader('Cache-Control', 'public, max-age=60, s-maxage=60')
+      .json({ earthquakes, count: earthquakes.length });
   } catch (err) {
     console.error('Earthquake API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Earthquake service error' });

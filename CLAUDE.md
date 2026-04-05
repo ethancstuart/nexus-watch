@@ -184,6 +184,20 @@ Use `/frontend-design` for intentional aesthetic direction on new UI work.
 
 When planning new panels, check the API catalog first — it maps APIs to DashPulse features.
 
+## Notion Context
+This project is tracked in Notion under NexusWatch.
+- **NexusWatch page:** `33945c2d-baf4-8144-9e57-d904bd93233e`
+- **Feature Roadmap:** `33945c2d-baf4-8114-a45b-f04e7d568d41`
+- **Bugs & Issues:** `33945c2d-baf4-81fa-97c9-f0f3b05ae85f`
+- **Session Brief (global):** `33945c2d-baf4-81df-bdcf-f10616ef92cf`
+- **Prompt Library (global):** `33945c2d-baf4-81dc-9f20-c8f04a134c5f`
+
+### Session start — read in this order:
+1. **Session Brief** — check for a written brief. If one exists, that is your primary directive for this session.
+2. **Bugs & Issues** — check for any OPEN items.
+3. **Feature Roadmap** — check which items are open vs done. Note the Meridian geo-layer integration as a priority dependency.
+4. Then begin work.
+
 ## Important Notes
 - No React or UI framework — vanilla TypeScript + DOM
 - .env.local for deployer API keys (gitignored), .env.example committed
