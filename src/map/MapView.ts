@@ -65,6 +65,28 @@ export class MapView {
       saveTimeout = setTimeout(() => this.saveViewport(), 1000);
     });
 
+    // Auto-rotate globe slowly on first load (stops on user interaction)
+    let rotating = true;
+    const rotateGlobe = () => {
+      if (!rotating || !this.map) return;
+      const center = this.map.getCenter();
+      this.map.setCenter([center.lng + 0.03, center.lat]);
+      requestAnimationFrame(rotateGlobe);
+    };
+
+    // Start rotation after layers load
+    this.map.on('load', () => {
+      setTimeout(() => rotateGlobe(), 2000); // Start 2s after load
+    });
+
+    // Stop on any user interaction
+    const stopRotation = () => {
+      rotating = false;
+    };
+    this.map.on('mousedown', stopRotation);
+    this.map.on('touchstart', stopRotation);
+    this.map.on('wheel', stopRotation);
+
     return this.map;
   }
 

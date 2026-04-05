@@ -155,7 +155,7 @@ export class AcledLayer implements MapDataLayer {
       source: 'acled',
       filter: ['has', 'point_count'],
       paint: {
-        'circle-radius': ['step', ['get', 'point_count'], 12, 10, 16, 50, 22, 100, 28],
+        'circle-radius': ['step', ['get', 'point_count'], 16, 10, 22, 50, 30, 100, 40],
         'circle-color': '#ef4444',
         'circle-opacity': 0.7,
         'circle-stroke-width': 2,
@@ -178,7 +178,7 @@ export class AcledLayer implements MapDataLayer {
       source: 'acled',
       filter: ['!', ['has', 'point_count']],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['get', 'fatalities'], 0, 3, 5, 6, 20, 10, 100, 16],
+        'circle-radius': ['interpolate', ['linear'], ['get', 'fatalities'], 0, 5, 5, 10, 20, 18, 100, 28],
         'circle-color': ['get', 'color'],
         'circle-stroke-width': 1,
         'circle-stroke-color': 'rgba(255,255,255,0.2)',

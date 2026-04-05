@@ -129,6 +129,8 @@ export class MapLayerManager {
       'cyber',
       'flights',
       'ships',
+      'acled',
+      'frontlines',
     ];
   }
 

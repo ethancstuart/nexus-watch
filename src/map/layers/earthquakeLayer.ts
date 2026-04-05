@@ -106,7 +106,7 @@ export class EarthquakeLayer implements MapDataLayer {
       source: 'earthquakes',
       filter: ['has', 'point_count'],
       paint: {
-        'circle-radius': ['step', ['get', 'point_count'], 14, 10, 18, 30, 24, 50, 30],
+        'circle-radius': ['step', ['get', 'point_count'], 18, 10, 24, 30, 32, 50, 40],
         'circle-color': '#ff3c3c',
         'circle-opacity': 0.7,
         'circle-stroke-width': 2,
@@ -135,7 +135,7 @@ export class EarthquakeLayer implements MapDataLayer {
       source: 'earthquakes',
       filter: ['!', ['has', 'point_count']],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['get', 'magnitude'], 2.5, 6, 4, 12, 5, 20, 6, 32, 7, 48, 8, 64],
+        'circle-radius': ['interpolate', ['linear'], ['get', 'magnitude'], 2.5, 10, 4, 18, 5, 30, 6, 45, 7, 60, 8, 80],
         'circle-color': [
           'interpolate',
           ['linear'],
@@ -158,7 +158,7 @@ export class EarthquakeLayer implements MapDataLayer {
       source: 'earthquakes',
       filter: ['!', ['has', 'point_count']],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['get', 'magnitude'], 2.5, 3, 4, 6, 5, 10, 6, 16, 7, 24, 8, 32],
+        'circle-radius': ['interpolate', ['linear'], ['get', 'magnitude'], 2.5, 5, 4, 10, 5, 16, 6, 24, 7, 36, 8, 48],
         'circle-color': ['interpolate', ['linear'], ['get', 'depth'], 0, '#ff3c3c', 70, '#ffa500', 300, '#3c78ff'],
         'circle-stroke-width': 1,
         'circle-stroke-color': 'rgba(255, 255, 255, 0.3)',

@@ -101,7 +101,7 @@ export class FlightLayer implements MapDataLayer {
       source: 'flights',
       filter: ['!=', ['get', 'military'], true],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 1.5, 5, 3, 8, 4],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 3, 5, 5, 8, 6],
         'circle-color': '#818cf8',
         'circle-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.3, 5, 0.5, 8, 0.7],
         'circle-stroke-width': 0,
@@ -115,7 +115,7 @@ export class FlightLayer implements MapDataLayer {
       source: 'flights',
       filter: ['==', ['get', 'military'], true],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 6, 5, 10, 8, 14],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 10, 5, 16, 8, 22],
         'circle-color': '#ef4444',
         'circle-opacity': 0.12,
         'circle-blur': 0.6,
@@ -127,7 +127,7 @@ export class FlightLayer implements MapDataLayer {
       source: 'flights',
       filter: ['==', ['get', 'military'], true],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 3, 5, 5, 8, 7],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 5, 5, 8, 8, 10],
         'circle-color': '#ef4444',
         'circle-stroke-width': 1,
         'circle-stroke-color': 'rgba(255,255,255,0.4)',
