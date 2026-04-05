@@ -57,6 +57,7 @@ import { createMapSearch } from '../map/MapSearch.ts';
 import { showOnboarding } from '../ui/onboardingOverlay.ts';
 import { createMapLegend } from '../ui/mapLegend.ts';
 import { createAiTerminal } from '../ui/aiTerminal.ts';
+import { animateCounter } from '../ui/animatedCounter.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
@@ -559,7 +560,23 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
     const layer = layerMgr.getLayer(stat.id);
     const count = layer?.getFeatureCount() || 0;
     const cell = createElement('div', { className: 'nw-stat-cell' });
-    cell.innerHTML = `<span class="nw-stat-value" style="color:${stat.color}">${count}</span><span class="nw-stat-label">${stat.label}</span>`;
+    const valueEl = createElement('span', { className: 'nw-stat-value' });
+    valueEl.style.color = stat.color;
+    valueEl.textContent = String(count);
+    valueEl.dataset.statId = stat.id;
+    const labelEl = createElement('span', { className: 'nw-stat-label', textContent: stat.label });
+    cell.appendChild(valueEl);
+    cell.appendChild(labelEl);
+
+    // Animate if we have a previous value
+    const prevEl = document.querySelector(`.nw-stat-value[data-stat-id="${stat.id}"]`);
+    if (prevEl && prevEl !== valueEl) {
+      const prevCount = parseInt(prevEl.textContent || '0', 10);
+      if (prevCount !== count) {
+        valueEl.textContent = String(prevCount);
+        requestAnimationFrame(() => animateCounter(valueEl, count));
+      }
+    }
     summary.appendChild(cell);
   }
   container.appendChild(summary);
