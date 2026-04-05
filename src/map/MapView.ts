@@ -37,21 +37,27 @@ export class MapView {
       minZoom: 0.8,
     });
 
-    // Enable globe projection using the proper API
-    this.map.setProjection({ type: 'globe' });
-
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
     this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 200 }), 'bottom-left');
 
-    // Add atmosphere glow for globe projection
+    // Enable globe projection and atmosphere after style loads
     this.map.on('style.load', () => {
-      (this.map as unknown as { setFog: (opts: Record<string, unknown>) => void })?.setFog({
-        color: 'rgba(0, 0, 0, 1)',
-        'high-color': 'rgba(10, 10, 30, 1)',
-        'horizon-blend': 0.05,
-        'space-color': 'rgba(0, 0, 0, 1)',
-        'star-intensity': 0.3,
-      });
+      try {
+        this.map?.setProjection({ type: 'globe' } as maplibregl.ProjectionSpecification);
+      } catch {
+        // Globe projection not supported — stay on mercator
+      }
+      try {
+        (this.map as unknown as { setFog: (opts: Record<string, unknown>) => void })?.setFog({
+          color: 'rgba(0, 0, 0, 1)',
+          'high-color': 'rgba(10, 10, 30, 1)',
+          'horizon-blend': 0.05,
+          'space-color': 'rgba(0, 0, 0, 1)',
+          'star-intensity': 0.3,
+        });
+      } catch {
+        // Fog not supported
+      }
     });
 
     this.resizeObserver = new ResizeObserver(() => {
