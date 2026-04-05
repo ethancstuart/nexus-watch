@@ -35,7 +35,15 @@ export class FlightLayer implements MapDataLayer {
     try {
       this.data = await fetchAircraft();
       this.lastUpdated = Date.now();
-      if (this.enabled) this.renderLayer();
+      if (this.enabled) {
+        // Update source data in place for smooth transitions instead of full re-render
+        if (this.map?.getSource('flights')) {
+          const source = this.map.getSource('flights') as maplibregl.GeoJSONSource;
+          source.setData(this.buildGeoJson());
+        } else {
+          this.renderLayer();
+        }
+      }
       document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
     } catch (err) {
       console.error('Flight layer refresh error:', err);
@@ -58,11 +66,8 @@ export class FlightLayer implements MapDataLayer {
     return this.data.length;
   }
 
-  private renderLayer(): void {
-    if (!this.map || this.data.length === 0) return;
-    this.removeLayer();
-
-    const geojson: GeoJSON.FeatureCollection = {
+  private buildGeoJson(): GeoJSON.FeatureCollection {
+    return {
       type: 'FeatureCollection',
       features: this.data.map((a) => ({
         type: 'Feature' as const,
@@ -79,6 +84,13 @@ export class FlightLayer implements MapDataLayer {
         },
       })),
     };
+  }
+
+  private renderLayer(): void {
+    if (!this.map || this.data.length === 0) return;
+    this.removeLayer();
+
+    const geojson = this.buildGeoJson();
 
     this.map.addSource('flights', { type: 'geojson', data: geojson });
 
