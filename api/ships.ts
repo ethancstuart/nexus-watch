@@ -7,9 +7,9 @@ function setCors(res: VercelResponse): VercelResponse {
 
 export const config = { runtime: 'nodejs' };
 
-// Known major shipping lanes with typical vessel positions
-// In production, this would use AISStream.io WebSocket or MarineTraffic API
-// For now: curated active vessel data from public AIS feeds
+// SIMULATED vessel data — representative positions in major shipping lanes.
+// These are not real-time AIS positions. For production: integrate AISStream.io
+// WebSocket or MarineTraffic API for live vessel tracking.
 const SHIPPING_LANES = [
   // Strait of Malacca
   { name: 'Container Ship', type: 'cargo', flag: 'SG', lat: 1.8, lon: 103.2, heading: 310, speed: 14 },
