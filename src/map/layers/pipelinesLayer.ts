@@ -150,6 +150,234 @@ const PIPELINES: Pipeline[] = [
       [1, 35],
     ],
   },
+  // US domestic
+  {
+    name: 'Dakota Access (DAPL)',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [-103.5, 47.5],
+      [-101, 46],
+      [-98, 44],
+      [-97, 42],
+      [-96, 40.5],
+    ],
+  },
+  {
+    name: 'Permian Basin Export',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [-102, 31.5],
+      [-100, 30.5],
+      [-98, 29.5],
+      [-96, 29],
+    ],
+  },
+  {
+    name: 'Colonial Pipeline',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [-95, 29.5],
+      [-90, 30.5],
+      [-87, 32],
+      [-84, 33.5],
+      [-81, 34],
+      [-78, 36],
+      [-76, 37],
+      [-74, 40],
+    ],
+  },
+  {
+    name: 'Mountain Valley Pipeline',
+    type: 'gas',
+    status: 'active',
+    points: [
+      [-80.5, 38],
+      [-80, 37.5],
+      [-79.5, 37],
+    ],
+  },
+  // Canada
+  {
+    name: 'Trans Mountain Expansion',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [-114.5, 53.5],
+      [-116, 52.5],
+      [-118, 51.5],
+      [-120, 50],
+      [-122.5, 49.3],
+    ],
+  },
+  {
+    name: 'Coastal GasLink',
+    type: 'gas',
+    status: 'active',
+    points: [
+      [-120, 56],
+      [-124, 55],
+      [-127, 54],
+      [-129, 54],
+    ],
+  },
+  {
+    name: 'Enbridge Line 5',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [-89, 46.5],
+      [-86, 45.5],
+      [-84, 44],
+      [-83, 43],
+    ],
+  },
+  // Central Asia
+  {
+    name: 'Central Asia-China Gas',
+    type: 'gas',
+    status: 'active',
+    points: [
+      [62, 38],
+      [66, 39],
+      [70, 40],
+      [75, 41],
+      [80, 42],
+      [87, 43],
+    ],
+  },
+  {
+    name: 'Kazakhstan-China Oil',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [53, 47],
+      [60, 46],
+      [68, 45],
+      [75, 44],
+      [82, 44],
+    ],
+  },
+  // South America
+  {
+    name: 'Bolivia-Brazil Gas',
+    type: 'gas',
+    status: 'active',
+    points: [
+      [-63, -18],
+      [-60, -19],
+      [-55, -20],
+      [-50, -21],
+      [-47, -22],
+    ],
+  },
+  {
+    name: 'NorAndino Pipeline',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [-72, 5],
+      [-73, 4],
+      [-74, 3],
+      [-75, 2],
+    ],
+  },
+  // Africa
+  {
+    name: 'Nigeria-Morocco Gas',
+    type: 'gas',
+    status: 'disputed',
+    points: [
+      [3, 6],
+      [0, 8],
+      [-5, 12],
+      [-10, 16],
+      [-12, 20],
+      [-10, 25],
+      [-8, 30],
+      [-6, 34],
+    ],
+  },
+  {
+    name: 'East African Crude',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [31, 1.5],
+      [32, 0],
+      [33, -1],
+      [35, -3],
+      [37, -5],
+      [39, -6.5],
+    ],
+  },
+  // Middle East
+  {
+    name: 'IPSA Pipeline (Iraq-Saudi)',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [44, 31],
+      [43, 30],
+      [42, 28],
+      [41, 26],
+      [40, 24],
+    ],
+  },
+  {
+    name: 'Kirkuk-Ceyhan',
+    type: 'oil',
+    status: 'active',
+    points: [
+      [44, 35.5],
+      [42, 36.5],
+      [40, 37],
+      [37, 37.5],
+      [36, 37],
+    ],
+  },
+  // Europe
+  {
+    name: 'Trans-Anatolian (TANAP)',
+    type: 'gas',
+    status: 'active',
+    points: [
+      [43, 41],
+      [40, 40],
+      [37, 39],
+      [34, 38],
+      [30, 38],
+    ],
+  },
+  {
+    name: 'Baltic Pipe',
+    type: 'gas',
+    status: 'active',
+    points: [
+      [8, 56],
+      [10, 56.5],
+      [12, 57],
+      [14, 56],
+      [16, 55],
+    ],
+  },
+  {
+    name: 'Yamal-Europe',
+    type: 'gas',
+    status: 'active',
+    points: [
+      [68, 66],
+      [60, 62],
+      [50, 58],
+      [40, 56],
+      [30, 54],
+      [24, 52],
+      [18, 52],
+      [14, 52],
+    ],
+  },
 ];
 
 const STATUS_COLORS: Record<string, string> = {

@@ -190,13 +190,15 @@ This project is tracked in Notion under NexusWatch.
 - **Feature Roadmap:** `33945c2d-baf4-8114-a45b-f04e7d568d41`
 - **Bugs & Issues:** `33945c2d-baf4-81fa-97c9-f0f3b05ae85f`
 - **Session Brief (global):** `33945c2d-baf4-81df-bdcf-f10616ef92cf`
+- **Weekly Execution Brief (global):** `33945c2d-baf4-81d6-8e6e-e401346c03d1`
 - **Prompt Library (global):** `33945c2d-baf4-81dc-9f20-c8f04a134c5f`
 
 ### Session start — read in this order:
-1. **Session Brief** — check for a written brief. If one exists, that is your primary directive for this session.
-2. **Bugs & Issues** — check for any OPEN items.
-3. **Feature Roadmap** — check which items are open vs done. Note the Meridian geo-layer integration as a priority dependency.
-4. Then begin work.
+1. **Weekly Execution Brief** — read the most recent week entry for priority context.
+2. **Session Brief** — check for a same-day brief. Overrides the weekly brief if present.
+3. **Bugs & Issues** — check for any OPEN items.
+4. **Feature Roadmap** — check which items are open vs done. Note the Meridian geo-layer integration as a priority dependency.
+5. Then begin work.
 
 ## Important Notes
 - No React or UI framework — vanilla TypeScript + DOM
