@@ -187,6 +187,7 @@ When planning new panels, check the API catalog first — it maps APIs to DashPu
 ## Notion Context
 This project is tracked in Notion under NexusWatch.
 - **NexusWatch page:** `33945c2d-baf4-8144-9e57-d904bd93233e`
+- **Technical Architecture:** `33945c2d-baf4-819f-af1a-e19def623679`
 - **Feature Roadmap:** `33945c2d-baf4-8114-a45b-f04e7d568d41`
 - **Bugs & Issues:** `33945c2d-baf4-81fa-97c9-f0f3b05ae85f`
 - **Session Brief (global):** `33945c2d-baf4-81df-bdcf-f10616ef92cf`
