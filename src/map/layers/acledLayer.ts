@@ -3,6 +3,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
 import { renderPopupCard } from '../PopupCard.ts';
+import { cacheLayerData, getCachedLayerData } from '../../utils/layerCache.ts';
 
 interface AcledEvent {
   id: string;
@@ -61,11 +62,14 @@ export class AcledLayer implements MapDataLayer {
       const result = (await res.json()) as { events: AcledEvent[] };
       this.data = result.events;
       this.lastUpdated = Date.now();
-      if (this.enabled) this.renderLayer();
-      document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
+      cacheLayerData(this.id, this.data);
     } catch (err) {
       console.error('ACLED layer error:', err);
+      const cached = getCachedLayerData<AcledEvent[]>(this.id);
+      if (cached && cached.length > 0) this.data = cached;
     }
+    if (this.enabled && this.data.length > 0) this.renderLayer();
+    document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
   }
 
   getRefreshInterval(): number {

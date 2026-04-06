@@ -3,6 +3,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { fetchAircraft, type Aircraft } from '../../services/flights.ts';
 import { flightPopup } from '../PopupCard.ts';
+import { cacheLayerData, getCachedLayerData } from '../../utils/layerCache.ts';
 
 export class FlightLayer implements MapDataLayer {
   readonly id = 'flights';
@@ -35,19 +36,26 @@ export class FlightLayer implements MapDataLayer {
     try {
       this.data = await fetchAircraft();
       this.lastUpdated = Date.now();
-      if (this.enabled) {
-        // Update source data in place for smooth transitions instead of full re-render
-        if (this.map?.getSource('flights')) {
-          const source = this.map.getSource('flights') as maplibregl.GeoJSONSource;
-          source.setData(this.buildGeoJson());
-        } else {
-          this.renderLayer();
-        }
-      }
-      document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
+      cacheLayerData(this.id, this.data);
     } catch (err) {
       console.error('Flight layer refresh error:', err);
+      // Use cached data on failure
+      const cached = getCachedLayerData<Aircraft[]>(this.id);
+      if (cached && cached.length > 0) {
+        this.data = cached;
+        this.lastUpdated = Date.now();
+      }
     }
+
+    if (this.enabled && this.data.length > 0) {
+      if (this.map?.getSource('flights')) {
+        const source = this.map.getSource('flights') as maplibregl.GeoJSONSource;
+        source.setData(this.buildGeoJson());
+      } else {
+        this.renderLayer();
+      }
+    }
+    document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
   }
 
   getRefreshInterval(): number {

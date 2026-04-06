@@ -4,6 +4,7 @@ import type { MapDataLayer } from './LayerDefinition.ts';
 import type { EarthquakeFeature } from '../../types/index.ts';
 import { fetchEarthquakes } from '../../services/earthquakes.ts';
 import { earthquakePopup } from '../PopupCard.ts';
+import { cacheLayerData, getCachedLayerData } from '../../utils/layerCache.ts';
 
 export class EarthquakeLayer implements MapDataLayer {
   readonly id = 'earthquakes';
@@ -36,15 +37,14 @@ export class EarthquakeLayer implements MapDataLayer {
     try {
       this.data = await fetchEarthquakes('day', 2.5);
       this.lastUpdated = Date.now();
-      if (this.enabled) this.renderLayer();
-      document.dispatchEvent(
-        new CustomEvent('dashview:layer-data', {
-          detail: { layerId: this.id, data: this.data },
-        }),
-      );
+      cacheLayerData(this.id, this.data);
     } catch (err) {
       console.error('Earthquake layer refresh error:', err);
+      const cached = getCachedLayerData<EarthquakeFeature[]>(this.id);
+      if (cached && cached.length > 0) this.data = cached;
     }
+    if (this.enabled && this.data.length > 0) this.renderLayer();
+    document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
   }
 
   getRefreshInterval(): number {

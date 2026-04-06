@@ -10,7 +10,7 @@ const circuits = new Map<string, CircuitEntry>();
 // In-flight request deduplication
 const inFlight = new Map<string, Promise<Response>>();
 const FAILURE_THRESHOLD = 3;
-const OPEN_DURATION_MS = 5 * 60 * 1000;
+const OPEN_DURATION_MS = 60 * 1000; // 60 seconds (was 5 minutes — too aggressive for real-time data)
 
 function getEntry(hostname: string): CircuitEntry {
   let entry = circuits.get(hostname);
