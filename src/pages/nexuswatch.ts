@@ -393,6 +393,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       }
       labelEl.textContent = tensionLabel(tension.global);
       labelEl.style.color = tensionColor(tension.global);
+      // Apply severity class for badge glow
+      tensionSlot.classList.remove('elevated', 'critical');
+      if (tension.global >= 75) tensionSlot.classList.add('critical');
+      else if (tension.global >= 50) tensionSlot.classList.add('elevated');
       // Sparkline for tension history
       const existingSpark = tensionSlot.querySelector('.nw-sparkline');
       if (existingSpark) existingSpark.remove();

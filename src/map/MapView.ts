@@ -28,9 +28,9 @@ export class MapView {
     this.map = new maplibregl.Map({
       container: this.container,
       style: getMapStyleUrl(),
-      center: saved?.center || [30, 20],
-      zoom: saved?.zoom || 1.5,
-      pitch: 15,
+      center: saved?.center || [0, 20],
+      zoom: saved?.zoom || 2.8,
+      pitch: 10,
       bearing: 0,
       attributionControl: false,
       maxZoom: 18,
@@ -50,10 +50,10 @@ export class MapView {
       try {
         (this.map as unknown as { setFog: (opts: Record<string, unknown>) => void })?.setFog({
           color: 'rgba(0, 0, 0, 1)',
-          'high-color': 'rgba(10, 10, 30, 1)',
-          'horizon-blend': 0.05,
+          'high-color': 'rgba(20, 10, 5, 1)',
+          'horizon-blend': 0.12,
           'space-color': 'rgba(0, 0, 0, 1)',
-          'star-intensity': 0.3,
+          'star-intensity': 0.6,
         });
       } catch {
         // Fog not supported
@@ -72,12 +72,29 @@ export class MapView {
       saveTimeout = setTimeout(() => this.saveViewport(), 1000);
     });
 
+    // Center on user's location if no saved viewport
+    if (!saved && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this.map?.flyTo({
+            center: [pos.coords.longitude, pos.coords.latitude],
+            zoom: 3.5,
+            duration: 2000,
+          });
+        },
+        () => {
+          // Geolocation denied — stay at default center
+        },
+        { timeout: 5000 },
+      );
+    }
+
     // Auto-rotate globe slowly on first load (stops on user interaction)
     let rotating = true;
     const rotateGlobe = () => {
       if (!rotating || !this.map) return;
       const center = this.map.getCenter();
-      this.map.setCenter([center.lng + 0.03, center.lat]);
+      this.map.setCenter([center.lng + 0.015, center.lat]);
       requestAnimationFrame(rotateGlobe);
     };
 
@@ -102,7 +119,7 @@ export class MapView {
   }
 
   flyTo(lng: number, lat: number, zoom = 6): void {
-    this.map?.flyTo({ center: [lng, lat], zoom, duration: 1500 });
+    this.map?.flyTo({ center: [lng, lat], zoom, duration: 2200, curve: 1.42 });
   }
 
   private saveViewport(): void {
