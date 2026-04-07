@@ -1,0 +1,469 @@
+/* ── Cinema Mode ── */
+
+/* Chrome transitions (smooth fade, not display:none like fullscreen) */
+.nw-app.nw-cinema .nw-topbar {
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+.nw-app.nw-cinema .nw-sidebar {
+  opacity: 0;
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+.nw-app.nw-cinema .nw-statusbar {
+  opacity: 0;
+  pointer-events: none;
+}
+.nw-app.nw-cinema .nw-map-container {
+  width: 100% !important;
+}
+
+/* ── Intro Sequence ── */
+
+.cinema-intro-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+.cinema-intro-overlay.fade-out {
+  opacity: 0;
+}
+
+.cinema-intro-text {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+  color: #ff6600;
+  opacity: 0;
+  animation: cinema-intro-pulse 2s ease-in-out forwards;
+  text-shadow: 0 0 40px rgba(255, 102, 0, 0.6), 0 0 80px rgba(255, 102, 0, 0.3);
+}
+
+@keyframes cinema-intro-pulse {
+  0% { opacity: 0; transform: scale(0.95); }
+  25% { opacity: 1; transform: scale(1); }
+  70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.02); }
+}
+
+/* ── Profile Bar ── */
+
+.cinema-profile-bar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 102, 0, 0.2);
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.cinema-profile-bar.visible {
+  opacity: 1;
+}
+
+.cinema-profile-pill {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.cinema-profile-pill:hover {
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 102, 0, 0.4);
+}
+.cinema-profile-pill.active {
+  color: #ff6600;
+  border-color: #ff6600;
+  background: rgba(255, 102, 0, 0.1);
+  text-shadow: 0 0 8px rgba(255, 102, 0, 0.4);
+}
+
+/* ── HUD Overlay ── */
+
+.cinema-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+}
+
+/* Corner brackets */
+.cinema-hud::before,
+.cinema-hud::after {
+  content: '';
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-color: rgba(255, 102, 0, 0.25);
+  border-style: solid;
+}
+.cinema-hud::before {
+  top: 48px;
+  left: 16px;
+  border-width: 1px 0 0 1px;
+}
+.cinema-hud::after {
+  top: 48px;
+  right: 16px;
+  border-width: 1px 1px 0 0;
+}
+
+.cinema-hud-bottomleft::before {
+  content: '';
+  position: absolute;
+  bottom: 52px;
+  left: 0;
+  width: 40px;
+  height: 40px;
+  border-color: rgba(255, 102, 0, 0.25);
+  border-style: solid;
+  border-width: 0 0 1px 1px;
+}
+.cinema-hud-bottomright::before {
+  content: '';
+  position: absolute;
+  bottom: 52px;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  border-color: rgba(255, 102, 0, 0.25);
+  border-style: solid;
+  border-width: 0 1px 1px 0;
+}
+
+.cinema-hud-topleft {
+  position: absolute;
+  top: 56px;
+  left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cinema-hud-live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #ef4444;
+}
+.cinema-hud-live::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: nw-pulse 2s ease-in-out infinite;
+}
+
+.cinema-hud-time {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 1px;
+}
+
+.cinema-hud-profile-badge {
+  font-size: 9px;
+  color: #ff6600;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.cinema-hud-topright {
+  position: absolute;
+  top: 56px;
+  right: 24px;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cinema-hud-tension-value {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  transition: color 0.5s ease;
+}
+
+.cinema-hud-tension-label {
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+}
+
+.cinema-hud-tension-trend {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 1px;
+}
+
+.cinema-hud-bottomleft {
+  position: absolute;
+  bottom: 52px;
+  left: 24px;
+  display: flex;
+  gap: 16px;
+}
+
+.cinema-hud-stat {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.3s ease;
+}
+.cinema-hud-stat strong {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+}
+
+.cinema-hud-bottomright {
+  position: absolute;
+  bottom: 52px;
+  right: 24px;
+}
+
+.cinema-mute-btn {
+  pointer-events: auto;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.cinema-mute-btn:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── Event Ticker ── */
+
+.cinema-ticker {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.85);
+  border-top: 1px solid rgba(255, 102, 0, 0.3);
+  z-index: 250;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.cinema-ticker-track {
+  display: flex;
+  gap: 12px;
+  padding: 0 16px;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.cinema-ticker-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  animation: cinema-pill-enter 0.4s ease-out;
+}
+.cinema-ticker-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cinema-ticker-pill[data-severity='critical'] {
+  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+}
+.cinema-ticker-pill[data-severity='elevated'] {
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.1);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+}
+.cinema-ticker-pill[data-severity='monitor'] {
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cinema-ticker-pill[data-severity='info'] {
+  color: rgba(255, 255, 255, 0.35);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  font-style: italic;
+}
+
+.cinema-ticker-pill .pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cinema-ticker-pill[data-severity='critical'] .pill-dot { background: #ef4444; }
+.cinema-ticker-pill[data-severity='elevated'] .pill-dot { background: #f97316; }
+.cinema-ticker-pill[data-severity='monitor'] .pill-dot { background: rgba(255, 255, 255, 0.3); }
+.cinema-ticker-pill[data-severity='info'] .pill-dot { background: rgba(255, 255, 255, 0.2); }
+
+.cinema-ticker-pill .pill-time {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 9px;
+}
+
+@keyframes cinema-pill-enter {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Narration Overlay ── */
+
+.cinema-narration {
+  position: fixed;
+  bottom: 52px;
+  left: 16px;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  border-left: 2px solid #ff6600;
+  border-radius: 0 4px 4px 0;
+  padding: 12px 16px;
+  z-index: 260;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  transform: translateX(-110%);
+  opacity: 0;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}
+.cinema-narration.visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.cinema-narration-header {
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #ff6600;
+  margin-bottom: 6px;
+}
+
+.cinema-narration-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.cinema-narration-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: #ff6600;
+  margin-left: 2px;
+  animation: cinema-cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes cinema-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Scanline Effect (subtle CRT/radar feel) ── */
+
+.cinema-scanline {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 190;
+  overflow: hidden;
+}
+.cinema-scanline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 102, 0, 0.03), transparent);
+  animation: cinema-scanline-sweep 8s linear infinite;
+}
+
+@keyframes cinema-scanline-sweep {
+  from { top: -2px; }
+  to { top: 100%; }
+}
+
+/* ── Exit Button ── */
+
+.cinema-exit-btn {
+  position: fixed;
+  bottom: 44px;
+  right: 16px;
+  z-index: 310;
+  pointer-events: auto;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.3);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.cinema-exit-btn:hover {
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Staggered HUD entry ── */
+
+.cinema-hud > * {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.cinema-hud.revealed > * {
+  opacity: 1;
+}
+.cinema-hud.revealed > :nth-child(1) { transition-delay: 0ms; }
+.cinema-hud.revealed > :nth-child(2) { transition-delay: 150ms; }
+.cinema-hud.revealed > :nth-child(3) { transition-delay: 300ms; }
+.cinema-hud.revealed > :nth-child(4) { transition-delay: 450ms; }
+.cinema-hud.revealed > :nth-child(5) { transition-delay: 600ms; }

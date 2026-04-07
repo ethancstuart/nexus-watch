@@ -59,8 +59,10 @@ import { showOnboarding } from '../ui/onboardingOverlay.ts';
 import { createMapLegend } from '../ui/mapLegend.ts';
 import { createAiTerminal } from '../ui/aiTerminal.ts';
 import { animateCounter } from '../ui/animatedCounter.ts';
+import { identifyRegion } from '../utils/geo.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
+import { CinemaMode } from '../cinema/CinemaMode.ts';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
 
@@ -117,10 +119,13 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   statusArea.appendChild(liveDot);
   statusArea.appendChild(clockEl);
 
+  const cinemaBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'CINEMA' });
+
   topRight.appendChild(drawerToggleSlot);
   topRight.appendChild(sitrepBtn);
   topRight.appendChild(briefBtn);
   topRight.appendChild(popoutSlot);
+  topRight.appendChild(cinemaBtn);
   topRight.appendChild(styleToggle);
   topRight.appendChild(statusArea);
 
@@ -211,6 +216,17 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   map.on('load', () => {
     layerManager.initAll();
   });
+
+  // ── Cinema Mode ──
+  const cinema = new CinemaMode({
+    app,
+    mapContainer,
+    mapView,
+    layerManager,
+    getLayerData,
+    signal,
+  });
+  cinemaBtn.addEventListener('click', () => cinema.toggle());
 
   // ── Floating widgets ──
   const floatMgr = new FloatingWidgetManager(mapContainer);
@@ -520,7 +536,14 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         case 's':
           if (!e.ctrlKey && !e.metaKey) sitrepBtn.click();
           break;
+        case 'c':
+          if (!e.ctrlKey && !e.metaKey) cinema.toggle();
+          break;
         case 'Escape':
+          if (cinema.isActive()) {
+            cinema.exit();
+            break;
+          }
           mapContainer.querySelector('.nw-sitrep-overlay')?.remove();
           if (app.classList.contains('nw-fullscreen')) toggleFullscreen();
           break;
@@ -538,6 +561,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // ── Cleanup ──
   signal.addEventListener('abort', () => {
     clearInterval(clockInterval);
+    cinema.destroy();
     mapView.destroy();
     layerManager.destroy();
     floatMgr.destroy();
@@ -911,38 +935,7 @@ function showShortcutsHelp(container: HTMLElement): void {
 
 // ── Utils ──
 
-function identifyRegion(lat: number, lon: number): string | null {
-  const regions: { name: string; lat: number; lon: number; radius: number }[] = [
-    { name: 'EASTERN EUROPE / UKRAINE THEATER', lat: 48, lon: 35, radius: 8 },
-    { name: 'MIDDLE EAST / PERSIAN GULF', lat: 28, lon: 50, radius: 12 },
-    { name: 'EASTERN MEDITERRANEAN', lat: 33, lon: 35, radius: 6 },
-    { name: 'HORN OF AFRICA', lat: 8, lon: 45, radius: 10 },
-    { name: 'SAHEL REGION', lat: 14, lon: 0, radius: 12 },
-    { name: 'SOUTH CHINA SEA', lat: 12, lon: 114, radius: 8 },
-    { name: 'TAIWAN STRAIT', lat: 24, lon: 120, radius: 4 },
-    { name: 'KOREAN PENINSULA', lat: 37, lon: 127, radius: 5 },
-    { name: 'SOUTH ASIA', lat: 24, lon: 75, radius: 12 },
-    { name: 'CENTRAL ASIA', lat: 40, lon: 65, radius: 10 },
-    { name: 'WEST AFRICA', lat: 8, lon: -5, radius: 10 },
-    { name: 'CENTRAL AFRICA / GREAT LAKES', lat: -2, lon: 28, radius: 8 },
-    { name: 'NORTH ATLANTIC', lat: 50, lon: -30, radius: 15 },
-    { name: 'ARCTIC', lat: 75, lon: 0, radius: 15 },
-    { name: 'CARIBBEAN / CENTRAL AMERICA', lat: 15, lon: -75, radius: 10 },
-    { name: 'SOUTH AMERICA', lat: -15, lon: -55, radius: 15 },
-    { name: 'SOUTHEAST ASIA', lat: 5, lon: 105, radius: 10 },
-    { name: 'WESTERN EUROPE', lat: 48, lon: 5, radius: 10 },
-    { name: 'NORTH AMERICA', lat: 40, lon: -100, radius: 15 },
-    { name: 'EAST AFRICA', lat: -5, lon: 37, radius: 8 },
-    { name: 'SOUTHERN AFRICA', lat: -28, lon: 25, radius: 10 },
-    { name: 'OCEANIA', lat: -25, lon: 135, radius: 15 },
-  ];
-
-  for (const r of regions) {
-    const dist = Math.sqrt((lat - r.lat) ** 2 + (lon - r.lon) ** 2);
-    if (dist < r.radius) return r.name;
-  }
-  return null;
-}
+// identifyRegion moved to src/utils/geo.ts
 
 function countryFlag(code: string): string {
   const OFFSET = 0x1f1e6 - 65;

@@ -11,6 +11,9 @@ export class MapView {
   private map: maplibregl.Map | null = null;
   private container: HTMLElement;
   private resizeObserver: ResizeObserver | null = null;
+  private rotating = false;
+  private rotationSpeed = 0.015;
+  private rotationFrame: number | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -90,22 +93,25 @@ export class MapView {
     }
 
     // Auto-rotate globe slowly on first load (stops on user interaction)
-    let rotating = true;
+    this.rotating = true;
+    this.rotationSpeed = 0.015;
     const rotateGlobe = () => {
-      if (!rotating || !this.map) return;
+      if (!this.rotating || !this.map) return;
       const center = this.map.getCenter();
-      this.map.setCenter([center.lng + 0.015, center.lat]);
-      requestAnimationFrame(rotateGlobe);
+      this.map.setCenter([center.lng + this.rotationSpeed, center.lat]);
+      this.rotationFrame = requestAnimationFrame(rotateGlobe);
     };
 
     // Start rotation after layers load
     this.map.on('load', () => {
-      setTimeout(() => rotateGlobe(), 2000); // Start 2s after load
+      setTimeout(() => rotateGlobe(), 2000);
     });
 
     // Stop on any user interaction
     const stopRotation = () => {
-      rotating = false;
+      this.rotating = false;
+      if (this.rotationFrame) cancelAnimationFrame(this.rotationFrame);
+      this.rotationFrame = null;
     };
     this.map.on('mousedown', stopRotation);
     this.map.on('touchstart', stopRotation);
@@ -137,6 +143,56 @@ export class MapView {
       // ignore
     }
     return null;
+  }
+
+  startRotation(degreesPerFrame = 0.015): void {
+    if (this.rotating) return;
+    this.rotating = true;
+    this.rotationSpeed = degreesPerFrame;
+    const rotate = () => {
+      if (!this.rotating || !this.map) return;
+      const center = this.map.getCenter();
+      this.map.setCenter([center.lng + this.rotationSpeed, center.lat]);
+      this.rotationFrame = requestAnimationFrame(rotate);
+    };
+    rotate();
+  }
+
+  stopRotation(): void {
+    this.rotating = false;
+    if (this.rotationFrame) cancelAnimationFrame(this.rotationFrame);
+    this.rotationFrame = null;
+  }
+
+  isRotating(): boolean {
+    return this.rotating;
+  }
+
+  flyToAsync(
+    lng: number,
+    lat: number,
+    zoom = 6,
+    opts?: Partial<{ duration: number; curve: number; pitch: number }>,
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.map) {
+        resolve();
+        return;
+      }
+      const onEnd = () => {
+        this.map?.off('moveend', onEnd);
+        resolve();
+      };
+      this.map.on('moveend', onEnd);
+      this.map.flyTo({
+        center: [lng, lat],
+        zoom,
+        duration: opts?.duration ?? 3500,
+        curve: opts?.curve ?? 1.8,
+        pitch: opts?.pitch ?? 10,
+        essential: true,
+      });
+    });
   }
 
   getViewState(): { center: [number, number]; zoom: number; pitch: number; bearing: number } {
