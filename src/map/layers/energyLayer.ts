@@ -539,7 +539,7 @@ export class EnergyLayer implements MapDataLayer {
   readonly name = 'Energy Infrastructure';
   readonly category = 'infrastructure' as const;
   readonly icon = '⛽';
-  readonly description = 'Oil rigs, refineries, LNG terminals, and major fields';
+  readonly description = 'Oil rigs, refineries, LNG terminals, and major fields (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

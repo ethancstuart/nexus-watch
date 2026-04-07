@@ -52,7 +52,7 @@ export class NuclearLayer implements MapDataLayer {
   readonly name = 'Nuclear Facilities';
   readonly category = 'infrastructure' as const;
   readonly icon = '☢';
-  readonly description = 'Nuclear power, enrichment, and weapons facilities';
+  readonly description = 'Nuclear power, enrichment, and weapons facilities (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

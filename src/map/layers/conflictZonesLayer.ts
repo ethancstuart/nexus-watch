@@ -77,7 +77,7 @@ export class ConflictZonesLayer implements MapDataLayer {
   readonly name = 'Conflict Zones';
   readonly category = 'conflict' as const;
   readonly icon = '💥';
-  readonly description = 'Active armed conflicts and insurgencies';
+  readonly description = 'Active armed conflicts and insurgencies (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

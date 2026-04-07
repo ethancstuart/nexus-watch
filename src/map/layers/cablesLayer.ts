@@ -566,7 +566,7 @@ export class CablesLayer implements MapDataLayer {
   readonly name = 'Undersea Cables';
   readonly category = 'infrastructure' as const;
   readonly icon = '🔌';
-  readonly description = 'Major submarine telecommunications cables';
+  readonly description = 'Major submarine telecommunications cables (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

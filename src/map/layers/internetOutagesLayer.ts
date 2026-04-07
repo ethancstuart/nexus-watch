@@ -15,10 +15,10 @@ interface InternetOutage {
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
-  permanent: '#dc2626',
-  frequent: '#ef4444',
-  recurring: '#f97316',
-  moderate: '#eab308',
+  critical: '#dc2626',
+  high: '#ef4444',
+  moderate: '#f97316',
+  normal: '#22c55e',
 };
 
 export class InternetOutagesLayer implements MapDataLayer {
@@ -26,7 +26,7 @@ export class InternetOutagesLayer implements MapDataLayer {
   readonly name = 'Internet Outages';
   readonly category = 'infrastructure' as const;
   readonly icon = '🌐';
-  readonly description = 'Internet shutdowns and censorship by country';
+  readonly description = 'Live internet connectivity monitoring via IODA BGP analysis';
 
   private map: MaplibreMap | null = null;
   private enabled = false;
@@ -61,7 +61,7 @@ export class InternetOutagesLayer implements MapDataLayer {
   }
 
   getRefreshInterval(): number {
-    return 3600_000;
+    return 300_000; // 5 minutes — matches IODA cache
   }
   isEnabled(): boolean {
     return this.enabled;
@@ -99,7 +99,7 @@ export class InternetOutagesLayer implements MapDataLayer {
       type: 'circle',
       source: 'internet-outages',
       paint: {
-        'circle-radius': ['match', ['get', 'severity'], 'permanent', 7, 'frequent', 6, 5],
+        'circle-radius': ['match', ['get', 'severity'], 'critical', 8, 'high', 7, 'moderate', 6, 4],
         'circle-color': ['get', 'color'],
         'circle-stroke-width': 1.5,
         'circle-stroke-color': 'rgba(255,255,255,0.3)',

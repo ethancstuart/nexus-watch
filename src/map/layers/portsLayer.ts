@@ -47,7 +47,7 @@ export class PortsLayer implements MapDataLayer {
   readonly name = 'Strategic Ports';
   readonly category = 'infrastructure' as const;
   readonly icon = '⚓';
-  readonly description = 'Major ports and maritime chokepoints';
+  readonly description = 'Major ports and maritime chokepoints (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

@@ -391,7 +391,7 @@ export class PipelinesLayer implements MapDataLayer {
   readonly name = 'Oil & Gas Pipelines';
   readonly category = 'infrastructure' as const;
   readonly icon = '🛢';
-  readonly description = 'Major oil and gas pipelines';
+  readonly description = 'Major oil and gas pipelines (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

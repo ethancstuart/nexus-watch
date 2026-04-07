@@ -116,7 +116,7 @@ export class SanctionsLayer implements MapDataLayer {
   readonly name = 'OFAC Sanctions';
   readonly category = 'intelligence' as const;
   readonly icon = '🚫';
-  readonly description = 'US/EU sanctioned countries and programs';
+  readonly description = 'US/EU sanctioned countries and programs (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

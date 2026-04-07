@@ -38,7 +38,7 @@ export class GpsJammingLayer implements MapDataLayer {
   readonly name = 'GPS Jamming';
   readonly category = 'intelligence' as const;
   readonly icon = '📡';
-  readonly description = 'Known GPS/GNSS jamming and spoofing zones';
+  readonly description = 'Known GPS/GNSS jamming and spoofing zones (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

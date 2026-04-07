@@ -38,7 +38,7 @@ export class DiseaseLayer implements MapDataLayer {
   readonly name = 'Disease Outbreaks';
   readonly category = 'natural' as const;
   readonly icon = '🦠';
-  readonly description = 'WHO disease outbreaks and epidemics';
+  readonly description = 'WHO Disease Outbreak News — live reports';
 
   private map: MaplibreMap | null = null;
   private enabled = false;
@@ -73,7 +73,7 @@ export class DiseaseLayer implements MapDataLayer {
   }
 
   getRefreshInterval(): number {
-    return 3600_000;
+    return 1800_000; // 30 minutes — matches WHO DON cache
   }
   isEnabled(): boolean {
     return this.enabled;

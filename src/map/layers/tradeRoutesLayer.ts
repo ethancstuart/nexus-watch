@@ -144,7 +144,7 @@ export class TradeRoutesLayer implements MapDataLayer {
   readonly name = 'Trade Routes';
   readonly category = 'infrastructure' as const;
   readonly icon = '📦';
-  readonly description = 'Major global shipping and trade lanes';
+  readonly description = 'Major global shipping and trade lanes (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

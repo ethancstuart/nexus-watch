@@ -2,130 +2,18 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { renderPopupCard } from '../PopupCard.ts';
+import { fetchWithRetry } from '../../utils/fetch.ts';
 
-interface LaunchSite {
-  name: string;
+interface LaunchData {
   provider: string;
   country: string;
   lat: number;
   lon: number;
-  nextLaunch: string;
+  date: string;
   vehicle: string;
   mission: string;
+  status: string;
 }
-
-const LAUNCH_SITES: LaunchSite[] = [
-  {
-    name: 'Kennedy Space Center',
-    provider: 'SpaceX/NASA',
-    country: 'US',
-    lat: 28.57,
-    lon: -80.65,
-    nextLaunch: '2026-04-08',
-    vehicle: 'Falcon 9',
-    mission: 'Starlink Group 12-5',
-  },
-  {
-    name: 'Cape Canaveral SFS',
-    provider: 'ULA',
-    country: 'US',
-    lat: 28.49,
-    lon: -80.58,
-    nextLaunch: '2026-04-15',
-    vehicle: 'Vulcan Centaur',
-    mission: 'USSF-106',
-  },
-  {
-    name: 'Vandenberg SFB',
-    provider: 'SpaceX',
-    country: 'US',
-    lat: 34.63,
-    lon: -120.57,
-    nextLaunch: '2026-04-10',
-    vehicle: 'Falcon 9',
-    mission: 'NROL-167',
-  },
-  {
-    name: 'Boca Chica (Starbase)',
-    provider: 'SpaceX',
-    country: 'US',
-    lat: 25.99,
-    lon: -97.16,
-    nextLaunch: '2026-04-20',
-    vehicle: 'Starship',
-    mission: 'Flight Test 8',
-  },
-  {
-    name: 'Guiana Space Centre',
-    provider: 'Arianespace',
-    country: 'FR',
-    lat: 5.24,
-    lon: -52.77,
-    nextLaunch: '2026-04-12',
-    vehicle: 'Ariane 6',
-    mission: 'SES-26',
-  },
-  {
-    name: 'Jiuquan Satellite Launch Center',
-    provider: 'CASC',
-    country: 'CN',
-    lat: 40.96,
-    lon: 100.28,
-    nextLaunch: '2026-04-06',
-    vehicle: 'Long March 2D',
-    mission: 'Yaogan-43',
-  },
-  {
-    name: 'Wenchang Space Launch Site',
-    provider: 'CASC',
-    country: 'CN',
-    lat: 19.61,
-    lon: 110.95,
-    nextLaunch: '2026-04-18',
-    vehicle: 'Long March 5B',
-    mission: 'Tiangong module',
-  },
-  {
-    name: 'Baikonur Cosmodrome',
-    provider: 'Roscosmos',
-    country: 'KZ',
-    lat: 45.97,
-    lon: 63.31,
-    nextLaunch: '2026-04-14',
-    vehicle: 'Soyuz 2.1a',
-    mission: 'Progress MS-31',
-  },
-  {
-    name: 'Satish Dhawan Space Centre',
-    provider: 'ISRO',
-    country: 'IN',
-    lat: 13.73,
-    lon: 80.23,
-    nextLaunch: '2026-04-22',
-    vehicle: 'PSLV-C60',
-    mission: 'EOS-09',
-  },
-  {
-    name: 'Tanegashima Space Center',
-    provider: 'JAXA',
-    country: 'JP',
-    lat: 30.37,
-    lon: 131.0,
-    nextLaunch: '2026-05-01',
-    vehicle: 'H3',
-    mission: 'IGS Radar 8',
-  },
-  {
-    name: 'Mahia Peninsula',
-    provider: 'Rocket Lab',
-    country: 'NZ',
-    lat: -39.26,
-    lon: 177.86,
-    nextLaunch: '2026-04-11',
-    vehicle: 'Electron',
-    mission: 'Kineis IoT-10',
-  },
-];
 
 function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
@@ -136,10 +24,12 @@ export class LaunchLayer implements MapDataLayer {
   readonly name = 'Space Launches';
   readonly category = 'infrastructure' as const;
   readonly icon = '🚀';
-  readonly description = 'Upcoming rocket launches worldwide';
+  readonly description = 'Upcoming rocket launches from Launch Library 2';
 
   private map: MaplibreMap | null = null;
   private enabled = false;
+  private lastUpdated: number | null = null;
+  private data: LaunchData[] = [];
   private popup: maplibregl.Popup | null = null;
 
   init(map: MaplibreMap): void {
@@ -153,42 +43,53 @@ export class LaunchLayer implements MapDataLayer {
     this.enabled = false;
     this.removeLayer();
   }
+
   async refresh(): Promise<void> {
-    document.dispatchEvent(
-      new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: LAUNCH_SITES } }),
-    );
+    try {
+      const res = await fetchWithRetry('/api/launches');
+      const json = await res.json();
+      if (json.launches?.length > 0) {
+        this.data = json.launches;
+        this.lastUpdated = Date.now();
+        if (this.enabled) this.renderLayer();
+      }
+      document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
+    } catch (err) {
+      console.error('Launch layer refresh error:', err);
+    }
   }
+
   getRefreshInterval(): number {
-    return 0;
+    return 300_000; // 5 minutes
   }
   isEnabled(): boolean {
     return this.enabled;
   }
   getLastUpdated(): number | null {
-    return Date.now();
+    return this.lastUpdated;
   }
   getFeatureCount(): number {
-    return LAUNCH_SITES.length;
+    return this.data.length;
   }
 
   private renderLayer(): void {
-    if (!this.map) return;
+    if (!this.map || this.data.length === 0) return;
     this.removeLayer();
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: LAUNCH_SITES.map((s) => {
-        const days = daysUntil(s.nextLaunch);
+      features: this.data.map((s) => {
+        const days = daysUntil(s.date);
         return {
           type: 'Feature' as const,
           geometry: { type: 'Point' as const, coordinates: [s.lon, s.lat] },
           properties: {
-            name: s.name,
             provider: s.provider,
             country: s.country,
             vehicle: s.vehicle,
             mission: s.mission,
-            date: s.nextLaunch,
+            date: s.date.split('T')[0],
             days,
+            status: s.status,
             color: days <= 3 ? '#ef4444' : days <= 7 ? '#f97316' : '#8b5cf6',
           },
         };
@@ -247,8 +148,8 @@ export class LaunchLayer implements MapDataLayer {
             typeColor: String(p.color),
             title: `${p.vehicle} — ${p.mission}`,
             fields: [
-              { label: 'Site', value: String(p.name) },
               { label: 'Provider', value: String(p.provider) },
+              { label: 'Status', value: String(p.status) },
               { label: 'Date', value: String(p.date) },
               { label: 'In', value: `${p.days} days` },
             ],

@@ -173,7 +173,7 @@ export class FrontlinesLayer implements MapDataLayer {
   readonly name = 'Conflict Frontlines';
   readonly category = 'conflict' as const;
   readonly icon = '⚔';
-  readonly description = 'Active conflict zones and frontline traces';
+  readonly description = 'Active conflict zones and frontline traces (curated 2026-04, ISW/DeepState)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

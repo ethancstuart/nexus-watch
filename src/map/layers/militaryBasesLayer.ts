@@ -107,7 +107,7 @@ export class MilitaryBasesLayer implements MapDataLayer {
   readonly name = 'Military Bases';
   readonly category = 'conflict' as const;
   readonly icon = '⚔';
-  readonly description = 'Major military installations worldwide';
+  readonly description = 'Major military installations worldwide (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

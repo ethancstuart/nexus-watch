@@ -39,7 +39,7 @@ export class ChokepointStatusLayer implements MapDataLayer {
   readonly name = 'Chokepoint Status';
   readonly category = 'infrastructure' as const;
   readonly icon = '🚢';
-  readonly description = 'Maritime chokepoint threat assessment';
+  readonly description = 'Maritime chokepoint threat assessment (curated 2026-04)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

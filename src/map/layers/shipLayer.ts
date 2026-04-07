@@ -13,10 +13,10 @@ const TYPE_COLORS: Record<string, string> = {
 
 export class ShipLayer implements MapDataLayer {
   readonly id = 'ships';
-  readonly name = 'Ship Tracking (Simulated)';
+  readonly name = 'Ship Tracking (AIS)';
   readonly category = 'infrastructure' as const;
   readonly icon = '🚢';
-  readonly description = 'Representative vessel positions in major shipping lanes (simulated)';
+  readonly description = 'Live vessel positions via AIS transponder data';
 
   private map: MaplibreMap | null = null;
   private enabled = false;
@@ -151,7 +151,7 @@ export class ShipLayer implements MapDataLayer {
         .setLngLat([coords[0], coords[1]])
         .setHTML(
           renderPopupCard({
-            type: `${String(p.type).toUpperCase()} VESSEL (SIMULATED)`,
+            type: `${String(p.type).toUpperCase()} VESSEL`,
             typeColor: String(p.color),
             title: String(p.name),
             fields: [

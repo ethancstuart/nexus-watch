@@ -2,100 +2,23 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { renderPopupCard } from '../PopupCard.ts';
+import { fetchWithRetry } from '../../utils/fetch.ts';
 
-interface SatelliteOrbit {
+interface SatelliteData {
   name: string;
+  noradId: number;
   type: string;
   country: string;
-  inclination: number; // degrees
-  altitude: number; // km
-  period: number; // minutes
-  raan0: number; // initial right ascension of ascending node
-  phase0: number; // initial phase offset
+  inclination: number;
+  eccentricity: number;
+  period: number;
+  raan: number;
+  argPericenter: number;
+  meanAnomaly: number;
+  meanMotion: number;
+  epoch: string;
+  altitude: number;
 }
-
-const SATELLITES: SatelliteOrbit[] = [
-  {
-    name: 'ISS (ZARYA)',
-    type: 'station',
-    country: 'Intl',
-    inclination: 51.6,
-    altitude: 420,
-    period: 93,
-    raan0: 208,
-    phase0: 35,
-  },
-  {
-    name: 'TIANGONG',
-    type: 'station',
-    country: 'CN',
-    inclination: 41.5,
-    altitude: 390,
-    period: 92,
-    raan0: 60,
-    phase0: 280,
-  },
-  {
-    name: 'STARLINK-1007',
-    type: 'communication',
-    country: 'US',
-    inclination: 53.0,
-    altitude: 550,
-    period: 96,
-    raan0: 120,
-    phase0: 90,
-  },
-  {
-    name: 'COSMOS 2558',
-    type: 'reconnaissance',
-    country: 'RU',
-    inclination: 97.3,
-    altitude: 440,
-    period: 93,
-    raan0: 45,
-    phase0: 200,
-  },
-  {
-    name: 'USA-326 (KH-11)',
-    type: 'reconnaissance',
-    country: 'US',
-    inclination: 97.4,
-    altitude: 260,
-    period: 90,
-    raan0: 80,
-    phase0: 150,
-  },
-  {
-    name: 'YAOGAN-39',
-    type: 'reconnaissance',
-    country: 'CN',
-    inclination: 35.0,
-    altitude: 600,
-    period: 97,
-    raan0: 200,
-    phase0: 100,
-  },
-  {
-    name: 'GPS IIF-12',
-    type: 'navigation',
-    country: 'US',
-    inclination: 55.0,
-    altitude: 20200,
-    period: 718,
-    raan0: 150,
-    phase0: 50,
-  },
-  {
-    name: 'GLONASS-M 751',
-    type: 'navigation',
-    country: 'RU',
-    inclination: 64.8,
-    altitude: 19130,
-    period: 676,
-    raan0: 90,
-    phase0: 270,
-  },
-];
 
 const TYPE_COLORS: Record<string, string> = {
   station: '#00ff00',
@@ -109,10 +32,12 @@ export class SatelliteLayer implements MapDataLayer {
   readonly name = 'Satellites';
   readonly category = 'intelligence' as const;
   readonly icon = '🛰';
-  readonly description = 'Notable military and intelligence satellites';
+  readonly description = 'Live satellite positions from CelesTrak orbital data';
 
   private map: MaplibreMap | null = null;
   private enabled = false;
+  private lastUpdated: number | null = null;
+  private data: SatelliteData[] = [];
   private popup: maplibregl.Popup | null = null;
   private tickTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -129,20 +54,32 @@ export class SatelliteLayer implements MapDataLayer {
     this.stopAnimation();
     this.removeLayer();
   }
+
   async refresh(): Promise<void> {
-    document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: SATELLITES } }));
+    try {
+      const res = await fetchWithRetry('/api/satellites');
+      const json = await res.json();
+      if (json.satellites?.length > 0) {
+        this.data = json.satellites;
+        this.lastUpdated = Date.now();
+      }
+      document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
+    } catch (err) {
+      console.error('Satellite layer refresh error:', err);
+    }
   }
+
   getRefreshInterval(): number {
-    return 0;
+    return 7200_000; // 2 hours — matches CelesTrak update cadence
   }
   isEnabled(): boolean {
     return this.enabled;
   }
   getLastUpdated(): number | null {
-    return Date.now();
+    return this.lastUpdated;
   }
   getFeatureCount(): number {
-    return SATELLITES.length;
+    return this.data.length;
   }
 
   private computePositions(): GeoJSON.FeatureCollection {
@@ -151,23 +88,30 @@ export class SatelliteLayer implements MapDataLayer {
 
     return {
       type: 'FeatureCollection',
-      features: SATELLITES.map((sat) => {
-        // Simplified Keplerian orbit model
-        const angularRate = 360 / (sat.period * 60 * 1000); // deg/ms
-        const meanAnomaly = ((now * angularRate + sat.phase0) % 360) * toRad;
+      features: this.data.map((sat) => {
+        // Time since epoch in minutes
+        const epochMs = new Date(sat.epoch).getTime();
+        const elapsedMin = (now - epochMs) / 60000;
+
+        // Mean anomaly propagation
+        const meanMotionDegPerMin = (sat.meanMotion * 360) / 1440;
+        const currentMA = ((sat.meanAnomaly + meanMotionDegPerMin * elapsedMin) % 360) * toRad;
 
         // Earth rotation: ~360 deg / 86164s (sidereal day)
         const earthRotation = ((now / 86164000) * 360) % 360;
 
-        // RAAN precession (simplified): J2 perturbation
-        const raanRate = -1.5 * 0.00108263 * Math.cos(sat.inclination * toRad) * (360 / sat.period); // deg/orbit
-        const raan = (sat.raan0 + (now / (sat.period * 60000)) * raanRate - earthRotation) * toRad;
+        // RAAN precession (J2)
+        const raanRate = -1.5 * 0.00108263 * Math.cos(sat.inclination * toRad) * sat.meanMotion;
+        const raan = (sat.raan + raanRate * (elapsedMin / 1440) - earthRotation) * toRad;
 
-        // Latitude from inclination and mean anomaly
-        const lat = Math.asin(Math.sin(sat.inclination * toRad) * Math.sin(meanAnomaly)) / toRad;
+        // Argument of latitude
+        const argLat = currentMA + sat.argPericenter * toRad;
+
+        // Latitude from inclination and argument of latitude
+        const lat = Math.asin(Math.sin(sat.inclination * toRad) * Math.sin(argLat)) / toRad;
         // Longitude from RAAN and position in orbit
         const lon =
-          ((Math.atan2(Math.cos(sat.inclination * toRad) * Math.sin(meanAnomaly), Math.cos(meanAnomaly)) / toRad +
+          ((Math.atan2(Math.cos(sat.inclination * toRad) * Math.sin(argLat), Math.cos(argLat)) / toRad +
             raan / toRad +
             180) %
             360) -
@@ -181,6 +125,7 @@ export class SatelliteLayer implements MapDataLayer {
             type: sat.type,
             country: sat.country,
             altitude: sat.altitude,
+            noradId: sat.noradId,
             color: TYPE_COLORS[sat.type] || '#6b7280',
           },
         };
@@ -192,7 +137,8 @@ export class SatelliteLayer implements MapDataLayer {
     if (!this.map) return;
     this.removeLayer();
 
-    this.map.addSource('satellites', { type: 'geojson', data: this.computePositions() });
+    const positions = this.data.length > 0 ? this.computePositions() : { type: 'FeatureCollection' as const, features: [] };
+    this.map.addSource('satellites', { type: 'geojson', data: positions });
 
     this.map.addLayer({
       id: 'satellites-glow',
@@ -237,12 +183,7 @@ export class SatelliteLayer implements MapDataLayer {
       const p = e.features[0].properties!;
       const coords = (e.features[0].geometry as GeoJSON.Point).coordinates;
       this.popup?.remove();
-      this.popup = new maplibregl.Popup({
-        closeButton: false,
-        closeOnClick: false,
-        className: 'eq-popup',
-        offset: 10,
-      })
+      this.popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'eq-popup', offset: 10 })
         .setLngLat([coords[0], coords[1]])
         .setHTML(
           renderPopupCard({
@@ -252,6 +193,7 @@ export class SatelliteLayer implements MapDataLayer {
             fields: [
               { label: 'Country', value: String(p.country) },
               { label: 'Altitude', value: `${p.altitude} km` },
+              { label: 'NORAD ID', value: String(p.noradId) },
             ],
           }),
         )
@@ -261,7 +203,7 @@ export class SatelliteLayer implements MapDataLayer {
 
   private startAnimation(): void {
     const tick = () => {
-      if (!this.enabled || !this.map) return;
+      if (!this.enabled || !this.map || this.data.length === 0) return;
       const source = this.map.getSource('satellites') as maplibregl.GeoJSONSource | undefined;
       if (source) source.setData(this.computePositions());
       this.tickTimer = setTimeout(tick, 3000);
