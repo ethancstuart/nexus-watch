@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import WebSocket from 'ws';
 
 const CORS_ORIGIN = 'https://dashpulse.app';
 function setCors(res: VercelResponse): VercelResponse {
@@ -29,8 +30,8 @@ function classifyShipType(code: number): string {
   if (code >= 80 && code <= 89) return 'tanker';
   if (code >= 60 && code <= 69) return 'passenger';
   if (code >= 35 && code <= 39) return 'military';
-  if (code >= 40 && code <= 49) return 'cargo'; // HSC
-  if (code >= 50 && code <= 59) return 'military'; // SAR, law enforcement
+  if (code >= 40 && code <= 49) return 'cargo';
+  if (code >= 50 && code <= 59) return 'military';
   return 'cargo';
 }
 
@@ -50,7 +51,7 @@ function collectAIS(apiKey: string, durationMs: number): Promise<AISVessel[]> {
     try {
       const ws = new WebSocket('wss://stream.aisstream.io/v0/stream');
 
-      ws.addEventListener('open', () => {
+      ws.on('open', () => {
         ws.send(
           JSON.stringify({
             APIKey: apiKey,
@@ -62,9 +63,9 @@ function collectAIS(apiKey: string, durationMs: number): Promise<AISVessel[]> {
         );
       });
 
-      ws.addEventListener('message', (event) => {
+      ws.on('message', (raw: WebSocket.RawData) => {
         try {
-          const msg = JSON.parse(String(event.data));
+          const msg = JSON.parse(String(raw));
           if (msg.MessageType === 'PositionReport') {
             const report = msg.Message?.PositionReport;
             const meta = msg.MetaData;
@@ -86,12 +87,12 @@ function collectAIS(apiKey: string, durationMs: number): Promise<AISVessel[]> {
         }
       });
 
-      ws.addEventListener('error', () => {
+      ws.on('error', () => {
         clearTimeout(timeout);
         finish();
       });
 
-      ws.addEventListener('close', () => {
+      ws.on('close', () => {
         clearTimeout(timeout);
         finish();
       });
@@ -134,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Collect AIS position reports for 4 seconds
+    // Collect AIS position reports for 4 seconds via WebSocket
     const vessels = await collectAIS(apiKey, 4000);
     if (vessels.length > 0) {
       cachedVessels = vessels;

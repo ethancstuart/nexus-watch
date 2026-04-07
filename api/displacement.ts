@@ -52,9 +52,10 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
   try {
     // Fetch latest UNHCR population data — top displacement corridors
+    // coo_all=true&coa_all=true gives country-to-country breakdown
     const response = await fetch(
-      'https://api.unhcr.org/population/v1/population/?year=2024&limit=100&page=1',
-      { signal: AbortSignal.timeout(10000) },
+      'https://api.unhcr.org/population/v1/population/?year=2024&limit=500&coo_all=true&coa_all=true',
+      { signal: AbortSignal.timeout(15000) },
     );
 
     if (!response.ok) throw new Error(`UNHCR API returned ${response.status}`);
@@ -62,28 +63,38 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     const data = await response.json() as {
       items: Array<{
         year: number;
-        country_of_origin: string;
-        country_of_origin_iso: string;
-        country_of_asylum: string;
-        country_of_asylum_iso: string;
-        refugees: number;
-        asylum_seekers: number;
+        coo_name: string;
+        coo_iso: string;
+        coa_name: string;
+        coa_iso: string;
+        refugees: number | string;
+        asylum_seekers: number | string;
       }>;
     };
 
     const flows: DisplacementFlow[] = data.items
       .filter((item) => {
-        const pop = (item.refugees || 0) + (item.asylum_seekers || 0);
-        return pop > 50000 && COUNTRY_COORDS[item.country_of_origin_iso] && COUNTRY_COORDS[item.country_of_asylum_iso];
+        // UNHCR returns some numbers as strings — coerce
+        const refugees = typeof item.refugees === 'string' ? parseInt(item.refugees, 10) || 0 : item.refugees || 0;
+        const asylees = typeof item.asylum_seekers === 'string' ? parseInt(item.asylum_seekers, 10) || 0 : item.asylum_seekers || 0;
+        const pop = refugees + asylees;
+        return pop > 50000
+          && item.coo_iso !== '-' && item.coa_iso !== '-'
+          && item.coo_iso !== item.coa_iso
+          && COUNTRY_COORDS[item.coo_iso] && COUNTRY_COORDS[item.coa_iso];
       })
-      .map((item) => ({
-        origin: item.country_of_origin,
-        originCode: item.country_of_origin_iso,
-        destination: item.country_of_asylum,
-        destinationCode: item.country_of_asylum_iso,
-        population: (item.refugees || 0) + (item.asylum_seekers || 0),
-        year: item.year,
-      }))
+      .map((item) => {
+        const refugees = typeof item.refugees === 'string' ? parseInt(item.refugees, 10) || 0 : item.refugees || 0;
+        const asylees = typeof item.asylum_seekers === 'string' ? parseInt(item.asylum_seekers, 10) || 0 : item.asylum_seekers || 0;
+        return {
+          origin: item.coo_name,
+          originCode: item.coo_iso,
+          destination: item.coa_name,
+          destinationCode: item.coa_iso,
+          population: refugees + asylees,
+          year: item.year,
+        };
+      })
       .sort((a, b) => b.population - a.population)
       .slice(0, 30);
 
