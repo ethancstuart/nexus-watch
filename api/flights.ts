@@ -32,11 +32,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       url += `?${params.join('&')}`;
     }
 
+    // Authenticated requests get 10x higher rate limits (4000 vs 400 credits/day)
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    const osUser = process.env.OPENSKY_CLIENT_ID;
+    const osPass = process.env.OPENSKY_CLIENT_SECRET;
+    if (osUser && osPass) {
+      headers['Authorization'] = `Basic ${Buffer.from(`${osUser}:${osPass}`).toString('base64')}`;
+    }
+
     const response = await fetch(url, {
       signal: AbortSignal.timeout(10000),
-      headers: {
-        Accept: 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {
