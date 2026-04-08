@@ -160,7 +160,7 @@ function exportPDF(body: HTMLElement): void {
     <body>
       <h1>NEXUSWATCH DAILY INTELLIGENCE BRIEF</h1>
       ${body.innerHTML.replace(/class="nw-brief-/g, 'class="')}
-      <div class="footer">Classification: UNCLASSIFIED | NexusWatch Intelligence Platform | dashpulse.app</div>
+      <div class="footer">Classification: UNCLASSIFIED | NexusWatch Intelligence Platform</div>
     </body>
     </html>
   `);

@@ -89,6 +89,17 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   root.textContent = '';
 
+  // ── Loading overlay (shown until map loads) ──
+  const loadingOverlay = createElement('div', { className: 'nw-loading-overlay' });
+  loadingOverlay.innerHTML = `
+    <div class="nw-loading-content">
+      <div class="nw-loading-logo">NexusWatch</div>
+      <div class="nw-loading-text">Initializing intelligence layers...</div>
+      <div class="nw-loading-spinner"></div>
+    </div>
+  `;
+  root.appendChild(loadingOverlay);
+
   // ── Build DOM structure synchronously ──
   const app = createElement('div', { className: 'nw-app' });
 
@@ -112,7 +123,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const drawerToggleSlot = createElement('div', {});
 
   const sitrepBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SITREP' });
+  sitrepBtn.title = 'Generate situation report (S)';
   const briefBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'MY BRIEF' });
+  briefBtn.title = 'Daily intelligence briefing';
   const popoutSlot = createElement('div', {});
 
   // Map style toggle (collapsed into right zone)
@@ -133,14 +146,17 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   statusArea.appendChild(liveDot);
   statusArea.appendChild(clockEl);
 
-  const cinemaBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'CINEMA' });
+  const cinemaBtn = createElement('button', { className: 'nw-sitrep-btn nw-essential', textContent: 'CINEMA' });
+  cinemaBtn.title = 'Immersive intelligence broadcast (C)';
   const alertBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'ALERTS' });
+  alertBtn.title = 'Natural language alert builder (A)';
   alertBtn.addEventListener('click', () => {
     if (canAccess('nl-alerts')) openAlertBuilder(mapContainer);
     else showUpgradePrompt('Natural Language Alerts');
   });
 
   const shareBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SHARE' });
+  shareBtn.title = 'Copy shareable link to clipboard';
   shareBtn.addEventListener('click', () => {
     const state: ViewState = {
       c: mapView.getViewState().center,
@@ -148,6 +164,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       p: mapView.getViewState().pitch,
       b: mapView.getViewState().bearing,
       l: layerManager.getEnabledLayers().map((l) => l.id),
+      pr: cinema.isActive() ? cinema.getActiveProfile().id : undefined,
     };
     void copyShareUrl(state).then((ok) => {
       shareBtn.textContent = ok ? 'COPIED!' : 'FAILED';
@@ -258,10 +275,30 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   map.on('load', () => {
     layerManager.initAll();
+    // Remove loading overlay
+    loadingOverlay.classList.add('fade-out');
+    setTimeout(() => loadingOverlay.remove(), 600);
   });
 
   // ── User Menu ──
   createUserMenu(userMenuSlot);
+
+  // ── Upgrade confirmation (after Stripe checkout) ──
+  if (window.location.search.includes('upgraded=true')) {
+    const toast = createElement('div', { className: 'nw-upgrade-toast' });
+    toast.innerHTML = '<span class="nw-upgrade-toast-text"><strong>Welcome to NexusWatch Pro!</strong> All features unlocked.</span><button class="nw-upgrade-toast-close" onclick="this.parentElement.remove()">✕</button>';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 6000);
+    // Clean URL
+    history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }
+
+  // ── Persistent help button (bottom-right) ──
+  const helpBtn = createElement('button', { className: 'nw-help-btn' });
+  helpBtn.textContent = '?';
+  helpBtn.title = 'Keyboard shortcuts & help';
+  helpBtn.addEventListener('click', () => showShortcutsHelp(mapContainer));
+  mapContainer.appendChild(helpBtn);
 
   // ── Mobile Sidebar Toggle ──
   mobileToggle.addEventListener('click', () => {
@@ -286,6 +323,13 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         } else if (!sharedView.l.includes(layer.id) && layer.isEnabled()) {
           layerManager.disable(layer.id);
         }
+      }
+      // Enter cinema mode if shared with a profile
+      if (sharedView.pr) {
+        setTimeout(() => {
+          cinema.enter();
+          cinema.setProfile(sharedView.pr!);
+        }, 2000);
       }
     });
   }
@@ -611,6 +655,12 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           if (!e.ctrlKey && !e.metaKey) {
             if (canAccess('nl-alerts')) openAlertBuilder(mapContainer);
             else showUpgradePrompt('Natural Language Alerts');
+          }
+          break;
+        case 'l':
+          if (!e.ctrlKey && !e.metaKey) {
+            const logEl = document.querySelector('.cinema-event-log') as HTMLElement;
+            if (logEl) logEl.style.display = logEl.style.display === 'none' ? '' : 'none';
           }
           break;
         case 't':
@@ -1006,6 +1056,7 @@ function showShortcutsHelp(container: HTMLElement): void {
     'C       Cinema Mode (immersive broadcast)',
     'A       Alert Builder (natural language)',
     'T       Timeline Playback (historical)',
+    'L       Toggle Event Log (in Cinema)',
     'S       Generate SITREP',
     'F       Fullscreen mode',
     '1-7     Toggle first 7 layers',

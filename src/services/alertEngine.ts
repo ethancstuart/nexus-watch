@@ -97,6 +97,17 @@ export function evaluateAlerts(layerData: Map<string, unknown>): TriggeredAlert[
 
   if (newAlerts.length > 0 && typeof document !== 'undefined') {
     document.dispatchEvent(new CustomEvent('dashview:nl-alerts', { detail: { alerts: newAlerts } }));
+
+    // Browser notifications for critical/elevated alerts
+    if ('Notification' in window && Notification.permission === 'granted') {
+      for (const alert of newAlerts.filter((a) => a.severity !== 'monitor')) {
+        new Notification(`NexusWatch Alert: ${alert.severity.toUpperCase()}`, {
+          body: alert.humanReadable,
+          icon: '/favicon.svg',
+          tag: alert.ruleId,
+        });
+      }
+    }
   }
 
   return newAlerts;

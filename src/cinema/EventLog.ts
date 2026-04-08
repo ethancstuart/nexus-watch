@@ -45,12 +45,42 @@ export class EventLog {
     this.container.innerHTML = `
       <div class="cinema-log-header">
         <span class="cinema-log-title">EVENT LOG</span>
-        <span class="cinema-log-count">0 events</span>
+        <div class="cinema-log-actions">
+          <span class="cinema-log-count">0 events</span>
+          <button class="cinema-log-export" title="Copy events to clipboard">EXPORT</button>
+        </div>
+      </div>
+      <div class="cinema-log-filters">
+        <button class="cinema-log-filter active" data-filter="all">ALL</button>
+        <button class="cinema-log-filter" data-filter="critical">▲ CRIT</button>
+        <button class="cinema-log-filter" data-filter="elevated">● ELEV</button>
       </div>
       <div class="cinema-log-list"></div>
     `;
     document.body.appendChild(this.container);
     this.listEl = this.container.querySelector('.cinema-log-list');
+
+    // Filter buttons
+    this.container.querySelectorAll('.cinema-log-filter').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.container?.querySelectorAll('.cinema-log-filter').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const filter = (btn as HTMLElement).dataset.filter || 'all';
+        this.applyFilter(filter);
+      });
+    });
+
+    // Export button
+    this.container.querySelector('.cinema-log-export')?.addEventListener('click', () => {
+      const text = this.entries.map((e) => {
+        const time = new Date(e.timestamp).toISOString();
+        return `[${time}] [${e.severity.toUpperCase()}] ${e.text} (${e.lat.toFixed(2)}, ${e.lon.toFixed(2)})`;
+      }).join('\n');
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = this.container?.querySelector('.cinema-log-export') as HTMLElement;
+        if (btn) { btn.textContent = 'COPIED!'; setTimeout(() => { btn.textContent = 'EXPORT'; }, 2000); }
+      }).catch(() => {});
+    });
 
     // Listen for layer data and alerts
     this.eventHandler = (e: Event) => {
@@ -123,9 +153,10 @@ export class EventLog {
     const time = new Date(entry.timestamp);
     const timeStr = `${time.getUTCHours().toString().padStart(2, '0')}:${time.getUTCMinutes().toString().padStart(2, '0')}:${time.getUTCSeconds().toString().padStart(2, '0')}`;
 
+    const sevShape = entry.severity === 'critical' ? '▲' : entry.severity === 'elevated' ? '●' : entry.severity === 'info' ? '○' : '◦';
     row.innerHTML = `
       <span class="cinema-log-time">${timeStr}</span>
-      <span class="cinema-log-severity ${entry.severity}"></span>
+      <span class="cinema-log-severity ${entry.severity}">${sevShape}</span>
       <span class="cinema-log-text">${this.escapeHtml(entry.text)}</span>
     `;
 
@@ -174,6 +205,18 @@ export class EventLog {
       });
       break; // One entry per layer per refresh
     }
+  }
+
+  private applyFilter(filter: string): void {
+    if (!this.listEl) return;
+    const entries = this.listEl.querySelectorAll('.cinema-log-entry');
+    entries.forEach((el) => {
+      if (filter === 'all') {
+        (el as HTMLElement).style.display = '';
+      } else {
+        (el as HTMLElement).style.display = el.classList.contains(filter) ? '' : 'none';
+      }
+    });
   }
 
   private classifyEvent(layerId: string, d: Record<string, unknown>, totalCount: number): { text: string; severity: LogEntry['severity'] } | null {
