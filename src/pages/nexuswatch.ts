@@ -69,8 +69,12 @@ import { loadRulesFromStorage, openAlertBuilder } from '../ui/alertBuilder.ts';
 import '../styles/alert-builder.css';
 import '../styles/timeline.css';
 import '../styles/brief.css';
+import '../styles/user-menu.css';
+import '../styles/mobile.css';
 import { createTimelineSlider } from '../ui/timelineSlider.ts';
 import { openBriefPanel } from '../ui/briefPanel.ts';
+import { createUserMenu } from '../ui/userMenu.ts';
+import { copyShareUrl, getViewStateFromUrl, type ViewState } from '../services/shareView.ts';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
 
@@ -131,13 +135,36 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const alertBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'ALERTS' });
   alertBtn.addEventListener('click', () => openAlertBuilder(mapContainer));
 
+  const shareBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SHARE' });
+  shareBtn.addEventListener('click', () => {
+    const state: ViewState = {
+      c: mapView.getViewState().center,
+      z: mapView.getViewState().zoom,
+      p: mapView.getViewState().pitch,
+      b: mapView.getViewState().bearing,
+      l: layerManager.getEnabledLayers().map((l) => l.id),
+    };
+    void copyShareUrl(state).then((ok) => {
+      shareBtn.textContent = ok ? 'COPIED!' : 'FAILED';
+      setTimeout(() => { shareBtn.textContent = 'SHARE'; }, 2000);
+    });
+  });
+
+  // Mobile sidebar toggle
+  const mobileToggle = createElement('button', { className: 'nw-mobile-sidebar-toggle', textContent: '☰' });
+
+  const userMenuSlot = createElement('div', {});
+
   topRight.appendChild(drawerToggleSlot);
   topRight.appendChild(sitrepBtn);
   topRight.appendChild(briefBtn);
   topRight.appendChild(popoutSlot);
+  topRight.appendChild(mobileToggle);
   topRight.appendChild(alertBtn);
+  topRight.appendChild(shareBtn);
   topRight.appendChild(cinemaBtn);
   topRight.appendChild(styleToggle);
+  topRight.appendChild(userMenuSlot);
   topRight.appendChild(statusArea);
 
   topbar.appendChild(topLeft);
@@ -227,6 +254,36 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   map.on('load', () => {
     layerManager.initAll();
   });
+
+  // ── User Menu ──
+  createUserMenu(userMenuSlot);
+
+  // ── Mobile Sidebar Toggle ──
+  mobileToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('mobile-open');
+  });
+
+  // ── Restore shared view state from URL ──
+  const sharedView = getViewStateFromUrl();
+  if (sharedView) {
+    map.on('load', () => {
+      mapView.getMap()?.flyTo({
+        center: sharedView.c,
+        zoom: sharedView.z,
+        pitch: sharedView.p,
+        bearing: sharedView.b,
+        duration: 0,
+      });
+      // Enable shared layers
+      for (const layer of layerManager.getAllLayers()) {
+        if (sharedView.l.includes(layer.id) && !layer.isEnabled()) {
+          layerManager.enable(layer.id);
+        } else if (!sharedView.l.includes(layer.id) && layer.isEnabled()) {
+          layerManager.disable(layer.id);
+        }
+      }
+    });
+  }
 
   // ── Timeline ──
   const timeline = createTimelineSlider(mapContainer);

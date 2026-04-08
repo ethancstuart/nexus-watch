@@ -1,0 +1,130 @@
+/* ── Mobile Responsive ── */
+
+/* Tablet (< 1024px): sidebar collapses to overlay */
+@media (max-width: 1024px) {
+  .nw-sidebar {
+    position: fixed;
+    left: 0;
+    top: 32px;
+    bottom: 24px;
+    width: 320px !important;
+    min-width: unset !important;
+    max-width: unset !important;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    background: #000;
+  }
+  .nw-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .nw-map-container {
+    width: 100% !important;
+  }
+  .nw-topbar-center {
+    display: none;
+  }
+}
+
+/* Phone (< 640px): minimal chrome */
+@media (max-width: 640px) {
+  .nw-topbar {
+    padding: 0 8px;
+    font-size: 10px;
+  }
+  .nw-topbar-left .nw-logo {
+    font-size: 11px !important;
+  }
+  .nw-topbar-right {
+    gap: 2px !important;
+  }
+  .nw-sitrep-btn {
+    font-size: 8px !important;
+    padding: 2px 4px !important;
+    letter-spacing: 0.5px !important;
+  }
+  /* Hide non-essential topbar buttons on phone */
+  .nw-sitrep-btn:not(.nw-essential) {
+    display: none;
+  }
+  .nw-topbar-status {
+    display: none;
+  }
+  .nw-statusbar {
+    font-size: 8px;
+    padding: 0 8px;
+  }
+  /* Sidebar full width on phone */
+  .nw-sidebar {
+    width: 100% !important;
+  }
+  /* Cinema mode adjustments */
+  .cinema-profile-bar {
+    top: 8px;
+    gap: 2px;
+    padding: 2px;
+  }
+  .cinema-profile-pill {
+    font-size: 7px;
+    padding: 3px 6px;
+  }
+  .cinema-hud-tension-value {
+    font-size: 32px !important;
+  }
+  .cinema-narration {
+    width: calc(100vw - 32px) !important;
+    max-width: none !important;
+  }
+  .cinema-hud-topleft,
+  .cinema-hud-topright,
+  .cinema-hud-bottomleft {
+    font-size: 9px;
+  }
+  /* Alert builder responsive */
+  .nw-alert-builder {
+    width: calc(100vw - 16px) !important;
+  }
+  .nw-brief-panel {
+    width: calc(100vw - 16px) !important;
+  }
+  .nw-login-modal {
+    width: calc(100vw - 16px) !important;
+  }
+}
+
+/* Mobile sidebar toggle button */
+.nw-mobile-sidebar-toggle {
+  display: none;
+}
+@media (max-width: 1024px) {
+  .nw-mobile-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .nw-mobile-sidebar-toggle:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+  }
+}
+
+/* Touch-friendly targets */
+@media (pointer: coarse) {
+  .nw-sitrep-btn,
+  .cinema-profile-pill,
+  .cinema-ticker-pill,
+  .cinema-mute-btn,
+  .cinema-exit-btn {
+    min-height: 36px;
+    min-width: 36px;
+  }
+}
