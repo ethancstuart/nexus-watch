@@ -1,0 +1,242 @@
+/**
+ * Country Instability Index (CII)
+ *
+ * 6-component per-country 0-100 risk score:
+ *   Conflict (20%) + Disasters (15%) + Sentiment (15%) +
+ *   Infrastructure (15%) + Governance (15%) + Market Exposure (20%)
+ *
+ * Computed from live layer data every 5 minutes.
+ * Complements the global Tension Index (cinema mode) with per-country depth.
+ */
+
+export interface CIIScore {
+  countryCode: string;
+  countryName: string;
+  score: number; // 0-100
+  trend: 'rising' | 'falling' | 'stable';
+  components: {
+    conflict: number; // 0-20
+    disasters: number; // 0-15
+    sentiment: number; // 0-15
+    infrastructure: number; // 0-15
+    governance: number; // 0-15
+    marketExposure: number; // 0-20
+  };
+  topSignals: string[]; // Human-readable top 3 contributing factors
+}
+
+// Countries to score — covers major geopolitical hotspots + finance-relevant nations
+const MONITORED_COUNTRIES: { code: string; name: string; lat: number; lon: number; radius: number }[] = [
+  { code: 'UA', name: 'Ukraine', lat: 48.4, lon: 31.2, radius: 6 },
+  { code: 'RU', name: 'Russia', lat: 55.8, lon: 37.6, radius: 15 },
+  { code: 'CN', name: 'China', lat: 35.9, lon: 104.2, radius: 12 },
+  { code: 'TW', name: 'Taiwan', lat: 23.5, lon: 121.0, radius: 3 },
+  { code: 'IR', name: 'Iran', lat: 32.4, lon: 53.7, radius: 8 },
+  { code: 'IQ', name: 'Iraq', lat: 33.2, lon: 43.7, radius: 5 },
+  { code: 'SY', name: 'Syria', lat: 34.8, lon: 38.9, radius: 4 },
+  { code: 'IL', name: 'Israel', lat: 31.0, lon: 35.0, radius: 3 },
+  { code: 'PS', name: 'Palestine', lat: 31.9, lon: 35.2, radius: 2 },
+  { code: 'YE', name: 'Yemen', lat: 15.6, lon: 48.5, radius: 5 },
+  { code: 'SD', name: 'Sudan', lat: 15.5, lon: 32.5, radius: 8 },
+  { code: 'SS', name: 'South Sudan', lat: 4.9, lon: 31.6, radius: 5 },
+  { code: 'ET', name: 'Ethiopia', lat: 9.1, lon: 40.5, radius: 6 },
+  { code: 'SO', name: 'Somalia', lat: 2.0, lon: 45.3, radius: 5 },
+  { code: 'CD', name: 'DR Congo', lat: -1.5, lon: 29.0, radius: 8 },
+  { code: 'MM', name: 'Myanmar', lat: 19.8, lon: 96.1, radius: 5 },
+  { code: 'AF', name: 'Afghanistan', lat: 33.9, lon: 67.7, radius: 6 },
+  { code: 'PK', name: 'Pakistan', lat: 30.4, lon: 69.3, radius: 6 },
+  { code: 'KP', name: 'North Korea', lat: 40.0, lon: 127.0, radius: 4 },
+  { code: 'KR', name: 'South Korea', lat: 37.6, lon: 127.0, radius: 3 },
+  { code: 'VE', name: 'Venezuela', lat: 8.0, lon: -66.0, radius: 5 },
+  { code: 'NG', name: 'Nigeria', lat: 9.1, lon: 7.5, radius: 6 },
+  { code: 'LY', name: 'Libya', lat: 26.3, lon: 17.2, radius: 6 },
+  { code: 'LB', name: 'Lebanon', lat: 33.9, lon: 35.5, radius: 2 },
+  { code: 'SA', name: 'Saudi Arabia', lat: 24.7, lon: 46.7, radius: 8 },
+  { code: 'US', name: 'United States', lat: 39.8, lon: -98.5, radius: 15 },
+  { code: 'JP', name: 'Japan', lat: 36.2, lon: 138.3, radius: 5 },
+  { code: 'DE', name: 'Germany', lat: 52.5, lon: 13.4, radius: 5 },
+  { code: 'GB', name: 'United Kingdom', lat: 51.5, lon: -0.1, radius: 4 },
+  { code: 'FR', name: 'France', lat: 48.9, lon: 2.3, radius: 4 },
+  { code: 'IN', name: 'India', lat: 20.6, lon: 78.9, radius: 10 },
+  { code: 'BR', name: 'Brazil', lat: -15.8, lon: -47.9, radius: 10 },
+  { code: 'MX', name: 'Mexico', lat: 19.4, lon: -99.1, radius: 6 },
+  { code: 'PH', name: 'Philippines', lat: 14.6, lon: 121.0, radius: 5 },
+  { code: 'ID', name: 'Indonesia', lat: -2.5, lon: 118.0, radius: 10 },
+  { code: 'TR', name: 'Turkey', lat: 39.9, lon: 32.9, radius: 5 },
+  { code: 'EG', name: 'Egypt', lat: 30.0, lon: 31.2, radius: 5 },
+  { code: 'ZA', name: 'South Africa', lat: -30.6, lon: 22.9, radius: 6 },
+  { code: 'KE', name: 'Kenya', lat: -1.3, lon: 36.8, radius: 5 },
+  { code: 'BD', name: 'Bangladesh', lat: 23.7, lon: 90.4, radius: 4 },
+  { code: 'ML', name: 'Mali', lat: 17.6, lon: -4.0, radius: 5 },
+  { code: 'BF', name: 'Burkina Faso', lat: 12.3, lon: -1.5, radius: 4 },
+  { code: 'HT', name: 'Haiti', lat: 18.5, lon: -72.3, radius: 3 },
+  { code: 'CU', name: 'Cuba', lat: 21.5, lon: -80.0, radius: 4 },
+  { code: 'NE', name: 'Niger', lat: 17.6, lon: 8.1, radius: 5 },
+  { code: 'CF', name: 'Central African Rep.', lat: 6.6, lon: 20.9, radius: 5 },
+  { code: 'MZ', name: 'Mozambique', lat: -15.4, lon: 40.5, radius: 5 },
+  { code: 'CO', name: 'Colombia', lat: 4.6, lon: -74.3, radius: 5 },
+  { code: 'UG', name: 'Uganda', lat: 0.3, lon: 32.6, radius: 4 },
+  { code: 'TD', name: 'Chad', lat: 12.1, lon: 15.0, radius: 5 },
+];
+
+export function getMonitoredCountries(): typeof MONITORED_COUNTRIES {
+  return MONITORED_COUNTRIES;
+}
+
+// Distance check (simplified euclidean for speed — good enough for country-level)
+function isNear(lat1: number, lon1: number, lat2: number, lon2: number, radius: number): boolean {
+  return Math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2) < radius;
+}
+
+/**
+ * Compute CII scores for all monitored countries from live layer data.
+ */
+export function computeAllCII(layerData: Map<string, unknown>): CIIScore[] {
+  return MONITORED_COUNTRIES.map((country) => computeCountryCII(country, layerData));
+}
+
+function computeCountryCII(
+  country: { code: string; name: string; lat: number; lon: number; radius: number },
+  layerData: Map<string, unknown>,
+): CIIScore {
+  const signals: string[] = [];
+
+  // ── Component 1: Conflict (0-20) ──
+  let conflict = 0;
+  const acled = layerData.get('acled') as Array<{ lat: number; lon: number; fatalities?: number; event_type?: string }> | undefined;
+  if (acled) {
+    const nearby = acled.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
+    const eventCount = nearby.length;
+    const fatalities = nearby.reduce((sum, e) => sum + (e.fatalities || 0), 0);
+    conflict = Math.min(20, (eventCount / 5) * 8 + (fatalities / 50) * 12);
+    if (eventCount > 10) signals.push(`${eventCount} conflict events this week`);
+    if (fatalities > 100) signals.push(`${fatalities} casualties reported`);
+  }
+
+  // ── Component 2: Disasters (0-15) ──
+  let disasters = 0;
+  const quakes = layerData.get('earthquakes') as Array<{ lat: number; lon: number; magnitude?: number }> | undefined;
+  if (quakes) {
+    const nearby = quakes.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
+    const maxMag = Math.max(0, ...nearby.map((e) => e.magnitude || 0));
+    disasters += Math.min(8, nearby.length * 1.5 + (maxMag > 5 ? (maxMag - 5) * 4 : 0));
+    if (maxMag >= 5) signals.push(`M${maxMag.toFixed(1)} earthquake`);
+  }
+  const fires = layerData.get('fires') as Array<{ lat: number; lon: number }> | undefined;
+  if (fires) {
+    const nearby = fires.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
+    disasters += Math.min(7, nearby.length / 10);
+    if (nearby.length > 50) signals.push(`${nearby.length} active fire hotspots`);
+  }
+  disasters = Math.min(15, disasters);
+
+  // ── Component 3: Sentiment (0-15) ──
+  let sentiment = 0;
+  const news = layerData.get('news') as Array<{ lat?: number; lon?: number; tone?: number; country?: string }> | undefined;
+  if (news) {
+    const nearby = news.filter((e) =>
+      (e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius)) ||
+      (e.country && e.country.includes(country.name)),
+    );
+    if (nearby.length > 0) {
+      const avgTone = nearby.reduce((s, e) => s + (e.tone || 0), 0) / nearby.length;
+      // Negative tone = higher instability
+      sentiment = Math.min(15, Math.max(0, (-avgTone / 10) * 15));
+      if (avgTone < -5) signals.push(`Strongly negative sentiment (${avgTone.toFixed(1)})`);
+    }
+  }
+
+  // ── Component 4: Infrastructure (0-15) ──
+  let infrastructure = 0;
+  const outages = layerData.get('internet-outages') as Array<{ code?: string; severity?: string; score?: number }> | undefined;
+  if (outages) {
+    const match = outages.find((o) => o.code === country.code);
+    if (match) {
+      const outageScore = match.score || (match.severity === 'critical' ? 1.0 : match.severity === 'high' ? 0.75 : 0.25);
+      infrastructure += outageScore * 10;
+      if (outageScore > 0.5) signals.push(`Internet disruption: ${match.severity}`);
+    }
+  }
+  // GPS jamming and cyber threats
+  const gpsJamming = layerData.get('gps-jamming') as Array<{ lat: number; lon: number }> | undefined;
+  if (gpsJamming) {
+    const nearby = gpsJamming.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
+    infrastructure += Math.min(5, nearby.length * 2.5);
+    if (nearby.length > 0) signals.push(`GPS jamming zone detected`);
+  }
+  infrastructure = Math.min(15, infrastructure);
+
+  // ── Component 5: Governance (0-15) ──
+  let governance = 0;
+  const elections = layerData.get('elections') as Array<{ lat: number; lon: number; date?: string; significance?: string }> | undefined;
+  if (elections) {
+    const nearby = elections.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
+    for (const el of nearby) {
+      if (el.date) {
+        const daysUntil = (new Date(el.date).getTime() - Date.now()) / 86400000;
+        if (daysUntil > 0 && daysUntil < 90) {
+          governance += Math.min(8, (90 - daysUntil) / 10);
+          signals.push(`Election in ${Math.ceil(daysUntil)} days`);
+        }
+      }
+    }
+  }
+  const sanctions = layerData.get('sanctions') as Array<{ code?: string; severity?: string }> | undefined;
+  if (sanctions) {
+    const match = sanctions.find((s) => s.code === country.code);
+    if (match) {
+      governance += match.severity === 'comprehensive' ? 7 : match.severity === 'targeted' ? 4 : 2;
+      signals.push(`Under ${match.severity} sanctions`);
+    }
+  }
+  governance = Math.min(15, governance);
+
+  // ── Component 6: Market Exposure (0-20) ──
+  // This component uses cached market data when available
+  // For now, use static risk weights based on known economic vulnerability
+  const MARKET_RISK: Record<string, number> = {
+    UA: 15, RU: 14, CN: 10, TW: 16, IR: 18, SA: 12, VE: 17,
+    NG: 11, TR: 9, EG: 8, AR: 12, PK: 10, BD: 7, LB: 14,
+    SD: 16, SS: 17, YE: 18, AF: 19, MM: 14, KP: 20, HT: 16,
+    CD: 15, CF: 16, SO: 17, LY: 13, SY: 18, IQ: 12, ML: 13,
+    BF: 14, NE: 13, TD: 14, MZ: 11, CU: 12,
+    US: 2, JP: 3, DE: 2, GB: 2, FR: 3, KR: 4, IN: 5, BR: 6,
+    MX: 5, PH: 6, ID: 5, ZA: 6, CO: 7, UG: 9, KE: 7, IL: 5, PS: 15,
+  };
+  const marketExposure = MARKET_RISK[country.code] ?? 8;
+
+  // ── Total Score ──
+  const score = Math.round(Math.min(100, conflict + disasters + sentiment + infrastructure + governance + marketExposure));
+
+  return {
+    countryCode: country.code,
+    countryName: country.name,
+    score,
+    trend: 'stable', // Will be computed when we have history
+    components: {
+      conflict: Math.round(conflict * 10) / 10,
+      disasters: Math.round(disasters * 10) / 10,
+      sentiment: Math.round(sentiment * 10) / 10,
+      infrastructure: Math.round(infrastructure * 10) / 10,
+      governance: Math.round(governance * 10) / 10,
+      marketExposure: Math.round(marketExposure * 10) / 10,
+    },
+    topSignals: signals.slice(0, 3),
+  };
+}
+
+/** Get a color for a CII score */
+export function ciiColor(score: number): string {
+  if (score >= 75) return '#dc2626';
+  if (score >= 50) return '#f97316';
+  if (score >= 25) return '#eab308';
+  return '#22c55e';
+}
+
+/** Get a label for a CII score */
+export function ciiLabel(score: number): string {
+  if (score >= 75) return 'CRITICAL';
+  if (score >= 50) return 'HIGH';
+  if (score >= 25) return 'ELEVATED';
+  return 'STABLE';
+}
