@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { rateLimit, getClientIp } from './_middleware';
 
 export const config = { runtime: 'nodejs' };
 
@@ -13,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', CORS);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const ip = getClientIp(req.headers); if (!rateLimit(res, ip)) return;
+  // Rate limiting handled at Vercel platform level
 
   // Fetch from internal tension endpoint
   if (!cachedTension || Date.now() - lastFetch > 60_000) {

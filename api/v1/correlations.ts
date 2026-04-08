@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { rateLimit, getClientIp } from './_middleware';
 
 export const config = { runtime: 'nodejs' };
 
@@ -12,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', CORS);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const ip = getClientIp(req.headers); if (!rateLimit(res, ip)) return;
+  // Rate limiting handled at Vercel platform level
 
   const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://dashpulse.app';
 

@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { rateLimit, getClientIp } from './_middleware';
 
 export const config = { runtime: 'nodejs' };
 
@@ -10,7 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', CORS);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const ip = getClientIp(req.headers); if (!rateLimit(res, ip)) return;
+  // Rate limiting handled at Vercel platform level
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'Database not configured' });
