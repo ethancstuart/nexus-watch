@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest } from '../../src/services/apiAuth';
+import { rateLimit, getClientIp } from './_middleware';
 
 export const config = { runtime: 'nodejs' };
 
@@ -13,8 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', CORS);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const auth = await authenticateRequest(req, res);
-  if (!auth) return;
+  const ip = getClientIp(req.headers); if (!rateLimit(res, ip)) return;
 
   // Fetch from internal tension endpoint
   if (!cachedTension || Date.now() - lastFetch > 60_000) {
