@@ -39,7 +39,7 @@ import {
   getLayerData,
 } from '../services/geoIntelligence.ts';
 import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
-import { generateSitrep, generatePersonalBrief } from '../services/sitrep.ts';
+import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
 import { createSparkline } from '../ui/sparkline.ts';
@@ -68,7 +68,9 @@ import { evaluateAlerts, setRules } from '../services/alertEngine.ts';
 import { loadRulesFromStorage, openAlertBuilder } from '../ui/alertBuilder.ts';
 import '../styles/alert-builder.css';
 import '../styles/timeline.css';
+import '../styles/brief.css';
 import { createTimelineSlider } from '../ui/timelineSlider.ts';
+import { openBriefPanel } from '../ui/briefPanel.ts';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
 
@@ -498,20 +500,8 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     }
   });
 
-  // ── Personal brief button ──
-  briefBtn.addEventListener('click', async () => {
-    briefBtn.textContent = 'GENERATING...';
-    briefBtn.disabled = true;
-    try {
-      const result = await generatePersonalBrief(getLayerData());
-      showSitrep(mapContainer, result.sitrep, result.generatedAt);
-    } catch (err) {
-      showSitrep(mapContainer, `Error: ${err instanceof Error ? err.message : 'Failed'}`, '');
-    } finally {
-      briefBtn.textContent = 'MY BRIEF';
-      briefBtn.disabled = false;
-    }
-  });
+  // ── Personal brief button — opens daily intelligence brief panel ──
+  briefBtn.addEventListener('click', () => openBriefPanel(mapContainer));
 
   // ── Fullscreen toggle ──
   let exitBtn: HTMLElement | null = null;
