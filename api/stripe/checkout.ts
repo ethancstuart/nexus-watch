@@ -65,8 +65,8 @@ export default async function handler(req: Request) {
     params.append('mode', 'subscription');
     params.append('line_items[0][price]', selectedPrice);
     params.append('line_items[0][quantity]', '1');
-    params.append('success_url', `${origin}/#/app?upgraded=true`);
-    params.append('cancel_url', `${origin}/#/app`);
+    params.append('success_url', `${origin}/#/intel?upgraded=true`);
+    params.append('cancel_url', `${origin}/#/intel`);
     params.append('client_reference_id', user.id);
     params.append('customer_email', user.email);
     params.append('metadata[sessionId]', sessionId);
