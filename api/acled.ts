@@ -120,36 +120,27 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
   }
 
   try {
-    // Primary: GDELT conflict/military/attack news (geolocated articles)
-    const queries = [
-      'attack OR airstrike OR missile OR bombing',
-      'protest OR riot OR clash OR violence',
-      'military OR offensive OR ceasefire OR war',
-    ];
-
+    // Single GDELT query combining all conflict terms (avoids rate limiting from multiple requests)
     const allEvents: ConflictEvent[] = [];
     const seen = new Set<string>();
 
-    for (const query of queries) {
-      try {
-        const params = new URLSearchParams({
-          query,
-          mode: 'artlist',
-          maxrecords: '50',
-          timespan: '1440min',
-          format: 'json',
-          sort: 'DateDesc',
-        });
+    const params = new URLSearchParams({
+      query: 'attack OR airstrike OR missile OR protest OR military OR war OR conflict OR bombing OR ceasefire',
+      mode: 'artlist',
+      maxrecords: '100',
+      timespan: '1440min',
+      format: 'json',
+      sort: 'DateDesc',
+    });
 
-        const response = await fetch(
-          `https://api.gdeltproject.org/api/v2/doc/doc?${params}`,
-          { signal: AbortSignal.timeout(10000) },
-        );
+    const response = await fetch(
+      `https://api.gdeltproject.org/api/v2/doc/doc?${params}`,
+      { signal: AbortSignal.timeout(15000) },
+    );
 
-        if (!response.ok) continue;
-        const text = await response.text();
-        if (text.startsWith('Please limit')) continue; // Rate limited
-
+    if (response.ok) {
+      const text = await response.text();
+      if (!text.startsWith('Please limit')) {
         const data = JSON.parse(text) as { articles?: Array<{ title: string; url: string; source: string; sourcecountry: string; seendate: string; tone: number }> };
 
         for (const article of data.articles || []) {
@@ -170,17 +161,12 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
             actor2: '',
             country: geo.country,
             region: '',
-            lat: geo.lat + (Math.random() - 0.5) * 2, // Slight jitter to avoid stacking
+            lat: geo.lat + (Math.random() - 0.5) * 2,
             lon: geo.lon + (Math.random() - 0.5) * 2,
             fatalities: classification.fatalities,
             notes: article.title.slice(0, 200),
           });
         }
-
-        // Rate limit courtesy: wait 5 seconds between GDELT requests
-        await new Promise((resolve) => setTimeout(resolve, 5000));
-      } catch {
-        continue;
       }
     }
 
