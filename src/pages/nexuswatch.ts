@@ -63,6 +63,10 @@ import { identifyRegion } from '../utils/geo.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
 import { CinemaMode } from '../cinema/CinemaMode.ts';
+import { computeCorrelations } from '../services/correlationEngine.ts';
+import { evaluateAlerts, setRules } from '../services/alertEngine.ts';
+import { loadRulesFromStorage, openAlertBuilder } from '../ui/alertBuilder.ts';
+import '../styles/alert-builder.css';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
 
@@ -120,11 +124,14 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   statusArea.appendChild(clockEl);
 
   const cinemaBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'CINEMA' });
+  const alertBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'ALERTS' });
+  alertBtn.addEventListener('click', () => openAlertBuilder(mapContainer));
 
   topRight.appendChild(drawerToggleSlot);
   topRight.appendChild(sitrepBtn);
   topRight.appendChild(briefBtn);
   topRight.appendChild(popoutSlot);
+  topRight.appendChild(alertBtn);
   topRight.appendChild(cinemaBtn);
   topRight.appendChild(styleToggle);
   topRight.appendChild(statusArea);
@@ -378,12 +385,19 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   initGeoIntelligence(signal);
   loadRules();
   loadWatchlist();
+
+  // Load NL alert rules from storage
+  const savedNLRules = loadRulesFromStorage();
+  if (savedNLRules.length > 0) setRules(savedNLRules);
   // Notification permission requested on first alert trigger, not page load
 
   document.addEventListener(
     'dashview:layer-data',
     ((e: CustomEvent) => {
-      computeCountryScores(getLayerData());
+      const ld = getLayerData();
+      computeCountryScores(ld);
+      computeCorrelations(ld);
+      evaluateAlerts(ld);
 
       // Update tension index
       const tension = computeTensionIndex(getLayerData());
@@ -535,6 +549,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         }
         case 's':
           if (!e.ctrlKey && !e.metaKey) sitrepBtn.click();
+          break;
+        case 'a':
+          if (!e.ctrlKey && !e.metaKey) openAlertBuilder(mapContainer);
           break;
         case 'c':
           if (!e.ctrlKey && !e.metaKey) cinema.toggle();
