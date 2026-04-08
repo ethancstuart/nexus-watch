@@ -4,81 +4,94 @@ export const config = { runtime: 'nodejs' };
 
 const CORS = 'https://dashpulse.app';
 
-// Map of layer IDs to their internal API endpoints and data keys
-const LAYER_ENDPOINTS: Record<string, { url: string; dataKey: string }> = {
-  earthquakes: { url: '/api/earthquakes', dataKey: 'earthquakes' },
-  acled: { url: '/api/acled', dataKey: 'events' },
-  fires: { url: '/api/fires', dataKey: 'fires' },
-  ships: { url: '/api/ships', dataKey: 'vessels' },
-  flights: { url: '/api/flights', dataKey: 'aircraft' },
-  launches: { url: '/api/launches', dataKey: 'launches' },
-  satellites: { url: '/api/satellites', dataKey: 'satellites' },
-  'disease-outbreaks': { url: '/api/disease-outbreaks', dataKey: 'outbreaks' },
-  'internet-outages': { url: '/api/internet-outages', dataKey: 'outages' },
-  displacement: { url: '/api/displacement', dataKey: 'flows' },
-  'weather-alerts': { url: '/api/weather-alerts', dataKey: 'alerts' },
-  'air-quality': { url: '/api/air-quality', dataKey: 'cities' },
-  predictions: { url: '/api/prediction', dataKey: 'markets' },
+// Direct upstream sources — NO self-referencing through our own domain
+const LAYER_SOURCES: Record<string, { url: string; dataKey: string; transform?: (data: unknown) => unknown[] }> = {
+  earthquakes: {
+    url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
+    dataKey: 'features',
+    transform: (data) => {
+      const d = data as { features: Array<{ id: string; properties: { mag: number; place: string; time: number }; geometry: { coordinates: [number, number, number] } }> };
+      return (d.features || []).filter((f) => f.properties.mag >= 2.5).slice(0, 200).map((f) => ({
+        id: f.id, magnitude: f.properties.mag, place: f.properties.place,
+        time: f.properties.time, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
+      }));
+    },
+  },
+  launches: {
+    url: 'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=15&mode=list',
+    dataKey: 'results',
+    transform: (data) => {
+      const d = data as { results: Array<{ name: string; net: string; status: { name: string }; lsp_name?: string; mission?: string }> };
+      return (d.results || []).map((l) => ({
+        name: l.name, date: l.net, status: l.status.name, provider: l.lsp_name || '', mission: l.mission || l.name,
+      }));
+    },
+  },
+  'disease-outbreaks': {
+    url: 'https://www.who.int/api/news/diseaseoutbreaknews?$top=20&$orderby=PublicationDate%20desc',
+    dataKey: 'value',
+    transform: (data) => {
+      const d = data as { value: Array<{ Title: string; PublicationDate: string; DonId: string }> };
+      return (d.value || []).map((o) => ({ title: o.Title, date: o.PublicationDate?.split('T')[0], donId: o.DonId }));
+    },
+  },
+  predictions: {
+    url: 'https://gamma-api.polymarket.com/markets?limit=10&active=true&closed=false',
+    dataKey: '_root',
+    transform: (data) => {
+      return Array.isArray(data) ? data.slice(0, 10).map((m: Record<string, unknown>) => ({
+        question: m.question, volume: m.volume,
+      })) : [];
+    },
+  },
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', CORS);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Rate limiting handled at Vercel platform level
-
   const layer = req.query.layer as string | undefined;
-  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://dashpulse.app';
 
   try {
     if (layer) {
-      // Single layer
-      const endpoint = LAYER_ENDPOINTS[layer];
-      if (!endpoint) {
+      const source = LAYER_SOURCES[layer];
+      if (!source) {
         return res.status(400).json({
           error: `Unknown layer: ${layer}`,
-          availableLayers: Object.keys(LAYER_ENDPOINTS),
+          availableLayers: Object.keys(LAYER_SOURCES),
         });
       }
 
-      const response = await fetch(`${baseUrl}${endpoint.url}`, { signal: AbortSignal.timeout(10000) });
-      if (!response.ok) return res.status(502).json({ error: `Upstream ${layer} API failed` });
-      const data = (await response.json()) as Record<string, unknown>;
+      const response = await fetch(source.url, { signal: AbortSignal.timeout(10000) });
+      if (!response.ok) return res.status(502).json({ error: `Upstream ${layer} API returned ${response.status}` });
+      const raw = await response.json();
+      const items = source.transform ? source.transform(raw) : ((raw as Record<string, unknown>)[source.dataKey] || []) as unknown[];
 
       return res.setHeader('Cache-Control', 'public, max-age=30').json({
-        layer,
-        data: data[endpoint.dataKey] || [],
-        count: data.count || 0,
-        timestamp: Date.now(),
+        layer, data: items, count: Array.isArray(items) ? items.length : 0, timestamp: Date.now(),
       });
     }
 
-    // All layers — unified event stream
-    // Only fetch from layers with API endpoints (skip static layers)
+    // All layers
     const results = await Promise.allSettled(
-      Object.entries(LAYER_ENDPOINTS).map(async ([id, endpoint]) => {
-        const response = await fetch(`${baseUrl}${endpoint.url}`, { signal: AbortSignal.timeout(8000) });
-        if (!response.ok) return { layer: id, data: [], count: 0 };
-        const json = (await response.json()) as Record<string, unknown>;
-        const items = json[endpoint.dataKey];
-        return { layer: id, data: Array.isArray(items) ? items.slice(0, 50) : [], count: Number(json.count) || 0 };
+      Object.entries(LAYER_SOURCES).map(async ([id, source]) => {
+        const response = await fetch(source.url, { signal: AbortSignal.timeout(8000) });
+        if (!response.ok) return { layer: id, data: [] as unknown[], count: 0 };
+        const raw = await response.json();
+        const items = source.transform ? source.transform(raw) : ((raw as Record<string, unknown>)[source.dataKey] || []) as unknown[];
+        const arr = Array.isArray(items) ? items.slice(0, 50) : [];
+        return { layer: id, data: arr, count: arr.length };
       }),
     );
 
     const layers: Array<{ layer: string; count: number; data: unknown[] }> = [];
     for (const r of results) {
-      if (r.status === 'fulfilled' && r.value) {
-        layers.push(r.value);
-      }
+      if (r.status === 'fulfilled' && r.value) layers.push(r.value);
     }
 
-    const totalEvents = layers.reduce((s, l) => s + l.count, 0);
-
     return res.setHeader('Cache-Control', 'public, max-age=30').json({
-      layers,
-      totalEvents,
-      layerCount: layers.length,
-      timestamp: Date.now(),
+      layers, totalEvents: layers.reduce((s, l) => s + l.count, 0),
+      layerCount: layers.length, timestamp: Date.now(),
     });
   } catch (err) {
     console.error('API v1 events error:', err instanceof Error ? err.message : err);
