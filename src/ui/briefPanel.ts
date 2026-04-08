@@ -72,7 +72,10 @@ async function loadBrief(body: HTMLElement): Promise<void> {
       generated_at: string;
     };
 
-    const date = new Date(data.brief_date || data.generated_at);
+    // Parse date from YYYY-MM-DD string directly to avoid timezone shift
+    const dateStr = (data.brief_date || data.generated_at || '').split('T')[0];
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // Local date, no UTC shift
     const content = data.content || {};
 
     body.innerHTML = `

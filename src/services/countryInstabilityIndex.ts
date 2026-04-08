@@ -101,14 +101,21 @@ function computeCountryCII(
 ): CIIScore {
   const signals: string[] = [];
 
-  // ── Component 1: Conflict (0-20) ──
-  let conflict = 0;
+  // ── Component 1: Conflict (0-20) — live data + baseline ──
+  // Baseline ensures countries at war don't show 0 when ACLED is unavailable
+  const BASELINE_CONFLICT: Record<string, number> = {
+    UA: 18, RU: 10, SD: 18, SS: 16, YE: 17, SY: 17, MM: 15, AF: 14, SO: 15,
+    CD: 14, IQ: 10, LY: 12, ML: 12, BF: 13, CF: 13, NE: 10, HT: 11, PS: 18,
+    IL: 8, NG: 9, MZ: 8, ET: 10, TD: 9, PK: 7, CO: 6, KP: 5,
+  };
+  let conflict = BASELINE_CONFLICT[country.code] ?? 0;
   const acled = layerData.get('acled') as Array<{ lat: number; lon: number; fatalities?: number; event_type?: string }> | undefined;
   if (acled) {
     const nearby = acled.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
     const eventCount = nearby.length;
     const fatalities = nearby.reduce((sum, e) => sum + (e.fatalities || 0), 0);
-    conflict = Math.min(20, (eventCount / 5) * 8 + (fatalities / 50) * 12);
+    const liveConflict = (eventCount / 5) * 8 + (fatalities / 50) * 12;
+    conflict = Math.min(20, Math.max(conflict, liveConflict));
     if (eventCount > 10) signals.push(`${eventCount} conflict events this week`);
     if (fatalities > 100) signals.push(`${fatalities} casualties reported`);
   }

@@ -1003,10 +1003,13 @@ function showSitrep(container: HTMLElement, text: string, generatedAt: string): 
 
 function showShortcutsHelp(container: HTMLElement): void {
   const text = [
-    '1-7     Toggle first 7 layers',
+    'C       Cinema Mode (immersive broadcast)',
+    'A       Alert Builder (natural language)',
+    'T       Timeline Playback (historical)',
     'S       Generate SITREP',
     'F       Fullscreen mode',
-    'Esc     Close overlays / exit fullscreen',
+    '1-7     Toggle first 7 layers',
+    'Esc     Close overlays / exit mode',
     '?       This help',
     '',
     'Click   Layer chips to toggle',

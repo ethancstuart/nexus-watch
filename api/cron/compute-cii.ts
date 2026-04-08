@@ -57,6 +57,21 @@ const COUNTRIES: { code: string; name: string; lat: number; lon: number; radius:
   { code: 'FR', name: 'France', lat: 48.9, lon: 2.3, radius: 4 },
 ];
 
+// Baseline conflict risk (0-15) — ensures countries at war don't show 0 when ACLED is down
+const BASELINE_CONFLICT: Record<string, number> = {
+  UA: 18, RU: 10, SD: 18, SS: 16, YE: 17, SY: 17, MM: 15,
+  AF: 14, SO: 15, CD: 14, IQ: 10, LY: 12, ML: 12, BF: 13,
+  CF: 13, NE: 10, HT: 11, PS: 18, IL: 8, NG: 9, MZ: 8,
+  ET: 10, TD: 9, PK: 7, CO: 6, KP: 5,
+};
+
+// Baseline governance risk (0-15) — sanctions, authoritarianism, election instability
+const BASELINE_GOVERNANCE: Record<string, number> = {
+  KP: 15, IR: 13, SY: 13, RU: 10, CN: 8, CU: 10, VE: 12,
+  MM: 12, AF: 11, SD: 10, SS: 10, YE: 10, LY: 9, CD: 8,
+  CF: 9, ML: 8, BF: 9, NE: 7, HT: 10, PS: 7, IQ: 6,
+};
+
 // Static market risk weights (0-20)
 const MARKET_RISK: Record<string, number> = {
   UA: 15, RU: 14, CN: 10, TW: 16, IR: 18, SA: 12, VE: 17,
@@ -125,11 +140,13 @@ function computeScore(
   country: { code: string; lat: number; lon: number; radius: number },
   layerData: Map<string, GeoEvent[]>,
 ): { score: number; components: Record<string, number> } {
-  // Conflict (0-20)
+  // Conflict (0-20) — live data + baseline for countries at war
   const acled = layerData.get('acled') || [];
   const nearbyConflicts = acled.filter((e) => e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
   const fatalities = nearbyConflicts.reduce((sum, e) => sum + (Number(e.fatalities) || 0), 0);
-  const conflict = Math.min(20, (nearbyConflicts.length / 5) * 8 + (fatalities / 50) * 12);
+  const liveConflict = (nearbyConflicts.length / 5) * 8 + (fatalities / 50) * 12;
+  const baselineConflict = BASELINE_CONFLICT[country.code] ?? 0;
+  const conflict = Math.min(20, Math.max(liveConflict, baselineConflict));
 
   // Disasters (0-15)
   const quakes = layerData.get('earthquakes') || [];
@@ -149,8 +166,10 @@ function computeScore(
     infrastructure = severity === 'critical' ? 15 : severity === 'high' ? 10 : severity === 'moderate' ? 5 : 1;
   }
 
-  // Governance (0-15) — sanctions + instability proxy
-  const governance = conflict > 10 ? 12 : conflict > 5 ? 8 : conflict > 2 ? 4 : 1;
+  // Governance (0-15) — baseline + conflict-driven
+  const baselineGov = BASELINE_GOVERNANCE[country.code] ?? 0;
+  const conflictGov = conflict > 10 ? 12 : conflict > 5 ? 8 : conflict > 2 ? 4 : 1;
+  const governance = Math.min(15, Math.max(baselineGov, conflictGov));
 
   // Market Exposure (0-20)
   const marketExposure = MARKET_RISK[country.code] ?? 8;
