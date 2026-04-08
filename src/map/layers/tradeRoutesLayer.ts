@@ -177,16 +177,45 @@ export class TradeRoutesLayer implements MapDataLayer {
     return ROUTES.length;
   }
 
+  // Split routes at dateline crossings (lon diff > 160°) to prevent globe-wrapping lines
+  private routeToFeatures(r: TradeRoute): GeoJSON.Feature[] {
+    const features: GeoJSON.Feature[] = [];
+    let segment: [number, number][] = [];
+
+    for (let i = 0; i < r.points.length - 1; i++) {
+      const lonDiff = Math.abs(r.points[i][0] - r.points[i + 1][0]);
+      if (lonDiff > 160) {
+        // Dateline crossing — finalize segment, start new
+        if (segment.length === 0) segment.push(r.points[i]);
+        if (segment.length > 1) {
+          features.push({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: segment },
+            properties: { name: r.name, volume: r.volume, commodity: r.commodity },
+          });
+        }
+        segment = [r.points[i + 1]];
+      } else {
+        if (segment.length === 0) segment.push(r.points[i]);
+        segment.push(r.points[i + 1]);
+      }
+    }
+    if (segment.length > 1) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: segment },
+        properties: { name: r.name, volume: r.volume, commodity: r.commodity },
+      });
+    }
+    return features;
+  }
+
   private renderLayer(): void {
     if (!this.map) return;
     this.removeLayer();
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: ROUTES.map((r) => ({
-        type: 'Feature' as const,
-        geometry: { type: 'LineString' as const, coordinates: r.points },
-        properties: { name: r.name, volume: r.volume, commodity: r.commodity },
-      })),
+      features: ROUTES.flatMap((r) => this.routeToFeatures(r)),
     };
     this.map.addSource('trade-routes', { type: 'geojson', data: geojson });
     this.map.addLayer({
