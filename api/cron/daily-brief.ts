@@ -88,6 +88,33 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       VALUES (${today}, ${JSON.stringify(briefContext)}, ${summary})
     `;
 
+    // Send email via Resend if configured
+    const resendKey = process.env.RESEND_API_KEY;
+    const adminEmail = process.env.ADMIN_EMAILS;
+    if (resendKey && adminEmail) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendKey}` },
+          body: JSON.stringify({
+            from: 'NexusWatch <briefs@dashpulse.app>',
+            to: adminEmail.split(',').map((e: string) => e.trim()),
+            subject: `NexusWatch Daily Brief — ${today}`,
+            html: `<div style="font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 24px; max-width: 600px;">
+              <div style="border-bottom: 2px solid #ff6600; padding-bottom: 12px; margin-bottom: 16px;">
+                <span style="font-size: 11px; letter-spacing: 3px; color: #ff6600; font-weight: bold;">NEXUSWATCH DAILY BRIEF — ${today}</span>
+              </div>
+              <div style="font-size: 13px; line-height: 1.7; white-space: pre-wrap;">${summary.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+              <div style="margin-top: 20px;"><a href="https://dashpulse.app" style="color: #ff6600; text-decoration: none; font-size: 11px;">Open NexusWatch →</a></div>
+              <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #1a1a1a; font-size: 9px; color: #444;">NexusWatch Intelligence Platform</div>
+            </div>`,
+          }),
+        });
+      } catch {
+        // Email failed — brief still stored in DB
+      }
+    }
+
     return res.json({ success: true, date: today, summary: summary.slice(0, 200) + '...' });
   } catch (err) {
     console.error('Daily brief cron error:', err instanceof Error ? err.message : err);

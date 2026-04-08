@@ -75,6 +75,8 @@ import { createTimelineSlider } from '../ui/timelineSlider.ts';
 import { openBriefPanel } from '../ui/briefPanel.ts';
 import { createUserMenu } from '../ui/userMenu.ts';
 import { copyShareUrl, getViewStateFromUrl, type ViewState } from '../services/shareView.ts';
+import { canAccess, showUpgradePrompt } from '../services/tierGating.ts';
+import '../styles/tier-gating.css';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
 
@@ -133,7 +135,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   const cinemaBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'CINEMA' });
   const alertBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'ALERTS' });
-  alertBtn.addEventListener('click', () => openAlertBuilder(mapContainer));
+  alertBtn.addEventListener('click', () => {
+    if (canAccess('nl-alerts')) openAlertBuilder(mapContainer);
+    else showUpgradePrompt('Natural Language Alerts');
+  });
 
   const shareBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SHARE' });
   shareBtn.addEventListener('click', () => {
@@ -603,10 +608,16 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           if (!e.ctrlKey && !e.metaKey) sitrepBtn.click();
           break;
         case 'a':
-          if (!e.ctrlKey && !e.metaKey) openAlertBuilder(mapContainer);
+          if (!e.ctrlKey && !e.metaKey) {
+            if (canAccess('nl-alerts')) openAlertBuilder(mapContainer);
+            else showUpgradePrompt('Natural Language Alerts');
+          }
           break;
         case 't':
-          if (!e.ctrlKey && !e.metaKey) timeline.show();
+          if (!e.ctrlKey && !e.metaKey) {
+            if (canAccess('timeline')) timeline.show();
+            else showUpgradePrompt('Timeline Playback');
+          }
           break;
         case 'c':
           if (!e.ctrlKey && !e.metaKey) cinema.toggle();
