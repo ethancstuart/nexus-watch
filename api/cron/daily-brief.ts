@@ -211,18 +211,28 @@ Countries monitored: ${ciiRows.length}`,
       VALUES (${today}, ${JSON.stringify(briefData)}, ${summary})
     `;
 
-    // Email via Resend
+    // Email to ALL subscribers via Resend
     const resendKey = process.env.RESEND_API_KEY;
-    const adminEmail = process.env.ADMIN_EMAILS;
-    if (resendKey && adminEmail) {
+    if (resendKey) {
       try {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendKey}` },
-          body: JSON.stringify({
-            from: 'NexusWatch <onboarding@resend.dev>',
-            to: adminEmail.split(',').map((e: string) => e.trim()),
-            subject: `NexusWatch Intelligence Brief — ${today}`,
+        // Get all active subscribers
+        const subscribers = await sql`SELECT email FROM email_subscribers WHERE unsubscribed = FALSE`;
+        // Also include admin
+        const adminEmail = process.env.ADMIN_EMAILS;
+        const allEmails = new Set<string>();
+        if (adminEmail) adminEmail.split(',').forEach((e: string) => allEmails.add(e.trim()));
+        subscribers.forEach((s) => allEmails.add(s.email as string));
+
+        if (allEmails.size > 0) {
+          // Resend supports up to 50 recipients per call
+          const emailBatch = Array.from(allEmails).slice(0, 50);
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendKey}` },
+            body: JSON.stringify({
+              from: 'NexusWatch <onboarding@resend.dev>',
+              to: emailBatch,
+              subject: `NexusWatch Intelligence Brief — ${today}`,
             html: `<div style="font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 24px; max-width: 700px; margin: 0 auto;">
               <div style="border-bottom: 2px solid #ff6600; padding-bottom: 12px; margin-bottom: 16px;">
                 <span style="font-size: 11px; letter-spacing: 3px; color: #ff6600; font-weight: bold;">NEXUSWATCH INTELLIGENCE BRIEF</span>
@@ -233,6 +243,7 @@ Countries monitored: ${ciiRows.length}`,
             </div>`,
           }),
         });
+        }
       } catch { /* Email failed — brief still stored */ }
     }
 
