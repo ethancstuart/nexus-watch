@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { authenticateRequest } from './_auth';
+import { authenticateRequest } from '../../src/services/apiAuth';
 
 export const config = { runtime: 'nodejs' };
 
