@@ -6,6 +6,7 @@ import { EventTicker } from './EventTicker.ts';
 import { HudOverlay } from './HudOverlay.ts';
 import { NarrationOverlay } from './NarrationOverlay.ts';
 import { AmbientAudio } from './AmbientAudio.ts';
+import { EventLog } from './EventLog.ts';
 import type { MapView } from '../map/MapView.ts';
 import type { MapLayerManager } from '../map/MapLayerManager.ts';
 
@@ -37,6 +38,7 @@ export class CinemaMode {
   private hudOverlay: HudOverlay | null = null;
   private narrationOverlay: NarrationOverlay | null = null;
   private ambientAudio: AmbientAudio | null = null;
+  private eventLog: EventLog | null = null;
   private eventListener: ((e: Event) => void) | null = null;
 
   // Subsystem callbacks (for HUD, Ticker, Narration, Audio when built)
@@ -129,6 +131,10 @@ export class CinemaMode {
       this.ambientAudio.stop();
       this.ambientAudio = null;
     }
+    if (this.eventLog) {
+      this.eventLog.stop();
+      this.eventLog = null;
+    }
 
     // Remove event listeners
     if (this.eventListener) {
@@ -189,6 +195,7 @@ export class CinemaMode {
     if (this.eventTicker) this.eventTicker.setProfile(profile);
     if (this.hudOverlay) this.hudOverlay.setProfile(profile);
     if (this.narrationOverlay) this.narrationOverlay.setProfile(profile);
+    if (this.eventLog) this.eventLog.setProfile(profile);
     for (const cb of this.onProfileChangeCallbacks) cb(profile);
   }
 
@@ -270,6 +277,9 @@ export class CinemaMode {
     this.ambientAudio = new AmbientAudio();
     this.ambientAudio.start();
     this.hudOverlay.setAudio(this.ambientAudio);
+
+    this.eventLog = new EventLog(this.config.mapView, this.activeProfile);
+    this.eventLog.start();
 
     // Wire event routing: layer data → camera targets
     this.eventListener = (e: Event) => {
