@@ -67,6 +67,8 @@ import { computeCorrelations } from '../services/correlationEngine.ts';
 import { evaluateAlerts, setRules } from '../services/alertEngine.ts';
 import { loadRulesFromStorage, openAlertBuilder } from '../ui/alertBuilder.ts';
 import '../styles/alert-builder.css';
+import '../styles/timeline.css';
+import { createTimelineSlider } from '../ui/timelineSlider.ts';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
 
@@ -223,6 +225,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   map.on('load', () => {
     layerManager.initAll();
   });
+
+  // ── Timeline ──
+  const timeline = createTimelineSlider(mapContainer);
 
   // ── Cinema Mode ──
   const cinema = new CinemaMode({
@@ -553,6 +558,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         case 'a':
           if (!e.ctrlKey && !e.metaKey) openAlertBuilder(mapContainer);
           break;
+        case 't':
+          if (!e.ctrlKey && !e.metaKey) timeline.show();
+          break;
         case 'c':
           if (!e.ctrlKey && !e.metaKey) cinema.toggle();
           break;
@@ -579,6 +587,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   signal.addEventListener('abort', () => {
     clearInterval(clockInterval);
     cinema.destroy();
+    timeline.destroy();
     mapView.destroy();
     layerManager.destroy();
     floatMgr.destroy();
