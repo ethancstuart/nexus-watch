@@ -137,12 +137,85 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       timestamp: data.time,
     });
   } catch (err) {
-    console.error('Flight API error:', err instanceof Error ? err.message : err);
-    return res.setHeader('Cache-Control', 'public, max-age=30').json({
-      aircraft: [],
-      count: 0,
-      timestamp: Math.floor(Date.now() / 1000),
-      error: 'OpenSky API unavailable',
-    });
+    console.error('OpenSky error:', err instanceof Error ? err.message : err);
+    // Fallback: adsb.lol (free, no auth, no IP blocking)
+    try {
+      return await fetchAdsbLol(res);
+    } catch {
+      return res.setHeader('Cache-Control', 'public, max-age=30').json({
+        aircraft: [],
+        count: 0,
+        timestamp: Math.floor(Date.now() / 1000),
+        error: 'Flight data unavailable',
+      });
+    }
   }
+}
+
+// Fallback flight data from adsb.lol (free, unfiltered ADS-B data)
+async function fetchAdsbLol(res: VercelResponse) {
+  // Fetch aircraft from multiple regions for global coverage
+  const regions = [
+    { lat: 40, lon: -74, dist: 250 },  // US East
+    { lat: 34, lon: -118, dist: 250 },  // US West
+    { lat: 51, lon: 0, dist: 250 },     // Europe
+    { lat: 35, lon: 140, dist: 250 },   // East Asia
+    { lat: 25, lon: 55, dist: 250 },    // Middle East
+  ];
+
+  const MIL_PREFIXES = [
+    'RCH', 'REACH', 'NAVY', 'DUKE', 'EVAC', 'HOMER', 'IRON', 'JAKE', 'KING',
+    'MOOSE', 'NCHO', 'OTIS', 'PACK', 'RAGE', 'SPAR', 'TORQ', 'VIPER', 'WOLF',
+    'RRR', 'CNV', 'CFC', 'IAM', 'MMF', 'RFR', 'SHF', 'GAF', 'BAF', 'NAF', 'PAF',
+  ];
+
+  const results = await Promise.allSettled(
+    regions.map(async (r) => {
+      const res = await fetch(
+        `https://api.adsb.lol/v2/lat/${r.lat}/lon/${r.lon}/dist/${r.dist}`,
+        { signal: AbortSignal.timeout(8000) },
+      );
+      if (!res.ok) return [];
+      const data = (await res.json()) as { ac?: Array<Record<string, unknown>> };
+      return data.ac || [];
+    }),
+  );
+
+  const seen = new Set<string>();
+  const aircraft: Array<Record<string, unknown>> = [];
+
+  for (const r of results) {
+    if (r.status !== 'fulfilled') continue;
+    for (const ac of r.value) {
+      const hex = String(ac.hex || '');
+      if (seen.has(hex) || !ac.lat || !ac.lon) continue;
+      seen.add(hex);
+      const callsign = String(ac.flight || '').trim();
+      const isMilitary = MIL_PREFIXES.some((p) => callsign.startsWith(p));
+      aircraft.push({
+        icao: hex,
+        callsign,
+        country: String(ac.r || ''),
+        lon: ac.lon,
+        lat: ac.lat,
+        altitude: Number(ac.alt_baro) || 0,
+        velocity: Number(ac.gs) || 0,
+        heading: Number(ac.track) || 0,
+        verticalRate: Number(ac.baro_rate) || 0,
+        military: isMilitary,
+      });
+    }
+  }
+
+  // Sample if too many
+  const sampled = aircraft.length > 1500
+    ? aircraft.filter((_, i) => i % Math.ceil(aircraft.length / 1500) === 0)
+    : aircraft;
+
+  return res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=15').json({
+    aircraft: sampled,
+    count: sampled.length,
+    timestamp: Math.floor(Date.now() / 1000),
+    source: 'adsb.lol',
+  });
 }

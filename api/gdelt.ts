@@ -7,9 +7,22 @@ function setCors(res: VercelResponse): VercelResponse {
 
 export const config = { runtime: 'nodejs' };
 
+// Module-level cache to avoid GDELT rate limiting (1 req per 5 seconds)
+let cachedArticles: unknown[] = [];
+let lastFetch = 0;
+const CACHE_TTL = 900_000; // 15 minutes
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Serve from cache if fresh (GDELT rate-limits aggressively)
+  if (cachedArticles.length > 0 && Date.now() - lastFetch < CACHE_TTL) {
+    return res.setHeader('Cache-Control', 'public, max-age=900, s-maxage=900').json({
+      articles: cachedArticles,
+      cached: true,
+    });
+  }
 
   const query = (req.query.query as string) || '';
   const maxrecords = (req.query.maxrecords as string) || '75';
@@ -26,9 +39,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params}`;
     const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!response.ok) return res.status(response.status).json({ error: 'GDELT API error' });
 
-    const data = (await response.json()) as {
+    if (!response.ok) {
+      // Rate limited — serve stale cache
+      if (response.status === 429 && cachedArticles.length > 0) {
+        return res.setHeader('Cache-Control', 'public, max-age=900').json({
+          articles: cachedArticles,
+          cached: true,
+          rateLimited: true,
+        });
+      }
+      return res.status(response.status).json({ error: 'GDELT API error' });
+    }
+
+    const text = await response.text();
+    // GDELT sometimes returns plain text rate limit message instead of JSON
+    if (text.startsWith('Please limit')) {
+      if (cachedArticles.length > 0) {
+        return res.setHeader('Cache-Control', 'public, max-age=900').json({
+          articles: cachedArticles,
+          cached: true,
+          rateLimited: true,
+        });
+      }
+      return res.status(429).json({ error: 'GDELT rate limited', articles: [] });
+    }
+
+    const data = JSON.parse(text) as {
       articles?: {
         title: string;
         url: string;
@@ -54,9 +91,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       date: a.seendate || '',
     }));
 
+    if (articles.length > 0) {
+      cachedArticles = articles;
+      lastFetch = Date.now();
+    }
+
     return res.setHeader('Cache-Control', 'public, max-age=900, s-maxage=900').json({ articles });
   } catch (err) {
     console.error('GDELT API error:', err instanceof Error ? err.message : err);
-    return res.status(502).json({ error: 'GDELT service error' });
+    if (cachedArticles.length > 0) {
+      return res.setHeader('Cache-Control', 'public, max-age=300').json({
+        articles: cachedArticles,
+        cached: true,
+        stale: true,
+      });
+    }
+    return res.status(502).json({ error: 'GDELT service error', articles: [] });
   }
 }
