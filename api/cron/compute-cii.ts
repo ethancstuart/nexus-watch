@@ -219,9 +219,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       inserted++;
     }
 
+    // Also cache GDELT conflict + news data (GDELT blocks Vercel IPs on direct calls)
+    let gdeltCached = 0;
+    try {
+      // Conflict articles
+      const conflictRes = await fetch(
+        'https://api.gdeltproject.org/api/v2/doc/doc?query=attack%20OR%20airstrike%20OR%20missile%20OR%20protest%20OR%20military%20OR%20war%20OR%20conflict&mode=artlist&maxrecords=100&timespan=1440min&format=json&sort=DateDesc',
+        { signal: AbortSignal.timeout(12000) },
+      );
+      if (conflictRes.ok) {
+        const text = await conflictRes.text();
+        if (!text.startsWith('Please limit')) {
+          const data = JSON.parse(text);
+          await sql`
+            INSERT INTO cached_layer_data (layer_id, data, feature_count, updated_at)
+            VALUES ('gdelt-conflict', ${JSON.stringify(data)}, ${(data.articles || []).length}, NOW())
+            ON CONFLICT (layer_id) DO UPDATE SET data = ${JSON.stringify(data)}, feature_count = ${(data.articles || []).length}, updated_at = NOW()
+          `;
+          gdeltCached++;
+        }
+      }
+    } catch { /* GDELT unavailable */ }
+
+    // News articles (separate query, wait 6 seconds for rate limit)
+    try {
+      await new Promise((r) => setTimeout(r, 6000));
+      const newsRes = await fetch(
+        'https://api.gdeltproject.org/api/v2/doc/doc?query=conflict%20OR%20crisis%20OR%20earthquake%20OR%20attack%20OR%20protest&mode=artlist&maxrecords=75&timespan=1440min&format=json&sort=DateDesc',
+        { signal: AbortSignal.timeout(12000) },
+      );
+      if (newsRes.ok) {
+        const text = await newsRes.text();
+        if (!text.startsWith('Please limit')) {
+          const data = JSON.parse(text);
+          await sql`
+            INSERT INTO cached_layer_data (layer_id, data, feature_count, updated_at)
+            VALUES ('gdelt-news', ${JSON.stringify(data)}, ${(data.articles || []).length}, NOW())
+            ON CONFLICT (layer_id) DO UPDATE SET data = ${JSON.stringify(data)}, feature_count = ${(data.articles || []).length}, updated_at = NOW()
+          `;
+          gdeltCached++;
+        }
+      }
+    } catch { /* GDELT unavailable */ }
+
     return res.json({
       success: true,
       countriesScored: inserted,
+      gdeltCached,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {

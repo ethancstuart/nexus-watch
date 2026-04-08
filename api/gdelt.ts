@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { neon } from '@neondatabase/serverless';
 
 const CORS_ORIGIN = 'https://dashpulse.app';
 function setCors(res: VercelResponse): VercelResponse {
@@ -7,79 +8,25 @@ function setCors(res: VercelResponse): VercelResponse {
 
 export const config = { runtime: 'nodejs' };
 
-// Module-level cache to avoid GDELT rate limiting (1 req per 5 seconds)
-let cachedArticles: unknown[] = [];
-let lastFetch = 0;
-const CACHE_TTL = 900_000; // 15 minutes
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Serve from cache if fresh (GDELT rate-limits aggressively)
-  if (cachedArticles.length > 0 && Date.now() - lastFetch < CACHE_TTL) {
-    return res.setHeader('Cache-Control', 'public, max-age=900, s-maxage=900').json({
-      articles: cachedArticles,
-      cached: true,
-    });
-  }
-
-  const query = (req.query.query as string) || '';
-  const maxrecords = (req.query.maxrecords as string) || '75';
-  const timespan = (req.query.timespan as string) || '1440';
+  // Read from Postgres cache (populated by CII cron every 5 min)
+  // GDELT rate-limits Vercel IPs, so we can't call them directly
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) return res.json({ articles: [], error: 'No database configured' });
 
   try {
-    const params = new URLSearchParams({
-      query: query || 'conflict OR crisis OR earthquake OR attack OR protest',
-      mode: 'artlist',
-      maxrecords,
-      timespan: `${timespan}min`,
-      format: 'json',
-      sort: 'DateDesc',
-    });
-    const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params}`;
-    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const sql = neon(dbUrl);
+    const rows = await sql`SELECT data, updated_at FROM cached_layer_data WHERE layer_id = 'gdelt-news'`;
 
-    if (!response.ok) {
-      // Rate limited — serve stale cache
-      if (response.status === 429 && cachedArticles.length > 0) {
-        return res.setHeader('Cache-Control', 'public, max-age=900').json({
-          articles: cachedArticles,
-          cached: true,
-          rateLimited: true,
-        });
-      }
-      return res.status(response.status).json({ error: 'GDELT API error' });
+    if (rows.length === 0 || !rows[0].data) {
+      return res.json({ articles: [], error: 'Cache empty — cron populates every 5 min' });
     }
 
-    const text = await response.text();
-    // GDELT sometimes returns plain text rate limit message instead of JSON
-    if (text.startsWith('Please limit')) {
-      if (cachedArticles.length > 0) {
-        return res.setHeader('Cache-Control', 'public, max-age=900').json({
-          articles: cachedArticles,
-          cached: true,
-          rateLimited: true,
-        });
-      }
-      return res.status(429).json({ error: 'GDELT rate limited', articles: [] });
-    }
-
-    const data = JSON.parse(text) as {
-      articles?: {
-        title: string;
-        url: string;
-        source: string;
-        sourcecountry: string;
-        tone: number;
-        socialimage: string;
-        domain: string;
-        language: string;
-        seendate: string;
-      }[];
-    };
-
-    const articles = (data.articles || []).map((a) => ({
+    const cached = rows[0].data as { articles?: Array<{ title: string; url: string; source: string; sourcecountry: string; tone: number; socialimage: string; domain: string; language: string; seendate: string }> };
+    const articles = (cached.articles || []).map((a) => ({
       title: a.title,
       url: a.url,
       source: a.source,
@@ -91,21 +38,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       date: a.seendate || '',
     }));
 
-    if (articles.length > 0) {
-      cachedArticles = articles;
-      lastFetch = Date.now();
-    }
-
-    return res.setHeader('Cache-Control', 'public, max-age=900, s-maxage=900').json({ articles });
+    return res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300').json({
+      articles,
+      cachedAt: rows[0].updated_at,
+    });
   } catch (err) {
     console.error('GDELT API error:', err instanceof Error ? err.message : err);
-    if (cachedArticles.length > 0) {
-      return res.setHeader('Cache-Control', 'public, max-age=300').json({
-        articles: cachedArticles,
-        cached: true,
-        stale: true,
-      });
-    }
-    return res.status(502).json({ error: 'GDELT service error', articles: [] });
+    return res.status(500).json({ articles: [], error: 'Failed to read news cache' });
   }
 }
