@@ -78,23 +78,37 @@ interface GeoEvent {
   [key: string]: unknown;
 }
 
-async function fetchLayerData(baseUrl: string): Promise<Map<string, GeoEvent[]>> {
+async function fetchLayerData(): Promise<Map<string, GeoEvent[]>> {
   const layers = new Map<string, GeoEvent[]>();
-  const endpoints = [
-    { key: 'acled', url: `${baseUrl}/api/acled` },
-    { key: 'earthquakes', url: `${baseUrl}/api/earthquakes` },
-    { key: 'internet-outages', url: `${baseUrl}/api/internet-outages` },
-    { key: 'disease-outbreaks', url: `${baseUrl}/api/disease-outbreaks` },
+
+  // Fetch DIRECTLY from upstream sources — NOT self-referencing
+  const fetches = [
+    {
+      key: 'earthquakes',
+      url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
+      transform: (data: Record<string, unknown>) => {
+        const features = (data.features || []) as Array<{ properties: { mag: number; place: string }; geometry: { coordinates: [number, number] } }>;
+        return features.map((f) => ({
+          lat: f.geometry.coordinates[1],
+          lon: f.geometry.coordinates[0],
+          magnitude: f.properties.mag,
+          place: f.properties.place,
+        })) as GeoEvent[];
+      },
+    },
+    {
+      key: 'internet-outages',
+      url: `https://api.ioda.inetintel.cc.gatech.edu/v2/signals/raw/country/IR?from=${Math.floor(Date.now() / 1000) - 3600}&until=${Math.floor(Date.now() / 1000)}`,
+      transform: () => [] as GeoEvent[], // IODA data structure is different; CII uses static outage scoring
+    },
   ];
 
   const results = await Promise.allSettled(
-    endpoints.map(async (ep) => {
-      const res = await fetch(ep.url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) return { key: ep.key, data: [] };
+    fetches.map(async (ep) => {
+      const res = await fetch(ep.url, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) return { key: ep.key, data: [] as GeoEvent[] };
       const json = (await res.json()) as Record<string, unknown>;
-      // Normalize: each API returns data under a different key
-      const data = (json.events || json.earthquakes || json.outages || json.outbreaks || json.data || []) as GeoEvent[];
-      return { key: ep.key, data: Array.isArray(data) ? data : [] };
+      return { key: ep.key, data: ep.transform(json) };
     }),
   );
 
@@ -169,13 +183,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Determine base URL for internal API calls
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'https://dashpulse.app';
-
-    // Fetch live layer data from our own API endpoints
-    const layerData = await fetchLayerData(baseUrl);
+    // Fetch live layer data directly from upstream sources
+    const layerData = await fetchLayerData();
 
     // Compute CII for all countries
     const sql = neon(dbUrl);

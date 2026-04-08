@@ -3,48 +3,52 @@ import { neon } from '@neondatabase/serverless';
 
 export const config = { runtime: 'nodejs', maxDuration: 30 };
 
-// Layers to snapshot for timeline playback
-const SNAPSHOT_LAYERS = [
-  { id: 'earthquakes', url: '/api/earthquakes', dataKey: 'earthquakes' },
-  { id: 'acled', url: '/api/acled', dataKey: 'events' },
-  { id: 'fires', url: '/api/fires', dataKey: 'fires' },
-  { id: 'disease-outbreaks', url: '/api/disease-outbreaks', dataKey: 'outbreaks' },
-  { id: 'internet-outages', url: '/api/internet-outages', dataKey: 'outages' },
-  { id: 'ships', url: '/api/ships', dataKey: 'vessels' },
-  { id: 'flights', url: '/api/flights', dataKey: 'aircraft' },
+// Direct upstream URLs — NOT self-referencing
+const SNAPSHOT_SOURCES = [
+  {
+    id: 'earthquakes',
+    url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
+    extract: (data: Record<string, unknown>) => {
+      const features = (data.features || []) as Array<{ properties: { mag: number; place: string }; geometry: { coordinates: number[] } }>;
+      return features.slice(0, 200).map((f) => ({
+        mag: f.properties.mag, place: f.properties.place,
+        lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
+      }));
+    },
+  },
+  {
+    id: 'disease-outbreaks',
+    url: 'https://www.who.int/api/news/diseaseoutbreaknews?$top=20&$orderby=PublicationDate%20desc',
+    extract: (data: Record<string, unknown>) => {
+      const items = (data.value || []) as Array<{ Title: string; PublicationDate: string }>;
+      return items.map((i) => ({ title: i.Title, date: i.PublicationDate }));
+    },
+  },
 ];
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'DATABASE_URL not configured' });
 
-  const baseUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'https://dashpulse.app';
-
   const sql = neon(dbUrl);
   let snapshots = 0;
 
   try {
     const results = await Promise.allSettled(
-      SNAPSHOT_LAYERS.map(async (layer) => {
+      SNAPSHOT_SOURCES.map(async (source) => {
         try {
-          const response = await fetch(`${baseUrl}${layer.url}`, {
-            signal: AbortSignal.timeout(10000),
-          });
+          const response = await fetch(source.url, { signal: AbortSignal.timeout(10000) });
           if (!response.ok) return null;
           const json = (await response.json()) as Record<string, unknown>;
-          const data = (json[layer.dataKey] || []) as unknown[];
-          const count = Array.isArray(data) ? data.length : 0;
+          const data = source.extract(json);
+          const count = data.length;
           if (count === 0) return null;
 
-          // Store snapshot — limit to 500 items per layer to keep storage reasonable
-          const trimmed = Array.isArray(data) ? data.slice(0, 500) : data;
           await sql`
             INSERT INTO event_snapshots (layer_id, data, feature_count)
-            VALUES (${layer.id}, ${JSON.stringify(trimmed)}, ${count})
+            VALUES (${source.id}, ${JSON.stringify(data)}, ${count})
           `;
-          return { layer: layer.id, count };
+          return { layer: source.id, count };
         } catch {
           return null;
         }
