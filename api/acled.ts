@@ -16,10 +16,7 @@ const CACHE_TTL = 3600_000; // 1 hour
 async function getAcledToken(): Promise<string | null> {
   const email = process.env.ACLED_EMAIL?.trim();
   const password = process.env.ACLED_PASSWORD?.trim();
-  if (!email || !password) {
-    console.log('ACLED auth missing:', { hasEmail: !!process.env.ACLED_EMAIL, hasPassword: !!process.env.ACLED_PASSWORD });
-    return null;
-  }
+  if (!email || !password) return null;
 
   // Return cached token if still valid
   if (cachedToken && Date.now() < cachedToken.expiresAt) return cachedToken.token;
@@ -164,8 +161,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     return res.json({
       events: [],
       count: 0,
-      error: 'No conflict data sources available. Set ACLED_EMAIL + ACLED_PASSWORD env vars.',
-      debug: { hasEmail: !!process.env.ACLED_EMAIL, hasPassword: !!process.env.ACLED_PASSWORD },
+      error: 'ACLED: account authenticated but data access denied. Complete data access approval at acleddata.com/myacled. UCDP fallback also unavailable.',
     });
   } catch (err) {
     console.error('ACLED API error:', err instanceof Error ? err.message : err);
