@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 
-export const config = { runtime: 'nodejs', maxDuration: 120 };
+export const config = { runtime: 'nodejs', maxDuration: 300 };
 
 interface CIIEntry {
   code: string;
@@ -483,7 +483,7 @@ For the threat table, use: border-collapse:collapse; width:100%; and cells with 
               },
             ],
           }),
-          signal: AbortSignal.timeout(90000),
+          signal: AbortSignal.timeout(240000),
         });
 
         if (aiRes.ok) {
