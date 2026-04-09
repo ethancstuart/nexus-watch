@@ -30,7 +30,52 @@ interface BriefData {
   conflictHeadlines: string[];
   markets: MarketQuote[];
   yesterdayEqCount: number | null;
+  weeklyTrends: WeeklyTrend[];
+  correlations: string[];
+  newsHeadlines: NewsItem[];
 }
+
+interface WeeklyTrend {
+  name: string;
+  code: string;
+  scores: { date: string; score: number }[];
+  currentScore: number;
+  weekAgoScore: number | null;
+  direction: 'rising' | 'falling' | 'stable' | 'volatile';
+}
+
+interface NewsItem {
+  title: string;
+  source: string;
+}
+
+// Critical infrastructure for proximity correlation detection
+const CRITICAL_INFRA: { name: string; type: string; lat: number; lon: number }[] = [
+  { name: 'Zaporizhzhia NPP', type: 'nuclear', lat: 47.51, lon: 34.58 },
+  { name: 'Bushehr NPP', type: 'nuclear', lat: 28.83, lon: 50.89 },
+  { name: 'Fukushima Daiichi', type: 'nuclear', lat: 37.42, lon: 141.03 },
+  { name: 'Strait of Hormuz', type: 'chokepoint', lat: 26.56, lon: 56.25 },
+  { name: 'Bab el-Mandeb', type: 'chokepoint', lat: 12.58, lon: 43.33 },
+  { name: 'Suez Canal', type: 'chokepoint', lat: 30.46, lon: 32.34 },
+  { name: 'Malacca Strait', type: 'chokepoint', lat: 2.5, lon: 101.8 },
+  { name: 'Taiwan Strait', type: 'chokepoint', lat: 24.0, lon: 119.0 },
+  { name: 'Panama Canal', type: 'chokepoint', lat: 9.08, lon: -79.68 },
+  { name: 'Port of Shanghai', type: 'port', lat: 31.35, lon: 121.6 },
+  { name: 'Port of Rotterdam', type: 'port', lat: 51.95, lon: 4.13 },
+  { name: 'Port of Singapore', type: 'port', lat: 1.26, lon: 103.84 },
+  { name: 'Ras Tanura Terminal', type: 'energy', lat: 26.64, lon: 50.15 },
+  { name: 'Druzhba Pipeline Hub', type: 'energy', lat: 52.1, lon: 23.7 },
+  { name: 'Kharg Island Terminal', type: 'energy', lat: 29.23, lon: 50.31 },
+];
+
+// OSINT + world news RSS feeds for headline context
+const BRIEF_RSS_FEEDS = [
+  { url: 'https://www.bellingcat.com/feed/', source: 'Bellingcat' },
+  { url: 'https://www.crisisgroup.org/rss.xml', source: 'Crisis Group' },
+  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', source: 'BBC World' },
+  { url: 'https://www.aljazeera.com/xml/rss/all.xml', source: 'Al Jazeera' },
+  { url: 'https://rss.dw.com/xml/rss-en-all', source: 'DW' },
+];
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   const dbUrl = process.env.DATABASE_URL;
@@ -54,6 +99,8 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       conflictResult,
       marketResult,
       yesterdaySnapResult,
+      weeklyHistoryResult,
+      newsResult,
     ] = await Promise.allSettled([
       // 1. Current CII scores
       sql`
@@ -100,6 +147,15 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         WHERE layer_id = 'earthquakes' AND timestamp > NOW() - INTERVAL '36 hours'
         ORDER BY timestamp ASC LIMIT 1
       `,
+      // 8. 7-day CII history for trend analysis
+      sql`
+        SELECT country_code, country_name, score, timestamp::date as day
+        FROM country_cii_history
+        WHERE timestamp > NOW() - INTERVAL '7 days'
+        ORDER BY country_code, timestamp DESC
+      `,
+      // 9. OSINT + world news headlines
+      fetchNewsHeadlines(),
     ]);
 
     // === Process results ===
@@ -178,6 +234,110 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       }
     }
 
+    // 7-day CII trends
+    const weeklyTrends: WeeklyTrend[] = [];
+    if (weeklyHistoryResult.status === 'fulfilled') {
+      const histRows = weeklyHistoryResult.value as Record<string, unknown>[];
+      const byCountry = new Map<string, { name: string; entries: { date: string; score: number }[] }>();
+      for (const r of histRows) {
+        const code = r.country_code as string;
+        const entry = byCountry.get(code) || { name: r.country_name as string, entries: [] };
+        entry.entries.push({ date: String(r.day), score: r.score as number });
+        byCountry.set(code, entry);
+      }
+      // Build trends for top-risk countries
+      for (const c of topCII) {
+        const history = byCountry.get(c.code);
+        if (!history || history.entries.length < 2) continue;
+        // Deduplicate by date, keep latest
+        const byDate = new Map<string, number>();
+        for (const e of history.entries) byDate.set(e.date, e.score);
+        const scores = Array.from(byDate.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, score]) => ({ date, score }));
+        const weekAgo = scores.length >= 2 ? scores[0].score : null;
+        const current = scores[scores.length - 1].score;
+        // Detect volatility: if score swings >5 points in both directions
+        let maxUp = 0,
+          maxDown = 0;
+        for (let i = 1; i < scores.length; i++) {
+          const d = scores[i].score - scores[i - 1].score;
+          if (d > maxUp) maxUp = d;
+          if (d < maxDown) maxDown = d;
+        }
+        const direction: WeeklyTrend['direction'] =
+          maxUp > 5 && Math.abs(maxDown) > 5
+            ? 'volatile'
+            : weekAgo !== null && current - weekAgo >= 3
+              ? 'rising'
+              : weekAgo !== null && current - weekAgo <= -3
+                ? 'falling'
+                : 'stable';
+        weeklyTrends.push({
+          name: c.name,
+          code: c.code,
+          scores,
+          currentScore: current,
+          weekAgoScore: weekAgo,
+          direction,
+        });
+      }
+    }
+
+    // Server-side correlation detection (earthquakes near critical infrastructure)
+    const correlations: string[] = [];
+    if (earthquakeResult.status === 'fulfilled' && earthquakeResult.value) {
+      const qData = earthquakeResult.value as {
+        features: Array<{
+          properties: { mag: number; place: string };
+          geometry: { coordinates: [number, number, number] };
+        }>;
+      };
+      for (const f of qData.features || []) {
+        if (f.properties.mag < 4.5) continue;
+        const [lon, lat] = f.geometry.coordinates;
+        for (const infra of CRITICAL_INFRA) {
+          const dist = haversineKm(lat, lon, infra.lat, infra.lon);
+          if (dist < 200) {
+            correlations.push(
+              `PROXIMITY ALERT: M${f.properties.mag.toFixed(1)} earthquake ${Math.round(dist)}km from ${infra.name} (${infra.type}). ${f.properties.place}.`,
+            );
+          }
+        }
+      }
+      // Seismic cluster detection
+      const sigQuakes = (qData.features || []).filter((f) => f.properties.mag >= 4.0);
+      const clusters = new Map<string, number>();
+      for (const q of sigQuakes) {
+        const key = `${Math.round(q.geometry.coordinates[1] / 3) * 3},${Math.round(q.geometry.coordinates[0] / 3) * 3}`;
+        clusters.set(key, (clusters.get(key) || 0) + 1);
+      }
+      for (const [key, count] of clusters) {
+        if (count >= 3) {
+          const [lat, lon] = key.split(',').map(Number);
+          const nearby = sigQuakes.find(
+            (q) => Math.abs(q.geometry.coordinates[1] - lat) < 3 && Math.abs(q.geometry.coordinates[0] - lon) < 3,
+          );
+          correlations.push(
+            `SEISMIC CLUSTER: ${count} M4.0+ earthquakes concentrated near ${nearby?.properties.place || `${lat}°N ${lon}°E`}. Elevated aftershock/escalation risk.`,
+          );
+        }
+      }
+    }
+    // CII convergence: multiple high-CII countries in same region
+    const highCII = allCII.filter((c) => c.score >= 50);
+    if (highCII.length >= 5) {
+      correlations.push(
+        `MULTI-REGION INSTABILITY: ${highCII.length} countries above CII 50 threshold — elevated global risk posture. Top: ${highCII
+          .slice(0, 3)
+          .map((c) => `${c.name} (${c.score})`)
+          .join(', ')}.`,
+      );
+    }
+
+    // News headlines
+    const newsHeadlines: NewsItem[] = newsResult.status === 'fulfilled' ? (newsResult.value as NewsItem[]) : [];
+
     const briefData: BriefData = {
       date: today,
       utcTime,
@@ -190,6 +350,9 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       conflictHeadlines,
       markets,
       yesterdayEqCount,
+      weeklyTrends,
+      correlations,
+      newsHeadlines,
     };
 
     // === Generate AI brief (outputs HTML directly) ===
@@ -208,24 +371,33 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         const dataContext = `DATE: ${today} ${utcTime}
 COUNTRIES MONITORED: ${ciiRows.length}
 
-TOP RISK COUNTRIES (CII score / trend vs 24h ago):
+=== TOP RISK COUNTRIES (CII score / trend vs 24h ago) ===
 ${topCII.map((c) => `${c.name}: ${c.score}/100${trendArrow(c)} [conflict=${c.components.conflict}, disasters=${c.components.disasters}, governance=${c.components.governance}, market=${c.components.marketExposure}]`).join('\n')}
 
-BIGGEST MOVERS (24h):
+=== BIGGEST MOVERS (24h) ===
 ${movers.length > 0 ? movers.map((m) => `${m.name}: ${m.delta > 0 ? '+' : ''}${m.delta.toFixed(0)} (${m.prevScore?.toFixed(0)} → ${m.score})`).join('\n') : 'No significant movements (±3 threshold)'}
 
-SEISMIC ACTIVITY:
-${earthquakeCount} earthquakes in last 24h${yesterdayEqCount !== null ? ` (yesterday: ${yesterdayEqCount})` : ''}
+=== 7-DAY CII TRAJECTORIES ===
+${weeklyTrends.length > 0 ? weeklyTrends.map((t) => `${t.name} [${t.direction.toUpperCase()}]: ${t.weekAgoScore ?? '?'} → ${t.currentScore} over 7d | Daily: ${t.scores.map((s) => s.score).join(' → ')}`).join('\n') : 'Insufficient history for weekly trends'}
+
+=== CROSS-DOMAIN CORRELATIONS (auto-detected) ===
+${correlations.length > 0 ? correlations.join('\n') : 'No significant cross-domain correlations detected'}
+
+=== SEISMIC ACTIVITY ===
+${earthquakeCount} earthquakes in last 24h${yesterdayEqCount !== null ? ` (yesterday: ${yesterdayEqCount}, ${earthquakeCount > yesterdayEqCount ? 'INCREASING' : earthquakeCount < yesterdayEqCount ? 'decreasing' : 'stable'})` : ''}
 Significant (M4.5+): ${significantQuakes.length > 0 ? significantQuakes.join('; ') : 'None'}
 
-HEALTH SECURITY:
+=== HEALTH SECURITY ===
 ${diseaseCount} active WHO outbreak notices
 ${recentOutbreaks.length > 0 ? recentOutbreaks.join('\n') : 'No recent outbreak reports'}
 
-CONFLICT & SECURITY HEADLINES:
-${conflictHeadlines.length > 0 ? conflictHeadlines.map((h) => `- ${h}`).join('\n') : '- GDELT feed unavailable — conflict data limited to CII components'}
+=== CONFLICT & SECURITY HEADLINES ===
+${conflictHeadlines.length > 0 ? conflictHeadlines.map((h) => `- ${h}`).join('\n') : '(GDELT feed unavailable from this origin)'}
 
-MARKET INDICATORS:
+=== OSINT & WORLD NEWS (last 24h) ===
+${newsHeadlines.length > 0 ? newsHeadlines.map((n) => `- [${n.source}] ${n.title}`).join('\n') : 'No headlines available'}
+
+=== MARKET INDICATORS ===
 ${markets.length > 0 ? markets.map((m) => `${m.symbol}: ${m.price} (${m.change})`).join(' | ') : 'Market data unavailable'}`;
 
         const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -236,35 +408,39 @@ ${markets.length > 0 ? markets.map((m) => `${m.symbol}: ${m.price} (${m.change})
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 3000,
+            model: 'claude-sonnet-4-5-20241022',
+            max_tokens: 4000,
             system: `You are a senior intelligence analyst at NexusWatch, a geopolitical intelligence platform. Write a daily intelligence briefing that a national security advisor or hedge fund risk manager would find genuinely useful.
 
 OUTPUT FORMAT: Return ONLY raw HTML fragments (no <html>, <head>, <body> tags). Use inline styles only. The email background is #0a0a0a with #e0e0e0 text. Accent color: #ff6600.
 
 CRITICAL RULES:
 - NEVER fabricate events, names, or claims not present in the data
-- DO synthesize, analyze, and draw connections between data points
-- If conflict headlines are unavailable, analyze instability through CII component breakdown instead
-- Use trend data (↑↓) to explain what's CHANGING, not just what IS
-- Be specific: numbers, country names, magnitudes — not vague generalizations
-- Write like a professional analyst, not a news aggregator
+- DO synthesize, analyze, and draw connections between data points — this is what makes you an ANALYST not an aggregator
+- When OSINT/news headlines are available, weave them into your analysis as supporting evidence
+- Cross-domain correlations (earthquakes near infrastructure, multi-region instability) are HIGH-VALUE intel — lead with them if present
+- Use 7-day trend trajectories to identify DEVELOPING SITUATIONS, not just snapshots
+- If conflict headlines are unavailable, analyze instability through CII component breakdown and news headlines instead
+- Be specific: numbers, country names, magnitudes, trend directions — not vague generalizations
+- Write like you're briefing someone who will make decisions based on this. Every sentence should pass the "so what?" test.
 
 STRUCTURE (use these exact section headers as <h2> elements):
 
-1. SITUATION SUMMARY — 3-4 sentences. Lead with the most consequential development. What should a decision-maker know RIGHT NOW? Include the single most important number.
+1. SITUATION SUMMARY — 3-4 sentences. Lead with the most consequential development or cross-domain correlation. What should a decision-maker know RIGHT NOW? Include the single most important number and the most important TREND.
 
-2. THREAT MATRIX — Table with columns: Region | Threat Level (Critical/High/Elevated/Low) | Key Driver | 24h Trend. Cover 5-6 regions. Use colored dots: 🔴 Critical, 🟠 High, 🟡 Elevated, 🟢 Low.
+2. THREAT MATRIX — Table with columns: Region | Threat Level (Critical/High/Elevated/Low) | Key Driver | 7-Day Trend. Cover 5-6 regions. Use colored dots: 🔴 Critical, 🟠 High, 🟡 Elevated, 🟢 Low. Use the 7-day trajectory data to characterize trends, not just 24h.
 
-3. KEY DEVELOPMENTS — 4-6 bullet points. Each one: what happened + why it matters + confidence level. Not just headlines — analysis. Use "▸" prefix.
+3. CROSS-DOMAIN ALERTS — If correlations were auto-detected (earthquakes near infrastructure, seismic clusters, multi-region instability), analyze each one: what converged, why it matters, what to watch. If no correlations, omit this section entirely.
 
-4. INSTABILITY WATCH — Focus on the biggest CII movers. Why did scores change? What's driving instability up or down? Connect to real events from the data.
+4. KEY DEVELOPMENTS — 5-7 bullet points synthesizing the most important headlines, CII movements, and events. Each one: what happened + why it matters + confidence level. Use news sources when available. Use "▸" prefix.
 
-5. SEISMIC & ENVIRONMENTAL — Earthquake analysis (significant events, clusters, comparison to baseline). Disease alerts if relevant.
+5. INSTABILITY TRAJECTORIES — Focus on 7-day CII trends, not just today. Which countries are on a rising trajectory? Which are stabilizing? Connect trajectory to the component breakdown (conflict vs. disasters vs. governance vs. market exposure).
 
-6. MARKET SIGNAL — How geopolitical risk maps to market moves today. Connect specific events to specific price movements. If market data is limited, analyze what SHOULD be watched.
+6. SEISMIC & ENVIRONMENTAL — Earthquake analysis with baseline comparison. Cluster detection. Disease alerts if relevant.
 
-7. 48-HOUR OUTLOOK — 3-4 specific indicators to watch. Each with: what to monitor, threshold that matters, and why. Be predictive but grounded.
+7. MARKET SIGNAL — How geopolitical risk maps to market moves. Connect specific events to specific price movements.
+
+8. 48-HOUR OUTLOOK — 3-5 specific, actionable indicators to watch. Each with: what to monitor, threshold that matters, and why. Reference specific countries/events from the data. Be predictive but grounded in the trend data.
 
 Style each <h2> with: color:#ff6600; font-size:14px; letter-spacing:2px; text-transform:uppercase; border-bottom:1px solid #333; padding-bottom:6px; margin-top:24px;
 Style paragraphs with: color:#ccc; font-size:13px; line-height:1.7; margin:8px 0;
@@ -486,6 +662,41 @@ function buildFallbackHtml(data: BriefData): string {
     }
   }
 
+  // Correlations
+  if (data.correlations.length > 0) {
+    html += h2('Cross-Domain Alerts');
+    for (const c of data.correlations) {
+      const isProximity = c.startsWith('PROXIMITY');
+      const isCluster = c.startsWith('SEISMIC CLUSTER');
+      const color = isProximity ? '#f87171' : isCluster ? '#fbbf24' : '#ff6600';
+      html += `<p style="color:${color};font-size:12px;line-height:1.6;margin:6px 0;padding:8px 12px;background:#ffffff08;border-left:2px solid ${color};">⚠ ${c}</p>`;
+    }
+  }
+
+  // Weekly trends
+  if (data.weeklyTrends.length > 0) {
+    html += h2('7-Day Trajectories');
+    for (const t of data.weeklyTrends.slice(0, 5)) {
+      const arrow =
+        t.direction === 'rising'
+          ? '<span style="color:#f87171">↗ RISING</span>'
+          : t.direction === 'falling'
+            ? '<span style="color:#4ade80">↘ FALLING</span>'
+            : t.direction === 'volatile'
+              ? '<span style="color:#fbbf24">↕ VOLATILE</span>'
+              : '<span style="color:#888">→ STABLE</span>';
+      html += `<p style="color:#ccc;font-size:12px;line-height:1.5;margin:4px 0;">▸ <strong>${t.name}</strong>: ${t.weekAgoScore ?? '?'} → ${t.currentScore} ${arrow}</p>`;
+    }
+  }
+
+  // News headlines
+  if (data.newsHeadlines.length > 0) {
+    html += h2('Headlines');
+    for (const n of data.newsHeadlines.slice(0, 6)) {
+      html += `<p style="color:#aaa;font-size:12px;line-height:1.5;margin:3px 0;padding-left:12px;">▸ <span style="color:#888;">[${n.source}]</span> ${n.title}</p>`;
+    }
+  }
+
   // Markets
   if (data.markets.length > 0) {
     html += h2('Market Signal');
@@ -500,4 +711,59 @@ function buildFallbackHtml(data: BriefData): string {
   }
 
   return html;
+}
+
+// === RSS fetcher for news headlines ===
+async function fetchNewsHeadlines(): Promise<NewsItem[]> {
+  const headlines: NewsItem[] = [];
+  const results = await Promise.allSettled(
+    BRIEF_RSS_FEEDS.map(async (feed) => {
+      const r = await fetch(feed.url, {
+        signal: AbortSignal.timeout(6000),
+        headers: { 'User-Agent': 'NexusWatch/1.0 Intelligence Brief' },
+      });
+      if (!r.ok) return [];
+      const xml = await r.text();
+      return parseRssItems(xml, feed.source);
+    }),
+  );
+  for (const r of results) {
+    if (r.status === 'fulfilled') headlines.push(...r.value);
+  }
+  // Sort by recency heuristic (position in feed) and deduplicate
+  const seen = new Set<string>();
+  return headlines
+    .filter((h) => {
+      const key = h.title.toLowerCase().slice(0, 50);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 20);
+}
+
+function parseRssItems(xml: string, source: string): NewsItem[] {
+  const items: NewsItem[] = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null && items.length < 8) {
+    const item = match[1];
+    const titleMatch = /<title[^>]*>([\s\S]*?)<\/title>/.exec(item);
+    const title = titleMatch ? titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim() : '';
+    if (title && title.length > 10) {
+      items.push({ title, source });
+    }
+  }
+  return items;
+}
+
+// === Haversine distance for correlation detection ===
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
