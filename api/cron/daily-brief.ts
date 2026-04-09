@@ -431,7 +431,7 @@ ${(() => {
           },
           body: JSON.stringify({
             model: 'claude-sonnet-4-5-20250929',
-            max_tokens: 4000,
+            max_tokens: 6000,
             system: `You are a senior intelligence analyst at NexusWatch, a geopolitical intelligence platform. Write a daily intelligence briefing that a national security advisor or hedge fund risk manager would find genuinely useful.
 
 OUTPUT FORMAT: Return ONLY raw HTML fragments (no <html>, <head>, <body> tags). Use inline styles only. The email background is #0a0a0a with #e0e0e0 text. Accent color: #ff6600.
@@ -469,7 +469,7 @@ STRUCTURE (use these exact section headers as <h2> elements):
 
 9. MARKET SIGNAL — How geopolitical risk maps to market moves. S&P, treasuries, energy sector, gold, USD. Connect specific events to specific price movements. What's priced in vs. what's a surprise?
 
-10. 48-HOUR OUTLOOK — 3-5 specific, actionable indicators to watch. Each with: what to monitor, threshold that matters, and why. At least one should be energy-specific. Be predictive but grounded in the trend data.
+10. 48-HOUR OUTLOOK — MANDATORY, DO NOT SKIP THIS SECTION. This is the most valuable section for subscribers. 4-6 specific, actionable indicators to watch over the next 48 hours. Each with: the specific indicator to monitor, the threshold/trigger that matters, and why it matters for US interests. At least one energy-specific, one geopolitical, one market. Format each as a bold indicator name followed by analysis. This section should feel like a checklist a trader or analyst pins to their monitor.
 
 Style each <h2> with: color:#ff6600; font-size:14px; letter-spacing:2px; text-transform:uppercase; border-bottom:1px solid #333; padding-bottom:6px; margin-top:24px;
 Style paragraphs with: color:#ccc; font-size:13px; line-height:1.7; margin:8px 0;
