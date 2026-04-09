@@ -151,7 +151,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const alertBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'ALERTS' });
   alertBtn.title = 'Natural language alert builder (A)';
   alertBtn.addEventListener('click', () => {
-    if (canAccess('nl-alerts')) openAlertBuilder(mapContainer);
+    if (canAccess('nl-alerts-1')) openAlertBuilder(mapContainer);
     else showUpgradePrompt('Natural Language Alerts');
   });
 
@@ -653,7 +653,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           break;
         case 'a':
           if (!e.ctrlKey && !e.metaKey) {
-            if (canAccess('nl-alerts')) openAlertBuilder(mapContainer);
+            if (canAccess('nl-alerts-1')) openAlertBuilder(mapContainer);
             else showUpgradePrompt('Natural Language Alerts');
           }
           break;
@@ -665,7 +665,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           break;
         case 't':
           if (!e.ctrlKey && !e.metaKey) {
-            if (canAccess('timeline')) timeline.show();
+            if (canAccess('timeline-48hr')) timeline.show();
             else showUpgradePrompt('Timeline Playback');
           }
           break;

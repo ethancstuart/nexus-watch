@@ -77,30 +77,45 @@ export function renderLanding(root: HTMLElement): void {
 
     <section class="landing-pricing">
       <h2>Pricing</h2>
-      <div class="landing-pricing-grid">
+      <div class="landing-pricing-grid three-tier">
         <div class="landing-price-card">
           <div class="landing-price-tier">FREE</div>
           <div class="landing-price-amount">$0</div>
           <ul class="landing-price-features">
-            <li>Full map with 30 layers</li>
-            <li>Cinema Mode (all 8 profiles)</li>
-            <li>Daily Intelligence Brief</li>
+            <li>Full map with 30 live layers</li>
+            <li>Cinema Mode (watermarked)</li>
+            <li>Intelligence Brief (Mon/Wed/Fri)</li>
             <li>Country Instability Index</li>
-            <li>3 alert rules</li>
+            <li>1 natural language alert</li>
+            <li>48-hour timeline preview</li>
+            <li>PDF export</li>
           </ul>
           <a href="#/intel" class="landing-price-btn">GET STARTED</a>
+        </div>
+        <div class="landing-price-card">
+          <div class="landing-price-tier">ANALYST</div>
+          <div class="landing-price-amount">$29<span>/mo</span></div>
+          <ul class="landing-price-features">
+            <li>Everything in Free, plus:</li>
+            <li>Daily intelligence brief</li>
+            <li>5 natural language alerts</li>
+            <li>7-day timeline playback</li>
+            <li>Email alert delivery</li>
+            <li>Pro Insight sections in briefs</li>
+          </ul>
+          <a href="#/intel" class="landing-price-btn">START ANALYST</a>
         </div>
         <div class="landing-price-card featured">
           <div class="landing-price-tier">PRO</div>
           <div class="landing-price-amount">$99<span>/mo</span></div>
           <ul class="landing-price-features">
-            <li>Everything in Free</li>
-            <li>Natural Language Alerts (unlimited)</li>
-            <li>Timeline Playback (90 days)</li>
-            <li>PDF Export</li>
-            <li>Email Alert Delivery</li>
-            <li>API Access (10K calls/mo)</li>
-            <li>Customizable brief sections</li>
+            <li>Everything in Analyst, plus:</li>
+            <li>Unlimited alerts</li>
+            <li>90-day timeline playback</li>
+            <li>Cinema Mode (no watermark)</li>
+            <li>API access (10K calls/mo)</li>
+            <li>Personalized brief sections</li>
+            <li>Priority support</li>
           </ul>
           <a href="#/intel" class="landing-price-btn featured">UPGRADE TO PRO</a>
         </div>

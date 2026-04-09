@@ -227,6 +227,12 @@
   grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
+.landing-pricing-grid.three-tier {
+  grid-template-columns: 1fr 1fr 1fr;
+  max-width: 900px;
+  margin: 0 auto;
+}
+@media (max-width: 768px) { .landing-pricing-grid.three-tier { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .landing-pricing-grid { grid-template-columns: 1fr; } }
 .landing-price-card {
   padding: 28px;
