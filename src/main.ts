@@ -20,6 +20,14 @@ function showRouteError(root: HTMLElement, err: unknown) {
 
 router
   .on('/', () => {
+    import('./pages/landing.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderLanding(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/intel', () => {
     import('./pages/nexuswatch.ts')
       .then((m) => {
         appRoot.textContent = '';
