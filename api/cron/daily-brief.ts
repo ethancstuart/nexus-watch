@@ -136,7 +136,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       (async () => {
         const apiKey = process.env.TWELVEDATA_API_KEY;
         if (!apiKey) return null;
-        const r = await fetch(`https://api.twelvedata.com/quote?symbol=SPY,GLD,USO,UUP&apikey=${apiKey}`, {
+        const r = await fetch(`https://api.twelvedata.com/quote?symbol=SPY,GLD,USO,UNG,XLE,UUP,TLT&apikey=${apiKey}`, {
           signal: AbortSignal.timeout(8000),
         });
         return r.ok ? r.json() : null;
@@ -220,7 +220,15 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     const markets: MarketQuote[] = [];
     if (marketResult.status === 'fulfilled' && marketResult.value) {
       const mData = marketResult.value as Record<string, { close?: string; percent_change?: string }>;
-      const labels: Record<string, string> = { SPY: 'S&P 500', GLD: 'Gold', USO: 'Oil', UUP: 'USD Index' };
+      const labels: Record<string, string> = {
+        SPY: 'S&P 500',
+        GLD: 'Gold',
+        USO: 'Crude Oil',
+        UNG: 'Nat Gas',
+        XLE: 'Energy Sector',
+        UUP: 'USD Index',
+        TLT: 'Treasuries',
+      };
       for (const [sym, q] of Object.entries(mData)) {
         if (q?.close) {
           const pct = parseFloat(q.percent_change || '0');
@@ -401,7 +409,18 @@ ${conflictHeadlines.length > 0 ? conflictHeadlines.map((h) => `- ${h}`).join('\n
 ${newsHeadlines.length > 0 ? newsHeadlines.map((n) => `- [${n.source}] ${n.title}`).join('\n') : 'No headlines available'}
 
 === MARKET INDICATORS ===
-${markets.length > 0 ? markets.map((m) => `${m.symbol}: ${m.price} (${m.change})`).join(' | ') : 'Market data unavailable'}`;
+${markets.length > 0 ? markets.map((m) => `${m.symbol}: ${m.price} (${m.change})`).join(' | ') : 'Market data unavailable'}
+
+=== ENERGY CHOKEPOINT RISK CONTEXT ===
+Strait of Hormuz: ~20% of global oil transits. Adjacent to Iran (CII: ${allCII.find((c) => c.code === 'IR')?.score ?? '?'}), Yemen (CII: ${allCII.find((c) => c.code === 'YE')?.score ?? '?'})
+Bab el-Mandeb: Red Sea gateway. Adjacent to Yemen, Somalia (CII: ${allCII.find((c) => c.code === 'SO')?.score ?? '?'})
+Suez Canal: ~12% of global trade. Adjacent to instability in Sudan (CII: ${allCII.find((c) => c.code === 'SD')?.score ?? '?'}), Libya (CII: ${allCII.find((c) => c.code === 'LY')?.score ?? '?'})
+${(() => {
+  const oilQuote = markets.find((m) => m.symbol === 'Crude Oil');
+  const gasQuote = markets.find((m) => m.symbol === 'Nat Gas');
+  const energyQuote = markets.find((m) => m.symbol === 'Energy Sector');
+  return `Oil: ${oilQuote ? `${oilQuote.price} (${oilQuote.change})` : 'N/A'} | Nat Gas: ${gasQuote ? `${gasQuote.price} (${gasQuote.change})` : 'N/A'} | Energy Sector (XLE): ${energyQuote ? `${energyQuote.price} (${energyQuote.change})` : 'N/A'}`;
+})()}`;
 
         const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -417,6 +436,8 @@ ${markets.length > 0 ? markets.map((m) => `${m.symbol}: ${m.price} (${m.change})
 
 OUTPUT FORMAT: Return ONLY raw HTML fragments (no <html>, <head>, <body> tags). Use inline styles only. The email background is #0a0a0a with #e0e0e0 text. Accent color: #ff6600.
 
+AUDIENCE: US-based decision-makers — national security professionals, hedge fund risk managers, energy traders, policy analysts. Frame global events through the lens of US interests, US energy markets, and US security posture. This doesn't mean ignore other regions — it means always connect back to "why does this matter for the US?"
+
 CRITICAL RULES:
 - NEVER fabricate events, names, or claims not present in the data
 - DO synthesize, analyze, and draw connections between data points — this is what makes you an ANALYST not an aggregator
@@ -426,24 +447,29 @@ CRITICAL RULES:
 - If conflict headlines are unavailable, analyze instability through CII component breakdown and news headlines instead
 - Be specific: numbers, country names, magnitudes, trend directions — not vague generalizations
 - Write like you're briefing someone who will make decisions based on this. Every sentence should pass the "so what?" test.
+- Energy markets (oil, natural gas, energy sector ETF) deserve dedicated analysis — they're the transmission mechanism between geopolitical risk and economic impact.
 
 STRUCTURE (use these exact section headers as <h2> elements):
 
-1. SITUATION SUMMARY — 3-4 sentences. Lead with the most consequential development or cross-domain correlation. What should a decision-maker know RIGHT NOW? Include the single most important number and the most important TREND.
+1. SITUATION SUMMARY — 3-4 sentences. Lead with the most consequential development or cross-domain correlation. What should a decision-maker know RIGHT NOW? Include the single most important number and the most important TREND. Frame for US impact.
 
 2. THREAT MATRIX — Table with columns: Region | Threat Level (Critical/High/Elevated/Low) | Key Driver | 7-Day Trend. Cover 5-6 regions. Use colored dots: 🔴 Critical, 🟠 High, 🟡 Elevated, 🟢 Low. Use the 7-day trajectory data to characterize trends, not just 24h.
 
-3. CROSS-DOMAIN ALERTS — If correlations were auto-detected (earthquakes near infrastructure, seismic clusters, multi-region instability), analyze each one: what converged, why it matters, what to watch. If no correlations, omit this section entirely.
+3. ENERGY & COMMODITIES — Dedicated analysis of oil, natural gas, and energy sector movements. Connect to: chokepoint disruptions (Hormuz, Bab el-Mandeb, Suez), OPEC+ dynamics, sanctions impact, pipeline security, LNG flows. Reference specific price data from market indicators. What's driving energy prices today and what could move them tomorrow?
 
-4. KEY DEVELOPMENTS — 5-7 bullet points synthesizing the most important headlines, CII movements, and events. Each one: what happened + why it matters + confidence level. Use news sources when available. Use "▸" prefix.
+4. CROSS-DOMAIN ALERTS — If correlations were auto-detected (earthquakes near infrastructure, seismic clusters, multi-region instability), analyze each one: what converged, why it matters, what to watch. If no correlations, omit this section entirely.
 
-5. INSTABILITY TRAJECTORIES — Focus on 7-day CII trends, not just today. Which countries are on a rising trajectory? Which are stabilizing? Connect trajectory to the component breakdown (conflict vs. disasters vs. governance vs. market exposure).
+5. KEY DEVELOPMENTS — 5-7 bullet points synthesizing the most important headlines, CII movements, and events. Each one: what happened + why it matters (especially to US interests) + confidence level. Use news sources when available. Use "▸" prefix.
 
-6. SEISMIC & ENVIRONMENTAL — Earthquake analysis with baseline comparison. Cluster detection. Disease alerts if relevant.
+6. US IMPACT ASSESSMENT — 2-3 paragraphs. How do today's global developments affect: US homeland security, US economic interests, US energy independence, US alliance commitments, or US military posture? Be specific — name regions, trade routes, and economic channels.
 
-7. MARKET SIGNAL — How geopolitical risk maps to market moves. Connect specific events to specific price movements.
+7. INSTABILITY TRAJECTORIES — Focus on 7-day CII trends, not just today. Which countries are on a rising trajectory? Which are stabilizing? Connect trajectory to the component breakdown. Call out countries where instability could cascade into US-relevant consequences.
 
-8. 48-HOUR OUTLOOK — 3-5 specific, actionable indicators to watch. Each with: what to monitor, threshold that matters, and why. Reference specific countries/events from the data. Be predictive but grounded in the trend data.
+8. SEISMIC & ENVIRONMENTAL — Earthquake analysis with baseline comparison. Cluster detection. Disease alerts if relevant.
+
+9. MARKET SIGNAL — How geopolitical risk maps to market moves. S&P, treasuries, energy sector, gold, USD. Connect specific events to specific price movements. What's priced in vs. what's a surprise?
+
+10. 48-HOUR OUTLOOK — 3-5 specific, actionable indicators to watch. Each with: what to monitor, threshold that matters, and why. At least one should be energy-specific. Be predictive but grounded in the trend data.
 
 Style each <h2> with: color:#ff6600; font-size:14px; letter-spacing:2px; text-transform:uppercase; border-bottom:1px solid #333; padding-bottom:6px; margin-top:24px;
 Style paragraphs with: color:#ccc; font-size:13px; line-height:1.7; margin:8px 0;
