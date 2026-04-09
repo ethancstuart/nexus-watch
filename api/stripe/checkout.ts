@@ -53,10 +53,20 @@ export default async function handler(req: Request) {
     let user = JSON.parse(sessionData.result);
     if (typeof user === 'string') user = JSON.parse(user);
 
-    // Check for founding member pricing
+    // Select price based on tier parameter
     const url = new URL(req.url);
+    const analystPriceId = process.env.STRIPE_ANALYST_PRICE_ID;
+    const tier = url.searchParams.get('tier');
     const founding = url.searchParams.get('founding') === 'true';
-    const selectedPrice = founding && foundingPriceId ? foundingPriceId : priceId;
+
+    let selectedPrice: string;
+    if (tier === 'analyst' && analystPriceId) {
+      selectedPrice = analystPriceId;
+    } else if (founding && foundingPriceId) {
+      selectedPrice = foundingPriceId;
+    } else {
+      selectedPrice = priceId; // Default: Pro tier
+    }
 
     const origin = url.origin;
 

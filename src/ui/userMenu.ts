@@ -107,7 +107,7 @@ function showDropdown(wrapper: HTMLElement, user: User): void {
       <div class="nw-dropdown-email">${user.email}</div>
     </div>
     <div class="nw-dropdown-divider"></div>
-    ${user.tier !== 'premium' ? '<button class="nw-dropdown-item upgrade">Upgrade to Pro — $99/mo</button>' : '<button class="nw-dropdown-item manage">Manage Billing</button>'}
+    ${user.tier !== 'premium' ? '<button class="nw-dropdown-item upgrade-analyst">Analyst — $29/mo</button><button class="nw-dropdown-item upgrade-pro">Pro — $99/mo</button>' : '<button class="nw-dropdown-item manage">Manage Billing</button>'}
     <button class="nw-dropdown-item api-keys">API Keys</button>
     <a class="nw-dropdown-item" href="/api/v1/docs" target="_blank" style="text-decoration:none">API Documentation</a>
     <div class="nw-dropdown-divider"></div>
@@ -116,7 +116,13 @@ function showDropdown(wrapper: HTMLElement, user: User): void {
 
   wrapper.appendChild(dropdown);
 
-  dropdown.querySelector('.upgrade')?.addEventListener('click', async () => {
+  dropdown.querySelector('.upgrade-analyst')?.addEventListener('click', async () => {
+    const res = await fetch('/api/stripe/checkout?tier=analyst', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const data = await res.json() as { url?: string };
+    if (data.url) window.location.href = data.url;
+  });
+
+  dropdown.querySelector('.upgrade-pro')?.addEventListener('click', async () => {
     const res = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     const data = await res.json() as { url?: string };
     if (data.url) window.location.href = data.url;
