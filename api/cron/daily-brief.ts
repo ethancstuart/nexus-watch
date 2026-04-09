@@ -368,6 +368,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
     // === Generate AI brief (outputs HTML directly) ===
     let briefHtml: string;
+    let aiDebug: string | null = null;
 
     if (anthropicKey) {
       try {
@@ -488,16 +489,20 @@ For the threat table, use: border-collapse:collapse; width:100%; and cells with 
         if (aiRes.ok) {
           const aiData = (await aiRes.json()) as { content: Array<{ text: string }> };
           briefHtml = aiData.content?.[0]?.text || buildFallbackHtml(briefData);
+          aiDebug = briefHtml === buildFallbackHtml(briefData) ? 'ai-empty-response' : 'ai-success';
         } else {
           const errBody = await aiRes.text().catch(() => 'unknown');
+          aiDebug = `ai-failed:${aiRes.status}:${errBody.slice(0, 300)}`;
           console.error(`AI brief failed: ${aiRes.status} — ${errBody.slice(0, 200)}`);
           briefHtml = buildFallbackHtml(briefData);
         }
       } catch (aiErr) {
+        aiDebug = `ai-error:${aiErr instanceof Error ? aiErr.message : String(aiErr)}`;
         console.error('AI brief error:', aiErr instanceof Error ? aiErr.message : aiErr);
         briefHtml = buildFallbackHtml(briefData);
       }
     } else {
+      aiDebug = 'no-api-key';
       briefHtml = buildFallbackHtml(briefData);
     }
 
@@ -535,7 +540,7 @@ For the threat table, use: border-collapse:collapse; width:100%; and cells with 
       }
     }
 
-    return res.json({ success: true, date: today, briefLength: briefHtml.length });
+    return res.json({ success: true, date: today, briefLength: briefHtml.length, ai: aiDebug });
   } catch (err) {
     console.error('Daily brief cron error:', err instanceof Error ? err.message : err);
     return res.status(500).json({ error: 'Brief generation failed' });
