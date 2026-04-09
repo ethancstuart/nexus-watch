@@ -249,14 +249,17 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       for (const c of topCII) {
         const history = byCountry.get(c.code);
         if (!history || history.entries.length < 2) continue;
-        // Deduplicate by date, keep latest
+        // Deduplicate by date — keep FIRST entry per date (most recent, since query is DESC)
         const byDate = new Map<string, number>();
-        for (const e of history.entries) byDate.set(e.date, e.score);
+        for (const e of history.entries) {
+          if (!byDate.has(e.date)) byDate.set(e.date, e.score);
+        }
         const scores = Array.from(byDate.entries())
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([date, score]) => ({ date, score }));
         const weekAgo = scores.length >= 2 ? scores[0].score : null;
-        const current = scores[scores.length - 1].score;
+        // Use authoritative current score from allCII, not history query
+        const current = c.score;
         // Detect volatility: if score swings >5 points in both directions
         let maxUp = 0,
           maxDown = 0;
@@ -408,7 +411,7 @@ ${markets.length > 0 ? markets.map((m) => `${m.symbol}: ${m.price} (${m.change})
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-5-20241022',
+            model: 'claude-sonnet-4-5-20250929',
             max_tokens: 4000,
             system: `You are a senior intelligence analyst at NexusWatch, a geopolitical intelligence platform. Write a daily intelligence briefing that a national security advisor or hedge fund risk manager would find genuinely useful.
 
@@ -453,16 +456,19 @@ For the threat table, use: border-collapse:collapse; width:100%; and cells with 
               },
             ],
           }),
-          signal: AbortSignal.timeout(45000),
+          signal: AbortSignal.timeout(90000),
         });
 
         if (aiRes.ok) {
           const aiData = (await aiRes.json()) as { content: Array<{ text: string }> };
           briefHtml = aiData.content?.[0]?.text || buildFallbackHtml(briefData);
         } else {
+          const errBody = await aiRes.text().catch(() => 'unknown');
+          console.error(`AI brief failed: ${aiRes.status} — ${errBody.slice(0, 200)}`);
           briefHtml = buildFallbackHtml(briefData);
         }
-      } catch {
+      } catch (aiErr) {
+        console.error('AI brief error:', aiErr instanceof Error ? aiErr.message : aiErr);
         briefHtml = buildFallbackHtml(briefData);
       }
     } else {
@@ -561,6 +567,23 @@ ${bodyHtml}
 <!-- CTA -->
 <tr><td style="padding:0 28px 20px;">
   <a href="https://dashpulse.app/#/intel" style="display:inline-block;padding:10px 20px;background:#ff660018;border:1px solid #ff660040;color:#ff6600;text-decoration:none;font-size:11px;letter-spacing:2px;text-transform:uppercase;border-radius:3px;font-family:'Courier New',monospace;">Open Live Map →</a>
+</td></tr>
+
+<!-- Upgrade CTA -->
+<tr><td style="padding:16px 28px 0;">
+  <div style="background:#ff660008;border:1px solid #ff660020;border-radius:4px;padding:16px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="vertical-align:middle;">
+        <span style="color:#ff6600;font-size:11px;font-weight:bold;letter-spacing:1px;">UPGRADE TO PRO</span>
+        <p style="color:#888;font-size:11px;line-height:1.5;margin:4px 0 0;">Unlimited alerts, 90-day timeline, API access, personalized briefs, and no watermarks.</p>
+      </td>
+      <td style="vertical-align:middle;text-align:right;padding-left:16px;white-space:nowrap;">
+        <a href="https://dashpulse.app/#/intel" style="display:inline-block;padding:8px 16px;background:#ff6600;color:#0a0a0a;text-decoration:none;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-radius:3px;font-family:'Courier New',monospace;font-weight:bold;">$99/mo →</a>
+      </td>
+    </tr>
+    </table>
+  </div>
 </td></tr>
 
 <!-- Footer -->
