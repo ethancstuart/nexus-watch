@@ -1,4 +1,4 @@
-// Circuit breaker states per hostname
+// Circuit breaker states per circuitKey
 interface CircuitEntry {
   failures: number;
   openedAt: number | null;
@@ -12,17 +12,17 @@ const inFlight = new Map<string, Promise<Response>>();
 const FAILURE_THRESHOLD = 3;
 const OPEN_DURATION_MS = 60 * 1000; // 60 seconds (was 5 minutes — too aggressive for real-time data)
 
-function getEntry(hostname: string): CircuitEntry {
-  let entry = circuits.get(hostname);
+function getEntry(circuitKey: string): CircuitEntry {
+  let entry = circuits.get(circuitKey);
   if (!entry) {
     entry = { failures: 0, openedAt: null, probing: false };
-    circuits.set(hostname, entry);
+    circuits.set(circuitKey, entry);
   }
   return entry;
 }
 
-export function getCircuitState(hostname: string): 'closed' | 'open' | 'half-open' {
-  const entry = circuits.get(hostname);
+export function getCircuitState(circuitKey: string): 'closed' | 'open' | 'half-open' {
+  const entry = circuits.get(circuitKey);
   if (!entry || entry.openedAt === null) return 'closed';
   if (Date.now() - entry.openedAt >= OPEN_DURATION_MS) return 'half-open';
   return 'open';
@@ -30,16 +30,17 @@ export function getCircuitState(hostname: string): 'closed' | 'open' | 'half-ope
 
 export async function fetchWithRetry(url: string, options?: RequestInit, maxRetries = 2): Promise<Response> {
   // Check circuit breaker before dedup — bail early if circuit is open/blocked
+  // Use path-level circuit breaking so one flaky endpoint doesn't block all APIs
   const parsed = new URL(url, window.location.origin);
-  const hostname = parsed.hostname;
-  const state = getCircuitState(hostname);
+  const circuitKey = parsed.pathname.split('/').slice(0, 3).join('/'); // e.g., "/api/gdelt"
+  const state = getCircuitState(circuitKey);
   if (state === 'open') {
-    throw new Error(`Circuit open for ${hostname} — requests blocked`);
+    throw new Error(`Circuit open for ${circuitKey} — requests blocked`);
   }
   if (state === 'half-open') {
-    const entry = getEntry(hostname);
+    const entry = getEntry(circuitKey);
     if (entry.probing) {
-      throw new Error(`Circuit half-open for ${hostname} — probe in progress`);
+      throw new Error(`Circuit half-open for ${circuitKey} — probe in progress`);
     }
   }
 
@@ -65,17 +66,17 @@ export async function fetchWithRetry(url: string, options?: RequestInit, maxRetr
 
 async function _fetchWithRetry(url: string, options: RequestInit | undefined, maxRetries: number): Promise<Response> {
   const parsed = new URL(url, window.location.origin);
-  const hostname = parsed.hostname;
-  const entry = getEntry(hostname);
-  const state = getCircuitState(hostname);
+  const circuitKey = parsed.pathname.split('/').slice(0, 3).join('/');
+  const entry = getEntry(circuitKey);
+  const state = getCircuitState(circuitKey);
 
   if (state === 'open') {
-    throw new Error(`Circuit open for ${hostname} — requests blocked`);
+    throw new Error(`Circuit open for ${circuitKey} — requests blocked`);
   }
 
   if (state === 'half-open') {
     if (entry.probing) {
-      throw new Error(`Circuit half-open for ${hostname} — probe in progress`);
+      throw new Error(`Circuit half-open for ${circuitKey} — probe in progress`);
     }
     entry.probing = true;
   }

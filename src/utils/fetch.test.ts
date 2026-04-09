@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // We need a fresh module for each test group to avoid Map state leakage.
-// We achieve this by using unique hostnames per test.
+// Circuit breaker now keys by URL path (not hostname), e.g., "/data".
 
 let fetchWithRetry: typeof import('./fetch.ts').fetchWithRetry;
 let getCircuitState: typeof import('./fetch.ts').getCircuitState;
@@ -47,7 +47,7 @@ describe('fetchWithRetry', () => {
 
     const res = await fetchWithRetry(`https://${host}/data`);
     expect(res.ok).toBe(true);
-    expect(getCircuitState(host)).toBe('closed');
+    expect(getCircuitState('/data')).toBe('closed');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -67,7 +67,7 @@ describe('fetchWithRetry', () => {
     const res = await promise;
     expect(res.ok).toBe(true);
     expect(fetch).toHaveBeenCalledTimes(3);
-    expect(getCircuitState(host)).toBe('closed');
+    expect(getCircuitState('/data')).toBe('closed');
   });
 
   it('all retries exhausted increments failure count', async () => {
@@ -84,19 +84,19 @@ describe('fetchWithRetry', () => {
     expect(caught).toBeInstanceOf(Error);
     expect(caught!.message).toBe('fail');
     // Circuit should still be closed (only 1 failure set, threshold is 3)
-    expect(getCircuitState(host)).toBe('closed');
+    expect(getCircuitState('/data')).toBe('closed');
   });
 
   it('3 full failure sets opens circuit', async () => {
     const host = 'open-circuit.example.com';
     await tripCircuit(host);
-    expect(getCircuitState(host)).toBe('open');
+    expect(getCircuitState('/data')).toBe('open');
   });
 
   it('open circuit throws without calling fetch', async () => {
     const host = 'open-nofetch.example.com';
     await tripCircuit(host);
-    expect(getCircuitState(host)).toBe('open');
+    expect(getCircuitState('/data')).toBe('open');
 
     vi.mocked(fetch).mockClear();
     await expect(fetchWithRetry(`https://${host}/data`)).rejects.toThrow(/Circuit open/);
@@ -106,10 +106,10 @@ describe('fetchWithRetry', () => {
   it('after 5min circuit transitions to half-open', async () => {
     const host = 'halfopen-transition.example.com';
     await tripCircuit(host);
-    expect(getCircuitState(host)).toBe('open');
+    expect(getCircuitState('/data')).toBe('open');
 
     vi.advanceTimersByTime(5 * 60 * 1000);
-    expect(getCircuitState(host)).toBe('half-open');
+    expect(getCircuitState('/data')).toBe('half-open');
   });
 
   it('half-open allows first probe, success resets to closed', async () => {
@@ -117,12 +117,12 @@ describe('fetchWithRetry', () => {
     await tripCircuit(host);
 
     vi.advanceTimersByTime(5 * 60 * 1000);
-    expect(getCircuitState(host)).toBe('half-open');
+    expect(getCircuitState('/data')).toBe('half-open');
 
     vi.mocked(fetch).mockResolvedValue(okResponse());
     const res = await fetchWithRetry(`https://${host}/data`);
     expect(res.ok).toBe(true);
-    expect(getCircuitState(host)).toBe('closed');
+    expect(getCircuitState('/data')).toBe('closed');
   });
 
   it('half-open blocks concurrent second probe', async () => {
