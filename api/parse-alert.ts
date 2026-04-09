@@ -55,10 +55,12 @@ Respond with ONLY valid JSON matching this schema:
   "comparisonLayer": "string or null (for near_layer condition)",
   "humanReadable": "string (clear 1-sentence description of the rule)"
 }`,
-        messages: [{
-          role: 'user',
-          content: text,
-        }],
+        messages: [
+          {
+            role: 'user',
+            content: text,
+          },
+        ],
       }),
       signal: AbortSignal.timeout(8000),
     });

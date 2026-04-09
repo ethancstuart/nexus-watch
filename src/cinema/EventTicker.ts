@@ -55,7 +55,8 @@ export class EventTicker {
       const detail = (e as CustomEvent).detail;
       if (e.type === 'dashview:auto-alerts' && detail?.alerts) {
         for (const alert of detail.alerts as Array<{ text: string; severity: string; lat?: number; lon?: number }>) {
-          const severity = alert.severity === 'critical' ? 'critical' : alert.severity === 'elevated' ? 'elevated' : 'monitor';
+          const severity =
+            alert.severity === 'critical' ? 'critical' : alert.severity === 'elevated' ? 'elevated' : 'monitor';
           this.addEvent({
             id: `alert-${alert.text.slice(0, 30)}-${Date.now()}`,
             text: alert.text,
@@ -97,7 +98,13 @@ export class EventTicker {
     this.profile = profile;
   }
 
-  private addEvent(event: { id: string; text: string; severity: 'critical' | 'elevated' | 'monitor' | 'info'; lat: number; lng: number }): void {
+  private addEvent(event: {
+    id: string;
+    text: string;
+    severity: 'critical' | 'elevated' | 'monitor' | 'info';
+    lat: number;
+    lng: number;
+  }): void {
     if (!this.active || !this.track) return;
 
     // Dedup
@@ -171,7 +178,7 @@ export class EventTicker {
       if (layerId === 'earthquakes') {
         const mag = d.magnitude as number | undefined;
         if (!mag || mag < 3.0) continue;
-        const severity = mag >= 6.0 ? 'critical' as const : mag >= 4.5 ? 'elevated' as const : 'monitor' as const;
+        const severity = mag >= 6.0 ? ('critical' as const) : mag >= 4.5 ? ('elevated' as const) : ('monitor' as const);
         this.addEvent({
           id: `eq-${d.id || `${lat}-${lon}-${mag}`}`,
           text: `M${mag.toFixed(1)} — ${(d.place as string) || 'Unknown'}`,
@@ -181,7 +188,7 @@ export class EventTicker {
         });
       } else if (layerId === 'acled') {
         const fatalities = d.fatalities as number | undefined;
-        const severity = (fatalities && fatalities > 50) ? 'critical' as const : 'elevated' as const;
+        const severity = fatalities && fatalities > 50 ? ('critical' as const) : ('elevated' as const);
         this.addEvent({
           id: `acled-${d.event_id_cnty || `${lat}-${lon}`}`,
           text: `${(d.event_type as string) || 'Conflict'} — ${(d.country as string) || ''}`,

@@ -25,14 +25,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const sevColor = severity === 'critical' ? '#dc2626' : severity === 'elevated' ? '#f97316' : '#eab308';
-  const mapLink = lat && lon ? `https://dashpulse.app/#/intel?v=${btoa(JSON.stringify({ c: [lon, lat], z: 6, p: 10, b: 0, l: [] }))}` : 'https://dashpulse.app';
+  const mapLink =
+    lat && lon
+      ? `https://dashpulse.app/#/intel?v=${btoa(JSON.stringify({ c: [lon, lat], z: 6, p: 10, b: 0, l: [] }))}`
+      : 'https://dashpulse.app';
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${resendKey}`,
+        Authorization: `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
         from: 'NexusWatch Alerts <alerts@dashpulse.app>',

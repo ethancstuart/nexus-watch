@@ -9,10 +9,15 @@ const SNAPSHOT_SOURCES = [
     id: 'earthquakes',
     url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
     extract: (data: Record<string, unknown>) => {
-      const features = (data.features || []) as Array<{ properties: { mag: number; place: string }; geometry: { coordinates: number[] } }>;
+      const features = (data.features || []) as Array<{
+        properties: { mag: number; place: string };
+        geometry: { coordinates: number[] };
+      }>;
       return features.slice(0, 200).map((f) => ({
-        mag: f.properties.mag, place: f.properties.place,
-        lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
+        mag: f.properties.mag,
+        place: f.properties.place,
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0],
       }));
     },
   },

@@ -13,7 +13,7 @@ const REGION_FACTS: Record<string, string> = {
   'HORN OF AFRICA': 'The Horn of Africa hosts critical Red Sea shipping lanes and displacement corridors.',
   'SAHEL REGION': 'The Sahel faces expanding insurgency across six countries with 4M+ displaced.',
   'SOUTH CHINA SEA': 'The South China Sea carries $3.4 trillion in trade annually.',
-  'TAIWAN STRAIT': 'The Taiwan Strait is one of the world\'s most sensitive military flashpoints.',
+  'TAIWAN STRAIT': "The Taiwan Strait is one of the world's most sensitive military flashpoints.",
   'KOREAN PENINSULA': 'The Korean DMZ is the most heavily fortified border in the world.',
   'SOUTHEAST ASIA': 'Southeast Asia hosts key manufacturing hubs and maritime chokepoints.',
   'WEST AFRICA': 'West Africa is experiencing rising maritime piracy and Sahel spillover.',
@@ -110,7 +110,9 @@ export class NarrationOverlay {
     );
     const nearbyAlerts = autoAlerts.filter(
       (alert) =>
-        'lat' in alert && 'lon' in alert && haversineKm(detail.lat, detail.lng, alert.lat as number, alert.lon as number) < 500,
+        'lat' in alert &&
+        'lon' in alert &&
+        haversineKm(detail.lat, detail.lng, alert.lat as number, alert.lon as number) < 500,
     );
 
     const relatedCount = nearbyIntel.length + nearbyAlerts.length;

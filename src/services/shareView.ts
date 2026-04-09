@@ -7,11 +7,11 @@
 
 export interface ViewState {
   c: [number, number]; // center [lng, lat]
-  z: number;           // zoom
-  p: number;           // pitch
-  b: number;           // bearing
-  l: string[];         // enabled layer IDs
-  pr?: string;         // cinema profile ID (if in cinema mode)
+  z: number; // zoom
+  p: number; // pitch
+  b: number; // bearing
+  l: string[]; // enabled layer IDs
+  pr?: string; // cinema profile ID (if in cinema mode)
 }
 
 export function encodeViewState(state: ViewState): string {

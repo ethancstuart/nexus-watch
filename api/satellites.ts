@@ -30,12 +30,11 @@ interface SatelliteData {
 
 // Fetch multiple satellite groups from CelesTrak
 async function fetchGroup(group: string, type: string): Promise<SatelliteData[]> {
-  const res = await fetch(
-    `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=json`,
-    { signal: AbortSignal.timeout(10000) },
-  );
+  const res = await fetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=json`, {
+    signal: AbortSignal.timeout(10000),
+  });
   if (!res.ok) return [];
-  const data = await res.json() as Array<{
+  const data = (await res.json()) as Array<{
     OBJECT_NAME: string;
     NORAD_CAT_ID: number;
     INCLINATION: number;
@@ -50,7 +49,7 @@ async function fetchGroup(group: string, type: string): Promise<SatelliteData[]>
   }>;
 
   return data.map((s) => {
-    const period = s.PERIOD ?? (1440 / s.MEAN_MOTION);
+    const period = s.PERIOD ?? 1440 / s.MEAN_MOTION;
     // Approximate altitude from period using Kepler's third law
     const earthRadius = 6371;
     const mu = 398600.4418;
@@ -96,12 +95,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     ]);
 
     // Combine and limit — take all stations, sample others
-    const satellites = [
-      ...stations,
-      ...military.slice(0, 20),
-      ...gps.slice(0, 10),
-      ...glonass.slice(0, 10),
-    ];
+    const satellites = [...stations, ...military.slice(0, 20), ...gps.slice(0, 10), ...glonass.slice(0, 10)];
 
     if (satellites.length > 0) {
       cachedSatellites = satellites;

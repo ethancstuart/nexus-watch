@@ -72,14 +72,24 @@ export class EventLog {
 
     // Export button
     this.container.querySelector('.cinema-log-export')?.addEventListener('click', () => {
-      const text = this.entries.map((e) => {
-        const time = new Date(e.timestamp).toISOString();
-        return `[${time}] [${e.severity.toUpperCase()}] ${e.text} (${e.lat.toFixed(2)}, ${e.lon.toFixed(2)})`;
-      }).join('\n');
-      navigator.clipboard.writeText(text).then(() => {
-        const btn = this.container?.querySelector('.cinema-log-export') as HTMLElement;
-        if (btn) { btn.textContent = 'COPIED!'; setTimeout(() => { btn.textContent = 'EXPORT'; }, 2000); }
-      }).catch(() => {});
+      const text = this.entries
+        .map((e) => {
+          const time = new Date(e.timestamp).toISOString();
+          return `[${time}] [${e.severity.toUpperCase()}] ${e.text} (${e.lat.toFixed(2)}, ${e.lon.toFixed(2)})`;
+        })
+        .join('\n');
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          const btn = this.container?.querySelector('.cinema-log-export') as HTMLElement;
+          if (btn) {
+            btn.textContent = 'COPIED!';
+            setTimeout(() => {
+              btn.textContent = 'EXPORT';
+            }, 2000);
+          }
+        })
+        .catch(() => {});
     });
 
     // Listen for layer data and alerts
@@ -91,7 +101,11 @@ export class EventLog {
           this.addEntry({
             id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             text: alert.text,
-            severity: (alert.severity === 'critical' ? 'critical' : alert.severity === 'elevated' ? 'elevated' : 'monitor') as LogEntry['severity'],
+            severity: (alert.severity === 'critical'
+              ? 'critical'
+              : alert.severity === 'elevated'
+                ? 'elevated'
+                : 'monitor') as LogEntry['severity'],
             timestamp: Date.now(),
             lat: alert.lat ?? 0,
             lon: alert.lon ?? 0,
@@ -153,7 +167,8 @@ export class EventLog {
     const time = new Date(entry.timestamp);
     const timeStr = `${time.getUTCHours().toString().padStart(2, '0')}:${time.getUTCMinutes().toString().padStart(2, '0')}:${time.getUTCSeconds().toString().padStart(2, '0')}`;
 
-    const sevShape = entry.severity === 'critical' ? '▲' : entry.severity === 'elevated' ? '●' : entry.severity === 'info' ? '○' : '◦';
+    const sevShape =
+      entry.severity === 'critical' ? '▲' : entry.severity === 'elevated' ? '●' : entry.severity === 'info' ? '○' : '◦';
     row.innerHTML = `
       <span class="cinema-log-time">${timeStr}</span>
       <span class="cinema-log-severity ${entry.severity}">${sevShape}</span>
@@ -164,9 +179,11 @@ export class EventLog {
       row.style.cursor = 'pointer';
       row.addEventListener('click', () => {
         this.mapView.flyTo(entry.lon, entry.lat, 6);
-        document.dispatchEvent(new CustomEvent('cinema:focus-change', {
-          detail: { lat: entry.lat, lng: entry.lon, label: entry.text, source: 'event-log' },
-        }));
+        document.dispatchEvent(
+          new CustomEvent('cinema:focus-change', {
+            detail: { lat: entry.lat, lng: entry.lon, label: entry.text, source: 'event-log' },
+          }),
+        );
       });
     }
 
@@ -219,7 +236,11 @@ export class EventLog {
     });
   }
 
-  private classifyEvent(layerId: string, d: Record<string, unknown>, totalCount: number): { text: string; severity: LogEntry['severity'] } | null {
+  private classifyEvent(
+    layerId: string,
+    d: Record<string, unknown>,
+    totalCount: number,
+  ): { text: string; severity: LogEntry['severity'] } | null {
     if (layerId === 'earthquakes') {
       const mag = Number(d.magnitude);
       if (mag < 4.0) return null;

@@ -43,10 +43,7 @@ export function setTimelineActive(active: boolean): void {
  * Fetch timeline density data for the scrubber visualization.
  * Returns event counts per timestamp per layer.
  */
-export async function fetchTimelineDensity(
-  from?: string,
-  to?: string,
-): Promise<TimelineEntry[]> {
+export async function fetchTimelineDensity(from?: string, to?: string): Promise<TimelineEntry[]> {
   if (Date.now() - lastTimelineFetch < TIMELINE_CACHE_TTL && cachedTimeline.length > 0 && !from) {
     return cachedTimeline;
   }
@@ -119,10 +116,12 @@ export function computeDensityHistogram(
   for (let i = 0; i < binCount; i++) {
     const binStart = minTime + i * binSize;
     const binEnd = binStart + binSize;
-    const count = entries.filter((e) => {
-      const t = new Date(e.timestamp).getTime();
-      return t >= binStart && t < binEnd;
-    }).reduce((sum, e) => sum + e.count, 0);
+    const count = entries
+      .filter((e) => {
+        const t = new Date(e.timestamp).getTime();
+        return t >= binStart && t < binEnd;
+      })
+      .reduce((sum, e) => sum + e.count, 0);
     bins.push({ time: binStart + binSize / 2, count });
   }
 

@@ -168,7 +168,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     };
     void copyShareUrl(state).then((ok) => {
       shareBtn.textContent = ok ? 'COPIED!' : 'FAILED';
-      setTimeout(() => { shareBtn.textContent = 'SHARE'; }, 2000);
+      setTimeout(() => {
+        shareBtn.textContent = 'SHARE';
+      }, 2000);
     });
   });
 
@@ -286,7 +288,8 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // ── Upgrade confirmation (after Stripe checkout) ──
   if (window.location.search.includes('upgraded=true')) {
     const toast = createElement('div', { className: 'nw-upgrade-toast' });
-    toast.innerHTML = '<span class="nw-upgrade-toast-text"><strong>Welcome to NexusWatch Pro!</strong> All features unlocked.</span><button class="nw-upgrade-toast-close" onclick="this.parentElement.remove()">✕</button>';
+    toast.innerHTML =
+      '<span class="nw-upgrade-toast-text"><strong>Welcome to NexusWatch Pro!</strong> All features unlocked.</span><button class="nw-upgrade-toast-close" onclick="this.parentElement.remove()">✕</button>';
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 6000);
     // Clean URL

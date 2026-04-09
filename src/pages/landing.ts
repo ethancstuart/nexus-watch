@@ -150,7 +150,9 @@ export function renderLanding(root: HTMLElement): void {
         body: JSON.stringify({ email, source: 'landing' }),
       });
       const data = await res.json();
-      status.textContent = data.success ? '✓ Subscribed! Check your email for the welcome message.' : (data.error || 'Failed');
+      status.textContent = data.success
+        ? '✓ Subscribed! Check your email for the welcome message.'
+        : data.error || 'Failed';
       status.style.color = data.success ? '#22c55e' : '#ef4444';
     } catch {
       status.textContent = 'Network error — try again';
@@ -166,7 +168,11 @@ export function renderLanding(root: HTMLElement): void {
       .then((data) => {
         if (data.summary) {
           // Show first ~500 chars of the brief
-          const preview = data.summary.slice(0, 600).replace(/\n/g, '<br>').replace(/## /g, '<br><strong>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+          const preview = data.summary
+            .slice(0, 600)
+            .replace(/\n/g, '<br>')
+            .replace(/## /g, '<br><strong>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
           briefEl.innerHTML = `<div class="brief-preview-text">${preview}...</div><a href="#/intel" class="brief-preview-link">Read full brief in NexusWatch →</a>`;
         } else {
           briefEl.textContent = 'Brief generates daily at 06:00 UTC. Check back tomorrow morning.';

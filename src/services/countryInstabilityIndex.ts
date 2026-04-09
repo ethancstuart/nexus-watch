@@ -104,12 +104,37 @@ function computeCountryCII(
   // ── Component 1: Conflict (0-20) — live data + baseline ──
   // Baseline ensures countries at war don't show 0 when ACLED is unavailable
   const BASELINE_CONFLICT: Record<string, number> = {
-    UA: 18, RU: 10, SD: 18, SS: 16, YE: 17, SY: 17, MM: 15, AF: 14, SO: 15,
-    CD: 14, IQ: 10, LY: 12, ML: 12, BF: 13, CF: 13, NE: 10, HT: 11, PS: 18,
-    IL: 8, NG: 9, MZ: 8, ET: 10, TD: 9, PK: 7, CO: 6, KP: 5,
+    UA: 18,
+    RU: 10,
+    SD: 18,
+    SS: 16,
+    YE: 17,
+    SY: 17,
+    MM: 15,
+    AF: 14,
+    SO: 15,
+    CD: 14,
+    IQ: 10,
+    LY: 12,
+    ML: 12,
+    BF: 13,
+    CF: 13,
+    NE: 10,
+    HT: 11,
+    PS: 18,
+    IL: 8,
+    NG: 9,
+    MZ: 8,
+    ET: 10,
+    TD: 9,
+    PK: 7,
+    CO: 6,
+    KP: 5,
   };
   let conflict = BASELINE_CONFLICT[country.code] ?? 0;
-  const acled = layerData.get('acled') as Array<{ lat: number; lon: number; fatalities?: number; event_type?: string }> | undefined;
+  const acled = layerData.get('acled') as
+    | Array<{ lat: number; lon: number; fatalities?: number; event_type?: string }>
+    | undefined;
   if (acled) {
     const nearby = acled.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
     const eventCount = nearby.length;
@@ -139,11 +164,14 @@ function computeCountryCII(
 
   // ── Component 3: Sentiment (0-15) ──
   let sentiment = 0;
-  const news = layerData.get('news') as Array<{ lat?: number; lon?: number; tone?: number; country?: string }> | undefined;
+  const news = layerData.get('news') as
+    | Array<{ lat?: number; lon?: number; tone?: number; country?: string }>
+    | undefined;
   if (news) {
-    const nearby = news.filter((e) =>
-      (e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius)) ||
-      (e.country && e.country.includes(country.name)),
+    const nearby = news.filter(
+      (e) =>
+        (e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius)) ||
+        (e.country && e.country.includes(country.name)),
     );
     if (nearby.length > 0) {
       const avgTone = nearby.reduce((s, e) => s + (e.tone || 0), 0) / nearby.length;
@@ -155,11 +183,14 @@ function computeCountryCII(
 
   // ── Component 4: Infrastructure (0-15) ──
   let infrastructure = 0;
-  const outages = layerData.get('internet-outages') as Array<{ code?: string; severity?: string; score?: number }> | undefined;
+  const outages = layerData.get('internet-outages') as
+    | Array<{ code?: string; severity?: string; score?: number }>
+    | undefined;
   if (outages) {
     const match = outages.find((o) => o.code === country.code);
     if (match) {
-      const outageScore = match.score || (match.severity === 'critical' ? 1.0 : match.severity === 'high' ? 0.75 : 0.25);
+      const outageScore =
+        match.score || (match.severity === 'critical' ? 1.0 : match.severity === 'high' ? 0.75 : 0.25);
       infrastructure += outageScore * 10;
       if (outageScore > 0.5) signals.push(`Internet disruption: ${match.severity}`);
     }
@@ -175,7 +206,9 @@ function computeCountryCII(
 
   // ── Component 5: Governance (0-15) ──
   let governance = 0;
-  const elections = layerData.get('elections') as Array<{ lat: number; lon: number; date?: string; significance?: string }> | undefined;
+  const elections = layerData.get('elections') as
+    | Array<{ lat: number; lon: number; date?: string; significance?: string }>
+    | undefined;
   if (elections) {
     const nearby = elections.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
     for (const el of nearby) {
@@ -202,18 +235,63 @@ function computeCountryCII(
   // This component uses cached market data when available
   // For now, use static risk weights based on known economic vulnerability
   const MARKET_RISK: Record<string, number> = {
-    UA: 15, RU: 14, CN: 10, TW: 16, IR: 18, SA: 12, VE: 17,
-    NG: 11, TR: 9, EG: 8, AR: 12, PK: 10, BD: 7, LB: 14,
-    SD: 16, SS: 17, YE: 18, AF: 19, MM: 14, KP: 20, HT: 16,
-    CD: 15, CF: 16, SO: 17, LY: 13, SY: 18, IQ: 12, ML: 13,
-    BF: 14, NE: 13, TD: 14, MZ: 11, CU: 12,
-    US: 2, JP: 3, DE: 2, GB: 2, FR: 3, KR: 4, IN: 5, BR: 6,
-    MX: 5, PH: 6, ID: 5, ZA: 6, CO: 7, UG: 9, KE: 7, IL: 5, PS: 15,
+    UA: 15,
+    RU: 14,
+    CN: 10,
+    TW: 16,
+    IR: 18,
+    SA: 12,
+    VE: 17,
+    NG: 11,
+    TR: 9,
+    EG: 8,
+    AR: 12,
+    PK: 10,
+    BD: 7,
+    LB: 14,
+    SD: 16,
+    SS: 17,
+    YE: 18,
+    AF: 19,
+    MM: 14,
+    KP: 20,
+    HT: 16,
+    CD: 15,
+    CF: 16,
+    SO: 17,
+    LY: 13,
+    SY: 18,
+    IQ: 12,
+    ML: 13,
+    BF: 14,
+    NE: 13,
+    TD: 14,
+    MZ: 11,
+    CU: 12,
+    US: 2,
+    JP: 3,
+    DE: 2,
+    GB: 2,
+    FR: 3,
+    KR: 4,
+    IN: 5,
+    BR: 6,
+    MX: 5,
+    PH: 6,
+    ID: 5,
+    ZA: 6,
+    CO: 7,
+    UG: 9,
+    KE: 7,
+    IL: 5,
+    PS: 15,
   };
   const marketExposure = MARKET_RISK[country.code] ?? 8;
 
   // ── Total Score ──
-  const score = Math.round(Math.min(100, conflict + disasters + sentiment + infrastructure + governance + marketExposure));
+  const score = Math.round(
+    Math.min(100, conflict + disasters + sentiment + infrastructure + governance + marketExposure),
+  );
 
   return {
     countryCode: country.code,

@@ -56,7 +56,9 @@ const SYMBOLS = {
   ],
 };
 
-async function fetchTwelveData(symbols: string[]): Promise<Record<string, { price: number; change: number; pct: number }>> {
+async function fetchTwelveData(
+  symbols: string[],
+): Promise<Record<string, { price: number; change: number; pct: number }>> {
   const apiKey = process.env.TWELVEDATA_API_KEY;
   if (!apiKey) return {};
 
@@ -65,10 +67,9 @@ async function fetchTwelveData(symbols: string[]): Promise<Record<string, { pric
   // TwelveData batch quote
   try {
     const symbolStr = symbols.join(',');
-    const res = await fetch(
-      `https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${apiKey}`,
-      { signal: AbortSignal.timeout(8000) },
-    );
+    const res = await fetch(`https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${apiKey}`, {
+      signal: AbortSignal.timeout(8000),
+    });
     if (!res.ok) return results;
 
     const data = (await res.json()) as Record<string, unknown>;
@@ -101,7 +102,9 @@ async function fetchTwelveData(symbols: string[]): Promise<Record<string, { pric
   return results;
 }
 
-async function fetchFinnhub(symbols: string[]): Promise<Record<string, { price: number; change: number; pct: number }>> {
+async function fetchFinnhub(
+  symbols: string[],
+): Promise<Record<string, { price: number; change: number; pct: number }>> {
   const apiKey = process.env.FINNHUB_API_KEY;
   if (!apiKey) return {};
 
@@ -110,12 +113,11 @@ async function fetchFinnhub(symbols: string[]): Promise<Record<string, { price: 
   // Finnhub requires individual requests
   const fetches = symbols.slice(0, 8).map(async (sym) => {
     try {
-      const res = await fetch(
-        `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${apiKey}`,
-        { signal: AbortSignal.timeout(5000) },
-      );
+      const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${apiKey}`, {
+        signal: AbortSignal.timeout(5000),
+      });
       if (!res.ok) return;
-      const data = await res.json() as { c: number; d: number; dp: number };
+      const data = (await res.json()) as { c: number; d: number; dp: number };
       if (data.c > 0) {
         results[sym] = { price: data.c, change: data.d || 0, pct: data.dp || 0 };
       }

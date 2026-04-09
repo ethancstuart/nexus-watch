@@ -58,11 +58,13 @@ async function fetchIODA(countryCode: string): Promise<{ bgpScore: number; descr
     );
     if (!res.ok) return null;
 
-    const data = await res.json() as {
-      data: Array<Array<{
-        datasource: string;
-        values: number[];
-      }>>;
+    const data = (await res.json()) as {
+      data: Array<
+        Array<{
+          datasource: string;
+          values: number[];
+        }>
+      >;
     };
 
     // Look for BGP signal
@@ -116,15 +118,19 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     const batch1 = MONITORED_COUNTRIES.slice(0, 10);
     const batch2 = MONITORED_COUNTRIES.slice(10);
 
-    const results1 = await Promise.all(batch1.map(async (c) => {
-      const ioda = await fetchIODA(c.code);
-      return { country: c, ioda };
-    }));
+    const results1 = await Promise.all(
+      batch1.map(async (c) => {
+        const ioda = await fetchIODA(c.code);
+        return { country: c, ioda };
+      }),
+    );
 
-    const results2 = await Promise.all(batch2.map(async (c) => {
-      const ioda = await fetchIODA(c.code);
-      return { country: c, ioda };
-    }));
+    const results2 = await Promise.all(
+      batch2.map(async (c) => {
+        const ioda = await fetchIODA(c.code);
+        return { country: c, ioda };
+      }),
+    );
 
     const allResults = [...results1, ...results2];
 

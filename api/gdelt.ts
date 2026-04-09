@@ -25,7 +25,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ articles: [], error: 'Cache empty — cron populates every 5 min' });
     }
 
-    const cached = rows[0].data as { articles?: Array<{ title: string; url: string; source: string; sourcecountry: string; tone: number; socialimage: string; domain: string; language: string; seendate: string }> };
+    const cached = rows[0].data as {
+      articles?: Array<{
+        title: string;
+        url: string;
+        source: string;
+        sourcecountry: string;
+        tone: number;
+        socialimage: string;
+        domain: string;
+        language: string;
+        seendate: string;
+      }>;
+    };
     const articles = (cached.articles || []).map((a) => ({
       title: a.title,
       url: a.url,

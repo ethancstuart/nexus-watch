@@ -43,7 +43,9 @@
   margin: 0 auto;
 }
 @keyframes nw-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Help Button (persistent) ── */
@@ -92,7 +94,9 @@
   border-bottom: 1px solid #1a1a1a;
   flex-shrink: 0;
   font-size: 11px;
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s ease;
 }
 
 .nw-topbar-left {
@@ -275,7 +279,9 @@
   flex-direction: column;
   border-right: 1px solid #1a1a1a;
   overflow: hidden;
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s ease;
 }
 
 .nw-sidebar-tabs {

@@ -20,7 +20,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (cachedQuotes.length > 0 && Date.now() - lastFetch < 60_000) {
-    return res.setHeader('Cache-Control', 'public, max-age=60').json({ quotes: cachedQuotes, timestamp: lastFetch, cached: true });
+    return res
+      .setHeader('Cache-Control', 'public, max-age=60')
+      .json({ quotes: cachedQuotes, timestamp: lastFetch, cached: true });
   }
 
   // Call TwelveData directly — NOT proxying through /api/market-data
@@ -31,10 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const symbolStr = SYMBOLS.map((s) => s.symbol).join(',');
-    const response = await fetch(
-      `https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${apiKey}`,
-      { signal: AbortSignal.timeout(8000) },
-    );
+    const response = await fetch(`https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${apiKey}`, {
+      signal: AbortSignal.timeout(8000),
+    });
 
     if (!response.ok) return res.status(502).json({ error: `TwelveData returned ${response.status}` });
 
@@ -43,8 +44,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const q = data[s.symbol] as Record<string, string> | undefined;
       if (!q?.close) return null;
       return {
-        symbol: s.symbol, name: s.name, category: s.category,
-        price: parseFloat(q.close) || 0, change: parseFloat(q.change) || 0,
+        symbol: s.symbol,
+        name: s.name,
+        category: s.category,
+        price: parseFloat(q.close) || 0,
+        change: parseFloat(q.change) || 0,
         changePct: parseFloat(q.percent_change) || 0,
       };
     }).filter(Boolean);

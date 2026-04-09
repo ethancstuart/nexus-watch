@@ -210,10 +210,7 @@ export class CameraDirector {
     this.tourToRegion(regions, this.tourIndex);
   }
 
-  private tourToRegion(
-    regions: CinemaProfile['priorityRegions'],
-    index: number,
-  ): void {
+  private tourToRegion(regions: CinemaProfile['priorityRegions'], index: number): void {
     if (!this.active || this.paused) return;
 
     if (index >= regions.length) {
@@ -226,29 +223,27 @@ export class CameraDirector {
     const region = regions[index];
     this.tourIndex = index + 1;
 
-    this.mapView
-      .flyToAsync(region.lng, region.lat, region.zoom, { duration: 3500, curve: 1.8, pitch: 30 })
-      .then(() => {
+    this.mapView.flyToAsync(region.lng, region.lat, region.zoom, { duration: 3500, curve: 1.8, pitch: 30 }).then(() => {
+      if (!this.active || this.paused) return;
+
+      // Emit focus change for narration
+      document.dispatchEvent(
+        new CustomEvent('cinema:focus-change', {
+          detail: { lat: region.lat, lng: region.lng, label: region.name, source: 'tour' },
+        }),
+      );
+
+      // Hold for 6 seconds, then continue tour
+      this.holdTimeout = setTimeout(() => {
         if (!this.active || this.paused) return;
-
-        // Emit focus change for narration
-        document.dispatchEvent(
-          new CustomEvent('cinema:focus-change', {
-            detail: { lat: region.lat, lng: region.lng, label: region.name, source: 'tour' },
-          }),
-        );
-
-        // Hold for 6 seconds, then continue tour
-        this.holdTimeout = setTimeout(() => {
-          if (!this.active || this.paused) return;
-          // Check queue again
-          if (this.queue.length > 0) {
-            this.flyToNext();
-          } else {
-            this.tourToRegion(regions, this.tourIndex);
-          }
-        }, 6000);
-      });
+        // Check queue again
+        if (this.queue.length > 0) {
+          this.flyToNext();
+        } else {
+          this.tourToRegion(regions, this.tourIndex);
+        }
+      }, 6000);
+    });
   }
 
   private flyToNext(): void {

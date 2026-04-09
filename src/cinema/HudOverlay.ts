@@ -19,11 +19,7 @@ export class HudOverlay {
   private clockInterval: ReturnType<typeof setInterval> | null = null;
   private dataHandler: ((e: Event) => void) | null = null;
 
-  constructor(
-    layerManager: MapLayerManager,
-    getLayerData: () => Map<string, unknown>,
-    profile: CinemaProfile,
-  ) {
+  constructor(layerManager: MapLayerManager, getLayerData: () => Map<string, unknown>, profile: CinemaProfile) {
     this.layerManager = layerManager;
     this.getLayerData = getLayerData;
     this.profile = profile;
@@ -87,7 +83,10 @@ export class HudOverlay {
     // Top-right: Tension index
     const topRight = createElement('div', { className: 'cinema-hud-topright' });
     this.tensionValueEl = createElement('span', { className: 'cinema-hud-tension-value', textContent: '--' });
-    const tensionLabelEl = createElement('span', { className: 'cinema-hud-tension-label', textContent: 'GLOBAL TENSION' });
+    const tensionLabelEl = createElement('span', {
+      className: 'cinema-hud-tension-label',
+      textContent: 'GLOBAL TENSION',
+    });
     this.tensionTrendEl = createElement('span', { className: 'cinema-hud-tension-trend', textContent: '' });
     topRight.appendChild(this.tensionValueEl);
     topRight.appendChild(tensionLabelEl);

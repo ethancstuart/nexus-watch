@@ -9,34 +9,27 @@
 import { getUser } from './auth.ts';
 
 export type Feature =
-  | 'cinema-mode'           // Free (watermarked)
-  | 'cinema-no-watermark'   // Pro
-  | 'daily-brief-view'      // Free (3x/week), Analyst+ (daily)
-  | 'daily-brief-daily'     // Analyst+
-  | 'cii'                   // Free
-  | 'pdf-export'            // Free
-  | 'nl-alerts-1'           // Free (1 alert)
-  | 'nl-alerts-5'           // Analyst (5 alerts)
-  | 'nl-alerts-unlimited'   // Pro
-  | 'timeline-48hr'         // Free
-  | 'timeline-7day'         // Analyst
-  | 'timeline-90day'        // Pro
-  | 'email-alerts'          // Analyst+
-  | 'api-keys'              // Pro
-  | 'personalized-brief'    // Pro
-  | 'team-sharing';         // Pro (future)
+  | 'cinema-mode' // Free (watermarked)
+  | 'cinema-no-watermark' // Pro
+  | 'daily-brief-view' // Free (3x/week), Analyst+ (daily)
+  | 'daily-brief-daily' // Analyst+
+  | 'cii' // Free
+  | 'pdf-export' // Free
+  | 'nl-alerts-1' // Free (1 alert)
+  | 'nl-alerts-5' // Analyst (5 alerts)
+  | 'nl-alerts-unlimited' // Pro
+  | 'timeline-48hr' // Free
+  | 'timeline-7day' // Analyst
+  | 'timeline-90day' // Pro
+  | 'email-alerts' // Analyst+
+  | 'api-keys' // Pro
+  | 'personalized-brief' // Pro
+  | 'team-sharing'; // Pro (future)
 
 type TierLevel = 'free' | 'analyst' | 'pro';
 
 const TIER_ACCESS: Record<TierLevel, Feature[]> = {
-  free: [
-    'cinema-mode',
-    'daily-brief-view',
-    'cii',
-    'pdf-export',
-    'nl-alerts-1',
-    'timeline-48hr',
-  ],
+  free: ['cinema-mode', 'daily-brief-view', 'cii', 'pdf-export', 'nl-alerts-1', 'timeline-48hr'],
   analyst: [
     'cinema-mode',
     'daily-brief-view',

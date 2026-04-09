@@ -50,7 +50,8 @@ const PROXIMITY_RULES: ProximityRule[] = [
     radiusKm: 100,
     severity: 'critical',
     titleTemplate: 'Seismic activity near nuclear facility',
-    descriptionTemplate: 'M{magnitude} earthquake detected {distance}km from {target_name}. Monitoring for structural impact.',
+    descriptionTemplate:
+      'M{magnitude} earthquake detected {distance}km from {target_name}. Monitoring for structural impact.',
     sourceFilter: (item) => (Number(item.magnitude) || 0) >= 4.5,
   },
   // Conflicts near chokepoints
@@ -107,7 +108,8 @@ const PROXIMITY_RULES: ProximityRule[] = [
     radiusKm: 500,
     severity: 'elevated',
     titleTemplate: 'Internet disruption in election country',
-    descriptionTemplate: 'Internet {source_severity} detected near upcoming {target_type} election in {target_country}.',
+    descriptionTemplate:
+      'Internet {source_severity} detected near upcoming {target_type} election in {target_country}.',
   },
   // Disease outbreaks near displacement corridors
   {
@@ -116,7 +118,8 @@ const PROXIMITY_RULES: ProximityRule[] = [
     radiusKm: 300,
     severity: 'elevated',
     titleTemplate: 'Disease outbreak in displacement corridor',
-    descriptionTemplate: '{source_disease} outbreak detected near {target_origin}→{target_destination} displacement flow.',
+    descriptionTemplate:
+      '{source_disease} outbreak detected near {target_origin}→{target_destination} displacement flow.',
   },
 ];
 
@@ -215,8 +218,18 @@ export function computeCorrelations(layerData: Map<string, unknown>): Correlatio
           title: rule.titleTemplate,
           description,
           events: [
-            { layer: rule.sourceLayer, text: String(source.place || source.event_type || source.disease || rule.sourceLayer), lat: sLat, lon: sLon },
-            { layer: rule.targetLayer, text: String(target.name || target.country || rule.targetLayer), lat: tLat, lon: tLon },
+            {
+              layer: rule.sourceLayer,
+              text: String(source.place || source.event_type || source.disease || rule.sourceLayer),
+              lat: sLat,
+              lon: sLon,
+            },
+            {
+              layer: rule.targetLayer,
+              text: String(target.name || target.country || rule.targetLayer),
+              lat: tLat,
+              lon: tLon,
+            },
           ],
           lat: (sLat + tLat) / 2,
           lon: (sLon + tLon) / 2,
@@ -237,7 +250,12 @@ export function computeCorrelations(layerData: Map<string, unknown>): Correlatio
         const lat = Number(item.lat);
         const lon = Number(item.lon);
         if (lat && lon) {
-          allEvents.push({ lat, lon, layer: layerId, text: String(item.place || item.event_type || item.country || layerId) });
+          allEvents.push({
+            lat,
+            lon,
+            layer: layerId,
+            text: String(item.place || item.event_type || item.country || layerId),
+          });
         }
       }
     }

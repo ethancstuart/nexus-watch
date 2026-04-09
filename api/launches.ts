@@ -30,22 +30,22 @@ const KNOWN_PADS: Record<string, [number, number]> = {
   'Space Launch Complex 4E': [34.632, -120.611],
   'Space Launch Complex 40': [28.562, -80.577],
   'Launch Complex 39A': [28.608, -80.604],
-  'Vandenberg': [34.632, -120.611],
-  'Kennedy': [28.573, -80.649],
+  Vandenberg: [34.632, -120.611],
+  Kennedy: [28.573, -80.649],
   'Cape Canaveral': [28.489, -80.578],
   'Boca Chica': [25.997, -97.157],
-  'Guiana': [5.239, -52.769],
-  'Kourou': [5.239, -52.769],
-  'Jiuquan': [40.958, 100.291],
-  'Wenchang': [19.614, 110.951],
-  'Baikonur': [45.965, 63.305],
-  'Plesetsk': [62.929, 40.450],
+  Guiana: [5.239, -52.769],
+  Kourou: [5.239, -52.769],
+  Jiuquan: [40.958, 100.291],
+  Wenchang: [19.614, 110.951],
+  Baikonur: [45.965, 63.305],
+  Plesetsk: [62.929, 40.45],
   'Satish Dhawan': [13.733, 80.235],
-  'Tanegashima': [30.370, 131.000],
-  'Mahia': [-39.262, 177.865],
-  'Xichang': [28.246, 102.027],
-  'Taiyuan': [38.849, 111.608],
-  'Vostochny': [51.884, 128.334],
+  Tanegashima: [30.37, 131.0],
+  Mahia: [-39.262, 177.865],
+  Xichang: [28.246, 102.027],
+  Taiyuan: [38.849, 111.608],
+  Vostochny: [51.884, 128.334],
 };
 
 function resolveCoords(
@@ -93,10 +93,9 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
   try {
     // mode=normal gives pad coordinates without bloated descriptions
-    const response = await fetch(
-      'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=25&mode=normal',
-      { signal: AbortSignal.timeout(10000) },
-    );
+    const response = await fetch('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=25&mode=normal', {
+      signal: AbortSignal.timeout(10000),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -113,14 +112,17 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       throw new Error(`LL2 API returned ${response.status}`);
     }
 
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       results: Array<{
         name: string;
         net: string;
         status: { name: string };
         launch_service_provider?: { name: string; country_code?: string } | null;
         lsp_name?: string;
-        pad?: { latitude?: string; longitude?: string; name?: string; location?: { country_code: string; name?: string } } | string | null;
+        pad?:
+          | { latitude?: string; longitude?: string; name?: string; location?: { country_code: string; name?: string } }
+          | string
+          | null;
         location?: string | null;
         rocket?: { configuration?: { name: string } } | null;
         mission?: { name: string; type: string } | string | null;
@@ -131,15 +133,19 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     const launches: Launch[] = data.results
       .map((l) => {
         const coords = resolveCoords(
-          l.pad as { latitude?: string; longitude?: string; name?: string; location?: { country_code?: string } } | string | null,
+          l.pad as
+            | { latitude?: string; longitude?: string; name?: string; location?: { country_code?: string } }
+            | string
+            | null,
           typeof l.location === 'string' ? l.location : null,
         );
         if (!coords) return null;
 
-        const provider = (typeof l.launch_service_provider === 'object' && l.launch_service_provider?.name)
-          || l.lsp_name || 'Unknown';
+        const provider =
+          (typeof l.launch_service_provider === 'object' && l.launch_service_provider?.name) || l.lsp_name || 'Unknown';
         const vehicle = (typeof l.rocket === 'object' && l.rocket?.configuration?.name) || 'Unknown';
-        const mission = (typeof l.mission === 'object' && l.mission?.name) || (typeof l.mission === 'string' ? l.mission : l.name);
+        const mission =
+          (typeof l.mission === 'object' && l.mission?.name) || (typeof l.mission === 'string' ? l.mission : l.name);
 
         return {
           name: l.name,

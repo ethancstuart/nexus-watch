@@ -59,28 +59,111 @@ const COUNTRIES: { code: string; name: string; lat: number; lon: number; radius:
 
 // Baseline conflict risk (0-15) — ensures countries at war don't show 0 when ACLED is down
 const BASELINE_CONFLICT: Record<string, number> = {
-  UA: 18, RU: 10, SD: 18, SS: 16, YE: 17, SY: 17, MM: 15,
-  AF: 14, SO: 15, CD: 14, IQ: 10, LY: 12, ML: 12, BF: 13,
-  CF: 13, NE: 10, HT: 11, PS: 18, IL: 8, NG: 9, MZ: 8,
-  ET: 10, TD: 9, PK: 7, CO: 6, KP: 5,
+  UA: 18,
+  RU: 10,
+  SD: 18,
+  SS: 16,
+  YE: 17,
+  SY: 17,
+  MM: 15,
+  AF: 14,
+  SO: 15,
+  CD: 14,
+  IQ: 10,
+  LY: 12,
+  ML: 12,
+  BF: 13,
+  CF: 13,
+  NE: 10,
+  HT: 11,
+  PS: 18,
+  IL: 8,
+  NG: 9,
+  MZ: 8,
+  ET: 10,
+  TD: 9,
+  PK: 7,
+  CO: 6,
+  KP: 5,
 };
 
 // Baseline governance risk (0-15) — sanctions, authoritarianism, election instability
 const BASELINE_GOVERNANCE: Record<string, number> = {
-  KP: 15, IR: 13, SY: 13, RU: 10, CN: 8, CU: 10, VE: 12,
-  MM: 12, AF: 11, SD: 10, SS: 10, YE: 10, LY: 9, CD: 8,
-  CF: 9, ML: 8, BF: 9, NE: 7, HT: 10, PS: 7, IQ: 6,
+  KP: 15,
+  IR: 13,
+  SY: 13,
+  RU: 10,
+  CN: 8,
+  CU: 10,
+  VE: 12,
+  MM: 12,
+  AF: 11,
+  SD: 10,
+  SS: 10,
+  YE: 10,
+  LY: 9,
+  CD: 8,
+  CF: 9,
+  ML: 8,
+  BF: 9,
+  NE: 7,
+  HT: 10,
+  PS: 7,
+  IQ: 6,
 };
 
 // Static market risk weights (0-20)
 const MARKET_RISK: Record<string, number> = {
-  UA: 15, RU: 14, CN: 10, TW: 16, IR: 18, SA: 12, VE: 17,
-  NG: 11, TR: 9, EG: 8, PK: 10, BD: 7, LB: 14,
-  SD: 16, SS: 17, YE: 18, AF: 19, MM: 14, KP: 20, HT: 16,
-  CD: 15, CF: 16, SO: 17, LY: 13, SY: 18, IQ: 12, ML: 13,
-  BF: 14, NE: 13, TD: 14, MZ: 11, CU: 12,
-  US: 2, JP: 3, DE: 2, GB: 2, FR: 3, KR: 4, IN: 5, BR: 6,
-  MX: 5, PH: 6, ID: 5, ZA: 6, CO: 7, UG: 9, KE: 7, IL: 5, PS: 15, ET: 12,
+  UA: 15,
+  RU: 14,
+  CN: 10,
+  TW: 16,
+  IR: 18,
+  SA: 12,
+  VE: 17,
+  NG: 11,
+  TR: 9,
+  EG: 8,
+  PK: 10,
+  BD: 7,
+  LB: 14,
+  SD: 16,
+  SS: 17,
+  YE: 18,
+  AF: 19,
+  MM: 14,
+  KP: 20,
+  HT: 16,
+  CD: 15,
+  CF: 16,
+  SO: 17,
+  LY: 13,
+  SY: 18,
+  IQ: 12,
+  ML: 13,
+  BF: 14,
+  NE: 13,
+  TD: 14,
+  MZ: 11,
+  CU: 12,
+  US: 2,
+  JP: 3,
+  DE: 2,
+  GB: 2,
+  FR: 3,
+  KR: 4,
+  IN: 5,
+  BR: 6,
+  MX: 5,
+  PH: 6,
+  ID: 5,
+  ZA: 6,
+  CO: 7,
+  UG: 9,
+  KE: 7,
+  IL: 5,
+  PS: 15,
+  ET: 12,
 };
 
 function isNear(lat1: number, lon1: number, lat2: number, lon2: number, radius: number): boolean {
@@ -102,7 +185,10 @@ async function fetchLayerData(): Promise<Map<string, GeoEvent[]>> {
       key: 'earthquakes',
       url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
       transform: (data: Record<string, unknown>) => {
-        const features = (data.features || []) as Array<{ properties: { mag: number; place: string }; geometry: { coordinates: [number, number] } }>;
+        const features = (data.features || []) as Array<{
+          properties: { mag: number; place: string };
+          geometry: { coordinates: [number, number] };
+        }>;
         return features.map((f) => ({
           lat: f.geometry.coordinates[1],
           lon: f.geometry.coordinates[0],
@@ -142,7 +228,9 @@ function computeScore(
 ): { score: number; components: Record<string, number> } {
   // Conflict (0-20) — live data + baseline for countries at war
   const acled = layerData.get('acled') || [];
-  const nearbyConflicts = acled.filter((e) => e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
+  const nearbyConflicts = acled.filter(
+    (e) => e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius),
+  );
   const fatalities = nearbyConflicts.reduce((sum, e) => sum + (Number(e.fatalities) || 0), 0);
   const liveConflict = (nearbyConflicts.length / 5) * 8 + (fatalities / 50) * 12;
   const baselineConflict = BASELINE_CONFLICT[country.code] ?? 0;
@@ -150,7 +238,9 @@ function computeScore(
 
   // Disasters (0-15)
   const quakes = layerData.get('earthquakes') || [];
-  const nearbyQuakes = quakes.filter((e) => e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
+  const nearbyQuakes = quakes.filter(
+    (e) => e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius),
+  );
   const maxMag = Math.max(0, ...nearbyQuakes.map((e) => Number(e.magnitude) || 0));
   const disasters = Math.min(15, nearbyQuakes.length * 1.5 + (maxMag > 5 ? (maxMag - 5) * 4 : 0));
 
@@ -174,7 +264,9 @@ function computeScore(
   // Market Exposure (0-20)
   const marketExposure = MARKET_RISK[country.code] ?? 8;
 
-  const score = Math.round(Math.min(100, conflict + disasters + sentiment + infrastructure + governance + marketExposure));
+  const score = Math.round(
+    Math.min(100, conflict + disasters + sentiment + infrastructure + governance + marketExposure),
+  );
 
   return {
     score,
@@ -239,7 +331,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           gdeltCached++;
         }
       }
-    } catch { /* GDELT unavailable */ }
+    } catch {
+      /* GDELT unavailable */
+    }
 
     // News articles (separate query, wait 6 seconds for rate limit)
     try {
@@ -260,7 +354,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           gdeltCached++;
         }
       }
-    } catch { /* GDELT unavailable */ }
+    } catch {
+      /* GDELT unavailable */
+    }
 
     return res.json({
       success: true,

@@ -137,7 +137,8 @@ export class SatelliteLayer implements MapDataLayer {
     if (!this.map) return;
     this.removeLayer();
 
-    const positions = this.data.length > 0 ? this.computePositions() : { type: 'FeatureCollection' as const, features: [] };
+    const positions =
+      this.data.length > 0 ? this.computePositions() : { type: 'FeatureCollection' as const, features: [] };
     this.map.addSource('satellites', { type: 'geojson', data: positions });
 
     this.map.addLayer({

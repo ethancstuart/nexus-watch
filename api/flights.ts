@@ -156,25 +156,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 async function fetchAdsbLol(res: VercelResponse) {
   // Fetch aircraft from multiple regions for global coverage
   const regions = [
-    { lat: 40, lon: -74, dist: 250 },  // US East
-    { lat: 34, lon: -118, dist: 250 },  // US West
-    { lat: 51, lon: 0, dist: 250 },     // Europe
-    { lat: 35, lon: 140, dist: 250 },   // East Asia
-    { lat: 25, lon: 55, dist: 250 },    // Middle East
+    { lat: 40, lon: -74, dist: 250 }, // US East
+    { lat: 34, lon: -118, dist: 250 }, // US West
+    { lat: 51, lon: 0, dist: 250 }, // Europe
+    { lat: 35, lon: 140, dist: 250 }, // East Asia
+    { lat: 25, lon: 55, dist: 250 }, // Middle East
   ];
 
   const MIL_PREFIXES = [
-    'RCH', 'REACH', 'NAVY', 'DUKE', 'EVAC', 'HOMER', 'IRON', 'JAKE', 'KING',
-    'MOOSE', 'NCHO', 'OTIS', 'PACK', 'RAGE', 'SPAR', 'TORQ', 'VIPER', 'WOLF',
-    'RRR', 'CNV', 'CFC', 'IAM', 'MMF', 'RFR', 'SHF', 'GAF', 'BAF', 'NAF', 'PAF',
+    'RCH',
+    'REACH',
+    'NAVY',
+    'DUKE',
+    'EVAC',
+    'HOMER',
+    'IRON',
+    'JAKE',
+    'KING',
+    'MOOSE',
+    'NCHO',
+    'OTIS',
+    'PACK',
+    'RAGE',
+    'SPAR',
+    'TORQ',
+    'VIPER',
+    'WOLF',
+    'RRR',
+    'CNV',
+    'CFC',
+    'IAM',
+    'MMF',
+    'RFR',
+    'SHF',
+    'GAF',
+    'BAF',
+    'NAF',
+    'PAF',
   ];
 
   const results = await Promise.allSettled(
     regions.map(async (r) => {
-      const res = await fetch(
-        `https://api.adsb.lol/v2/lat/${r.lat}/lon/${r.lon}/dist/${r.dist}`,
-        { signal: AbortSignal.timeout(8000) },
-      );
+      const res = await fetch(`https://api.adsb.lol/v2/lat/${r.lat}/lon/${r.lon}/dist/${r.dist}`, {
+        signal: AbortSignal.timeout(8000),
+      });
       if (!res.ok) return [];
       const data = (await res.json()) as { ac?: Array<Record<string, unknown>> };
       return data.ac || [];
@@ -208,9 +233,8 @@ async function fetchAdsbLol(res: VercelResponse) {
   }
 
   // Sample if too many
-  const sampled = aircraft.length > 1500
-    ? aircraft.filter((_, i) => i % Math.ceil(aircraft.length / 1500) === 0)
-    : aircraft;
+  const sampled =
+    aircraft.length > 1500 ? aircraft.filter((_, i) => i % Math.ceil(aircraft.length / 1500) === 0) : aircraft;
 
   return res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=15').json({
     aircraft: sampled,

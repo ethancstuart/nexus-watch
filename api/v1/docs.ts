@@ -29,7 +29,8 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       'GET /api/v1/events': {
         description: 'Unified event stream across all data layers',
         params: {
-          layer: 'Optional layer filter: earthquakes, acled, fires, ships, flights, launches, satellites, disease-outbreaks, internet-outages, displacement, weather-alerts, air-quality, predictions',
+          layer:
+            'Optional layer filter: earthquakes, acled, fires, ships, flights, launches, satellites, disease-outbreaks, internet-outages, displacement, weather-alerts, air-quality, predictions',
         },
         rateLimit: '10/min (free), 100/min (pro)',
       },

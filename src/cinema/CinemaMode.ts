@@ -356,7 +356,8 @@ export class CinemaMode {
       if (!mag || mag < 4.5) return null;
       const priority = mag >= 6.5 ? 0 : mag >= 5.5 ? 1 : 2;
       return {
-        lng: lon, lat,
+        lng: lon,
+        lat,
         zoom: this.activeProfile.cameraZoom,
         priority,
         holdDuration: priority === 0 ? 8000 : priority === 1 ? 5000 : 3000,
@@ -370,7 +371,8 @@ export class CinemaMode {
       const fatalities = d.fatalities as number | undefined;
       if (!fatalities || fatalities <= 50) return null;
       return {
-        lng: lon, lat,
+        lng: lon,
+        lat,
         zoom: this.activeProfile.cameraZoom,
         priority: 0,
         holdDuration: 8000,

@@ -55,7 +55,8 @@ async function loadBrief(body: HTMLElement): Promise<void> {
   try {
     const res = await fetchWithRetry('/api/v1/brief');
     if (!res.ok) {
-      body.innerHTML = '<div class="nw-brief-empty">No brief available yet. Briefs are generated daily at 06:00 UTC.</div>';
+      body.innerHTML =
+        '<div class="nw-brief-empty">No brief available yet. Briefs are generated daily at 06:00 UTC.</div>';
       return;
     }
 
@@ -86,11 +87,16 @@ async function loadBrief(body: HTMLElement): Promise<void> {
         <div class="nw-brief-text">${escapeHtml(data.summary || 'Brief content unavailable.')}</div>
       </div>
 
-      ${content.topRiskCountries?.length ? `
+      ${
+        content.topRiskCountries?.length
+          ? `
       <div class="nw-brief-section">
         <div class="nw-brief-section-title">TOP RISK COUNTRIES</div>
         <div class="nw-brief-risk-grid">
-          ${content.topRiskCountries.slice(0, 10).map((c) => `
+          ${content.topRiskCountries
+            .slice(0, 10)
+            .map(
+              (c) => `
             <div class="nw-brief-risk-row">
               <span class="nw-brief-risk-name">${escapeHtml(c.countryName)}</span>
               <span class="nw-brief-risk-score" style="color: ${scoreColor(c.score)}">${c.score}</span>
@@ -98,10 +104,14 @@ async function loadBrief(body: HTMLElement): Promise<void> {
                 <div class="nw-brief-risk-fill" style="width: ${c.score}%; background: ${scoreColor(c.score)}"></div>
               </div>
             </div>
-          `).join('')}
+          `,
+            )
+            .join('')}
         </div>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
 
       <div class="nw-brief-section">
         <div class="nw-brief-section-title">KEY METRICS</div>

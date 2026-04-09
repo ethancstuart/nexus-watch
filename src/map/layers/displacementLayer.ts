@@ -78,7 +78,11 @@ export class DisplacementLayer implements MapDataLayer {
     const d =
       2 *
       Math.asin(Math.sqrt(Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin((l2 - l1) / 2) ** 2));
-    if (d === 0) return [[lon1, lat1], [lon2, lat2]];
+    if (d === 0)
+      return [
+        [lon1, lat1],
+        [lon2, lat2],
+      ];
     const pts: [number, number][] = [];
     for (let i = 0; i <= n; i++) {
       const f = i / n;

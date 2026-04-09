@@ -17,7 +17,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Authenticate via session cookie
   const cookies = req.headers.cookie || '';
-  const sessionCookie = cookies.split(';').map((c) => c.trim()).find((c) => c.startsWith('__Host-session='));
+  const sessionCookie = cookies
+    .split(';')
+    .map((c) => c.trim())
+    .find((c) => c.startsWith('__Host-session='));
   const sessionId = sessionCookie?.split('=')[1];
 
   if (!sessionId || !kvUrl || !kvToken) {

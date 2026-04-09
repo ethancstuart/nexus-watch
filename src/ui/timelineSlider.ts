@@ -127,9 +127,11 @@ function enterTimeline(sliderValue: number): void {
   labelEl.style.color = '#f97316';
 
   // Dispatch timeline scrub event
-  document.dispatchEvent(new CustomEvent('dashview:timeline-scrub', {
-    detail: { timestamp: date.toISOString(), sliderValue },
-  }));
+  document.dispatchEvent(
+    new CustomEvent('dashview:timeline-scrub', {
+      detail: { timestamp: date.toISOString(), sliderValue },
+    }),
+  );
 }
 
 function returnToLive(): void {

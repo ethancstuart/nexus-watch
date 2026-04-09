@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         await fetch('https://api.resend.com/emails', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendKey}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
           body: JSON.stringify({
             from: 'NexusWatch <onboarding@resend.dev>',
             to: [email.toLowerCase().trim()],
@@ -55,7 +55,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             </div>`,
           }),
         });
-      } catch { /* Welcome email failed — subscription still saved */ }
+      } catch {
+        /* Welcome email failed — subscription still saved */
+      }
     }
 
     return res.json({ success: true, message: 'Subscribed to NexusWatch Intelligence Brief' });

@@ -56,7 +56,10 @@ function collectAIS(apiKey: string, durationMs: number): Promise<AISVessel[]> {
           JSON.stringify({
             APIKey: apiKey,
             BoundingBoxes: [
-              [[-90, -180], [90, 180]],
+              [
+                [-90, -180],
+                [90, 180],
+              ],
             ],
             FilterMessageTypes: ['PositionReport'],
           }),

@@ -52,7 +52,10 @@ export function createUserMenu(container: HTMLElement): { refresh: () => void } 
       // Dropdown on click
       userBtn.addEventListener('click', () => {
         const existing = wrapper.querySelector('.nw-user-dropdown');
-        if (existing) { existing.remove(); return; }
+        if (existing) {
+          existing.remove();
+          return;
+        }
         showDropdown(wrapper, user);
       });
 
@@ -94,9 +97,15 @@ function showLoginModal(container: HTMLElement): void {
   container.appendChild(modal);
 
   modal.querySelector('.nw-login-close')?.addEventListener('click', () => modal.remove());
-  modal.querySelector('.google')?.addEventListener('click', () => { login('google'); });
-  modal.querySelector('.github')?.addEventListener('click', () => { login('github'); });
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  modal.querySelector('.google')?.addEventListener('click', () => {
+    login('google');
+  });
+  modal.querySelector('.github')?.addEventListener('click', () => {
+    login('github');
+  });
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
 }
 
 function showDropdown(wrapper: HTMLElement, user: User): void {
@@ -117,20 +126,28 @@ function showDropdown(wrapper: HTMLElement, user: User): void {
   wrapper.appendChild(dropdown);
 
   dropdown.querySelector('.upgrade-analyst')?.addEventListener('click', async () => {
-    const res = await fetch('/api/stripe/checkout?tier=analyst', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const data = await res.json() as { url?: string };
+    const res = await fetch('/api/stripe/checkout?tier=analyst', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const data = (await res.json()) as { url?: string };
     if (data.url) window.location.href = data.url;
   });
 
   dropdown.querySelector('.upgrade-pro')?.addEventListener('click', async () => {
-    const res = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const data = await res.json() as { url?: string };
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const data = (await res.json()) as { url?: string };
     if (data.url) window.location.href = data.url;
   });
 
   dropdown.querySelector('.manage')?.addEventListener('click', async () => {
     const res = await fetch('/api/stripe/portal', { method: 'POST' });
-    const data = await res.json() as { url?: string };
+    const data = (await res.json()) as { url?: string };
     if (data.url) window.location.href = data.url;
   });
 

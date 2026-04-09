@@ -261,10 +261,7 @@ function computeCentroid(items: Array<Record<string, unknown>>): { lat: number; 
   return count > 0 ? { lat: totalLat / count, lon: totalLon / count } : { lat: 0, lon: 0 };
 }
 
-function classifySeverity(
-  parsed: ParsedRule,
-  matches: Array<{ text: string }>,
-): 'critical' | 'elevated' | 'monitor' {
+function classifySeverity(parsed: ParsedRule, matches: Array<{ text: string }>): 'critical' | 'elevated' | 'monitor' {
   // High-severity conditions
   if (parsed.condition === 'near_layer' && parsed.comparisonLayer === 'nuclear') return 'critical';
   if (parsed.condition === 'fatalities_above' && (parsed.threshold || 0) >= 50) return 'critical';
