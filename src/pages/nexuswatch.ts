@@ -46,6 +46,7 @@ import { createSparkline } from '../ui/sparkline.ts';
 import { THEATER_PRESETS, applyTheaterPreset } from '../map/theaterPresets.ts';
 import { TimelineBar } from '../ui/timelineBar.ts';
 import { CrisisReplayPlayer, generateCrisisReplay } from '../ui/crisisReplay.ts';
+import { EntityGraphPanel } from '../ui/entityGraph.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -149,6 +150,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   statusArea.appendChild(liveDot);
   statusArea.appendChild(clockEl);
 
+  const graphBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'GRAPH' });
+  graphBtn.title = 'Entity relationship graph (G)';
+
   const replayBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'REPLAY' });
   replayBtn.title = "Crisis replay — fly through this week's events (R)";
 
@@ -192,6 +196,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   topRight.appendChild(mobileToggle);
   topRight.appendChild(alertBtn);
   topRight.appendChild(shareBtn);
+  topRight.appendChild(graphBtn);
   topRight.appendChild(replayBtn);
   topRight.appendChild(cinemaBtn);
   topRight.appendChild(styleToggle);
@@ -426,6 +431,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       }, 2000);
     }
   });
+
+  // ── Entity Graph ──
+  const entityGraph = new EntityGraphPanel(mapContainer, mapView);
+  graphBtn.addEventListener('click', () => entityGraph.toggle());
 
   // ── Timeline ──
   const timeline = new TimelineBar(mapContainer, (date, snapshots, cii) => {
@@ -766,6 +775,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           break;
         case 'c':
           if (!e.ctrlKey && !e.metaKey) cinema.toggle();
+          break;
+        case 'g':
+          if (!e.ctrlKey && !e.metaKey) entityGraph.toggle();
           break;
         case 'Escape':
           if (cinema.isActive()) {
