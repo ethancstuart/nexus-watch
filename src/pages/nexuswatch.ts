@@ -47,6 +47,7 @@ import { THEATER_PRESETS, applyTheaterPreset } from '../map/theaterPresets.ts';
 import { TimelineBar } from '../ui/timelineBar.ts';
 import { CrisisReplayPlayer, generateCrisisReplay } from '../ui/crisisReplay.ts';
 import { EntityGraphPanel } from '../ui/entityGraph.ts';
+import { MultiViewController } from '../ui/multiView.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -150,6 +151,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   statusArea.appendChild(liveDot);
   statusArea.appendChild(clockEl);
 
+  const multiBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'MULTI' });
+  multiBtn.title = 'Synchronized multi-view: map + graph + table (M)';
+
   const graphBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'GRAPH' });
   graphBtn.title = 'Entity relationship graph (G)';
 
@@ -196,6 +200,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   topRight.appendChild(mobileToggle);
   topRight.appendChild(alertBtn);
   topRight.appendChild(shareBtn);
+  topRight.appendChild(multiBtn);
   topRight.appendChild(graphBtn);
   topRight.appendChild(replayBtn);
   topRight.appendChild(cinemaBtn);
@@ -439,6 +444,19 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // ── Timeline ──
   const timeline = new TimelineBar(mapContainer, (date, snapshots, cii) => {
     document.dispatchEvent(new CustomEvent('dashview:timeline-scrub', { detail: { date, snapshots, cii } }));
+  });
+
+  // ── Multi-View Controller ──
+  const multiView = new MultiViewController({
+    mapContainer,
+    mapView,
+    layerManager,
+    entityGraph,
+    timeline,
+  });
+  multiBtn.addEventListener('click', () => {
+    multiView.toggle();
+    multiBtn.classList.toggle('active', multiView.isActive());
   });
 
   // ── Cinema Mode ──
