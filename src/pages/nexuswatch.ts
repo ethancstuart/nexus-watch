@@ -45,6 +45,7 @@ import { computeTensionIndex, tensionColor, tensionLabel } from '../services/ten
 import { createSparkline } from '../ui/sparkline.ts';
 import { THEATER_PRESETS, applyTheaterPreset } from '../map/theaterPresets.ts';
 import { TimelineBar } from '../ui/timelineBar.ts';
+import { CrisisReplayPlayer, generateCrisisReplay } from '../ui/crisisReplay.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -148,6 +149,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   statusArea.appendChild(liveDot);
   statusArea.appendChild(clockEl);
 
+  const replayBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'REPLAY' });
+  replayBtn.title = "Crisis replay — fly through this week's events (R)";
+
   const cinemaBtn = createElement('button', { className: 'nw-sitrep-btn nw-essential', textContent: 'CINEMA' });
   cinemaBtn.title = 'Immersive intelligence broadcast (C)';
   const alertBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'ALERTS' });
@@ -188,6 +192,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   topRight.appendChild(mobileToggle);
   topRight.appendChild(alertBtn);
   topRight.appendChild(shareBtn);
+  topRight.appendChild(replayBtn);
   topRight.appendChild(cinemaBtn);
   topRight.appendChild(styleToggle);
   topRight.appendChild(userMenuSlot);
@@ -400,6 +405,27 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       }
     });
   }
+
+  // ── Crisis Replay ──
+  const crisisPlayer = new CrisisReplayPlayer(mapContainer, mapView);
+  replayBtn.addEventListener('click', async () => {
+    if (crisisPlayer.isPlaying()) {
+      crisisPlayer.stop();
+      replayBtn.textContent = 'REPLAY';
+      return;
+    }
+    replayBtn.textContent = 'LOADING...';
+    const replay = await generateCrisisReplay();
+    if (replay && replay.events.length >= 3) {
+      replayBtn.textContent = 'STOP';
+      crisisPlayer.start(replay);
+    } else {
+      replayBtn.textContent = 'NO DATA';
+      setTimeout(() => {
+        replayBtn.textContent = 'REPLAY';
+      }, 2000);
+    }
+  });
 
   // ── Timeline ──
   const timeline = new TimelineBar(mapContainer, (date, snapshots, cii) => {
