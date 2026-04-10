@@ -182,7 +182,7 @@ When designing UI, consult the design toolkit before building components from sc
 Use `/brand-guidelines` to auto-apply this project's brand identity.
 Use `/frontend-design` for intentional aesthetic direction on new UI work.
 
-When planning new panels, check the API catalog first — it maps APIs to DashPulse features.
+When planning new panels, check the API catalog first — it maps APIs to NexusWatch features.
 
 ## Notion Context
 This project is tracked in Notion under NexusWatch.

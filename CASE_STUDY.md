@@ -1,4 +1,4 @@
-# DashPulse: Portfolio Case Study
+# NexusWatch: Portfolio Case Study
 
 ## The Problem
 
@@ -6,7 +6,7 @@ The personal dashboard category is stale. Momentum has 3M+ Chrome Web Store user
 
 There is no zero-config, real-time intelligence dashboard built for tech professionals -- people who track markets before standup, scan headlines between meetings, and want weather, scores, and crypto without opening six tabs. The gap is a product that treats a browser's new-tab page as a control surface, not a screensaver.
 
-DashPulse fills that gap: a panel-based, real-time dashboard that ships with smart defaults, runs entirely in the browser, and requires zero accounts or configuration to start using.
+NexusWatch fills that gap: a panel-based, real-time dashboard that ships with smart defaults, runs entirely in the browser, and requires zero accounts or configuration to start using.
 
 ## Architecture Decisions
 
@@ -92,7 +92,7 @@ If community traction warrants it, a managed hosted version may be offered as a 
 ## Quality Engineering
 
 ### Code Quality Infrastructure
-DashPulse isn't just feature-complete — it's production-hardened. A comprehensive quality pass added:
+NexusWatch isn't just feature-complete — it's production-hardened. A comprehensive quality pass added:
 
 - **ESLint + Prettier** — Flat config with strict rules, enforced via CI. No `any` types allowed. Consistent formatting across 50+ source files.
 - **Listener Leak Cleanup** — All event listeners use `AbortController` signals tied to SPA navigation lifecycle. When the user navigates away from the dashboard, every listener is cleaned up automatically. This eliminated a class of memory leaks common in vanilla JS SPAs.

@@ -1,4 +1,4 @@
-# DashPulse Roadmap
+# NexusWatch Roadmap
 
 ## Shipped
 
@@ -78,4 +78,4 @@
 - Smart defaults
 
 ## Open Source
-DashPulse is MIT licensed and free forever. If community interest grows, a managed hosted version may be offered as a convenience -- the open-source tool will always remain fully functional and free.
+NexusWatch is MIT licensed and free forever. If community interest grows, a managed hosted version may be offered as a convenience -- the open-source tool will always remain fully functional and free.

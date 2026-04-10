@@ -1,6 +1,6 @@
-# Contributing to DashPulse
+# Contributing to NexusWatch
 
-Thanks for your interest in contributing! DashPulse is built entirely with [Claude Code](https://claude.ai/claude-code) and vanilla TypeScript -- no framework overhead.
+Thanks for your interest in contributing! NexusWatch is built entirely with [Claude Code](https://claude.ai/claude-code) and vanilla TypeScript -- no framework overhead.
 
 ## Development Setup
 
@@ -46,7 +46,7 @@ Tests use [Vitest](https://vitest.dev) with happy-dom. All tests live next to th
 
 ## Architecture Overview
 
-DashPulse uses a **panel-based architecture**. Every data source is a self-contained class:
+NexusWatch uses a **panel-based architecture**. Every data source is a self-contained class:
 
 ```
 src/
