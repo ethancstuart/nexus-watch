@@ -29,11 +29,14 @@ export class MapLayerManager {
       if (enabledIds.includes(id)) {
         layer.enable();
         // Stagger API calls to avoid thundering herd on page load
+        // Heavy layers (flights, ships) get extra delay
+        const heavyLayers = new Set(['flights', 'ships', 'satellites']);
+        const layerDelay = heavyLayers.has(id) ? delay + 1500 : delay;
         setTimeout(() => {
           void layer.refresh();
           this.startRefreshCycle(layer);
-        }, delay);
-        delay += 200;
+        }, layerDelay);
+        delay += 300;
       }
     }
   }

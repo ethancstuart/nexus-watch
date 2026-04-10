@@ -12,7 +12,7 @@ export class MapView {
   private container: HTMLElement;
   private resizeObserver: ResizeObserver | null = null;
   private rotating = false;
-  private rotationSpeed = 0.015;
+  private rotationSpeed = 0.006;
   private rotationFrame: number | null = null;
 
   constructor(container: HTMLElement) {
@@ -94,7 +94,7 @@ export class MapView {
 
     // Auto-rotate globe slowly on first load (stops on user interaction)
     this.rotating = true;
-    this.rotationSpeed = 0.015;
+    this.rotationSpeed = 0.006;
     const rotateGlobe = () => {
       if (!this.rotating || !this.map) return;
       const center = this.map.getCenter();
@@ -145,7 +145,7 @@ export class MapView {
     return null;
   }
 
-  startRotation(degreesPerFrame = 0.015): void {
+  startRotation(degreesPerFrame = 0.006): void {
     if (this.rotating) return;
     this.rotating = true;
     this.rotationSpeed = degreesPerFrame;

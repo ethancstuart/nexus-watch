@@ -109,21 +109,37 @@ export class FlightLayer implements MapDataLayer {
     }
 
     // Civilian aircraft — plane icons rotated by heading
+    // Only show at zoom 4+ to avoid rendering 800+ icons globally
     this.map.addLayer({
       id: 'flights-civilian',
       type: 'symbol',
       source: 'flights',
+      minzoom: 4,
       filter: ['!=', ['get', 'military'], true],
       layout: {
         'icon-image': 'plane-civilian',
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5, 0.7, 8, 1.0],
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.5, 6, 0.7, 8, 1.0],
         'icon-rotate': ['get', 'heading'],
         'icon-rotation-alignment': 'map',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
       },
       paint: {
-        'icon-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5, 0.6, 8, 0.85],
+        'icon-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.5, 6, 0.7, 8, 0.85],
+      },
+    });
+
+    // Civilian heatmap at low zoom (replaces individual icons for performance)
+    this.map.addLayer({
+      id: 'flights-civilian-heat',
+      type: 'circle',
+      source: 'flights',
+      maxzoom: 4,
+      filter: ['!=', ['get', 'military'], true],
+      paint: {
+        'circle-radius': 2,
+        'circle-color': '#818cf8',
+        'circle-opacity': 0.3,
       },
     });
 
@@ -278,7 +294,13 @@ export class FlightLayer implements MapDataLayer {
 
   private removeLayer(): void {
     if (!this.map) return;
-    for (const id of ['flights-labels', 'flights-civilian', 'flights-military', 'flights-military-glow']) {
+    for (const id of [
+      'flights-labels',
+      'flights-civilian',
+      'flights-civilian-heat',
+      'flights-military',
+      'flights-military-glow',
+    ]) {
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     }
     if (this.map.getSource('flights')) this.map.removeSource('flights');

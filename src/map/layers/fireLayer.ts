@@ -133,7 +133,7 @@ export class FireLayer implements MapDataLayer {
         ],
         'circle-stroke-width': 0.5,
         'circle-stroke-color': 'rgba(255,255,255,0.2)',
-        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.3, 8, 0.8],
+        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.3, 6, 0.5, 7, 0.65, 8, 0.85],
       },
     });
 
