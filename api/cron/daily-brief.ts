@@ -528,7 +528,7 @@ For the threat table, use: border-collapse:collapse; width:100%; and cells with 
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
             body: JSON.stringify({
-              from: 'NexusWatch <onboarding@resend.dev>',
+              from: 'NexusWatch Intelligence <brief@nexuswatch.dev>',
               to: emailBatch,
               subject: `NexusWatch Intelligence Brief — ${today}`,
               html: wrapEmailTemplate(briefHtml, today, utcTime, markets),

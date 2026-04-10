@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
           body: JSON.stringify({
-            from: 'NexusWatch <onboarding@resend.dev>',
+            from: 'NexusWatch <hello@nexuswatch.dev>',
             to: [email.toLowerCase().trim()],
             subject: 'Welcome to NexusWatch Intelligence',
             html: `<div style="font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 24px; max-width: 600px;">
