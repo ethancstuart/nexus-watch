@@ -134,6 +134,14 @@ export class MapLayerManager {
     ];
   }
 
+  /** Re-enable layers from localStorage (used by theater preset reset) */
+  restoreSavedLayers(): void {
+    const saved = this.loadEnabledLayers();
+    for (const id of saved) {
+      this.enable(id);
+    }
+  }
+
   private saveEnabledLayers(): void {
     const ids = this.getAllLayers()
       .filter((l) => l.isEnabled())

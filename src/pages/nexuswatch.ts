@@ -43,6 +43,7 @@ import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
 import { createSparkline } from '../ui/sparkline.ts';
+import { THEATER_PRESETS, applyTheaterPreset } from '../map/theaterPresets.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -221,8 +222,50 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // Status bar
   const statusBar = createElement('div', { className: 'nw-statusbar' });
 
+  // Theater preset bar
+  const theaterBar = createElement('div', { className: 'nw-theater-bar' });
+  const theaterLabel = createElement('span', { className: 'nw-theater-label', textContent: 'THEATERS' });
+  theaterBar.appendChild(theaterLabel);
+  for (const preset of THEATER_PRESETS) {
+    const pill = createElement('button', {
+      className: 'nw-theater-pill',
+      textContent: `${preset.emoji} ${preset.name}`,
+    });
+    pill.dataset.theater = preset.id;
+    pill.title = preset.description;
+    pill.addEventListener('click', () => {
+      const map = mapView.getMap();
+      if (!map) return;
+      // Remove active class from all pills
+      theaterBar.querySelectorAll('.nw-theater-pill').forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+      applyTheaterPreset(preset, map, layerManager);
+    });
+    theaterBar.appendChild(pill);
+  }
+  // "All Layers" reset button
+  const resetPill = createElement('button', {
+    className: 'nw-theater-pill nw-theater-reset',
+    textContent: '↺ Reset',
+  });
+  resetPill.title = 'Reset to default view';
+  resetPill.addEventListener('click', () => {
+    theaterBar.querySelectorAll('.nw-theater-pill').forEach((p) => p.classList.remove('active'));
+    const map = mapView.getMap();
+    if (map) {
+      map.flyTo({ center: [0, 20], zoom: 3.8, pitch: 10, bearing: 0, duration: 2000 });
+    }
+    // Re-enable saved layers
+    for (const layer of layerManager.getAllLayers()) {
+      layerManager.disable(layer.id);
+    }
+    layerManager.restoreSavedLayers();
+  });
+  theaterBar.appendChild(resetPill);
+
   // Assemble and render immediately
   app.appendChild(topbar);
+  app.appendChild(theaterBar);
   app.appendChild(main);
   app.appendChild(statusBar);
   root.appendChild(app);
@@ -293,6 +336,26 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 6000);
     // Clean URL
+    history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }
+
+  // ── Theater preset deep-link ──
+  const theaterParam = new URLSearchParams(window.location.search).get('theater');
+  if (theaterParam) {
+    const preset = THEATER_PRESETS.find((p) => p.id === theaterParam);
+    if (preset) {
+      const map = mapView.getMap();
+      if (map) {
+        // Wait for map to be ready
+        const applyPreset = () => {
+          applyTheaterPreset(preset, map, layerManager);
+          const pill = theaterBar.querySelector(`[data-theater="${preset.id}"]`);
+          pill?.classList.add('active');
+        };
+        if (map.loaded()) applyPreset();
+        else map.on('load', applyPreset);
+      }
+    }
     history.replaceState(null, '', window.location.pathname + window.location.hash);
   }
 
