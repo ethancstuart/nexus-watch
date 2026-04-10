@@ -158,9 +158,17 @@ async function fetchAdsbLol(res: VercelResponse) {
   const regions = [
     { lat: 40, lon: -74, dist: 250 }, // US East
     { lat: 34, lon: -118, dist: 250 }, // US West
-    { lat: 51, lon: 0, dist: 250 }, // Europe
-    { lat: 35, lon: 140, dist: 250 }, // East Asia
-    { lat: 25, lon: 55, dist: 250 }, // Middle East
+    { lat: 51, lon: 0, dist: 250 }, // Western Europe
+    { lat: 55, lon: 37, dist: 250 }, // Eastern Europe / Russia
+    { lat: 35, lon: 140, dist: 250 }, // East Asia / Japan
+    { lat: 22, lon: 114, dist: 250 }, // South China / Hong Kong
+    { lat: 25, lon: 55, dist: 250 }, // Middle East / Gulf
+    { lat: 1, lon: 32, dist: 250 }, // East Africa / Kenya
+    { lat: 6, lon: 3, dist: 250 }, // West Africa / Lagos
+    { lat: -23, lon: -46, dist: 250 }, // South America / Brazil
+    { lat: 13, lon: 100, dist: 250 }, // Southeast Asia / Thailand
+    { lat: 19, lon: 73, dist: 250 }, // South Asia / India
+    { lat: -33, lon: 151, dist: 250 }, // Australia / Sydney
   ];
 
   const MIL_PREFIXES = [

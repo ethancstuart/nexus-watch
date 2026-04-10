@@ -107,11 +107,20 @@ export class MapView {
       setTimeout(() => rotateGlobe(), 2000);
     });
 
-    // Stop on any user interaction
+    // Stop on any user interaction, resume after 30 seconds idle
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
     const stopRotation = () => {
       this.rotating = false;
       if (this.rotationFrame) cancelAnimationFrame(this.rotationFrame);
       this.rotationFrame = null;
+      // Resume after 30 seconds of no interaction
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        if (!this.rotating && this.map) {
+          this.rotating = true;
+          rotateGlobe();
+        }
+      }, 30000);
     };
     this.map.on('mousedown', stopRotation);
     this.map.on('touchstart', stopRotation);

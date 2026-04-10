@@ -49,6 +49,7 @@ import { CrisisReplayPlayer, generateCrisisReplay } from '../ui/crisisReplay.ts'
 import { EntityGraphPanel } from '../ui/entityGraph.ts';
 import { MultiViewController } from '../ui/multiView.ts';
 import { InvestigationManager } from '../ui/investigations.ts';
+import { CommandHud } from '../ui/commandHud.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -420,6 +421,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       }
     });
   }
+
+  // ── Command Center HUD ──
+  const hud = new CommandHud(mapContainer, mapView);
+  void hud;
 
   // ── Crisis Replay ──
   const crisisPlayer = new CrisisReplayPlayer(mapContainer, mapView);
