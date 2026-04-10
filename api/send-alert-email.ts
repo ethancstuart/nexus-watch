@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export const config = { runtime: 'nodejs' };
 
-const CORS_ORIGIN = 'https://dashpulse.app';
+const CORS_ORIGIN = 'https://nexuswatch.dev';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
@@ -27,8 +27,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sevColor = severity === 'critical' ? '#dc2626' : severity === 'elevated' ? '#f97316' : '#eab308';
   const mapLink =
     lat && lon
-      ? `https://dashpulse.app/#/intel?v=${btoa(JSON.stringify({ c: [lon, lat], z: 6, p: 10, b: 0, l: [] }))}`
-      : 'https://dashpulse.app';
+      ? `https://nexuswatch.dev/#/intel?v=${btoa(JSON.stringify({ c: [lon, lat], z: 6, p: 10, b: 0, l: [] }))}`
+      : 'https://nexuswatch.dev';
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         Authorization: `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
-        from: 'NexusWatch Alerts <alerts@dashpulse.app>',
+        from: 'NexusWatch Alerts <alerts@nexuswatch.dev>',
         to: [to],
         subject,
         html: `
@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               VIEW ON MAP →
             </a>
             <div style="margin-top: 24px; padding-top: 12px; border-top: 1px solid #1a1a1a; font-size: 9px; color: #444;">
-              NexusWatch Intelligence Platform · dashpulse.app · Unsubscribe in account settings
+              NexusWatch Intelligence Platform · nexuswatch.dev · Unsubscribe in account settings
             </div>
           </div>
         `,

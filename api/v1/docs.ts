@@ -10,7 +10,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     name: 'NexusWatch Intelligence API',
     version: '1.0.0',
     description: 'Real-time geopolitical intelligence, risk scoring, and event data.',
-    baseUrl: 'https://dashpulse.app/api/v1',
+    baseUrl: 'https://nexuswatch.dev/api/v1',
     authentication: {
       type: 'Bearer token',
       header: 'Authorization: Bearer <api_key>',

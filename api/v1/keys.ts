@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'crypto';
 
 export const config = { runtime: 'nodejs' };
 
-const CORS = 'https://dashpulse.app';
+const CORS = 'https://nexuswatch.dev';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', CORS);

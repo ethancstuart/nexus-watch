@@ -3,7 +3,7 @@ import { neon } from '@neondatabase/serverless';
 
 export const config = { runtime: 'nodejs' };
 
-const CORS = 'https://dashpulse.app';
+const CORS = 'https://nexuswatch.dev';
 
 let cachedTension: { global: number; trend: string; components: Record<string, number> } | null = null;
 let lastFetch = 0;

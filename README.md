@@ -1,7 +1,7 @@
 # NexusWatch
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-black.svg)](https://dashpulse.app)
+[![Deployed on Vercel](https://img.shields.io/badge/deployed%20on-Vercel-black.svg)](https://nexuswatch.dev)
 [![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-blueviolet.svg)](https://claude.ai/claude-code)
 
 **Real-time geopolitical intelligence platform.** 30 data layers on a 3D globe, AI command center with terminal interface, auto-threat detection, personalized watchlists, and four independent intelligence systems. Bloomberg terminal aesthetic. No framework. Built entirely with [Claude Code](https://claude.ai/claude-code). Open source under MIT.

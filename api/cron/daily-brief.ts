@@ -597,7 +597,7 @@ ${bodyHtml}
 
 <!-- CTA -->
 <tr><td style="padding:0 28px 20px;">
-  <a href="https://dashpulse.app/#/intel" style="display:inline-block;padding:10px 20px;background:#ff660018;border:1px solid #ff660040;color:#ff6600;text-decoration:none;font-size:11px;letter-spacing:2px;text-transform:uppercase;border-radius:3px;font-family:'Courier New',monospace;">Open Live Map →</a>
+  <a href="https://nexuswatch.dev/#/intel" style="display:inline-block;padding:10px 20px;background:#ff660018;border:1px solid #ff660040;color:#ff6600;text-decoration:none;font-size:11px;letter-spacing:2px;text-transform:uppercase;border-radius:3px;font-family:'Courier New',monospace;">Open Live Map →</a>
 </td></tr>
 
 <!-- Upgrade CTA -->
@@ -610,7 +610,7 @@ ${bodyHtml}
         <p style="color:#888;font-size:11px;line-height:1.5;margin:4px 0 0;">Unlimited alerts, 90-day timeline, API access, personalized briefs, and no watermarks.</p>
       </td>
       <td style="vertical-align:middle;text-align:right;padding-left:16px;white-space:nowrap;">
-        <a href="https://dashpulse.app/#/intel" style="display:inline-block;padding:8px 16px;background:#ff6600;color:#0a0a0a;text-decoration:none;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-radius:3px;font-family:'Courier New',monospace;font-weight:bold;">$99/mo →</a>
+        <a href="https://nexuswatch.dev/#/intel" style="display:inline-block;padding:8px 16px;background:#ff6600;color:#0a0a0a;text-decoration:none;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-radius:3px;font-family:'Courier New',monospace;font-weight:bold;">$99/mo →</a>
       </td>
     </tr>
     </table>

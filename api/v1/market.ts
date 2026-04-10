@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export const config = { runtime: 'nodejs' };
 
-const CORS = 'https://dashpulse.app';
+const CORS = 'https://nexuswatch.dev';
 
 const SYMBOLS = [
   { symbol: 'SPY', name: 'S&P 500', category: 'index' },

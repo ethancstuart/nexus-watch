@@ -5,7 +5,7 @@ Vite + vanilla TypeScript intelligence platform: 30 data layers on a 3D MapLibre
 AI command center with terminal interface, auto-threat detection, 4 intelligence systems,
 and personalized watchlists. Bloomberg terminal aesthetic.
 Open-source, MIT licensed. Ships with smart defaults, fully configurable.
-Deployed to Vercel at https://dashpulse.app. Built with Claude Code.
+Deployed to Vercel at https://nexuswatch.dev. Built with Claude Code.
 Inspired by SitDeck, World Monitor, and Bloomberg Terminal — information-dense, map-centric, AI-native.
 Part of Ethan Stuart's portfolio: "I don't just manage products — I build them."
 

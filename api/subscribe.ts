@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 <li>Market implications with specific index/commodity data</li>
                 <li>Indicators to watch for the next 24-48 hours</li>
               </ul>
-              <div style="margin-top: 20px;"><a href="https://dashpulse.app" style="display:inline-block;padding:10px 20px;background:#ff6600;color:#000;text-decoration:none;font-size:12px;font-weight:bold;letter-spacing:1px;border-radius:3px;">OPEN NEXUSWATCH →</a></div>
+              <div style="margin-top: 20px;"><a href="https://nexuswatch.dev" style="display:inline-block;padding:10px 20px;background:#ff6600;color:#000;text-decoration:none;font-size:12px;font-weight:bold;letter-spacing:1px;border-radius:3px;">OPEN NEXUSWATCH →</a></div>
               <div style="margin-top: 24px; padding-top: 12px; border-top: 1px solid #1a1a1a; font-size: 9px; color: #444;">NexusWatch Intelligence Platform · Real-time geopolitical monitoring for 50+ countries</div>
             </div>`,
           }),

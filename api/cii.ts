@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 
-const CORS_ORIGIN = 'https://dashpulse.app';
+const CORS_ORIGIN = 'https://nexuswatch.dev';
 function setCors(res: VercelResponse): VercelResponse {
   return res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
 }

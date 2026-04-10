@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export const config = { runtime: 'nodejs' };
 
-const CORS = 'https://dashpulse.app';
+const CORS = 'https://nexuswatch.dev';
 
 // Direct upstream sources — NO self-referencing through our own domain
 const LAYER_SOURCES: Record<string, { url: string; dataKey: string; transform?: (data: unknown) => unknown[] }> = {

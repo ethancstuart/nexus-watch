@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://dashpulse.app/sitemap.xml
+Sitemap: https://nexuswatch.dev/sitemap.xml

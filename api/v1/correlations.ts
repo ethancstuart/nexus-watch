@@ -3,7 +3,7 @@ import { neon } from '@neondatabase/serverless';
 
 export const config = { runtime: 'nodejs' };
 
-const CORS = 'https://dashpulse.app';
+const CORS = 'https://nexuswatch.dev';
 
 const HIGH_RISK_COORDS: Record<string, [number, number]> = {
   UA: [48.4, 31.2],

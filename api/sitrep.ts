@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge' };
 
-const CORS_HEADERS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://dashpulse.app' };
+const CORS_HEADERS = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'https://nexuswatch.dev' };
 
 interface SitrepBody {
   region?: string;

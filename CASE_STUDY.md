@@ -85,7 +85,7 @@ Tech professionals -- engineers, product managers, founders -- who consume infor
 
 ### Distribution Strategy
 
-Open-source under MIT. The canonical deployment runs on Vercel at dashpulse.app. Any user can fork the repo, set environment variables, and deploy their own instance in under five minutes. This removes vendor lock-in concerns and makes the project portfolio-legible: the entire codebase is public, the architecture is inspectable, and the deployment is reproducible.
+Open-source under MIT. The canonical deployment runs on Vercel at nexuswatch.dev. Any user can fork the repo, set environment variables, and deploy their own instance in under five minutes. This removes vendor lock-in concerns and makes the project portfolio-legible: the entire codebase is public, the architecture is inspectable, and the deployment is reproducible.
 
 If community traction warrants it, a managed hosted version may be offered as a paid convenience. The open-source tool remains fully functional and free.
 
