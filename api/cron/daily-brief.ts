@@ -77,6 +77,101 @@ const BRIEF_RSS_FEEDS = [
   { url: 'https://rss.dw.com/xml/rss-en-all', source: 'DW' },
 ];
 
+// === The NexusWatch Brief — AI Prompt ===
+function getBriefSystemPrompt(now: Date): string {
+  const dayOfWeek = now.getUTCDay(); // 0=Sun
+  const isSunday = dayOfWeek === 0;
+
+  const baseVoice = `You are the editorial voice of The NexusWatch Brief, a daily geopolitical intelligence newsletter read by traders, analysts, founders, and curious professionals over morning coffee.
+
+VOICE — This is critical. Get this right:
+- You are a smart, well-connected friend who happens to run a global intelligence platform
+- Use "we" naturally: "We're watching Iran closely" / "We flagged this yesterday"
+- Conversational but credible — like a Bloomberg reporter at a dinner party
+- Occasionally show personality: "Okay, this one's worth your attention" / "This caught our eye" / "Big day."
+- On big news days, be more urgent. On quiet days, be more reflective.
+- NEVER say: "geopolitical landscape", "in the realm of", "it remains to be seen", "remains a concern", "amid growing tensions"
+- NEVER sound like a government report or a college essay
+- Every sentence must pass the "would I actually say this to a smart friend?" test
+- Brevity is respect. Every sentence earns its place. Target ~800-1000 words total.
+
+AUDIENCE: US-based but globally curious. Traders, analysts, founders, policy people, OSINT enthusiasts. Frame global events with a slight US-interest lens — not jingoistic, just practical: "here's why this matters if you're in the US."
+
+ATTRIBUTION: You are NexusWatch — the platform IS the source. Don't attribute to "reports say" or "according to sources." When referencing a specific investigation or report (Bellingcat, Crisis Group), name it. Otherwise, state facts with authority.
+
+CRITICAL RULES:
+- NEVER fabricate events, names, or claims not in the data
+- DO synthesize and connect dots — this is analysis, not aggregation
+- Be specific: numbers, country names, magnitudes, percentages
+- If data is thin on a topic, say less, not vaguer things
+- Cross-domain correlations are gold — lead with them when present`;
+
+  if (isSunday) {
+    return `${baseVoice}
+
+OUTPUT FORMAT: Clean markdown text. Use ## for section headers with emoji prefixes. **bold** for emphasis. Numbered lists for stories. Bullet points for outlook.
+
+THIS IS THE SUNDAY WEEK IN REVIEW EDITION. Different format from daily briefs.
+
+STRUCTURE:
+
+## ☕ Good Morning
+2-3 sentences. "Happy Sunday. Here's what mattered this week — and what we're watching heading into Monday." Warm, reflective tone.
+
+## 📍 The Week That Was
+5-7 of the biggest stories from the past 7 days. Each gets:
+- A bold headline
+- 2-3 sentences: what happened, how it developed over the week, where it stands now
+- Focus on TRENDS and TRAJECTORIES, not just events
+
+## 🇺🇸 US Impact This Week
+3-4 sentences synthesizing the week's cumulative impact on US interests.
+
+## ⛽ Energy & Commodities: Weekly Wrap
+Price movements over the full week (not just today). What drove them. Where we think they're headed.
+
+## 📊 Market Signal
+Weekly market performance connected to geopolitical developments.
+
+## 🔭 The Week Ahead
+5-6 things to watch Monday through Friday. Specific events, thresholds, and dates.
+This section should feel like a Monday morning prep sheet.`;
+  }
+
+  return `${baseVoice}
+
+OUTPUT FORMAT: Clean markdown text. Use ## for section headers with emoji prefixes. **bold** for emphasis. Numbered lists for stories. Bullet points for outlook. NO HTML.
+
+STRUCTURE (follow exactly):
+
+## ☕ Good Morning
+2-3 sentences max. Conversational hook that leads with the single most important thing today. "Good morning — oil crashed nearly 10% yesterday, but the real story is what Iran did NOT do. Here's your 3-minute scan." On big days: more urgent. Quiet days: more reflective.
+
+## 📍 Today's Top Stories
+
+3-5 numbered stories. Each story gets:
+- A **bold headline**
+- What happened (1-2 sentences, specific)
+- **Why it matters** (1-2 sentences — this is the money line, the reason someone should care)
+- Name sources when referencing specific investigations (Bellingcat, Crisis Group, etc.)
+
+## 🇺🇸 US Impact
+2-3 sentences. How today's events affect US security, economy, energy, or alliances. Practical, not theoretical. "This matters for the US because..."
+
+## ⛽ Energy & Commodities
+2-3 sentences. Oil, natural gas, energy sector. Price + what's driving it + what could reverse it. Reference specific chokepoints (Hormuz, Bab el-Mandeb, Suez) when relevant.
+
+## 📊 Market Signal
+2-3 sentences. S&P, gold, oil, nat gas, energy sector, USD, treasuries. Connect geopolitics to price moves. What's priced in vs. what's a surprise.
+
+## 🔭 48-Hour Outlook
+MANDATORY — DO NOT SKIP. This is the most valuable section.
+3-4 bullet points. Each: **bold indicator name** → what to watch, the threshold that matters, and why. At least one energy, one geopolitical, one market. Should feel like a checklist you'd pin to your monitor.
+
+## 🗺️ Map of the Day
+1-2 sentences describing what the NexusWatch globe is showing today — tied to the top story. "Today's map shows [description]. [Why it's interesting.]" This will be paired with an auto-generated globe screenshot.`;
+}
+
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   const dbUrl = process.env.DATABASE_URL;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -366,7 +461,8 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       newsHeadlines,
     };
 
-    // === Generate AI brief (outputs HTML directly) ===
+    // === Generate AI brief (outputs markdown text) ===
+    let briefText: string;
     let briefHtml: string;
     let aiDebug: string | null = null;
 
@@ -433,49 +529,7 @@ ${(() => {
           body: JSON.stringify({
             model: 'claude-sonnet-4-5-20250929',
             max_tokens: 6000,
-            system: `You are a senior intelligence analyst at NexusWatch, a geopolitical intelligence platform. Write a daily intelligence briefing that a national security advisor or hedge fund risk manager would find genuinely useful.
-
-OUTPUT FORMAT: Return ONLY raw HTML fragments (no <html>, <head>, <body> tags). Use inline styles only. The email background is #0a0a0a with #e0e0e0 text. Accent color: #ff6600.
-
-AUDIENCE: US-based decision-makers — national security professionals, hedge fund risk managers, energy traders, policy analysts. Frame global events through the lens of US interests, US energy markets, and US security posture. This doesn't mean ignore other regions — it means always connect back to "why does this matter for the US?"
-
-CRITICAL RULES:
-- NEVER fabricate events, names, or claims not present in the data
-- DO synthesize, analyze, and draw connections between data points — this is what makes you an ANALYST not an aggregator
-- When OSINT/news headlines are available, weave them into your analysis as supporting evidence
-- Cross-domain correlations (earthquakes near infrastructure, multi-region instability) are HIGH-VALUE intel — lead with them if present
-- Use 7-day trend trajectories to identify DEVELOPING SITUATIONS, not just snapshots
-- If conflict headlines are unavailable, analyze instability through CII component breakdown and news headlines instead
-- Be specific: numbers, country names, magnitudes, trend directions — not vague generalizations
-- Write like you're briefing someone who will make decisions based on this. Every sentence should pass the "so what?" test.
-- Energy markets (oil, natural gas, energy sector ETF) deserve dedicated analysis — they're the transmission mechanism between geopolitical risk and economic impact.
-
-STRUCTURE (use these exact section headers as <h2> elements):
-
-1. SITUATION SUMMARY — 3-4 sentences. Lead with the most consequential development or cross-domain correlation. What should a decision-maker know RIGHT NOW? Include the single most important number and the most important TREND. Frame for US impact.
-
-2. THREAT MATRIX — Table with columns: Region | Threat Level (Critical/High/Elevated/Low) | Key Driver | 7-Day Trend. Cover 5-6 regions. Use colored dots: 🔴 Critical, 🟠 High, 🟡 Elevated, 🟢 Low. Use the 7-day trajectory data to characterize trends, not just 24h.
-
-3. ENERGY & COMMODITIES — Dedicated analysis of oil, natural gas, and energy sector movements. Connect to: chokepoint disruptions (Hormuz, Bab el-Mandeb, Suez), OPEC+ dynamics, sanctions impact, pipeline security, LNG flows. Reference specific price data from market indicators. What's driving energy prices today and what could move them tomorrow?
-
-4. CROSS-DOMAIN ALERTS — If correlations were auto-detected (earthquakes near infrastructure, seismic clusters, multi-region instability), analyze each one: what converged, why it matters, what to watch. If no correlations, omit this section entirely.
-
-5. KEY DEVELOPMENTS — 5-7 bullet points synthesizing the most important headlines, CII movements, and events. Each one: what happened + why it matters (especially to US interests) + confidence level. Use news sources when available. Use "▸" prefix.
-
-6. US IMPACT ASSESSMENT — 2-3 paragraphs. How do today's global developments affect: US homeland security, US economic interests, US energy independence, US alliance commitments, or US military posture? Be specific — name regions, trade routes, and economic channels.
-
-7. INSTABILITY TRAJECTORIES — Focus on 7-day CII trends, not just today. Which countries are on a rising trajectory? Which are stabilizing? Connect trajectory to the component breakdown. Call out countries where instability could cascade into US-relevant consequences.
-
-8. SEISMIC & ENVIRONMENTAL — Earthquake analysis with baseline comparison. Cluster detection. Disease alerts if relevant.
-
-9. MARKET SIGNAL — How geopolitical risk maps to market moves. S&P, treasuries, energy sector, gold, USD. Connect specific events to specific price movements. What's priced in vs. what's a surprise?
-
-10. 48-HOUR OUTLOOK — MANDATORY, DO NOT SKIP THIS SECTION. This is the most valuable section for subscribers. 4-6 specific, actionable indicators to watch over the next 48 hours. Each with: the specific indicator to monitor, the threshold/trigger that matters, and why it matters for US interests. At least one energy-specific, one geopolitical, one market. Format each as a bold indicator name followed by analysis. This section should feel like a checklist a trader or analyst pins to their monitor.
-
-Style each <h2> with: color:#ff6600; font-size:14px; letter-spacing:2px; text-transform:uppercase; border-bottom:1px solid #333; padding-bottom:6px; margin-top:24px;
-Style paragraphs with: color:#ccc; font-size:13px; line-height:1.7; margin:8px 0;
-Style bullets (▸) with: color:#e0e0e0; font-size:13px; line-height:1.7; margin:4px 0; padding-left:12px;
-For the threat table, use: border-collapse:collapse; width:100%; and cells with border-bottom:1px solid #1a1a1a; padding:8px 12px; font-size:12px;`,
+            system: getBriefSystemPrompt(now),
             messages: [
               {
                 role: 'user',
@@ -488,31 +542,119 @@ For the threat table, use: border-collapse:collapse; width:100%; and cells with 
 
         if (aiRes.ok) {
           const aiData = (await aiRes.json()) as { content: Array<{ text: string }> };
-          briefHtml = aiData.content?.[0]?.text || buildFallbackHtml(briefData);
-          aiDebug = briefHtml === buildFallbackHtml(briefData) ? 'ai-empty-response' : 'ai-success';
+          briefText = aiData.content?.[0]?.text || '';
+          if (!briefText) {
+            aiDebug = 'ai-empty-response';
+            briefText = buildFallbackText(briefData);
+            briefHtml = buildFallbackHtml(briefData);
+          } else {
+            aiDebug = 'ai-success';
+            briefHtml = markdownToHtml(briefText);
+          }
         } else {
           const errBody = await aiRes.text().catch(() => 'unknown');
           aiDebug = `ai-failed:${aiRes.status}:${errBody.slice(0, 300)}`;
           console.error(`AI brief failed: ${aiRes.status} — ${errBody.slice(0, 200)}`);
+          briefText = buildFallbackText(briefData);
           briefHtml = buildFallbackHtml(briefData);
         }
       } catch (aiErr) {
         aiDebug = `ai-error:${aiErr instanceof Error ? aiErr.message : String(aiErr)}`;
         console.error('AI brief error:', aiErr instanceof Error ? aiErr.message : aiErr);
+        briefText = buildFallbackText(briefData);
         briefHtml = buildFallbackHtml(briefData);
       }
     } else {
       aiDebug = 'no-api-key';
+      briefText = buildFallbackText(briefData);
       briefHtml = buildFallbackHtml(briefData);
     }
 
-    // Store (keep raw HTML as summary)
+    // Store both markdown and HTML versions
     await sql`
       INSERT INTO daily_briefs (brief_date, content, summary)
-      VALUES (${today}, ${JSON.stringify(briefData)}, ${briefHtml})
+      VALUES (${today}, ${JSON.stringify({ ...briefData, briefText })}, ${briefHtml})
     `;
 
-    // === Send email ===
+    // === Publish to beehiiv ===
+    const beehiivKey = process.env.BEEHIIV_API_KEY;
+    const beehiivPubId = process.env.BEEHIIV_PUB_ID;
+    if (beehiivKey && beehiivPubId) {
+      try {
+        // Extract Good Morning line for subtitle
+        const subtitleMatch = briefText.match(/## ☕ Good Morning\n+([\s\S]*?)(?=\n##|\n\n##)/);
+        const subtitle = subtitleMatch
+          ? subtitleMatch[1].trim().slice(0, 200)
+          : `Your daily geopolitical intelligence scan — ${today}`;
+
+        await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/posts`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${beehiivKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: `The NexusWatch Brief — ${today}`,
+            subtitle,
+            content_html: briefHtml,
+            status: 'confirmed',
+            send_to: 'all',
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+      } catch {
+        /* beehiiv push failed — non-critical */
+      }
+    }
+
+    // === Post to X via Buffer ===
+    const bufferToken = process.env.BUFFER_ACCESS_TOKEN;
+    const bufferProfile = process.env.BUFFER_PROFILE_ID;
+    if (bufferToken && bufferProfile) {
+      try {
+        // Build thread: Good Morning hook + top story + 48h outlook + subscribe CTA
+        const gmMatch = briefText.match(/## ☕ Good Morning\n+([\s\S]*?)(?=\n##)/);
+        const goodMorning = gmMatch ? gmMatch[1].trim() : '';
+
+        const storiesMatch = briefText.match(/## 📍 Today's Top Stories\n+([\s\S]*?)(?=\n##)/);
+        const topStory = storiesMatch
+          ? storiesMatch[1]
+              .trim()
+              .split(/\n\d+\./)[1]
+              ?.trim()
+              .slice(0, 250) || ''
+          : '';
+
+        const outlookMatch = briefText.match(/## 🔭 48-Hour Outlook\n+([\s\S]*?)(?=\n##|$)/);
+        const outlook = outlookMatch ? outlookMatch[1].trim().slice(0, 250) : '';
+
+        const thread = [
+          `☕ ${goodMorning.slice(0, 270)}`,
+          topStory ? `📍 ${topStory}` : null,
+          outlook ? `🔭 48-Hour Outlook:\n${outlook}` : null,
+          `Full brief → brief.nexuswatch.dev\n\nTrack live → nexuswatch.dev`,
+        ].filter(Boolean);
+
+        // Buffer API: post thread as individual updates
+        for (const text of thread) {
+          await fetch('https://api.bufferapp.com/1/updates/create.json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              access_token: bufferToken,
+              profile_ids: bufferProfile,
+              text: text as string,
+              now: 'true',
+            }),
+            signal: AbortSignal.timeout(10000),
+          });
+        }
+      } catch {
+        /* Buffer/X post failed — non-critical */
+      }
+    }
+
+    // === Send transactional email via Resend (legacy subscribers only) ===
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       try {
@@ -545,8 +687,8 @@ For the threat table, use: border-collapse:collapse; width:100%; and cells with 
     const notionBriefsPage = '33e45c2d-baf4-8104-b0e9-f6794c462363';
     if (notionKey) {
       try {
-        // Convert HTML to clean plain text for Substack copy-paste
-        const plainBrief = htmlToSubstackText(briefHtml, briefData);
+        // Use the markdown text directly — already clean and copy-paste ready
+        const plainBrief = briefText;
 
         // Create a subpage for today's brief
         const pageRes = await fetch('https://api.notion.com/v1/pages', {
@@ -881,40 +1023,95 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// === HTML to Substack-ready plain text ===
-function htmlToSubstackText(html: string, data: BriefData): string {
-  let text = html;
+// === Markdown to HTML (for site archive + email fallback) ===
+function markdownToHtml(md: string): string {
+  let html = md;
+  // Headers
+  html = html.replace(
+    /^## (.+)$/gm,
+    '<h2 style="color:#ff6600;font-size:16px;font-weight:700;margin:24px 0 8px;border-bottom:1px solid #e5e5e5;padding-bottom:6px;">$1</h2>',
+  );
+  html = html.replace(/^### (.+)$/gm, '<h3 style="font-size:14px;font-weight:600;margin:16px 0 6px;">$1</h3>');
+  // Bold
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  // Numbered lists
+  html = html.replace(/^(\d+)\. (.+)$/gm, '<div style="margin:6px 0 6px 16px;">$1. $2</div>');
+  // Bullet points
+  html = html.replace(/^[•▸-] (.+)$/gm, '<div style="margin:4px 0 4px 16px;">▸ $1</div>');
+  html = html.replace(/^\* (.+)$/gm, '<div style="margin:4px 0 4px 16px;">▸ $1</div>');
+  // Paragraphs (double newlines)
+  html = html.replace(/\n\n/g, '</p><p style="margin:8px 0;line-height:1.7;">');
+  // Single newlines within sections
+  html = html.replace(/\n/g, '<br>');
+  // Wrap in container
+  html = `<div style="font-family:Inter,-apple-system,sans-serif;font-size:15px;line-height:1.7;color:#1a1a1a;max-width:640px;"><p style="margin:8px 0;line-height:1.7;">${html}</p></div>`;
+  return html;
+}
 
-  // Convert HTML structure to clean text
-  text = text.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n\n## $1\n');
-  text = text.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n');
-  text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
-  text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
-  text = text.replace(/<br\s*\/?>/gi, '\n');
-  text = text.replace(/<\/p>/gi, '\n');
-  text = text.replace(/<p[^>]*>/gi, '');
-  text = text.replace(/<\/tr>/gi, '\n');
-  text = text.replace(/<td[^>]*>(.*?)<\/td>/gi, '$1\t');
-  text = text.replace(/<\/table>/gi, '\n');
-  text = text.replace(/<table[^>]*>/gi, '');
-  text = text.replace(/<tr[^>]*>/gi, '');
-  text = text.replace(/<span[^>]*>(.*?)<\/span>/gi, '$1');
-  text = text.replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '$2 ($1)');
-  text = text.replace(/<[^>]+>/g, ''); // strip remaining tags
-  text = text.replace(/&amp;/g, '&');
-  text = text.replace(/&lt;/g, '<');
-  text = text.replace(/&gt;/g, '>');
-  text = text.replace(/&nbsp;/g, ' ');
-  text = text.replace(/\n{3,}/g, '\n\n');
-  text = text.trim();
+// === Fallback brief in markdown (when AI fails) ===
+function buildFallbackText(data: BriefData): string {
+  const trendArrow = (c: CIIEntry) => {
+    if (c.prevScore === null) return '';
+    const d = c.score - c.prevScore;
+    if (d >= 3) return ` ↑${d.toFixed(0)}`;
+    if (d <= -3) return ` ↓${Math.abs(d).toFixed(0)}`;
+    return ' →';
+  };
 
-  // Add header
-  const header = `# NEXUSWATCH GLOBAL SITUATION BRIEFING\n${data.date} | ${data.utcTime}\n`;
-  const markets =
-    data.markets.length > 0 ? data.markets.map((m) => `${m.symbol}: ${m.price} (${m.change})`).join(' | ') + '\n' : '';
-  const footer = `\n\n---\n\nOpen the live intelligence map at nexuswatch.dev\n\nNexusWatch Intelligence Platform — nexuswatch.dev`;
+  const topCountry = data.topRiskCountries[0];
+  const eqTrend =
+    data.yesterdayEqCount !== null
+      ? data.earthquakeCount > data.yesterdayEqCount
+        ? `, up from ${data.yesterdayEqCount} yesterday`
+        : `, down from ${data.yesterdayEqCount} yesterday`
+      : '';
 
-  return header + markets + '\n---\n' + text + footer;
+  let text = `## ☕ Good Morning\n\n`;
+  text += topCountry
+    ? `We're tracking ${data.topRiskCountries.filter((c) => c.score >= 50).length} elevated-risk zones across ${data.totalCountries} countries this morning. ${topCountry.name} leads our Country Instability Index at ${topCountry.score}/100. ${data.earthquakeCount} seismic events globally${eqTrend}.\n\n`
+    : `${data.earthquakeCount} seismic events globally${eqTrend}. Here's your scan.\n\n`;
+
+  text += `## 📍 Today's Top Stories\n\n`;
+  if (data.newsHeadlines.length > 0) {
+    data.newsHeadlines.slice(0, 5).forEach((n, i) => {
+      text += `${i + 1}. **${n.title}** (${n.source})\n\n`;
+    });
+  } else if (data.conflictHeadlines.length > 0) {
+    data.conflictHeadlines.slice(0, 5).forEach((h, i) => {
+      text += `${i + 1}. **${h}**\n\n`;
+    });
+  } else {
+    text += `CII leaders: ${data.topRiskCountries
+      .slice(0, 5)
+      .map((c) => `${c.name} (${c.score}${trendArrow(c)})`)
+      .join(', ')}\n\n`;
+  }
+
+  text += `## 🇺🇸 US Impact\n\n`;
+  text += `${data.topRiskCountries.filter((c) => c.score >= 50).length} countries above CII 50 threshold — elevated global risk posture affecting energy supply chains and alliance commitments.\n\n`;
+
+  text += `## ⛽ Energy & Commodities\n\n`;
+  const oil = data.markets.find((m) => m.symbol === 'Crude Oil');
+  const gas = data.markets.find((m) => m.symbol === 'Nat Gas');
+  if (oil) text += `Crude Oil: ${oil.price} (${oil.change}). `;
+  if (gas) text += `Natural Gas: ${gas.price} (${gas.change}). `;
+  text += `\n\n`;
+
+  text += `## 📊 Market Signal\n\n`;
+  text += data.markets.map((m) => `${m.symbol}: ${m.price} (${m.change})`).join(' | ');
+  text += `\n\n`;
+
+  text += `## 🔭 48-Hour Outlook\n\n`;
+  text += `- **CII Trajectory**: Watch ${topCountry?.name || 'top risk countries'} for continued instability\n`;
+  text += `- **Seismic Activity**: ${data.earthquakeCount} events in 24h${data.significantQuakes.length > 0 ? ` including ${data.significantQuakes[0]}` : ''}\n`;
+  if (oil) text += `- **Energy**: ${oil.symbol} at ${oil.price} — watch for reversal signals\n`;
+
+  text += `\n## 🗺️ Map of the Day\n\n`;
+  text += `Today's map highlights ${topCountry?.name || 'global instability'} and surrounding risk zones. Open the live map at nexuswatch.dev to explore.\n`;
+
+  return text;
 }
 
 function splitTextToChunks(text: string, maxLen: number): string[] {
