@@ -48,6 +48,7 @@ import { TimelineBar } from '../ui/timelineBar.ts';
 import { CrisisReplayPlayer, generateCrisisReplay } from '../ui/crisisReplay.ts';
 import { EntityGraphPanel } from '../ui/entityGraph.ts';
 import { MultiViewController } from '../ui/multiView.ts';
+import { InvestigationManager } from '../ui/investigations.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -151,6 +152,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   statusArea.appendChild(liveDot);
   statusArea.appendChild(clockEl);
 
+  const invBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'INVEST' });
+  invBtn.title = 'Investigation workspaces — save & share views (I)';
+
   const multiBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'MULTI' });
   multiBtn.title = 'Synchronized multi-view: map + graph + table (M)';
 
@@ -200,6 +204,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   topRight.appendChild(mobileToggle);
   topRight.appendChild(alertBtn);
   topRight.appendChild(shareBtn);
+  topRight.appendChild(invBtn);
   topRight.appendChild(multiBtn);
   topRight.appendChild(graphBtn);
   topRight.appendChild(replayBtn);
@@ -458,6 +463,12 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     multiView.toggle();
     multiBtn.classList.toggle('active', multiView.isActive());
   });
+
+  // ── Investigation Workspaces ──
+  const investigations = new InvestigationManager(mapView, layerManager);
+  invBtn.addEventListener('click', () => investigations.toggle(mapContainer));
+  // Load investigation from URL if shared
+  InvestigationManager.loadFromUrl(mapView, layerManager);
 
   // ── Cinema Mode ──
   const cinema = new CinemaMode({
