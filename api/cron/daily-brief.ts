@@ -540,6 +540,65 @@ For the threat table, use: border-collapse:collapse; width:100%; and cells with 
       }
     }
 
+    // === Push to Notion (Substack-ready) ===
+    const notionKey = process.env.NOTION_API_KEY;
+    const notionBriefsPage = '33e45c2d-baf4-8104-b0e9-f6794c462363';
+    if (notionKey) {
+      try {
+        // Convert HTML to clean plain text for Substack copy-paste
+        const plainBrief = htmlToSubstackText(briefHtml, briefData);
+
+        // Create a subpage for today's brief
+        const pageRes = await fetch('https://api.notion.com/v1/pages', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${notionKey}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28',
+          },
+          body: JSON.stringify({
+            parent: { page_id: notionBriefsPage },
+            icon: { type: 'emoji', emoji: '📋' },
+            properties: {
+              title: [{ type: 'text', text: { content: `Intelligence Brief — ${today}` } }],
+            },
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (pageRes.ok) {
+          const page = (await pageRes.json()) as { id: string };
+
+          // Split into chunks of ~2000 chars (Notion block limit)
+          const chunks = splitTextToChunks(plainBrief, 1900);
+          const blocks = chunks.map((chunk) => ({
+            object: 'block' as const,
+            type: 'paragraph' as const,
+            paragraph: {
+              rich_text: [{ type: 'text' as const, text: { content: chunk } }],
+            },
+          }));
+
+          // Notion API accepts max 100 blocks per request
+          for (let i = 0; i < blocks.length; i += 100) {
+            const batch = blocks.slice(i, i + 100);
+            await fetch(`https://api.notion.com/v1/blocks/${page.id}/children`, {
+              method: 'PATCH',
+              headers: {
+                Authorization: `Bearer ${notionKey}`,
+                'Content-Type': 'application/json',
+                'Notion-Version': '2022-06-28',
+              },
+              body: JSON.stringify({ children: batch }),
+              signal: AbortSignal.timeout(10000),
+            });
+          }
+        }
+      } catch {
+        /* Notion push failed — non-critical */
+      }
+    }
+
     return res.json({ success: true, date: today, briefLength: briefHtml.length, ai: aiDebug });
   } catch (err) {
     console.error('Daily brief cron error:', err instanceof Error ? err.message : err);
@@ -820,4 +879,58 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// === HTML to Substack-ready plain text ===
+function htmlToSubstackText(html: string, data: BriefData): string {
+  let text = html;
+
+  // Convert HTML structure to clean text
+  text = text.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n\n## $1\n');
+  text = text.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n');
+  text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
+  text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<\/p>/gi, '\n');
+  text = text.replace(/<p[^>]*>/gi, '');
+  text = text.replace(/<\/tr>/gi, '\n');
+  text = text.replace(/<td[^>]*>(.*?)<\/td>/gi, '$1\t');
+  text = text.replace(/<\/table>/gi, '\n');
+  text = text.replace(/<table[^>]*>/gi, '');
+  text = text.replace(/<tr[^>]*>/gi, '');
+  text = text.replace(/<span[^>]*>(.*?)<\/span>/gi, '$1');
+  text = text.replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '$2 ($1)');
+  text = text.replace(/<[^>]+>/g, ''); // strip remaining tags
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/\n{3,}/g, '\n\n');
+  text = text.trim();
+
+  // Add header
+  const header = `# NEXUSWATCH GLOBAL SITUATION BRIEFING\n${data.date} | ${data.utcTime}\n`;
+  const markets =
+    data.markets.length > 0 ? data.markets.map((m) => `${m.symbol}: ${m.price} (${m.change})`).join(' | ') + '\n' : '';
+  const footer = `\n\n---\n\nOpen the live intelligence map at nexuswatch.dev\n\nNexusWatch Intelligence Platform — nexuswatch.dev`;
+
+  return header + markets + '\n---\n' + text + footer;
+}
+
+function splitTextToChunks(text: string, maxLen: number): string[] {
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLen) {
+      chunks.push(remaining);
+      break;
+    }
+    // Try to split at a paragraph boundary
+    let splitAt = remaining.lastIndexOf('\n\n', maxLen);
+    if (splitAt < maxLen * 0.3) splitAt = remaining.lastIndexOf('\n', maxLen);
+    if (splitAt < maxLen * 0.3) splitAt = maxLen;
+    chunks.push(remaining.slice(0, splitAt));
+    remaining = remaining.slice(splitAt).replace(/^\n+/, '');
+  }
+  return chunks;
 }
