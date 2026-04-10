@@ -43,10 +43,8 @@ interface AlertPayload {
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   const dbUrl = process.env.DATABASE_URL;
   const bufferToken = process.env.BUFFER_ACCESS_TOKEN;
-  const bufferOrgId = process.env.BUFFER_PROFILE_ID;
-
   if (!dbUrl) return res.status(500).json({ error: 'DATABASE_URL not configured' });
-  if (!bufferToken || !bufferOrgId) return res.json({ skipped: true, reason: 'Buffer not configured' });
+  if (!bufferToken) return res.json({ skipped: true, reason: 'Buffer not configured' });
 
   try {
     const sql = neon(dbUrl);
@@ -256,41 +254,8 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       .join('\n')
       .slice(0, 280);
 
-    // Post via Buffer GraphQL
-    // First get X channel ID
-    const channelsRes = await fetch('https://api.buffer.com', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${bufferToken}`,
-      },
-      body: JSON.stringify({
-        query: `query GetChannels($orgId: ID!) {
-          organization(id: $orgId) {
-            channels { id service }
-          }
-        }`,
-        variables: { orgId: bufferOrgId },
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!channelsRes.ok) {
-      return res.status(500).json({ error: 'Buffer channels fetch failed' });
-    }
-
-    const channelsData = (await channelsRes.json()) as {
-      data?: { organization?: { channels?: Array<{ id: string; service: string }> } };
-    };
-    const xChannel = channelsData.data?.organization?.channels?.find(
-      (c) => c.service === 'twitter' || c.service === 'x',
-    );
-
-    if (!xChannel) {
-      return res.status(500).json({ error: 'No X/Twitter channel found in Buffer' });
-    }
-
-    // Create and queue the post
+    // Post via Buffer GraphQL — hardcoded NexusWatchDev channel ID
+    const bufferChannelId = '69d95485031bfa423cee6b71';
     const postRes = await fetch('https://api.buffer.com', {
       method: 'POST',
       headers: {
@@ -298,7 +263,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         Authorization: `Bearer ${bufferToken}`,
       },
       body: JSON.stringify({
-        query: `mutation CreatePost($text: String!, $channelId: ID!) {
+        query: `mutation CreatePost($text: String!, $channelId: ChannelId!) {
           createPost(input: {
             text: $text,
             channelId: $channelId,
@@ -311,7 +276,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         }`,
         variables: {
           text: tweetText,
-          channelId: xChannel.id,
+          channelId: bufferChannelId,
         },
       }),
       signal: AbortSignal.timeout(10000),

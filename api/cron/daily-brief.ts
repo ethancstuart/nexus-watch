@@ -609,84 +609,57 @@ ${(() => {
 
     // === Post to X via Buffer (GraphQL API) ===
     const bufferToken = process.env.BUFFER_ACCESS_TOKEN;
-    const bufferOrgId = process.env.BUFFER_PROFILE_ID;
-    if (bufferToken && bufferOrgId) {
+    // Hardcoded NexusWatchDev channel ID (stable, verified working)
+    const bufferChannelId = '69d95485031bfa423cee6b71';
+    if (bufferToken) {
       try {
-        // Step 1: Get X/Twitter channel ID
-        const channelsRes = await fetch('https://api.buffer.com', {
+        // Build post content from brief
+        const gmMatch = briefText.match(/## ☕ Good Morning\n+([\s\S]*?)(?=\n##)/);
+        const goodMorning = gmMatch ? gmMatch[1].trim() : '';
+
+        const storiesMatch = briefText.match(/## 📍 Today's Top Stories\n+([\s\S]*?)(?=\n##)/);
+        const topStory = storiesMatch
+          ? storiesMatch[1]
+              .trim()
+              .split(/\n\d+\./)[1]
+              ?.trim()
+              .slice(0, 180) || ''
+          : '';
+
+        const postText = [
+          `☕ ${goodMorning.slice(0, 220)}`,
+          topStory ? `\n\n📍 ${topStory}` : '',
+          `\n\nFull brief → brief.nexuswatch.dev`,
+        ]
+          .join('')
+          .slice(0, 280);
+
+        // Create and queue the post on @NexusWatchDev
+        await fetch('https://api.buffer.com', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${bufferToken}`,
           },
           body: JSON.stringify({
-            query: `query GetChannels($orgId: ID!) {
-              organization(id: $orgId) {
-                channels { id name service }
+            query: `mutation CreatePost($text: String!, $channelId: ChannelId!) {
+              createPost(input: {
+                text: $text,
+                channelId: $channelId,
+                schedulingType: automatic,
+                mode: addToQueue
+              }) {
+                ... on PostActionSuccess { post { id } }
+                ... on MutationError { message }
               }
             }`,
-            variables: { orgId: bufferOrgId },
+            variables: {
+              text: postText,
+              channelId: bufferChannelId,
+            },
           }),
           signal: AbortSignal.timeout(10000),
         });
-
-        if (!channelsRes.ok) throw new Error('Buffer channels fetch failed');
-        const channelsData = (await channelsRes.json()) as {
-          data?: { organization?: { channels?: Array<{ id: string; service: string }> } };
-        };
-        const xChannel = channelsData.data?.organization?.channels?.find(
-          (c) => c.service === 'twitter' || c.service === 'x',
-        );
-
-        if (xChannel) {
-          // Step 2: Build post content
-          const gmMatch = briefText.match(/## ☕ Good Morning\n+([\s\S]*?)(?=\n##)/);
-          const goodMorning = gmMatch ? gmMatch[1].trim() : '';
-
-          const storiesMatch = briefText.match(/## 📍 Today's Top Stories\n+([\s\S]*?)(?=\n##)/);
-          const topStory = storiesMatch
-            ? storiesMatch[1]
-                .trim()
-                .split(/\n\d+\./)[1]
-                ?.trim()
-                .slice(0, 180) || ''
-            : '';
-
-          const postText = [
-            `☕ ${goodMorning.slice(0, 220)}`,
-            topStory ? `\n\n📍 ${topStory}` : '',
-            `\n\nFull brief → brief.nexuswatch.dev`,
-          ]
-            .join('')
-            .slice(0, 280);
-
-          // Step 3: Create and queue the post
-          await fetch('https://api.buffer.com', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${bufferToken}`,
-            },
-            body: JSON.stringify({
-              query: `mutation CreatePost($text: String!, $channelId: ID!) {
-                createPost(input: {
-                  text: $text,
-                  channelId: $channelId,
-                  schedulingType: automatic,
-                  mode: addToQueue
-                }) {
-                  ... on PostActionSuccess { post { id } }
-                  ... on MutationError { message }
-                }
-              }`,
-              variables: {
-                text: postText,
-                channelId: xChannel.id,
-              },
-            }),
-            signal: AbortSignal.timeout(10000),
-          });
-        }
       } catch {
         /* Buffer/X post failed — non-critical */
       }
