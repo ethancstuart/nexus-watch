@@ -30,7 +30,6 @@ const CRITICAL_INFRA: { name: string; lat: number; lon: number }[] = [
   { name: 'Ras Tanura Terminal', lat: 26.64, lon: 50.15 },
 ];
 
-const ALERTS_TABLE = 'x_alert_log';
 const MAX_ALERTS_PER_DAY = 3;
 const MIN_HOURS_BETWEEN = 2;
 
@@ -65,7 +64,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
     // Check rate limits
     const todayAlerts = await sql`
-      SELECT COUNT(*) as cnt FROM ${sql(ALERTS_TABLE)}
+      SELECT COUNT(*) as cnt FROM x_alert_log
       WHERE posted_at > NOW() - INTERVAL '24 hours'
     `;
     const alertCount = Number(todayAlerts[0]?.cnt || 0);
@@ -74,7 +73,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     }
 
     const lastAlert = await sql`
-      SELECT posted_at FROM ${sql(ALERTS_TABLE)}
+      SELECT posted_at FROM x_alert_log
       ORDER BY posted_at DESC LIMIT 1
     `;
     if (lastAlert.length > 0) {
@@ -232,7 +231,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
     // Take the most urgent alert that hasn't been posted yet
     const postedKeys = await sql`
-      SELECT alert_key FROM ${sql(ALERTS_TABLE)}
+      SELECT alert_key FROM x_alert_log
       WHERE posted_at > NOW() - INTERVAL '24 hours'
     `;
     const postedSet = new Set(postedKeys.map((r) => r.alert_key as string));

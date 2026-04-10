@@ -6,11 +6,23 @@ export function renderLanding(root: HTMLElement): void {
 
   const page = createElement('div', { className: 'nw-landing' });
   page.innerHTML = `
+    <div class="landing-newsletter-bar" id="newsletter-bar">
+      <div class="landing-newsletter-bar-inner">
+        <span class="landing-newsletter-bar-text">Get <strong>The NexusWatch Brief</strong> — geopolitical intelligence in 3 minutes, free every morning</span>
+        <form class="landing-newsletter-bar-form" id="bar-subscribe">
+          <input type="email" placeholder="your@email.com" required class="landing-newsletter-bar-input">
+          <button type="submit" class="landing-newsletter-bar-btn">SUBSCRIBE</button>
+        </form>
+        <button class="landing-newsletter-bar-close" id="bar-close" title="Dismiss">✕</button>
+      </div>
+    </div>
+
     <nav class="landing-nav">
       <span class="landing-logo">NexusWatch</span>
       <div class="landing-nav-links">
         <a href="#/intel" class="landing-nav-link">OPEN PLATFORM</a>
         <a href="#/about" class="landing-nav-link">ABOUT</a>
+        <a href="https://brief.nexuswatch.dev" target="_blank" class="landing-nav-link landing-nav-brief">THE BRIEF</a>
       </div>
     </nav>
 
@@ -28,10 +40,10 @@ export function renderLanding(root: HTMLElement): void {
       </div>
 
       <div class="landing-brief-signup">
-        <div class="landing-brief-label">Get the free Daily Intelligence Brief — delivered every morning at 06:00 UTC</div>
+        <div class="landing-brief-label">Get <strong>The NexusWatch Brief</strong> — 3-minute intelligence scan, delivered every morning at 5 AM ET</div>
         <form class="landing-subscribe-form" id="landing-subscribe">
           <input type="email" placeholder="your@email.com" required class="landing-email-input">
-          <button type="submit" class="landing-subscribe-btn">SUBSCRIBE</button>
+          <button type="submit" class="landing-subscribe-btn">SUBSCRIBE FREE</button>
         </form>
         <div class="landing-subscribe-status" id="landing-sub-status"></div>
       </div>
@@ -71,8 +83,20 @@ export function renderLanding(root: HTMLElement): void {
     </section>
 
     <section class="landing-brief-preview">
-      <h2>Today's Brief Preview</h2>
+      <div class="landing-brief-header">
+        <h2>Today's NexusWatch Brief</h2>
+        <span class="landing-brief-badge">SAMPLE</span>
+      </div>
       <div class="landing-brief-content" id="landing-brief-preview">Loading today's brief...</div>
+      <div class="landing-brief-fade"></div>
+      <div class="landing-brief-cta">
+        <p>Get the full brief delivered free every morning</p>
+        <form class="landing-subscribe-form" id="brief-subscribe">
+          <input type="email" placeholder="your@email.com" required class="landing-email-input">
+          <button type="submit" class="landing-subscribe-btn">SUBSCRIBE TO THE BRIEF</button>
+        </form>
+        <div class="landing-subscribe-status" id="brief-sub-status"></div>
+      </div>
     </section>
 
     <section class="landing-pricing">
@@ -135,51 +159,85 @@ export function renderLanding(root: HTMLElement): void {
 
   root.appendChild(page);
 
-  // Subscribe form handler
-  const form = document.getElementById('landing-subscribe') as HTMLFormElement;
-  const status = document.getElementById('landing-sub-status')!;
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = (form.querySelector('input') as HTMLInputElement).value;
-    status.textContent = 'Subscribing...';
-    status.style.color = '#888';
-    try {
-      const res = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, source: 'landing' }),
-      });
-      const data = await res.json();
-      status.textContent = data.success
-        ? '✓ Subscribed! Check your email for the welcome message.'
-        : data.error || 'Failed';
-      status.style.color = data.success ? '#22c55e' : '#ef4444';
-    } catch {
-      status.textContent = 'Network error — try again';
-      status.style.color = '#ef4444';
-    }
+  // Subscribe form handler (shared across all forms)
+  function setupSubscribeForm(formId: string, statusId: string) {
+    const form = document.getElementById(formId) as HTMLFormElement;
+    const statusEl = document.getElementById(statusId);
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = (form.querySelector('input') as HTMLInputElement).value;
+      if (statusEl) {
+        statusEl.textContent = 'Subscribing...';
+        statusEl.style.color = '#888';
+      }
+      try {
+        const res = await fetch('/api/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, source: formId }),
+        });
+        const data = await res.json();
+        if (statusEl) {
+          statusEl.textContent = data.success
+            ? "✓ You're in! First brief arrives tomorrow morning."
+            : data.error || 'Failed';
+          statusEl.style.color = data.success ? '#22c55e' : '#ef4444';
+        }
+      } catch {
+        if (statusEl) {
+          statusEl.textContent = 'Network error — try again';
+          statusEl.style.color = '#ef4444';
+        }
+      }
+    });
+  }
+
+  setupSubscribeForm('landing-subscribe', 'landing-sub-status');
+  setupSubscribeForm('bar-subscribe', 'landing-sub-status');
+  setupSubscribeForm('brief-subscribe', 'brief-sub-status');
+
+  // Newsletter bar dismiss
+  const barClose = document.getElementById('bar-close');
+  const bar = document.getElementById('newsletter-bar');
+  barClose?.addEventListener('click', () => {
+    bar?.remove();
+    localStorage.setItem('nw:bar-dismissed', '1');
   });
+  if (localStorage.getItem('nw:bar-dismissed') === '1') {
+    bar?.remove();
+  }
 
   // Load today's brief preview
   const briefEl = document.getElementById('landing-brief-preview');
   if (briefEl) {
-    fetch('/api/briefs?date=' + new Date().toISOString().split('T')[0])
+    fetch('/api/v1/brief')
       .then((r) => r.json())
       .then((data) => {
         if (data.summary) {
-          // Show first ~500 chars of the brief
-          const preview = data.summary
-            .slice(0, 600)
-            .replace(/\n/g, '<br>')
-            .replace(/## /g, '<br><strong>')
-            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-          briefEl.innerHTML = `<div class="brief-preview-text">${preview}...</div><a href="#/intel" class="brief-preview-link">Read full brief in NexusWatch →</a>`;
+          // Show the brief with proper markdown rendering
+          let preview = data.summary as string;
+          // If it's HTML (old format), show as-is truncated
+          // If it's markdown (new format), convert basics
+          if (!preview.startsWith('<')) {
+            preview = preview
+              .replace(
+                /## (.*)/g,
+                '<h3 style="color:#ff6600;font-size:13px;letter-spacing:1px;margin:16px 0 8px;">$1</h3>',
+              )
+              .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+              .replace(/\n\n/g, '<br><br>')
+              .replace(/\n/g, '<br>');
+          }
+          // Show first ~800 chars (the fade overlay handles the cutoff)
+          briefEl.innerHTML = `<div class="brief-preview-text">${preview.slice(0, 1200)}</div>`;
         } else {
-          briefEl.textContent = 'Brief generates daily at 06:00 UTC. Check back tomorrow morning.';
+          briefEl.innerHTML =
+            '<p style="color:#666;text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.<br>Subscribe to get it in your inbox.</p>';
         }
       })
       .catch(() => {
-        briefEl.textContent = 'Brief generates daily at 06:00 UTC.';
+        briefEl.innerHTML =
+          '<p style="color:#666;text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.</p>';
       });
   }
 }
