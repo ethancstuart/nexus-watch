@@ -59,5 +59,21 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/briefs', () => {
+    import('./pages/briefs.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderBriefs(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/brief/:date', (params) => {
+    import('./pages/briefs.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderBrief(appRoot, params?.date || '');
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .otherwise(() => router.navigate('/'))
   .start();
