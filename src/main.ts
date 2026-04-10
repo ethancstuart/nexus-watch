@@ -67,6 +67,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/methodology', () => {
+    import('./pages/methodology.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderMethodology(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/brief/:date', (params) => {
     import('./pages/briefs.ts')
       .then((m) => {
