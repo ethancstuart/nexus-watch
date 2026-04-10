@@ -942,6 +942,34 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
   container.appendChild(countryHeader);
 
   const scores = getCachedScores();
+  // Fetch 30-day CII history for sparklines
+  const ciiHistoryMap = new Map<string, number[]>();
+  fetch('/api/v1/timeline-data?days=30')
+    .then((r) => r.json())
+    .then((data: { cii?: Array<{ day: string; countries: Array<{ code: string; score: number }> }> }) => {
+      if (!data.cii) return;
+      // Build per-country score arrays (chronological)
+      for (const day of data.cii) {
+        for (const c of day.countries) {
+          const arr = ciiHistoryMap.get(c.code) || [];
+          arr.push(c.score);
+          ciiHistoryMap.set(c.code, arr);
+        }
+      }
+      // Update sparklines in rendered rows
+      for (const [code, values] of ciiHistoryMap) {
+        const sparkEl = container.querySelector(`[data-sparkline="${code}"]`);
+        if (sparkEl && values.length >= 2) {
+          const spark = createSparkline(values, 48, 14);
+          sparkEl.replaceWith(spark);
+          spark.dataset.sparkline = code;
+        }
+      }
+    })
+    .catch(() => {
+      /* sparkline fetch failed — non-critical */
+    });
+
   if (scores.length === 0) {
     for (let i = 0; i < 8; i++) {
       const sk = createElement('div', { className: 'nw-skeleton-row' });
@@ -1051,8 +1079,16 @@ function createCountryRow(score: CountryIntelScore, mapView: MapView): HTMLEleme
   scoreEl.style.color = color;
   scoreEl.textContent = String(score.score);
 
+  // Sparkline placeholder — replaced when CII history loads
+  const sparkPlaceholder = createElement('span', { className: 'nw-sparkline-placeholder' });
+  sparkPlaceholder.dataset.sparkline = score.code;
+  sparkPlaceholder.style.width = '48px';
+  sparkPlaceholder.style.height = '14px';
+  sparkPlaceholder.style.display = 'inline-block';
+
   row.appendChild(flag);
   row.appendChild(name);
+  row.appendChild(sparkPlaceholder);
   row.appendChild(labelEl);
   row.appendChild(scoreEl);
 
