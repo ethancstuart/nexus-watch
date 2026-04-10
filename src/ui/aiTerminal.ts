@@ -450,12 +450,10 @@ function answerQuestion(query: string, config: TerminalConfig, output: HTMLEleme
       return;
     }
 
-    lines.push(`I couldn't understand that query. Try:`);
-    lines.push('• "what conflicts are happening in Sudan?"');
-    lines.push('• "show me all flights"');
-    lines.push('• "earthquake status"');
-    lines.push('• "energy infrastructure"');
-    lines.push('• Type a location name to fly there');
+    // AI fallback — send query to Claude with current platform data context
+    showOutput(output, 'Analyzing with AI...', 'info');
+    void queryAI(query, config, output);
+    return;
   }
 
   if (lines.length > 0) {
@@ -550,6 +548,95 @@ async function generateTerminalSitrep(_config: TerminalConfig, output: HTMLEleme
     showOutput(output, result.sitrep, 'success');
   } catch {
     showOutput(output, 'SITREP generation requires ANTHROPIC_API_KEY configuration', 'error');
+  }
+}
+
+async function queryAI(query: string, config: TerminalConfig, output: HTMLElement): Promise<void> {
+  try {
+    // Build context from active layer data
+    const data = config.getLayerData();
+    const context: string[] = [];
+
+    // Earthquakes
+    const quakes = (data.get('earthquakes') as Array<{ magnitude: number; place: string }>) || [];
+    if (quakes.length > 0) {
+      const sig = quakes.filter((q) => q.magnitude >= 4.5);
+      context.push(
+        `Earthquakes: ${quakes.length} total, ${sig.length} above M4.5. Strongest: M${Math.max(...quakes.map((q) => q.magnitude)).toFixed(1)}.`,
+      );
+      if (sig.length > 0)
+        context.push(
+          `Significant: ${sig
+            .slice(0, 5)
+            .map((q) => `M${q.magnitude.toFixed(1)} ${q.place}`)
+            .join('; ')}`,
+        );
+    }
+
+    // Ships
+    const ships = (data.get('ships') as Array<{ name: string; type: string; flag: string }>) || [];
+    if (ships.length > 0) {
+      const types = new Map<string, number>();
+      ships.forEach((s) => types.set(s.type, (types.get(s.type) || 0) + 1));
+      context.push(
+        `Ships: ${ships.length} tracked. ${Array.from(types.entries())
+          .map(([t, c]) => `${c} ${t}`)
+          .join(', ')}.`,
+      );
+    }
+
+    // Flights
+    const flights = (data.get('flights') as Array<{ military?: boolean }>) || [];
+    if (flights.length > 0) {
+      const mil = flights.filter((f) => f.military).length;
+      context.push(`Aircraft: ${flights.length} tracked (${mil} military).`);
+    }
+
+    // Conflicts
+    const conflicts = (data.get('acled') as Array<{ country: string; fatalities: number }>) || [];
+    if (conflicts.length > 0) {
+      const countries = new Set(conflicts.map((c) => c.country));
+      context.push(`Conflicts: ${conflicts.length} events across ${countries.size} countries.`);
+    }
+
+    // CII — fetch from API
+    try {
+      const ciiRes = await fetch('/api/v1/cii');
+      if (ciiRes.ok) {
+        const ciiData = (await ciiRes.json()) as { scores: Array<{ countryName: string; score: number }> };
+        const top5 = (ciiData.scores || []).sort((a, b) => b.score - a.score).slice(0, 5);
+        if (top5.length > 0) {
+          context.push(`CII Top 5: ${top5.map((c) => `${c.countryName} (${c.score})`).join(', ')}.`);
+        }
+      }
+    } catch {
+      /* non-critical */
+    }
+
+    // Enabled layers
+    const enabledLayers = config.layerManager.getEnabledLayers().map((l) => l.name);
+    context.push(`Active layers: ${enabledLayers.join(', ')}.`);
+
+    const res = await fetchWithRetry('/api/sitrep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        region: 'Global',
+        query,
+        data: { context: context.join('\n') },
+        mode: 'query',
+      }),
+    });
+
+    if (!res.ok) throw new Error('AI query failed');
+    const result = (await res.json()) as { sitrep: string };
+    showOutput(output, result.sitrep, 'success');
+  } catch {
+    showOutput(
+      output,
+      'AI query failed. Try a more specific question or check that ANTHROPIC_API_KEY is configured.',
+      'error',
+    );
   }
 }
 

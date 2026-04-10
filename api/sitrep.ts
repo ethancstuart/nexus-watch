@@ -4,7 +4,10 @@ const CORS_HEADERS = { 'Content-Type': 'application/json', 'Access-Control-Allow
 
 interface SitrepBody {
   region?: string;
+  query?: string;
+  mode?: 'sitrep' | 'query';
   data: {
+    context?: string;
     earthquakes?: { magnitude: number; place: string; time: number }[];
     fires?: { count: number; regions: string[] };
     news?: { title: string; source: string; tone: number }[];
@@ -36,6 +39,60 @@ export default async function handler(req: Request) {
   const body = (await req.json()) as SitrepBody;
   const region = body.region || 'Global';
   const data = body.data || {};
+  const isQueryMode = body.mode === 'query' && body.query;
+
+  // Query mode — answer a specific question using platform data
+  if (isQueryMode) {
+    const querySystemPrompt = `You are the NexusWatch AI command center — an intelligent analyst that answers questions about global geopolitical conditions using real-time platform data.
+
+RULES:
+- Answer the specific question asked. Be direct and concise.
+- Use the provided data context. Don't fabricate events.
+- If the data doesn't contain what's needed, say so honestly.
+- Use the NexusWatch "we" voice: "We're tracking 243 earthquakes..." not "There are 243..."
+- Keep responses under 200 words.
+- Format: plain text, no markdown headers. Use bullet points (•) for lists.
+- When relevant, suggest which NexusWatch layers or features to enable for more detail.`;
+
+    const queryUserPrompt = `Question: ${body.query}\n\nCurrent NexusWatch platform data:\n${data.context || 'No data context available.'}`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 500,
+          system: querySystemPrompt,
+          messages: [{ role: 'user', content: queryUserPrompt }],
+        }),
+      });
+
+      if (!res.ok) {
+        return new Response(JSON.stringify({ error: `AI error: ${res.status}` }), {
+          status: 502,
+          headers: CORS_HEADERS,
+        });
+      }
+
+      const result = (await res.json()) as { content?: { type: string; text: string }[] };
+      const text = (result.content || [])
+        .filter((b: { type: string }) => b.type === 'text')
+        .map((b: { text: string }) => b.text)
+        .join('');
+
+      return new Response(JSON.stringify({ sitrep: text, query: body.query, generatedAt: new Date().toISOString() }), {
+        headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Query failed';
+      return new Response(JSON.stringify({ error: message }), { status: 502, headers: CORS_HEADERS });
+    }
+  }
 
   // Build context from layer data
   const sections: string[] = [];
