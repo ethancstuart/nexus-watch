@@ -158,7 +158,23 @@ export class EarthquakeLayer implements MapDataLayer {
       source: 'earthquakes',
       filter: ['!', ['has', 'point_count']],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['get', 'magnitude'], 2.5, 5, 4, 10, 5, 16, 6, 24, 7, 36, 8, 48],
+        'circle-radius': [
+          'interpolate',
+          ['exponential', 1.8],
+          ['get', 'magnitude'],
+          2.5,
+          3,
+          4,
+          8,
+          5,
+          16,
+          6,
+          28,
+          7,
+          44,
+          8,
+          64,
+        ],
         'circle-color': ['interpolate', ['linear'], ['get', 'depth'], 0, '#ff3c3c', 70, '#ffa500', 300, '#3c78ff'],
         'circle-stroke-width': 1,
         'circle-stroke-color': 'rgba(255, 255, 255, 0.3)',
@@ -166,12 +182,12 @@ export class EarthquakeLayer implements MapDataLayer {
       },
     });
 
-    // Labels for M >= 4.5
+    // Labels for M >= 4.0
     this.map.addLayer({
       id: 'earthquakes-labels',
       type: 'symbol',
       source: 'earthquakes',
-      filter: ['all', ['!', ['has', 'point_count']], ['>=', ['get', 'magnitude'], 4.5]],
+      filter: ['all', ['!', ['has', 'point_count']], ['>=', ['get', 'magnitude'], 4.0]],
       layout: {
         'text-field': ['concat', 'M', ['to-string', ['get', 'magnitude']]],
         'text-size': 11,

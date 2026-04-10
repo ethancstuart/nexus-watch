@@ -102,21 +102,32 @@ export class FlightLayer implements MapDataLayer {
 
     this.map.addSource('flights', { type: 'geojson', data: geojson });
 
-    // Civilian aircraft
+    // Add plane icons if not already loaded
+    if (!this.map.hasImage('plane-civilian')) {
+      this.addPlaneIcon('plane-civilian', '#818cf8');
+      this.addPlaneIcon('plane-military', '#ef4444');
+    }
+
+    // Civilian aircraft — plane icons rotated by heading
     this.map.addLayer({
       id: 'flights-civilian',
-      type: 'circle',
+      type: 'symbol',
       source: 'flights',
       filter: ['!=', ['get', 'military'], true],
+      layout: {
+        'icon-image': 'plane-civilian',
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5, 0.7, 8, 1.0],
+        'icon-rotate': ['get', 'heading'],
+        'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      },
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 3, 5, 5, 8, 6],
-        'circle-color': '#818cf8',
-        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.3, 5, 0.5, 8, 0.7],
-        'circle-stroke-width': 0,
+        'icon-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5, 0.6, 8, 0.85],
       },
     });
 
-    // Military aircraft — larger, red, with glow
+    // Military aircraft — red plane icons, larger, with glow underneath
     this.map.addLayer({
       id: 'flights-military-glow',
       type: 'circle',
@@ -131,15 +142,19 @@ export class FlightLayer implements MapDataLayer {
     });
     this.map.addLayer({
       id: 'flights-military',
-      type: 'circle',
+      type: 'symbol',
       source: 'flights',
       filter: ['==', ['get', 'military'], true],
+      layout: {
+        'icon-image': 'plane-military',
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 5, 0.9, 8, 1.3],
+        'icon-rotate': ['get', 'heading'],
+        'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      },
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 5, 5, 8, 8, 10],
-        'circle-color': '#ef4444',
-        'circle-stroke-width': 1,
-        'circle-stroke-color': 'rgba(255,255,255,0.4)',
-        'circle-opacity': 0.9,
+        'icon-opacity': 0.95,
       },
     });
 
@@ -211,6 +226,53 @@ export class FlightLayer implements MapDataLayer {
         .setLngLat([coords[0], coords[1]])
         .setHTML(flightPopup(props))
         .addTo(this.map);
+    });
+  }
+
+  private addPlaneIcon(name: string, color: string): void {
+    if (!this.map) return;
+    const size = 32;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Draw plane silhouette pointing up (north)
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    // Fuselage
+    ctx.moveTo(16, 2);
+    ctx.lineTo(18, 10);
+    ctx.lineTo(18, 18);
+    ctx.lineTo(16, 30);
+    ctx.lineTo(14, 18);
+    ctx.lineTo(14, 10);
+    ctx.closePath();
+    ctx.fill();
+    // Wings
+    ctx.beginPath();
+    ctx.moveTo(16, 12);
+    ctx.lineTo(28, 18);
+    ctx.lineTo(28, 20);
+    ctx.lineTo(18, 17);
+    ctx.lineTo(14, 17);
+    ctx.lineTo(4, 20);
+    ctx.lineTo(4, 18);
+    ctx.closePath();
+    ctx.fill();
+    // Tail
+    ctx.beginPath();
+    ctx.moveTo(16, 25);
+    ctx.lineTo(22, 28);
+    ctx.lineTo(22, 29);
+    ctx.lineTo(16, 27);
+    ctx.lineTo(10, 29);
+    ctx.lineTo(10, 28);
+    ctx.closePath();
+    ctx.fill();
+
+    this.map.addImage(name, ctx.getImageData(0, 0, size, size), {
+      pixelRatio: 2,
     });
   }
 

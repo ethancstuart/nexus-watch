@@ -96,17 +96,39 @@ export class ShipLayer implements MapDataLayer {
       },
     });
 
-    // Ship markers — military are larger
+    // Add ship icons if not already loaded
+    if (!this.map.hasImage('ship-cargo')) {
+      this.addShipIcon('ship-cargo', '#60a5fa');
+      this.addShipIcon('ship-tanker', '#f59e0b');
+      this.addShipIcon('ship-military', '#ef4444');
+      this.addShipIcon('ship-passenger', '#a78bfa');
+    }
+
+    // Ship markers — proper ship icons rotated by heading
     this.map.addLayer({
       id: 'ships-markers',
-      type: 'circle',
+      type: 'symbol',
       source: 'ships',
+      layout: {
+        'icon-image': [
+          'match',
+          ['get', 'type'],
+          'military',
+          'ship-military',
+          'tanker',
+          'ship-tanker',
+          'passenger',
+          'ship-passenger',
+          'ship-cargo',
+        ],
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5, 0.7, 8, 1.0],
+        'icon-rotate': ['get', 'heading'],
+        'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      },
       paint: {
-        'circle-radius': ['match', ['get', 'type'], 'military', 8, 6],
-        'circle-color': ['get', 'color'],
-        'circle-stroke-width': 1.5,
-        'circle-stroke-color': 'rgba(255,255,255,0.3)',
-        'circle-opacity': 0.85,
+        'icon-opacity': 0.85,
       },
     });
 
@@ -115,7 +137,7 @@ export class ShipLayer implements MapDataLayer {
       id: 'ships-labels',
       type: 'symbol',
       source: 'ships',
-      minzoom: 3,
+      minzoom: 6,
       layout: {
         'text-field': ['get', 'name'],
         'text-size': 9,
@@ -162,6 +184,34 @@ export class ShipLayer implements MapDataLayer {
           }),
         )
         .addTo(this.map);
+    });
+  }
+
+  private addShipIcon(name: string, color: string): void {
+    if (!this.map) return;
+    const size = 28;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Draw ship silhouette pointing up (north)
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    // Hull — pointed bow, flat stern
+    ctx.moveTo(14, 2); // bow tip
+    ctx.lineTo(22, 12); // right bow
+    ctx.lineTo(22, 22); // right stern
+    ctx.lineTo(6, 22); // left stern
+    ctx.lineTo(6, 12); // left bow
+    ctx.closePath();
+    ctx.fill();
+    // Bridge/superstructure
+    ctx.fillStyle = color === '#ef4444' ? '#ff6666' : '#ffffff40';
+    ctx.fillRect(10, 14, 8, 5);
+
+    this.map.addImage(name, ctx.getImageData(0, 0, size, size), {
+      pixelRatio: 2,
     });
   }
 

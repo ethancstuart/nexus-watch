@@ -171,7 +171,12 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 32px;
 }
-@media (max-width: 768px) {
+@media (max-width: 900px) {
+  .landing-features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 600px) {
   .landing-features {
     grid-template-columns: 1fr;
   }
@@ -371,6 +376,7 @@
   position: sticky;
   top: 0;
   z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 .landing-newsletter-bar-inner {
   display: flex;

@@ -67,8 +67,9 @@
   cursor: pointer;
 }
 .nw-timeline-range:hover {
-  border-color: #ff660060;
-  color: #aaa;
+  border-color: #ff6600;
+  color: #fff;
+  background: #ff660010;
 }
 .nw-timeline-range.active {
   border-color: #ff6600;
@@ -97,8 +98,9 @@
 .nw-timeline-play:hover,
 .nw-timeline-step:hover,
 .nw-timeline-speed:hover {
-  border-color: #ff660060;
-  color: #ccc;
+  border-color: #ff6600;
+  color: #fff;
+  background: #ff660010;
 }
 .nw-timeline-play {
   min-width: 32px;
