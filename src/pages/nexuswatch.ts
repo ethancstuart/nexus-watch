@@ -44,6 +44,7 @@ import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRule
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
 import { createSparkline } from '../ui/sparkline.ts';
 import { THEATER_PRESETS, applyTheaterPreset } from '../map/theaterPresets.ts';
+import { TimelineBar } from '../ui/timelineBar.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -72,7 +73,7 @@ import '../styles/timeline.css';
 import '../styles/brief.css';
 import '../styles/user-menu.css';
 import '../styles/mobile.css';
-import { createTimelineSlider } from '../ui/timelineSlider.ts';
+// Old timeline slider replaced by TimelineBar
 import { openBriefPanel } from '../ui/briefPanel.ts';
 import { createUserMenu } from '../ui/userMenu.ts';
 import { copyShareUrl, getViewStateFromUrl, type ViewState } from '../services/shareView.ts';
@@ -401,7 +402,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   }
 
   // ── Timeline ──
-  const timeline = createTimelineSlider(mapContainer);
+  const timeline = new TimelineBar(mapContainer, (date, snapshots, cii) => {
+    document.dispatchEvent(new CustomEvent('dashview:timeline-scrub', { detail: { date, snapshots, cii } }));
+  });
 
   // ── Cinema Mode ──
   const cinema = new CinemaMode({
