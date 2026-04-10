@@ -24,6 +24,7 @@ const REGION_FACTS: Record<string, string> = {
 const TYPEWRITER_SPEED = 20; // ms per character
 const NARRATION_HOLD = 6000; // ms to show narration after typing completes
 const AI_RATE_LIMIT = 30_000; // 30 seconds between AI calls
+const TTS_ENABLED_KEY = 'nw:cinema-tts';
 
 export class NarrationOverlay {
   private container: HTMLElement | null = null;
@@ -35,8 +36,11 @@ export class NarrationOverlay {
   private hideTimeout: ReturnType<typeof setTimeout> | null = null;
   private focusHandler: ((e: Event) => void) | null = null;
   private lastAiCall = 0;
+  private ttsEnabled = false;
+  private currentUtterance: SpeechSynthesisUtterance | null = null;
 
   constructor(profile: CinemaProfile) {
+    this.ttsEnabled = localStorage.getItem(TTS_ENABLED_KEY) === '1';
     this.profile = profile;
   }
 
@@ -61,6 +65,8 @@ export class NarrationOverlay {
   stop(): void {
     this.active = false;
     this.clearTimers();
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    this.currentUtterance = null;
     if (this.focusHandler) {
       document.removeEventListener('cinema:focus-change', this.focusHandler);
       this.focusHandler = null;
@@ -159,6 +165,11 @@ export class NarrationOverlay {
         this.typewriterInterval = null;
         cursor.remove();
 
+        // Speak narration if TTS enabled
+        if (this.ttsEnabled && 'speechSynthesis' in window) {
+          this.speak(text);
+        }
+
         // Hide after hold duration
         this.hideTimeout = setTimeout(() => {
           this.container?.classList.remove('visible');
@@ -169,6 +180,38 @@ export class NarrationOverlay {
       cursor.before(document.createTextNode(text[charIndex]));
       charIndex++;
     }, TYPEWRITER_SPEED);
+  }
+
+  private speak(text: string): void {
+    if (this.currentUtterance) {
+      window.speechSynthesis.cancel();
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 0.9;
+    utterance.volume = 0.8;
+    // Prefer a professional-sounding voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(
+      (v) => v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Google UK English'),
+    );
+    if (preferred) utterance.voice = preferred;
+    this.currentUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  /** Toggle TTS on/off. Returns new state. */
+  toggleTTS(): boolean {
+    this.ttsEnabled = !this.ttsEnabled;
+    localStorage.setItem(TTS_ENABLED_KEY, this.ttsEnabled ? '1' : '0');
+    if (!this.ttsEnabled) {
+      window.speechSynthesis.cancel();
+    }
+    return this.ttsEnabled;
+  }
+
+  isTTSEnabled(): boolean {
+    return this.ttsEnabled;
   }
 
   private async enhanceWithAI(
