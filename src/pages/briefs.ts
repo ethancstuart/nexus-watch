@@ -1,5 +1,6 @@
 import '../styles/briefs-dossier.css';
 import { createElement } from '../utils/dom.ts';
+import { escapeHtml, renderBriefBody } from '../utils/briefRenderer.ts';
 
 /**
  * Brief archive pages — Light Intel Dossier styling (Track A.10).
@@ -34,119 +35,15 @@ interface BriefDetailResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Shared markdown → dossier-HTML renderer (browser variant)
+// Markdown → dossier-HTML rendering
 // ---------------------------------------------------------------------------
 //
-// The authoritative email renderer lives in api/cron/daily-brief.ts as
-// renderDossierEmail(). That version produces inline styles because email
-// clients strip <style> tags. This browser variant produces class-based
-// HTML consumed by src/styles/briefs-dossier.css. The two MUST stay in
-// aesthetic lockstep — same palette, same typography, same module
-// ordering — otherwise the "email vs archive" experience drifts.
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => {
-    const map: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    };
-    return map[c] || c;
-  });
-}
-
-function renderInline(text: string): string {
-  let out = escapeHtml(text);
-  out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  return out;
-}
-
-/**
- * Render the single-brief body from the Sonnet markdown the cron stores
- * in `daily_briefs.content.briefText`. Falls back to the legacy `summary`
- * HTML column for pre-A.5 briefs that never had markdown text.
- */
-function renderBriefBody(briefText: string, dateForImage: string): string {
-  // Split on `## ` section boundaries. Each block becomes a <section>
-  // with the emoji title as a heading, plus a conditional Map of the
-  // Day image for the Map section.
-  const fragments = briefText.split(/\n?^## /m).filter(Boolean);
-  const sections: Array<{ emoji: string; title: string; body: string }> = [];
-  for (const frag of fragments) {
-    const nl = frag.indexOf('\n');
-    const headerLine = nl === -1 ? frag : frag.slice(0, nl);
-    const body = nl === -1 ? '' : frag.slice(nl + 1).trim();
-    const space = headerLine.indexOf(' ');
-    sections.push({
-      emoji: space === -1 ? '' : headerLine.slice(0, space).trim(),
-      title: (space === -1 ? headerLine : headerLine.slice(space + 1)).trim(),
-      body,
-    });
-  }
-
-  if (sections.length === 0) {
-    // Non-markdown input (legacy HTML summary) — pass through with a
-    // minimal wrapper. Dangerous HTML was stored by our own code so
-    // it's trusted, but we still wrap it in a dossier-body container
-    // so the styles apply.
-    return briefText;
-  }
-
-  return sections
-    .map((section) => {
-      const isMapOfTheDay = /map of the day/i.test(section.title);
-      const img = isMapOfTheDay
-        ? `<img class="dossier-map-image" src="/api/brief/screenshot?date=${encodeURIComponent(dateForImage)}&size=email" alt="Map of the Day — ${escapeHtml(dateForImage)}" loading="lazy" />`
-        : '';
-      return `<section>
-  <h2>${section.emoji ? escapeHtml(section.emoji) + ' ' : ''}${escapeHtml(section.title)}</h2>
-  ${img}
-  ${renderBlocks(section.body)}
-</section>`;
-    })
-    .join('\n');
-}
-
-function renderBlocks(body: string): string {
-  const blocks = body.split(/\n\s*\n/);
-  const out: string[] = [];
-  for (const raw of blocks) {
-    const block = raw.trim();
-    if (!block) continue;
-
-    // Numbered story ("1. **Headline** — body").
-    const numberedMatch = block.match(/^(\d+)\.\s+(.*)$/s);
-    if (numberedMatch) {
-      out.push(`<p><strong>${numberedMatch[1]}.</strong> ${renderInline(numberedMatch[2])}</p>`);
-      continue;
-    }
-
-    // Bullet list.
-    if (/^[-*]\s/.test(block)) {
-      const items = block
-        .split(/\n/)
-        .filter((l) => /^[-*]\s/.test(l.trim()))
-        .map((l) => l.trim().replace(/^[-*]\s+/, ''));
-      out.push(`<ul>${items.map((i) => `<li>${renderInline(i)}</li>`).join('')}</ul>`);
-      continue;
-    }
-
-    // Why it matters callout.
-    const whyMatch = block.match(/^\*\*Why it matters[:\s*]+\*\*\s*(.*)$/is);
-    if (whyMatch) {
-      out.push(
-        `<div class="dossier-callout"><span class="dossier-callout-label">Why it matters</span><p>${renderInline(whyMatch[1])}</p></div>`,
-      );
-      continue;
-    }
-
-    out.push(`<p>${renderInline(block)}</p>`);
-  }
-  return out.join('\n');
-}
+// Lives in src/utils/briefRenderer.ts as a shared module so the archive
+// page AND the in-map brief panel (src/ui/briefPanel.ts) produce
+// identical output. See that file for the section parser, inline
+// markdown handling, and Why-it-matters callout treatment. The
+// authoritative email renderer is still in api/cron/daily-brief.ts —
+// the three must stay aesthetically locked.
 
 // ---------------------------------------------------------------------------
 // Archive listing page — /#/briefs
@@ -319,7 +216,7 @@ export function renderBrief(root: HTMLElement, date: string): void {
       }
 
       const body = content.briefText
-        ? renderBriefBody(content.briefText, briefDate)
+        ? renderBriefBody(content.briefText, { dateForImage: briefDate })
         : (data.summary ?? '<p>Brief content unavailable.</p>');
 
       articleEl.innerHTML = `
