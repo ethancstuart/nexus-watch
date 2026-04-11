@@ -75,6 +75,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/settings', () => {
+    import('./pages/settings.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderSettings(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/brief/:date', (params) => {
     import('./pages/briefs.ts')
       .then((m) => {

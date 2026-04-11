@@ -123,6 +123,7 @@ function showDropdown(wrapper: HTMLElement, user: User): void {
     </div>
     <div class="nw-dropdown-divider"></div>
     ${user.tier !== 'premium' ? '<button class="nw-dropdown-item upgrade-analyst">Analyst — $29/mo</button><button class="nw-dropdown-item upgrade-pro">Pro — $99/mo</button>' : '<button class="nw-dropdown-item manage">Manage Billing</button>'}
+    <a class="nw-dropdown-item" href="#/settings" style="text-decoration:none">Account settings</a>
     <button class="nw-dropdown-item api-keys">API Keys</button>
     <a class="nw-dropdown-item" href="/api/v1/docs" target="_blank" style="text-decoration:none">API Documentation</a>
     <div class="nw-dropdown-divider"></div>
