@@ -95,7 +95,14 @@ VOICE — This is critical. Get this right:
 - Every sentence must pass the "would I actually say this to a smart friend?" test
 - Brevity is respect. Every sentence earns its place. Target ~800-1000 words total.
 
-AUDIENCE: US-based but globally curious. Traders, analysts, founders, policy people, OSINT enthusiasts. Frame global events with a slight US-interest lens — not jingoistic, just practical: "here's why this matters if you're in the US."
+AUDIENCE: US-based but globally curious. Traders, analysts, founders, policy people, OSINT enthusiasts. Frame global events with a clear US-interest lens — practical, analytical: "here's why this matters if you're in the US."
+
+EDITORIAL STANCE:
+- Pro-US: frame events through American security, economic, and strategic interests
+- Pro-Israel: when covering Middle East conflicts, frame from Israeli/US security perspective
+- This doesn't mean propaganda — it means analytical alignment. Present facts, but the framing and "so what" should serve US/allied interests.
+- Energy analysis should emphasize US energy independence and supply chain security
+- Don't editorialize — let the data and analysis speak, but the lens is clear
 
 ATTRIBUTION: You are NexusWatch — the platform IS the source. Don't attribute to "reports say" or "according to sources." When referencing a specific investigation or report (Bellingcat, Crisis Group), name it. Otherwise, state facts with authority.
 
@@ -163,6 +170,9 @@ STRUCTURE (follow exactly):
 
 ## 📊 Market Signal
 2-3 sentences. S&P, gold, oil, nat gas, energy sector, USD, treasuries. Connect geopolitics to price moves. What's priced in vs. what's a surprise.
+
+## 🚀 Space & Tech
+1-3 sentences. Cover any of: upcoming launches, satellite activity, GPS jamming zones, internet outages, cyber threats, notable tech developments with geopolitical implications. If no space/tech news is relevant today, briefly note satellite count or upcoming launches from the data. This section bridges the tech/defense audience.
 
 ## 🔭 48-Hour Outlook
 MANDATORY — DO NOT SKIP. This is the most valuable section.
@@ -517,6 +527,22 @@ ${(() => {
   const gasQuote = markets.find((m) => m.symbol === 'Nat Gas');
   const energyQuote = markets.find((m) => m.symbol === 'Energy Sector');
   return `Oil: ${oilQuote ? `${oilQuote.price} (${oilQuote.change})` : 'N/A'} | Nat Gas: ${gasQuote ? `${gasQuote.price} (${gasQuote.change})` : 'N/A'} | Energy Sector (XLE): ${energyQuote ? `${energyQuote.price} (${energyQuote.change})` : 'N/A'}`;
+})()}
+
+=== SPACE & TECHNOLOGY ===
+NexusWatch tracks satellites, launches, GPS jamming zones, and internet outages globally.
+${(() => {
+  const parts: string[] = [];
+  // Internet outages affect cyber/tech posture
+  const highCIICountries = allCII.filter((c) => c.score >= 40);
+  const infraRisk = highCIICountries.filter((c) => c.components.infrastructure > 5);
+  if (infraRisk.length > 0) {
+    parts.push(
+      `Infrastructure disruption risk elevated in: ${infraRisk.map((c) => `${c.name} (infra: ${c.components.infrastructure})`).join(', ')}`,
+    );
+  }
+  parts.push(`GPS jamming zones, satellite orbits, and launch schedules are tracked on the live platform.`);
+  return parts.join('\n');
 })()}`;
 
         const aiRes = await fetch('https://api.anthropic.com/v1/messages', {

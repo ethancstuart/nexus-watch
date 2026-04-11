@@ -64,6 +64,14 @@ export const THEATER_PRESETS: TheaterPreset[] = [
     camera: { center: [-75, 10], zoom: 3.8, pitch: 15, bearing: 0 },
     layers: ['earthquakes', 'fires', 'displacement', 'diseases', 'conflicts'],
   },
+  {
+    id: 'space-cyber',
+    name: 'Space & Cyber',
+    emoji: '🛰️',
+    description: 'Satellites, launches, GPS jamming, internet outages, cyber',
+    camera: { center: [0, 20], zoom: 2.5, pitch: 0, bearing: 0 },
+    layers: ['satellites', 'launches', 'gps-jamming', 'internet-outages', 'cyber', 'cables'],
+  },
 ];
 
 /**
