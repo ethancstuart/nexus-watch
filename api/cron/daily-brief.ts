@@ -1358,12 +1358,44 @@ function renderMarketPulse(markets: MarketQuote[]): string {
 }
 
 /**
+ * Render the Map of the Day static image block. Embeds an <img> pointing
+ * at /api/brief/screenshot?date=X&size=email — the endpoint returns
+ * either a Mapbox Static Images redirect (when MAPBOX_TOKEN is set) or
+ * a branded SVG fallback (when it isn't). Either way the layout holds.
+ *
+ * The 600px content width means we render the image at the same width
+ * the dossier card expects — the screenshot endpoint generates at
+ * 1200x630 so retina displays look crisp when scaled down.
+ */
+function renderMapOfTheDayImage(date: string): string {
+  const imgUrl = `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=email`;
+  return (
+    `<div ${styleAttr(style({ margin: `${space.md} 0 ${space.lg} 0` }))}>` +
+    `<img src="${imgUrl}" alt="Map of the Day — ${escapeHtml(date)}" width="${parseInt(layout.contentWidth, 10) - 64}" ${styleAttr(
+      style({
+        display: 'block',
+        width: '100%',
+        maxWidth: '100%',
+        height: 'auto',
+        borderRadius: layout.radiusCallout,
+        border: `1px solid ${colors.border}`,
+      }),
+    )} />` +
+    `</div>`
+  );
+}
+
+/**
  * Render a Sonnet-written section into a Light Intel Dossier module. Every
  * section gets the same shell: kicker + serif headline + body. The body
  * renderer handles per-paragraph, per-bullet, per-story-card treatments
  * inside the shell.
+ *
+ * The "Map of the Day" section gets special treatment: an <img> of the
+ * auto-generated screenshot is prepended to the body text so readers get
+ * the visual anchor before the caption.
  */
-function renderSection(section: BriefSection): string {
+function renderSection(section: BriefSection, dateForImage?: string): string {
   const kickerStyle = styleAttr(
     typeStyle(type.kicker, {
       color: colors.accent,
@@ -1380,10 +1412,16 @@ function renderSection(section: BriefSection): string {
     ? `<span ${styleAttr(style({ marginRight: space.sm }))}>${section.emoji}</span>`
     : '';
 
+  // Special case: Map of the Day gets the screenshot image embedded before
+  // the Sonnet-generated caption.
+  const isMapOfTheDay = /map of the day/i.test(section.title);
+  const imageBlock = isMapOfTheDay && dateForImage ? renderMapOfTheDayImage(dateForImage) : '';
+
   return (
     `<div ${styleAttr(style({ margin: `0 0 ${space.xxl} 0` }))}>` +
     `<div ${kickerStyle}>${emojiInline}${escapeHtml(section.title.toUpperCase())}</div>` +
     `<h2 ${headlineStyle}>${escapeHtml(section.title)}</h2>` +
+    imageBlock +
     renderSectionBody(section.body) +
     `</div>`
   );
@@ -1554,8 +1592,11 @@ function renderPlainText(briefText: string, date: string, time: string, archiveU
  * the beehiiv post body). Structure: Market Pulse → all Sonnet sections in
  * order. The Sonnet output controls the narrative sections; this function
  * just styles them and inserts the Market Pulse module after Good Morning.
+ *
+ * Passes `date` down to renderSection so the Map of the Day module can
+ * embed the correct screenshot URL.
  */
-function renderDossierInner(briefText: string, markets: MarketQuote[]): string {
+function renderDossierInner(briefText: string, markets: MarketQuote[], date: string): string {
   const sections = parseSections(briefText);
   if (sections.length === 0) {
     // Fallback: wrap the whole body as a single paragraph block.
@@ -1566,7 +1607,7 @@ function renderDossierInner(briefText: string, markets: MarketQuote[]): string {
   let marketPulseInserted = false;
 
   for (const section of sections) {
-    pieces.push(renderSection(section));
+    pieces.push(renderSection(section, date));
     // Insert the Market Pulse module right after Good Morning, so the
     // reader gets price context before diving into the stories.
     if (!marketPulseInserted && /good morning/i.test(section.title)) {
@@ -1622,7 +1663,7 @@ function renderDarkModeStyleBlock(): string {
 export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
   const { briefText, date, time, markets } = opts;
   const archiveUrl = opts.archiveUrl ?? `https://nexuswatch.dev/#/brief/${date}`;
-  const inner = renderDossierInner(briefText, markets);
+  const inner = renderDossierInner(briefText, markets, date);
 
   // Full standalone email shell for Resend transactional path.
   const emailHtml = `<!DOCTYPE html>
