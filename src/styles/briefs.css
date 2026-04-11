@@ -3,7 +3,7 @@
 
 .briefs-page {
   min-height: 100vh;
-  background: #050505;
+  background: var(--color-bg);
   color: #e0e0e0;
   font-family:
     'Inter',
@@ -17,7 +17,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 32px;
-  border-bottom: 1px solid #141414;
+  border-bottom: 1px solid var(--color-border-subtle);
   max-width: 800px;
   margin: 0 auto;
 }
@@ -140,7 +140,7 @@
 .briefs-card {
   display: block;
   padding: 20px 0;
-  border-bottom: 1px solid #141414;
+  border-bottom: 1px solid var(--color-border-subtle);
   text-decoration: none;
   color: inherit;
   transition: background 0.15s;
@@ -266,7 +266,7 @@
   max-width: 500px;
   margin: 0 auto;
   padding: 32px 24px 48px;
-  border-top: 1px solid #141414;
+  border-top: 1px solid var(--color-border-subtle);
 }
 .brief-bottom-cta h3 {
   font-size: 16px;
@@ -340,7 +340,7 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   color: #666;
-  background: #050505;
+  background: var(--color-bg);
   padding: 6px 10px;
   border-radius: 3px;
   margin-top: 6px;

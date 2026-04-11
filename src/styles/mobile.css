@@ -127,4 +127,138 @@
     min-height: 36px;
     min-width: 36px;
   }
+  .nw-timeline-slider::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+  .nw-timeline-range,
+  .nw-timeline-play,
+  .nw-timeline-step,
+  .nw-timeline-speed {
+    min-height: 32px;
+    min-width: 32px;
+    font-size: 11px;
+  }
+  .nw-theater-pill {
+    min-height: 32px;
+    padding: 6px 12px;
+  }
+}
+
+/* ── Theater bar mobile ── */
+@media (max-width: 640px) {
+  .nw-theater-bar {
+    padding: 3px 8px;
+  }
+  .nw-theater-label {
+    display: none;
+  }
+  .nw-theater-pill {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+}
+
+/* ── Timeline bar mobile ── */
+@media (max-width: 640px) {
+  .nw-timeline-controls {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .nw-timeline-date-label {
+    width: 100%;
+    text-align: center;
+    font-size: 10px;
+  }
+  .nw-timeline-axis span {
+    font-size: 7px;
+  }
+}
+
+/* ── HUD mobile ── */
+@media (max-width: 640px) {
+  .nw-hud-top-left {
+    top: 40px;
+    left: 8px;
+  }
+  .nw-hud-top-right {
+    top: 40px;
+    right: 8px;
+  }
+  .nw-hud-bottom-left {
+    bottom: 80px;
+    left: 8px;
+  }
+  .nw-hud-classification {
+    display: none;
+  }
+}
+
+/* ── Entity graph mobile ── */
+@media (max-width: 768px) {
+  .nw-entity-graph-panel {
+    width: 100%;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 0;
+  }
+  .nw-entity-graph-search {
+    width: 100px;
+  }
+}
+
+/* ── Data table mobile ── */
+@media (max-width: 640px) {
+  .nw-data-table-panel {
+    width: calc(100% - 16px);
+    left: 8px;
+    bottom: 60px;
+    max-height: 240px;
+  }
+  .nw-data-table {
+    font-size: 9px;
+  }
+  .nw-data-table th,
+  .nw-data-table td {
+    padding: 4px 6px;
+  }
+}
+
+/* ── Crisis overlay mobile ── */
+@media (max-width: 640px) {
+  .nw-crisis-overlay {
+    min-width: auto;
+    width: calc(100% - 32px);
+    top: 8px;
+  }
+}
+
+/* ── Investigation panel mobile ── */
+@media (max-width: 640px) {
+  .nw-investigations-panel {
+    width: calc(100% - 16px);
+    max-height: 70vh;
+  }
+}
+
+/* ── Welcome tooltip mobile ── */
+@media (max-width: 640px) {
+  .nw-welcome-tooltip {
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    bottom: 60px;
+  }
+}
+
+/* ── More dropdown mobile ── */
+@media (max-width: 640px) {
+  .nw-more-menu {
+    right: -8px;
+    min-width: 140px;
+  }
+  .nw-more-btn {
+    font-size: 8px !important;
+  }
 }
