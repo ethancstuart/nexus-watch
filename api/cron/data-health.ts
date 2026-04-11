@@ -283,8 +283,13 @@ interface StoredBreakerState {
 type NeonSql = any;
 
 async function loadCurrentState(sql: NeonSql): Promise<Map<string, StoredBreakerState>> {
+  // Reads half_open_successes alongside the rest of the breaker state so
+  // recovery from the half_open → closed transition survives cron ticks.
+  // Prior to the 2026-04-11 fix this column wasn't selected OR persisted,
+  // so half-open recovery took ~45 minutes (3 cron runs) instead of ~15.
   const rows = (await sql`
-    SELECT layer, circuit_state, consecutive_failures, last_success, last_failure, active_source
+    SELECT layer, circuit_state, consecutive_failures, half_open_successes,
+           last_success, last_failure, active_source
     FROM data_health_current
   `) as Array<Record<string, unknown>>;
   const map = new Map<string, StoredBreakerState>();
@@ -292,7 +297,7 @@ async function loadCurrentState(sql: NeonSql): Promise<Map<string, StoredBreaker
     map.set(row.layer as string, {
       circuit_state: (row.circuit_state as CircuitState) ?? 'closed',
       consecutive_failures: (row.consecutive_failures as number) ?? 0,
-      half_open_successes: 0, // not persisted; reset each cron run is fine
+      half_open_successes: (row.half_open_successes as number) ?? 0,
       last_success: (row.last_success as string | null) ?? null,
       last_failure: (row.last_failure as string | null) ?? null,
       active_source: (row.active_source as string | null) ?? null,
@@ -327,10 +332,18 @@ async function ensureSchema(sql: NeonSql): Promise<void> {
       last_success TIMESTAMPTZ,
       last_failure TIMESTAMPTZ,
       consecutive_failures INTEGER NOT NULL DEFAULT 0,
+      half_open_successes INTEGER NOT NULL DEFAULT 0,
       circuit_state TEXT NOT NULL DEFAULT 'closed',
       active_source TEXT,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+  // Also ensure the column exists on pre-existing tables that were created
+  // before the 2026-04-11 half_open_successes fix. ADD COLUMN IF NOT EXISTS
+  // is a no-op on fresh tables created above.
+  await sql`
+    ALTER TABLE data_health_current
+    ADD COLUMN IF NOT EXISTS half_open_successes INTEGER NOT NULL DEFAULT 0
   `;
 }
 
@@ -366,10 +379,12 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       `;
       await sql`
         INSERT INTO data_health_current (
-          layer, status, score, last_success, last_failure, consecutive_failures, circuit_state, active_source, updated_at
+          layer, status, score, last_success, last_failure, consecutive_failures,
+          half_open_successes, circuit_state, active_source, updated_at
         ) VALUES (
           ${row.layer}, ${row.status}, ${row.score}, ${row.lastSuccess}, ${row.lastFailure},
-          ${row.consecutiveFailures}, ${row.circuitState}, ${row.activeSource}, NOW()
+          ${row.consecutiveFailures}, ${row.halfOpenSuccesses}, ${row.circuitState},
+          ${row.activeSource}, NOW()
         )
         ON CONFLICT (layer) DO UPDATE SET
           status = EXCLUDED.status,
@@ -377,6 +392,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
           last_success = EXCLUDED.last_success,
           last_failure = EXCLUDED.last_failure,
           consecutive_failures = EXCLUDED.consecutive_failures,
+          half_open_successes = EXCLUDED.half_open_successes,
           circuit_state = EXCLUDED.circuit_state,
           active_source = EXCLUDED.active_source,
           updated_at = NOW()
@@ -409,6 +425,7 @@ interface ProbedRow {
   recordCount: number | null;
   freshnessSeconds: number | null;
   consecutiveFailures: number;
+  halfOpenSuccesses: number;
   circuitState: CircuitState;
   activeSource: string | null;
 }
@@ -451,6 +468,7 @@ async function probeLayer(
       recordCount: null,
       freshnessSeconds: null,
       consecutiveFailures: next.consecutiveFailures,
+      halfOpenSuccesses: next.halfOpenSuccesses,
       circuitState: next.circuitState,
       activeSource: null,
     };
@@ -481,6 +499,7 @@ async function probeLayer(
     recordCount: probe.recordCount,
     freshnessSeconds: probe.freshnessSeconds,
     consecutiveFailures: next.consecutiveFailures,
+    halfOpenSuccesses: next.halfOpenSuccesses,
     circuitState: next.circuitState,
     activeSource: source.name,
   };
