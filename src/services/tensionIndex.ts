@@ -22,14 +22,52 @@ let currentState: TensionState = {
   history: loadHistory(),
 };
 
+// CII-derived tension floor — fetched from server to compensate for blocked client-side sources
+let cachedCiiTension: { conflict: number; disasters: number; sentiment: number; instability: number } | null = null;
+let ciiTensionFetched = false;
+
+function fetchCiiTensionFloor(): void {
+  if (ciiTensionFetched) return;
+  ciiTensionFetched = true;
+  fetch('/api/v1/cii')
+    .then((r) => r.json())
+    .then((data: { scores?: Array<{ score: number; components: Record<string, number> }> }) => {
+      const scores = data.scores || [];
+      if (scores.length === 0) return;
+      // Derive tension components from aggregate CII data
+      const avgConflict = scores.reduce((s, c) => s + (c.components.conflict || 0), 0) / scores.length;
+      const avgDisasters = scores.reduce((s, c) => s + (c.components.disasters || 0), 0) / scores.length;
+      const avgSentiment = scores.reduce((s, c) => s + (c.components.sentiment || 0), 0) / scores.length;
+      const avgGov = scores.reduce((s, c) => s + (c.components.governance || 0), 0) / scores.length;
+      const avgMarket = scores.reduce((s, c) => s + (c.components.marketExposure || 0), 0) / scores.length;
+      const highRiskCount = scores.filter((s) => s.score >= 50).length;
+
+      cachedCiiTension = {
+        conflict: Math.min(25, Math.round(avgConflict * 1.5 + highRiskCount * 1.5)),
+        disasters: Math.min(25, Math.round(avgDisasters * 2)),
+        sentiment: Math.min(25, Math.round(avgSentiment * 1.5 + avgGov * 0.5)),
+        instability: Math.min(25, Math.round(avgMarket * 0.8 + highRiskCount * 1)),
+      };
+    })
+    .catch(() => {
+      /* non-critical */
+    });
+}
+
+// Fetch on module load
+fetchCiiTensionFloor();
+
 export function computeTensionIndex(layerData: Map<string, unknown>): TensionState {
   // ── CONFLICT component (0-25) ──
-  // ACLED events + static conflict zones
+  // ACLED events + static conflict zones + CII-derived baseline
   const acled = (layerData.get('acled') as { fatalities: number }[]) || [];
   const acledScore = Math.min(15, acled.length * 0.03 + acled.reduce((sum, e) => sum + (e.fatalities || 0), 0) * 0.1);
   const conflicts = (layerData.get('conflicts') as unknown[]) || [];
   const conflictBase = Math.min(10, conflicts.length * 0.7);
-  const conflict = Math.min(25, Math.round(acledScore + conflictBase));
+  // CII-derived conflict floor: fetch from server-side scores
+  // If client-side data is thin (ACLED blocked), use CII as baseline
+  const ciiConflictFloor = cachedCiiTension?.conflict ?? 0;
+  const conflict = Math.min(25, Math.round(Math.max(acledScore + conflictBase, ciiConflictFloor)));
 
   // ── DISASTERS component (0-25) ──
   const earthquakes = (layerData.get('earthquakes') as EarthquakeFeature[]) || [];
@@ -41,28 +79,28 @@ export function computeTensionIndex(layerData: Map<string, unknown>): TensionSta
   const fireScore = Math.min(5, fires.length * 0.005);
   const gdacsScore = Math.min(5, (gdacs.length || 0) * 1.5);
   const wxScore = Math.min(5, weather.length * 1);
-  const disasters = Math.min(25, Math.round(eqScore + fireScore + gdacsScore + wxScore));
+  const ciiDisasterFloor = cachedCiiTension?.disasters ?? 0;
+  const disasters = Math.min(25, Math.round(Math.max(eqScore + fireScore + gdacsScore + wxScore, ciiDisasterFloor)));
 
   // ── SENTIMENT component (0-25) ──
   const news = (layerData.get('news') as GdeltArticle[]) || [];
   let sentimentScore = 0;
   if (news.length > 0) {
     const avgTone = news.reduce((sum, a) => sum + a.tone, 0) / news.length;
-    // GDELT tone: negative values = negative sentiment
     sentimentScore = Math.min(25, Math.max(0, Math.round(-avgTone * 3)));
   }
-  const sentiment = sentimentScore;
+  // If no news data (GDELT blocked), use CII-derived sentiment floor
+  const sentiment = Math.max(sentimentScore, cachedCiiTension?.sentiment ?? 0);
 
   // ── INSTABILITY component (0-25) ──
-  // Cyber threats + GPS jamming + high military presence
   const cyber = (layerData.get('cyber') as unknown[]) || [];
   const gpsJamming = (layerData.get('gps-jamming') as unknown[]) || [];
   const cyberScore = Math.min(10, (cyber.length || 0) * 0.8);
   const gpsScore = Math.min(10, (gpsJamming.length || 0) * 0.9);
-  // Predictions with low probability of positive outcomes
   const predictions = (layerData.get('predictions') as { probability: number }[]) || [];
   const predScore = predictions.length > 0 ? Math.min(5, predictions.filter((p) => p.probability < 30).length * 1) : 0;
-  const instability = Math.min(25, Math.round(cyberScore + gpsScore + predScore));
+  const ciiInstabilityFloor = cachedCiiTension?.instability ?? 0;
+  const instability = Math.min(25, Math.round(Math.max(cyberScore + gpsScore + predScore, ciiInstabilityFloor)));
 
   const global = Math.min(100, conflict + disasters + sentiment + instability);
 
