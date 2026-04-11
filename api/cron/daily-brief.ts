@@ -1125,13 +1125,13 @@ ${(() => {
 
 import { colors, fonts, type, space, layout, style, typeStyle } from '../../src/styles/email-tokens';
 
-interface RenderedBrief {
+export interface RenderedBrief {
   emailHtml: string;
   beehiivHtml: string;
   plainText: string;
 }
 
-interface RenderBriefOptions {
+export interface RenderBriefOptions {
   briefText: string; // Markdown body (Sonnet output or buildFallbackText)
   date: string; // YYYY-MM-DD
   time: string; // "10:00 UTC"
@@ -1614,11 +1614,12 @@ function renderDarkModeStyleBlock(): string {
 /**
  * Main export — render a brief into all three delivery formats.
  *
- * This is the only function the rest of the handler should call. It
- * guarantees the three outputs stay synchronized: same content, three
- * different renderings (email shell, beehiiv content, plain-text).
+ * This is the only function the rest of the handler (and the preview
+ * endpoint in api/admin/brief/preview.ts) should call. It guarantees the
+ * three outputs stay synchronized: same content, three different
+ * renderings (email shell, beehiiv content, plain-text).
  */
-function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
+export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
   const { briefText, date, time, markets } = opts;
   const archiveUrl = opts.archiveUrl ?? `https://nexuswatch.dev/#/brief/${date}`;
   const inner = renderDossierInner(briefText, markets);
