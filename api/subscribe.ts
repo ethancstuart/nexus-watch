@@ -4,7 +4,7 @@ import { neon } from '@neondatabase/serverless';
 export const config = { runtime: 'nodejs' };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -62,8 +62,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.json({ success: true, message: 'Subscribed to NexusWatch Intelligence Brief' });
   } catch (err) {
-    console.error('Subscribe error:', err instanceof Error ? err.message : err);
-    // Duplicate email returns success (ON CONFLICT handles it)
-    return res.json({ success: true, message: 'Already subscribed' });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Subscribe error:', msg);
+    // Duplicate email (unique constraint) is expected — treat as success
+    if (msg.includes('unique') || msg.includes('duplicate')) {
+      return res.json({ success: true, message: 'Already subscribed' });
+    }
+    return res.status(500).json({ success: false, error: 'Subscription failed — try again' });
   }
 }

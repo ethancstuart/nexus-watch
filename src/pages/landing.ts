@@ -26,21 +26,28 @@ export function renderLanding(root: HTMLElement): void {
       </div>
     </nav>
 
-    <section class="landing-hero">
+    <section class="landing-hero anim-fade-up">
       <div class="landing-hero-badge">REAL-TIME GEOPOLITICAL INTELLIGENCE</div>
-      <h1 class="landing-hero-title">The world is moving.<br>Are you watching?</h1>
+      <h1 class="landing-hero-title">Intelligence for<br>a volatile world.</h1>
       <p class="landing-hero-subtitle">
-        30 live data layers. 50 countries scored. Cinema mode. AI-powered daily briefs.<br>
-        NexusWatch is a real-time intelligence platform for analysts, investors, and anyone who needs to understand global risk.
+        For analysts, traders, and anyone who needs to understand global risk.<br>
+        30 data layers. 50 countries scored. AI daily briefs. Dark vessel detection. All on a 3D globe.
       </p>
 
       <div class="landing-cta-group">
         <a href="#/intel" class="landing-cta-primary">LAUNCH NEXUSWATCH</a>
-        <a href="#/intel" class="landing-cta-secondary" onclick="setTimeout(()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'c'})),2000)">WATCH CINEMA MODE</a>
+        <a href="#/intel?cinema=1" class="landing-cta-secondary">WATCH CINEMA MODE</a>
+      </div>
+
+      <div class="landing-stats">
+        <div class="landing-stat"><span class="landing-stat-num">30</span><span class="landing-stat-label">DATA LAYERS</span></div>
+        <div class="landing-stat"><span class="landing-stat-num">50</span><span class="landing-stat-label">COUNTRIES SCORED</span></div>
+        <div class="landing-stat"><span class="landing-stat-num">6</span><span class="landing-stat-label">CRONS RUNNING</span></div>
+        <div class="landing-stat"><span class="landing-stat-num">5 AM</span><span class="landing-stat-label">DAILY BRIEF</span></div>
       </div>
 
       <div class="landing-brief-signup">
-        <div class="landing-brief-label">Get <strong>The NexusWatch Brief</strong> — 3-minute intelligence scan, delivered every morning at 5 AM ET</div>
+        <div class="landing-brief-label">Get <strong>The NexusWatch Brief</strong> — 3-minute intelligence scan, free every morning</div>
         <form class="landing-subscribe-form" id="landing-subscribe">
           <input type="email" placeholder="your@email.com" required class="landing-email-input">
           <button type="submit" class="landing-subscribe-btn">SUBSCRIBE FREE</button>
@@ -49,36 +56,43 @@ export function renderLanding(root: HTMLElement): void {
       </div>
     </section>
 
+    <section class="landing-trust">
+      <span class="landing-trust-label">DATA SOURCES</span>
+      <div class="landing-trust-logos">
+        <span>USGS</span><span>NASA FIRMS</span><span>ACLED</span><span>WHO</span><span>GDACS</span><span>AIS</span><span>GDELT</span><span>Open-Meteo</span>
+      </div>
+    </section>
+
     <section class="landing-features">
-      <div class="landing-feature">
-        <div class="landing-feature-icon">🌍</div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[:::]</div>
         <h3>30 Live Data Layers</h3>
         <p>Earthquakes, conflicts, flights, ships, fires, disease outbreaks, internet outages, prediction markets — all on one 3D globe.</p>
       </div>
-      <div class="landing-feature">
-        <div class="landing-feature-icon">📊</div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[///]</div>
         <h3>Country Instability Index</h3>
-        <p>50 countries scored 0-100 across 6 risk components: conflict, disasters, sentiment, infrastructure, governance, market exposure.</p>
+        <p>50 countries scored 0-100 across 6 risk components. Updated every 5 minutes. Trend trajectories over 7/14/30 days.</p>
       </div>
-      <div class="landing-feature">
-        <div class="landing-feature-icon">🎬</div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[>>>]</div>
         <h3>Cinema Mode</h3>
-        <p>Immersive intelligence broadcast with 8 profiles. Smart camera flies to hotspots. AI narrates events in real-time.</p>
+        <p>Immersive intelligence broadcast. Smart camera flies between hotspots. AI narrates with voice synthesis. 8 profiles.</p>
       </div>
-      <div class="landing-feature">
-        <div class="landing-feature-icon">🔔</div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[!?!]</div>
         <h3>Natural Language Alerts</h3>
         <p>"Alert me when earthquake above 6.0 occurs near a nuclear facility." AI parses your intent into persistent monitoring rules.</p>
       </div>
-      <div class="landing-feature">
-        <div class="landing-feature-icon">📡</div>
-        <h3>Intelligence API</h3>
-        <p>RESTful API serving CII scores, event streams, correlations, and daily briefs. Build on top of NexusWatch data.</p>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[<->]</div>
+        <h3>Entity Graph</h3>
+        <p>Palantir-inspired investigation. Click any country to see proxy networks, alliances, chokepoint dependencies, and conflict actors.</p>
       </div>
-      <div class="landing-feature">
-        <div class="landing-feature-icon">📧</div>
-        <h3>Daily Intelligence Brief</h3>
-        <p>AI-generated morning briefing: BLUF, confidence levels, regional highlights, market implications, indicators to watch.</p>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[---]</div>
+        <h3>Dark Vessel Detection</h3>
+        <p>Ships that stop broadcasting AIS near sensitive waters get flagged. Hormuz. Bab el-Mandeb. Taiwan Strait. Automatic.</p>
       </div>
     </section>
 
@@ -159,6 +173,21 @@ export function renderLanding(root: HTMLElement): void {
   `;
 
   root.appendChild(page);
+
+  // Entrance animations via IntersectionObserver
+  const animElements = page.querySelectorAll('.anim-fade-up');
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry, index) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => entry.target.classList.add('visible'), index * 100);
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.1 },
+  );
+  animElements.forEach((el) => observer.observe(el));
 
   // Subscribe form handler (shared across all forms)
   function setupSubscribeForm(formId: string, statusId: string) {

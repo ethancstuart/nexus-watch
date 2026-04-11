@@ -153,11 +153,11 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   statusArea.appendChild(liveDot);
   statusArea.appendChild(clockEl);
 
-  const invBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'INVEST' });
+  const invBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'CASES' });
   invBtn.title = 'Investigation workspaces — save & share views (I)';
 
-  const multiBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'MULTI' });
-  multiBtn.title = 'Synchronized multi-view: map + graph + table (M)';
+  const multiBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SPLIT' });
+  multiBtn.title = 'Split view: map + graph + data table (V)';
 
   const graphBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'GRAPH' });
   graphBtn.title = 'Entity relationship graph (G)';
