@@ -3,6 +3,10 @@
   "build": {
     "env": {}
   },
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/brief/:date(\\d{4}-\\d{2}-\\d{2})", "destination": "/api/brief/og?date=:date" }
+  ],
   "crons": [
     { "path": "/api/cron/compute-cii", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/snapshot", "schedule": "*/15 * * * *" },
