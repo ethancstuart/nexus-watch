@@ -127,10 +127,14 @@ export const DATA_SOURCES: LayerConfig[] = [
   },
   {
     id: 'gps-jamming',
-    // Static curated dataset — public GPSJam.org is the reference source.
+    // Static curated dataset — public GPSJam.org is the reference source for
+    // manual refreshes, but there's no public JSON API. Probing their landing
+    // page tells us nothing about whether our own bundled data is serving,
+    // so we probe /api/feed (our own serverless liveness) instead. The
+    // `source.name` still reflects data provenance for admin display.
     primary: {
       name: 'gpsjam',
-      probeUrl: 'https://gpsjam.org/',
+      probeUrl: '/api/feed',
       probeTimeoutMs: DEFAULT_TIMEOUT_MS,
       freshnessWindowSeconds: FRESH_24H,
     },
@@ -138,10 +142,13 @@ export const DATA_SOURCES: LayerConfig[] = [
   },
   {
     id: 'frontlines',
-    // Static curated dataset; refresh from OSINT/ISW situation reports.
+    // Static curated dataset refreshed manually from OSINT/ISW situation
+    // reports. ISW has no structured public data API; probing the landing
+    // page was misleading because an ISW outage doesn't affect our bundled
+    // frontlines. Probe our own liveness instead.
     primary: {
       name: 'isw',
-      probeUrl: 'https://www.understandingwar.org/',
+      probeUrl: '/api/feed',
       probeTimeoutMs: DEFAULT_TIMEOUT_MS,
       freshnessWindowSeconds: FRESH_7D,
     },
@@ -269,10 +276,14 @@ export const DATA_SOURCES: LayerConfig[] = [
   },
   {
     id: 'cables',
-    // Static curated dataset; TeleGeography is the public source of truth.
+    // Static curated dataset; TeleGeography's public submarinecablemap.com
+    // is the provenance source but it's a static viewer — no JSON API, and
+    // their landing page is a huge JS bundle that's slow to probe. The
+    // bundled cables dataset is manually refreshed, so upstream liveness
+    // is irrelevant to our health signal. Probe our own /api/feed instead.
     primary: {
       name: 'telegeography',
-      probeUrl: 'https://www.submarinecablemap.com/',
+      probeUrl: '/api/feed',
       probeTimeoutMs: DEFAULT_TIMEOUT_MS,
       freshnessWindowSeconds: FRESH_30D,
     },
@@ -291,10 +302,13 @@ export const DATA_SOURCES: LayerConfig[] = [
   },
   {
     id: 'nuclear',
-    // Static curated dataset; IAEA PRIS is the refresh source.
+    // Static curated dataset; IAEA PRIS is the refresh source. PRIS is
+    // ASPX-only with no public JSON API, so probing its landing page is a
+    // weak signal and is prone to WAF false-positives (Cloudflare challenges).
+    // Probe /api/feed instead — static-bundle liveness is the real signal.
     primary: {
       name: 'iaea-pris',
-      probeUrl: 'https://pris.iaea.org/PRIS/home.aspx',
+      probeUrl: '/api/feed',
       probeTimeoutMs: DEFAULT_TIMEOUT_MS,
       freshnessWindowSeconds: FRESH_30D,
     },
