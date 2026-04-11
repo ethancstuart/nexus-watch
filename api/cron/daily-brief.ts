@@ -698,6 +698,19 @@ ${(() => {
       metadata: { brief_html_length: briefHtml.length, ai: aiDebug },
     });
 
+    // === Render Light Intel Dossier email (Track A.6) ===
+    // renderDossierEmail produces three outputs — a full standalone HTML
+    // shell for Resend, an inner-modules-only HTML for beehiiv, and a
+    // text/plain multipart fallback used by both channels for
+    // deliverability. Computed ONCE per run so the two channels are
+    // guaranteed to be rendering the same content.
+    const dossier = renderDossierEmail({
+      briefText,
+      date: today,
+      time: utcTime,
+      markets,
+    });
+
     // === Publish to beehiiv ===
     const beehiivKey = process.env.BEEHIIV_API_KEY;
     const beehiivPubId = process.env.BEEHIIV_PUB_ID;
@@ -719,7 +732,9 @@ ${(() => {
           body: JSON.stringify({
             title: `The NexusWatch Brief — ${today}`,
             subtitle,
-            content_html: briefHtml,
+            // Light Intel Dossier inner modules. beehiiv wraps with its own
+            // masthead/footer/unsubscribe chrome, so we ship just the content.
+            content_html: dossier.beehiivHtml,
             status: 'confirmed',
             send_to: 'all',
           }),
@@ -880,7 +895,11 @@ ${(() => {
         resendRecipientCount = allEmails.size;
         if (allEmails.size > 0) {
           const recipients = Array.from(allEmails);
-          const html = wrapEmailTemplate(briefHtml, today, utcTime, markets);
+          // Use the Light Intel Dossier standalone email shell rendered
+          // above. Plain-text fallback attached per email for the ~15% of
+          // intel readers on text-only clients + Resend deliverability.
+          const html = dossier.emailHtml;
+          const text = dossier.plainText;
           const subject = `NexusWatch Intelligence Brief — ${today}`;
           const from = 'NexusWatch Intelligence <brief@nexuswatch.dev>';
           const BATCH_SIZE = 100;
@@ -893,7 +912,7 @@ ${(() => {
             const chunk = recipients.slice(i, i + BATCH_SIZE);
             // Per-recipient payload: each email object has its own single-item
             // `to` array, so no subscriber's address is ever exposed to another.
-            const payload = chunk.map((email) => ({ from, to: [email], subject, html }));
+            const payload = chunk.map((email) => ({ from, to: [email], subject, html, text }));
 
             try {
               const resp = await fetch('https://api.resend.com/emails/batch', {
@@ -1080,90 +1099,592 @@ ${(() => {
   }
 }
 
-// === Email wrapper template ===
-function wrapEmailTemplate(bodyHtml: string, date: string, time: string, markets: MarketQuote[]): string {
-  const marketStrip =
-    markets.length > 0
-      ? markets
-          .map((m) => {
-            const color = m.direction === 'up' ? '#4ade80' : m.direction === 'down' ? '#f87171' : '#888';
-            return `<span style="margin-right:16px;"><span style="color:#888;font-size:10px;">${m.symbol}</span> <span style="color:${color};font-size:12px;font-weight:bold;">${m.change}</span></span>`;
-          })
-          .join('')
-      : '';
+// ============================================================================
+// Email rendering — Light Intel Dossier (Track A.6)
+// ============================================================================
+//
+// Replaces the pre-2026-04-11 `wrapEmailTemplate` which produced a dark
+// terminal-themed HTML wrapper around a Sonnet-generated body. The new
+// renderer owns both the shell AND the section-level rendering, following
+// the Apr 11 CEO lock "we own the HTML" (Decision 5).
+//
+// Design tokens live in src/styles/email-tokens.ts — the canonical source
+// of truth for the Light Intel Dossier palette, typography, and spacing.
+// All inline styles in this module flow from those tokens via `style()`
+// and `typeStyle()` helpers. Do not introduce hardcoded hex colors or
+// font stacks below — use the tokens, or add new ones there first.
+//
+// Three outputs per render:
+//   1. emailHtml  — full standalone HTML for Resend transactional send
+//                   (masthead + modules + CTA + footer + unsubscribe)
+//   2. beehiivHtml — inner modules only, no shell chrome, since beehiiv
+//                    adds its own masthead/footer when sending
+//   3. plainText  — text/plain multipart fallback (15% of intel readers
+//                   are on text-only clients + higher deliverability)
+// ============================================================================
 
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#050505;font-family:'Courier New',Courier,monospace;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;">
-<tr><td align="center" style="padding:16px 8px;">
-<table width="660" cellpadding="0" cellspacing="0" style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:4px;">
+import { colors, fonts, type, space, layout, style, typeStyle } from '../../src/styles/email-tokens';
 
-<!-- Header -->
-<tr><td style="padding:20px 28px 12px;">
-  <table width="100%" cellpadding="0" cellspacing="0">
-  <tr>
-    <td><span style="font-size:10px;letter-spacing:4px;color:#ff6600;font-weight:bold;text-transform:uppercase;">NexusWatch Intelligence</span></td>
-    <td align="right"><span style="font-size:10px;color:#555;">${date} | ${time}</span></td>
-  </tr>
-  </table>
-</td></tr>
-
-<!-- Accent bar -->
-<tr><td style="padding:0 28px;"><div style="height:1px;background:linear-gradient(to right,#ff6600,#ff660030,transparent);"></div></td></tr>
-
-${
-  marketStrip
-    ? `<!-- Market strip -->
-<tr><td style="padding:12px 28px 0;">
-  <div style="background:#0d0d0d;border:1px solid #1a1a1a;border-radius:3px;padding:8px 12px;font-family:'Courier New',monospace;">
-    ${marketStrip}
-  </div>
-</td></tr>`
-    : ''
+interface RenderedBrief {
+  emailHtml: string;
+  beehiivHtml: string;
+  plainText: string;
 }
 
-<!-- Brief body -->
-<tr><td style="padding:16px 28px 24px;color:#ccc;font-size:13px;line-height:1.7;">
-${bodyHtml}
-</td></tr>
+interface RenderBriefOptions {
+  briefText: string; // Markdown body (Sonnet output or buildFallbackText)
+  date: string; // YYYY-MM-DD
+  time: string; // "10:00 UTC"
+  markets: MarketQuote[];
+  /** URL of the corresponding /brief/:date permalink, for forward-to-colleague. */
+  archiveUrl?: string;
+}
 
-<!-- CTA -->
-<tr><td style="padding:0 28px 20px;">
-  <a href="https://nexuswatch.dev/#/intel" style="display:inline-block;padding:10px 20px;background:#ff660018;border:1px solid #ff660040;color:#ff6600;text-decoration:none;font-size:11px;letter-spacing:2px;text-transform:uppercase;border-radius:3px;font-family:'Courier New',monospace;">Open Live Map →</a>
-</td></tr>
+/**
+ * Parse Sonnet's markdown output into addressable sections. Each section
+ * begins with `## <emoji> <title>` and runs until the next `##`.
+ */
+interface BriefSection {
+  emoji: string;
+  title: string;
+  body: string;
+}
+function parseSections(markdown: string): BriefSection[] {
+  const sections: BriefSection[] = [];
+  // Split on '## ' at line starts, drop the leading empty fragment.
+  const fragments = markdown.split(/\n?^## /m).filter(Boolean);
+  for (const frag of fragments) {
+    const firstNewline = frag.indexOf('\n');
+    const headerLine = firstNewline === -1 ? frag : frag.slice(0, firstNewline);
+    const body = firstNewline === -1 ? '' : frag.slice(firstNewline + 1).trim();
 
-<!-- Upgrade CTA -->
-<tr><td style="padding:16px 28px 0;">
-  <div style="background:#ff660008;border:1px solid #ff660020;border-radius:4px;padding:16px 20px;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-    <tr>
-      <td style="vertical-align:middle;">
-        <span style="color:#ff6600;font-size:11px;font-weight:bold;letter-spacing:1px;">UPGRADE TO PRO</span>
-        <p style="color:#888;font-size:11px;line-height:1.5;margin:4px 0 0;">Unlimited alerts, 90-day timeline, API access, personalized briefs, and no watermarks.</p>
-      </td>
-      <td style="vertical-align:middle;text-align:right;padding-left:16px;white-space:nowrap;">
-        <a href="https://nexuswatch.dev/#/intel" style="display:inline-block;padding:8px 16px;background:#ff6600;color:#0a0a0a;text-decoration:none;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-radius:3px;font-family:'Courier New',monospace;font-weight:bold;">$99/mo →</a>
-      </td>
-    </tr>
-    </table>
-  </div>
-</td></tr>
+    // The header line is something like "☕ Good Morning" — split off the emoji.
+    // Emojis can be 1-2 code points; we accept anything up to the first space.
+    const firstSpace = headerLine.indexOf(' ');
+    if (firstSpace === -1) {
+      sections.push({ emoji: '', title: headerLine.trim(), body });
+    } else {
+      sections.push({
+        emoji: headerLine.slice(0, firstSpace).trim(),
+        title: headerLine.slice(firstSpace + 1).trim(),
+        body,
+      });
+    }
+  }
+  return sections;
+}
 
-<!-- Footer -->
-<tr><td style="padding:16px 28px;border-top:1px solid #141414;">
-  <table width="100%" cellpadding="0" cellspacing="0">
-  <tr>
-    <td><span style="font-size:9px;color:#444;">NexusWatch Intelligence Platform</span></td>
-    <td align="right"><span style="font-size:9px;color:#333;">Unsubscribe in account settings</span></td>
-  </tr>
+/**
+ * Escape HTML-significant characters for safe inline rendering. We do NOT
+ * escape inside raw HTML tags (that would break them) — only when inserting
+ * user-generated or LLM-generated text into element bodies and attributes.
+ */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => {
+    const map: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+    return map[c] || c;
+  });
+}
+
+/**
+ * Render a section body from Sonnet markdown into dossier-styled HTML.
+ * Handles the subset of markdown the prompt actually emits:
+ *   - **bold** → <strong>
+ *   - numbered lists (`1. `) → numbered story cards
+ *   - bullet lists (`- `) → bullet paragraphs
+ *   - paragraphs separated by blank lines
+ *   - inline "**Why it matters**" runs → oxblood callout blocks
+ */
+function renderSectionBody(body: string): string {
+  if (!body.trim()) return '';
+  const paragraphBase = typeStyle(type.body, { color: colors.textPrimary, margin: `0 0 ${space.md} 0` });
+  const bulletBase = typeStyle(type.body, {
+    color: colors.textPrimary,
+    margin: `0 0 ${space.sm} 0`,
+    paddingLeft: space.lg,
+  });
+  const whyItMattersLabel = typeStyle(type.sectionLabel, {
+    color: colors.accent,
+    textTransform: 'uppercase',
+    margin: `0 0 ${space.xs} 0`,
+    display: 'block',
+  });
+  const whyItMattersBody = typeStyle(type.body, { color: colors.textPrimary, margin: 0 });
+  const calloutBlock = style({
+    margin: `${space.md} 0 ${space.lg} 0`,
+    padding: `${space.md} ${space.lg}`,
+    background: colors.accentBgSoft,
+    borderLeft: `3px solid ${colors.accent}`,
+    borderRadius: layout.radiusCallout,
+  });
+
+  // Split body into blocks separated by blank lines, then render each block
+  // as a paragraph, numbered story, or bullet list based on its leading token.
+  const blocks = body.split(/\n\s*\n/);
+  const rendered: string[] = [];
+
+  for (const raw of blocks) {
+    const block = raw.trim();
+    if (!block) continue;
+
+    // Numbered story (`1. **Headline**\n   Body text...`).
+    const numberedMatch = block.match(/^(\d+)\.\s+(.*)$/s);
+    if (numberedMatch) {
+      const num = numberedMatch[1];
+      const rest = numberedMatch[2];
+      rendered.push(
+        `<div ${styleAttr(
+          style({
+            margin: `0 0 ${space.xl} 0`,
+            paddingBottom: space.lg,
+            borderBottom: `1px solid ${colors.border}`,
+          }),
+        )}>` +
+          `<div ${styleAttr(
+            typeStyle(type.kicker, {
+              color: colors.textTertiary,
+              margin: `0 0 ${space.xs} 0`,
+            }),
+          )}>STORY ${num}</div>` +
+          `<div ${styleAttr(paragraphBase)}>${renderInline(rest)}</div>` +
+          `</div>`,
+      );
+      continue;
+    }
+
+    // Bullet list (lines starting with `- ` or `* `).
+    if (/^[-*]\s/.test(block)) {
+      const items = block
+        .split(/\n/)
+        .filter((l) => /^[-*]\s/.test(l.trim()))
+        .map((l) => l.trim().replace(/^[-*]\s+/, ''));
+      rendered.push(
+        items
+          .map(
+            (item) =>
+              `<div ${styleAttr(bulletBase)}>` +
+              `<span ${styleAttr(style({ color: colors.accent, marginRight: space.sm }))}>▸</span>` +
+              renderInline(item) +
+              `</div>`,
+          )
+          .join(''),
+      );
+      continue;
+    }
+
+    // "Why it matters" callout — detect when the block leads with the phrase.
+    const whyMatch = block.match(/^\*\*Why it matters[:\s*]+\*\*\s*(.*)$/is);
+    if (whyMatch) {
+      rendered.push(
+        `<div ${styleAttr(calloutBlock)}>` +
+          `<span ${styleAttr(whyItMattersLabel)}>Why it matters</span>` +
+          `<p ${styleAttr(whyItMattersBody)}>${renderInline(whyMatch[1])}</p>` +
+          `</div>`,
+      );
+      continue;
+    }
+
+    // Plain paragraph.
+    rendered.push(`<p ${styleAttr(paragraphBase)}>${renderInline(block)}</p>`);
+  }
+
+  return rendered.join('\n');
+}
+
+/**
+ * Render inline markdown — **bold**, *italic*, and standalone "Why it matters"
+ * phrases that appear mid-paragraph. Keeps the output safe by escaping raw
+ * text first and then reintroducing the markup.
+ */
+function renderInline(text: string): string {
+  let out = escapeHtml(text);
+  // **bold**
+  out = out.replace(/\*\*([^*]+)\*\*/g, `<strong ${styleAttr(style({ color: colors.textPrimary }))}>$1</strong>`);
+  // *italic*
+  out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  return out;
+}
+
+/** Convenience: wrap an inline-style string in a `style="..."` HTML attribute. */
+function styleAttr(inline: string): string {
+  return `style="${inline}"`;
+}
+
+/**
+ * Render the Market Pulse module — mono ticker strip with semantic
+ * up/down/flat coloring. Emitted as its own dossier block so the parent
+ * template can place it independently of the Sonnet "Market Signal"
+ * narrative section.
+ */
+function renderMarketPulse(markets: MarketQuote[]): string {
+  if (markets.length === 0) return '';
+  const strip = markets
+    .map((m) => {
+      const color = m.direction === 'up' ? colors.up : m.direction === 'down' ? colors.down : colors.flat;
+      const symbolStyle = styleAttr(typeStyle(type.data, { color: colors.textTertiary, marginRight: space.xs }));
+      const changeStyle = styleAttr(typeStyle(type.dataStrong, { color }));
+      return `<span ${styleAttr(style({ display: 'inline-block', marginRight: space.lg, marginBottom: space.xs }))}>
+        <span ${symbolStyle}>${escapeHtml(m.symbol)}</span> <span ${changeStyle}>${escapeHtml(m.change)}</span>
+      </span>`;
+    })
+    .join('');
+
+  return (
+    `<div ${styleAttr(
+      style({
+        margin: `0 0 ${space.xl} 0`,
+        padding: `${space.md} ${space.lg}`,
+        background: colors.bgMuted,
+        borderTop: `2px solid ${colors.divider}`,
+        borderBottom: `2px solid ${colors.divider}`,
+      }),
+    )}>` +
+    `<div ${styleAttr(
+      typeStyle(type.sectionLabel, {
+        color: colors.textTertiary,
+        marginBottom: space.sm,
+        textTransform: 'uppercase',
+      }),
+    )}>Market Pulse</div>` +
+    strip +
+    `</div>`
+  );
+}
+
+/**
+ * Render a Sonnet-written section into a Light Intel Dossier module. Every
+ * section gets the same shell: kicker + serif headline + body. The body
+ * renderer handles per-paragraph, per-bullet, per-story-card treatments
+ * inside the shell.
+ */
+function renderSection(section: BriefSection): string {
+  const kickerStyle = styleAttr(
+    typeStyle(type.kicker, {
+      color: colors.accent,
+      margin: `0 0 ${space.xs} 0`,
+    }),
+  );
+  const headlineStyle = styleAttr(
+    typeStyle(type.storyHeadline, {
+      color: colors.textPrimary,
+      margin: `0 0 ${space.md} 0`,
+    }),
+  );
+  const emojiInline = section.emoji
+    ? `<span ${styleAttr(style({ marginRight: space.sm }))}>${section.emoji}</span>`
+    : '';
+
+  return (
+    `<div ${styleAttr(style({ margin: `0 0 ${space.xxl} 0` }))}>` +
+    `<div ${kickerStyle}>${emojiInline}${escapeHtml(section.title.toUpperCase())}</div>` +
+    `<h2 ${headlineStyle}>${escapeHtml(section.title)}</h2>` +
+    renderSectionBody(section.body) +
+    `</div>`
+  );
+}
+
+/**
+ * Masthead block. Rendered at the top of the email-only shell (not in
+ * beehiivHtml — beehiiv writes its own). Shows the wordmark, date, and a
+ * parchment-gold rule that anchors the dossier aesthetic.
+ */
+function renderMasthead(date: string, time: string): string {
+  return (
+    `<div ${styleAttr(style({ margin: `0 0 ${space.xl} 0`, textAlign: 'center' }))}>` +
+    `<div ${styleAttr(
+      typeStyle(type.masthead, {
+        color: colors.textPrimary,
+        margin: `0 0 ${space.xs} 0`,
+        letterSpacing: '-0.01em',
+      }),
+    )}>NexusWatch</div>` +
+    `<div ${styleAttr(
+      typeStyle(type.kicker, {
+        color: colors.accent,
+        margin: `0 0 ${space.md} 0`,
+      }),
+    )}>SITUATION BRIEF</div>` +
+    `<div ${styleAttr(
+      style({
+        height: '2px',
+        background: `linear-gradient(to right, transparent, ${colors.divider}, transparent)`,
+        margin: `0 0 ${space.md} 0`,
+      }),
+    )}></div>` +
+    `<div ${styleAttr(
+      typeStyle(type.issueMeta, {
+        color: colors.textTertiary,
+      }),
+    )}>${escapeHtml(date)} · ${escapeHtml(time)}</div>` +
+    `</div>`
+  );
+}
+
+/**
+ * CTA block — "Open Live Map" + "Upgrade to Analyst" pairing. Rendered in
+ * the email shell only. Uses the founding tier in CTA copy when appropriate;
+ * for v1 of A.6 we default to the Analyst upgrade messaging.
+ */
+function renderCTA(): string {
+  const ctaButton = style({
+    display: 'inline-block',
+    padding: `${space.md} ${space.xl}`,
+    background: colors.accent,
+    color: colors.textInverse,
+    textDecoration: 'none',
+    borderRadius: layout.radiusCallout,
+    fontFamily: fonts.mono,
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+  });
+  const ctaSecondary = style({
+    display: 'inline-block',
+    padding: `${space.md} ${space.xl}`,
+    background: 'transparent',
+    color: colors.textPrimary,
+    textDecoration: 'none',
+    border: `1px solid ${colors.borderStrong}`,
+    borderRadius: layout.radiusCallout,
+    fontFamily: fonts.mono,
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    marginRight: space.md,
+  });
+
+  return (
+    `<div ${styleAttr(style({ margin: `${space.xl} 0`, textAlign: 'center' }))}>` +
+    `<a href="https://nexuswatch.dev/#/intel" ${styleAttr(ctaSecondary)}>Open Live Map →</a>` +
+    `<a href="https://nexuswatch.dev/#/pricing?tier=analyst" ${styleAttr(ctaButton)}>Upgrade to Analyst · $29/mo</a>` +
+    `</div>`
+  );
+}
+
+/**
+ * Footer — unsubscribe, preferences, forward-to-colleague permalink, and
+ * the brand signature. Forward-to-colleague is the growth loop: a clickable
+ * permalink to the /brief/:date archive page, which subscribers can share
+ * directly without exposing their email address.
+ */
+function renderFooter(date: string, archiveUrl: string): string {
+  const footerText = typeStyle(type.caption, {
+    color: colors.textTertiary,
+    margin: `0 0 ${space.sm} 0`,
+  });
+  const footerLink = style({
+    color: colors.accent,
+    textDecoration: 'none',
+  });
+  return (
+    `<div ${styleAttr(
+      style({
+        marginTop: space.xxl,
+        paddingTop: space.xl,
+        borderTop: `1px solid ${colors.border}`,
+        textAlign: 'center',
+      }),
+    )}>` +
+    `<p ${styleAttr(footerText)}>` +
+    `Know someone who should read this? ` +
+    `<a href="${escapeHtml(archiveUrl)}" ${styleAttr(footerLink)}>Forward today's brief →</a>` +
+    `</p>` +
+    `<p ${styleAttr(footerText)}>` +
+    `<a href="https://nexuswatch.dev/#/preferences" ${styleAttr(footerLink)}>Preferences</a>` +
+    ` · ` +
+    `<a href="https://nexuswatch.dev/#/unsubscribe" ${styleAttr(footerLink)}>Unsubscribe</a>` +
+    ` · ` +
+    `<a href="mailto:hello@nexuswatch.dev" ${styleAttr(footerLink)}>hello@nexuswatch.dev</a>` +
+    `</p>` +
+    `<p ${styleAttr(
+      typeStyle(type.caption, {
+        color: colors.textTertiary,
+        margin: `${space.md} 0 0 0`,
+      }),
+    )}>NexusWatch Intelligence · Issue ${escapeHtml(date)}</p>` +
+    `</div>`
+  );
+}
+
+/**
+ * Render a text/plain multipart fallback from the markdown body. ~15% of
+ * intel readers use text-only mail clients, and Resend + beehiiv both
+ * treat a plain-text alternative as a deliverability signal. Preserves
+ * section structure and reading order without trying to ASCII-art it.
+ */
+function renderPlainText(briefText: string, date: string, time: string, archiveUrl: string): string {
+  // Strip bold/italic markers but keep the plain text. Section headers
+  // already use `## ` and read fine as-is in a mono client.
+  const stripped = briefText
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .trim();
+
+  return [
+    `NEXUSWATCH SITUATION BRIEF`,
+    `${date} · ${time}`,
+    `──────────────────────────────────────────`,
+    '',
+    stripped,
+    '',
+    `──────────────────────────────────────────`,
+    ``,
+    `Open the live map: https://nexuswatch.dev/#/intel`,
+    `Upgrade to Analyst ($29/mo): https://nexuswatch.dev/#/pricing?tier=analyst`,
+    `Forward today's brief: ${archiveUrl}`,
+    ``,
+    `Preferences: https://nexuswatch.dev/#/preferences`,
+    `Unsubscribe: https://nexuswatch.dev/#/unsubscribe`,
+    `Contact: hello@nexuswatch.dev`,
+    ``,
+    `NexusWatch Intelligence`,
+  ].join('\n');
+}
+
+/**
+ * Compose the inner dossier content block (used by both the full email and
+ * the beehiiv post body). Structure: Market Pulse → all Sonnet sections in
+ * order. The Sonnet output controls the narrative sections; this function
+ * just styles them and inserts the Market Pulse module after Good Morning.
+ */
+function renderDossierInner(briefText: string, markets: MarketQuote[]): string {
+  const sections = parseSections(briefText);
+  if (sections.length === 0) {
+    // Fallback: wrap the whole body as a single paragraph block.
+    return `<div ${styleAttr(typeStyle(type.body, { color: colors.textPrimary }))}>${renderInline(briefText)}</div>`;
+  }
+
+  const pieces: string[] = [];
+  let marketPulseInserted = false;
+
+  for (const section of sections) {
+    pieces.push(renderSection(section));
+    // Insert the Market Pulse module right after Good Morning, so the
+    // reader gets price context before diving into the stories.
+    if (!marketPulseInserted && /good morning/i.test(section.title)) {
+      pieces.push(renderMarketPulse(markets));
+      marketPulseInserted = true;
+    }
+  }
+
+  // If there's no Good Morning section (shouldn't happen with Sonnet output,
+  // but defensive against the fallback builder), prepend Market Pulse.
+  if (!marketPulseInserted) {
+    pieces.unshift(renderMarketPulse(markets));
+  }
+
+  return pieces.join('\n');
+}
+
+/**
+ * The Apple Mail dark-mode override. Shipped inside a `<style>` block
+ * scoped by `@media (prefers-color-scheme: dark)`. Gmail and most other
+ * clients strip or ignore this, so light is canonical — dark is a bonus.
+ */
+function renderDarkModeStyleBlock(): string {
+  return `
+    <style>
+      @media (prefers-color-scheme: dark) {
+        body, table, td {
+          background-color: #0E1116 !important;
+          color: #E8E6DE !important;
+        }
+        .dossier-card {
+          background-color: #161B22 !important;
+          border-color: #2A2F38 !important;
+        }
+        .dossier-text-primary { color: #E8E6DE !important; }
+        .dossier-text-secondary { color: #C2BCAB !important; }
+        .dossier-text-tertiary { color: #8B8478 !important; }
+        .dossier-accent { color: #D66A64 !important; }
+        .dossier-border { border-color: #2A2F38 !important; }
+      }
+    </style>
+  `;
+}
+
+/**
+ * Main export — render a brief into all three delivery formats.
+ *
+ * This is the only function the rest of the handler should call. It
+ * guarantees the three outputs stay synchronized: same content, three
+ * different renderings (email shell, beehiiv content, plain-text).
+ */
+function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
+  const { briefText, date, time, markets } = opts;
+  const archiveUrl = opts.archiveUrl ?? `https://nexuswatch.dev/#/brief/${date}`;
+  const inner = renderDossierInner(briefText, markets);
+
+  // Full standalone email shell for Resend transactional path.
+  const emailHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>NexusWatch Situation Brief · ${escapeHtml(date)}</title>
+  ${renderDarkModeStyleBlock()}
+</head>
+<body ${styleAttr(
+    style({
+      margin: 0,
+      padding: 0,
+      background: colors.bgPage,
+      fontFamily: fonts.sans,
+      color: colors.textPrimary,
+      WebkitTextSizeAdjust: '100%',
+      msTextSizeAdjust: '100%',
+    }),
+  )}>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ${styleAttr(
+    style({ background: colors.bgPage, padding: `${space.xl} ${space.md}` }),
+  )}>
+    <tr><td align="center">
+      <table role="presentation" width="${layout.contentWidth}" cellpadding="0" cellspacing="0" border="0" class="dossier-card" ${styleAttr(
+        style({
+          maxWidth: layout.contentWidth,
+          background: colors.bgCard,
+          borderRadius: layout.radiusCard,
+          border: `1px solid ${colors.border}`,
+          padding: layout.gutter,
+        }),
+      )}>
+        <tr><td>
+          ${renderMasthead(date, time)}
+          ${inner}
+          ${renderCTA()}
+          ${renderFooter(date, archiveUrl)}
+        </td></tr>
+      </table>
+    </td></tr>
   </table>
-</td></tr>
+</body>
+</html>`;
 
-</table>
-</td></tr>
-</table>
-</body></html>`;
+  // Inner modules only for the beehiiv post body. beehiiv adds its own
+  // masthead, footer, and unsubscribe footer, so we ship just the content.
+  const beehiivHtml = `<div ${styleAttr(
+    style({
+      fontFamily: fonts.sans,
+      color: colors.textPrimary,
+      background: colors.bgCard,
+      padding: space.md,
+      maxWidth: layout.contentWidth,
+    }),
+  )}>${inner}${renderCTA()}</div>`;
+
+  const plainText = renderPlainText(briefText, date, time, archiveUrl);
+
+  return { emailHtml, beehiivHtml, plainText };
 }
 
 // === Fallback brief (no AI) — still produces decent HTML ===
