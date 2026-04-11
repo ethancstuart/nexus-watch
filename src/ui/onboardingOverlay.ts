@@ -2,90 +2,48 @@ import { createElement } from '../utils/dom.ts';
 
 const STORAGE_KEY = 'nw:onboarded';
 
-const STEPS = [
-  {
-    title: 'NEXUSWATCH',
-    text: 'Real-time geopolitical intelligence platform. 30 data layers on a 3D globe, AI command center, auto-threat detection, and personalized watchlists.',
-  },
-  {
-    title: 'DATA LAYERS',
-    text: 'Click LAYERS in the topbar to toggle 30 data sources: conflicts, earthquakes, flights, ships, energy infrastructure, disease outbreaks, sanctions, elections, and more.',
-  },
-  {
-    title: 'AI COMMAND CENTER',
-    text: 'Type commands in the terminal at the bottom of the map. Try "ukraine", "enable sanctions", "status", or "sitrep". The AI monitors data and generates auto-alerts.',
-  },
-  {
-    title: 'INTEL SIDEBAR',
-    text: 'Three tabs — INTEL (threat detection, watchlist, country scores), MARKETS (stocks + crypto), FEEDS (news + OSINT). Click any alert to fly to its location.',
-  },
-  {
-    title: 'EXPLORE',
-    text: 'Click the globe to identify regions. Use the LEGEND button for symbol reference. Press F for fullscreen. Press ? for all keyboard shortcuts.',
-  },
-];
-
+/**
+ * Minimal onboarding — non-blocking tooltip instead of a modal wall.
+ * The product should sell itself. This just orients the user.
+ */
 export function showOnboarding(container: HTMLElement): void {
   if (localStorage.getItem(STORAGE_KEY)) return;
 
-  let currentStep = 0;
+  // Don't block the map — wait until it's loaded and layers are visible
+  setTimeout(() => {
+    const tooltip = createElement('div', { className: 'nw-welcome-tooltip' });
+    tooltip.innerHTML = `
+      <div class="nw-welcome-header">
+        <span class="nw-welcome-badge">WELCOME TO NEXUSWATCH</span>
+        <button class="nw-welcome-close" title="Dismiss">✕</button>
+      </div>
+      <div class="nw-welcome-body">
+        <p>You're looking at a live geopolitical intelligence feed. Here's how to explore:</p>
+        <div class="nw-welcome-tips">
+          <div class="nw-welcome-tip"><span class="nw-welcome-key">THEATERS</span> Jump to regions — Middle East, Indo-Pacific, Energy Chokepoints</div>
+          <div class="nw-welcome-tip"><span class="nw-welcome-key">CINEMA</span> Watch an auto-guided threat tour with AI narration</div>
+          <div class="nw-welcome-tip"><span class="nw-welcome-key">ALERTS</span> Create natural language monitoring rules</div>
+          <div class="nw-welcome-tip"><span class="nw-welcome-key">MORE ▾</span> Entity graph, crisis replay, split view, investigations</div>
+          <div class="nw-welcome-tip"><span class="nw-welcome-key">?</span> Keyboard shortcuts</div>
+        </div>
+      </div>
+    `;
 
-  const overlay = createElement('div', { className: 'nw-onboard-overlay' });
-  const card = createElement('div', { className: 'nw-onboard-card' });
+    tooltip.querySelector('.nw-welcome-close')?.addEventListener('click', () => {
+      localStorage.setItem(STORAGE_KEY, '1');
+      tooltip.classList.add('nw-welcome-exit');
+      setTimeout(() => tooltip.remove(), 300);
+    });
 
-  function renderStep() {
-    card.textContent = '';
-    const step = STEPS[currentStep];
+    // Auto-dismiss after 15 seconds
+    setTimeout(() => {
+      if (tooltip.parentElement) {
+        localStorage.setItem(STORAGE_KEY, '1');
+        tooltip.classList.add('nw-welcome-exit');
+        setTimeout(() => tooltip.remove(), 300);
+      }
+    }, 15000);
 
-    const stepCount = createElement('div', { className: 'nw-onboard-step' });
-    stepCount.textContent = `${currentStep + 1} / ${STEPS.length}`;
-
-    const title = createElement('div', { className: 'nw-onboard-title', textContent: step.title });
-    const text = createElement('div', { className: 'nw-onboard-text', textContent: step.text });
-
-    const actions = createElement('div', { className: 'nw-onboard-actions' });
-
-    if (currentStep > 0) {
-      const prevBtn = createElement('button', { className: 'nw-onboard-btn', textContent: 'BACK' });
-      prevBtn.addEventListener('click', () => {
-        currentStep--;
-        renderStep();
-      });
-      actions.appendChild(prevBtn);
-    }
-
-    const skipBtn = createElement('button', { className: 'nw-onboard-btn nw-onboard-skip', textContent: 'SKIP' });
-    skipBtn.addEventListener('click', dismiss);
-    actions.appendChild(skipBtn);
-
-    if (currentStep < STEPS.length - 1) {
-      const nextBtn = createElement('button', { className: 'nw-onboard-btn nw-onboard-next', textContent: 'NEXT' });
-      nextBtn.addEventListener('click', () => {
-        currentStep++;
-        renderStep();
-      });
-      actions.appendChild(nextBtn);
-    } else {
-      const doneBtn = createElement('button', {
-        className: 'nw-onboard-btn nw-onboard-next',
-        textContent: 'GET STARTED',
-      });
-      doneBtn.addEventListener('click', dismiss);
-      actions.appendChild(doneBtn);
-    }
-
-    card.appendChild(stepCount);
-    card.appendChild(title);
-    card.appendChild(text);
-    card.appendChild(actions);
-  }
-
-  function dismiss() {
-    localStorage.setItem(STORAGE_KEY, '1');
-    overlay.remove();
-  }
-
-  overlay.appendChild(card);
-  container.appendChild(overlay);
-  renderStep();
+    container.appendChild(tooltip);
+  }, 3000); // Wait 3 seconds for map to load
 }

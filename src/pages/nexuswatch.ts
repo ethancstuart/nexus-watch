@@ -101,10 +101,39 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   loadingOverlay.innerHTML = `
     <div class="nw-loading-content">
       <div class="nw-loading-logo">NexusWatch</div>
-      <div class="nw-loading-text">Initializing intelligence layers...</div>
-      <div class="nw-loading-spinner"></div>
+      <div class="nw-loading-subtitle">GEOPOLITICAL INTELLIGENCE PLATFORM</div>
+      <div class="nw-loading-stats">
+        <span class="nw-loading-stat" id="load-layers">0 layers</span>
+        <span class="nw-loading-divider">·</span>
+        <span class="nw-loading-stat" id="load-countries">0 countries</span>
+        <span class="nw-loading-divider">·</span>
+        <span class="nw-loading-stat" id="load-sources">0 sources</span>
+      </div>
+      <div class="nw-loading-bar"><div class="nw-loading-bar-fill"></div></div>
+      <div class="nw-loading-text">Connecting to intelligence feeds...</div>
     </div>
   `;
+  // Animate stats during load
+  const animateLoadStats = () => {
+    const layers = loadingOverlay.querySelector('#load-layers');
+    const countries = loadingOverlay.querySelector('#load-countries');
+    const sources = loadingOverlay.querySelector('#load-sources');
+    const text = loadingOverlay.querySelector('.nw-loading-text');
+    const bar = loadingOverlay.querySelector('.nw-loading-bar-fill') as HTMLElement;
+    let step = 0;
+    const tick = setInterval(() => {
+      step++;
+      if (layers) layers.textContent = `${Math.min(step * 5, 30)} layers`;
+      if (countries) countries.textContent = `${Math.min(step * 8, 50)} countries`;
+      if (sources) sources.textContent = `${Math.min(step * 2, 13)} sources`;
+      if (bar) bar.style.width = `${Math.min(step * 15, 90)}%`;
+      if (step === 2 && text) text.textContent = 'Loading map tiles...';
+      if (step === 4 && text) text.textContent = 'Initializing data layers...';
+      if (step === 6 && text) text.textContent = 'Computing instability scores...';
+      if (step >= 7) clearInterval(tick);
+    }, 400);
+  };
+  animateLoadStats();
   root.appendChild(loadingOverlay);
 
   // ── Build DOM structure synchronously ──
@@ -198,19 +227,35 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   const userMenuSlot = createElement('div', {});
 
+  // Primary actions (always visible)
   topRight.appendChild(drawerToggleSlot);
   topRight.appendChild(sitrepBtn);
-  topRight.appendChild(briefBtn);
-  topRight.appendChild(popoutSlot);
-  topRight.appendChild(mobileToggle);
   topRight.appendChild(alertBtn);
-  topRight.appendChild(shareBtn);
-  topRight.appendChild(invBtn);
-  topRight.appendChild(multiBtn);
-  topRight.appendChild(graphBtn);
-  topRight.appendChild(replayBtn);
   topRight.appendChild(cinemaBtn);
-  topRight.appendChild(styleToggle);
+  topRight.appendChild(mobileToggle);
+
+  // "More" dropdown for secondary actions
+  const moreWrapper = createElement('div', { className: 'nw-more-wrapper' });
+  const moreBtn = createElement('button', { className: 'nw-sitrep-btn nw-more-btn', textContent: 'MORE ▾' });
+  moreBtn.title = 'More tools and views';
+  const moreMenu = createElement('div', { className: 'nw-more-menu' });
+  moreMenu.appendChild(briefBtn);
+  moreMenu.appendChild(shareBtn);
+  moreMenu.appendChild(graphBtn);
+  moreMenu.appendChild(replayBtn);
+  moreMenu.appendChild(multiBtn);
+  moreMenu.appendChild(invBtn);
+  moreMenu.appendChild(popoutSlot);
+  moreMenu.appendChild(styleToggle);
+  moreWrapper.appendChild(moreBtn);
+  moreWrapper.appendChild(moreMenu);
+  moreBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    moreMenu.classList.toggle('open');
+  });
+  document.addEventListener('click', () => moreMenu.classList.remove('open'));
+
+  topRight.appendChild(moreWrapper);
   topRight.appendChild(userMenuSlot);
   topRight.appendChild(statusArea);
 
