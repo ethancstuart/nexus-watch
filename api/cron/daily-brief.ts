@@ -193,6 +193,45 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     const today = now.toISOString().split('T')[0];
     const utcTime = `${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')} UTC`;
 
+    // Opaque but sortable run identifier shared by every channel's delivery-log
+    // row for this cron invocation. See docs/migrations/2026-04-11-brief-delivery-log.sql
+    // and Track A.4 in NEXUSWATCH-COMPLETION-PLAN.md.
+    const runId = `${today}-${Date.now()}`;
+
+    /**
+     * Write one row to brief_delivery_log. Fire-and-forget from the caller's
+     * perspective — logDelivery swallows its own errors so a logging failure
+     * never breaks the cron. Keep `error` strings short; truncate to 500 chars
+     * to avoid storing multi-KB API response bodies in Postgres.
+     */
+    async function logDelivery(params: {
+      channel: 'archive' | 'beehiiv' | 'buffer' | 'resend' | 'notion';
+      status: 'success' | 'failed' | 'partial';
+      recipientCount?: number;
+      failedCount?: number;
+      error?: string;
+      latencyMs: number;
+      metadata?: Record<string, unknown>;
+    }): Promise<void> {
+      try {
+        const errTruncated = params.error ? params.error.slice(0, 500) : null;
+        const metaJson = params.metadata ? JSON.stringify(params.metadata) : null;
+        await sql`
+          INSERT INTO brief_delivery_log
+            (run_id, brief_date, channel, status, recipient_count, failed_count, error, latency_ms, metadata)
+          VALUES
+            (${runId}, ${today}, ${params.channel}, ${params.status},
+             ${params.recipientCount ?? null}, ${params.failedCount ?? null},
+             ${errTruncated}, ${params.latencyMs}, ${metaJson})
+        `;
+      } catch (logErr) {
+        console.error(
+          '[daily-brief] logDelivery insert failed (non-fatal):',
+          logErr instanceof Error ? logErr.message : logErr,
+        );
+      }
+    }
+
     await sql`DELETE FROM daily_briefs WHERE brief_date = ${today}`;
 
     // === Parallel data fetch ===
@@ -596,16 +635,27 @@ ${(() => {
       briefHtml = buildFallbackHtml(briefData);
     }
 
-    // Store both markdown and HTML versions
+    // Store both markdown and HTML versions. Instrumented as the 'archive'
+    // channel — this row failing means the entire run is broken, so the outer
+    // try/catch converts it to a 500. The logDelivery call below only fires
+    // on success.
+    const archiveT0 = Date.now();
     await sql`
       INSERT INTO daily_briefs (brief_date, content, summary)
       VALUES (${today}, ${JSON.stringify({ ...briefData, briefText })}, ${briefHtml})
     `;
+    await logDelivery({
+      channel: 'archive',
+      status: 'success',
+      latencyMs: Date.now() - archiveT0,
+      metadata: { brief_html_length: briefHtml.length, ai: aiDebug },
+    });
 
     // === Publish to beehiiv ===
     const beehiivKey = process.env.BEEHIIV_API_KEY;
     const beehiivPubId = process.env.BEEHIIV_PUB_ID;
     if (beehiivKey && beehiivPubId) {
+      const beehiivT0 = Date.now();
       try {
         // Extract Good Morning line for subtitle
         const subtitleMatch = briefText.match(/## ☕ Good Morning\n+([\s\S]*?)(?=\n##|\n\n##)/);
@@ -613,23 +663,54 @@ ${(() => {
           ? subtitleMatch[1].trim().slice(0, 200)
           : `Your daily geopolitical intelligence scan — ${today}`;
 
-        await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/posts`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${beehiivKey}`,
-            'Content-Type': 'application/json',
+        const beehiivRes = await fetch(
+          `https://api.beehiiv.com/v2/publications/${beehiivPubId}/posts`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${beehiivKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              title: `The NexusWatch Brief — ${today}`,
+              subtitle,
+              content_html: briefHtml,
+              status: 'confirmed',
+              send_to: 'all',
+            }),
+            signal: AbortSignal.timeout(15000),
           },
-          body: JSON.stringify({
-            title: `The NexusWatch Brief — ${today}`,
-            subtitle,
-            content_html: briefHtml,
-            status: 'confirmed',
-            send_to: 'all',
-          }),
-          signal: AbortSignal.timeout(15000),
+        );
+
+        if (!beehiivRes.ok) {
+          const body = await beehiivRes.text().catch(() => '');
+          throw new Error(`beehiiv ${beehiivRes.status}: ${body.slice(0, 200)}`);
+        }
+
+        // Parse post ID for traceability — not fatal if the shape changes.
+        let postId: string | undefined;
+        try {
+          const beehiivData = (await beehiivRes.json()) as { data?: { id?: string } };
+          postId = beehiivData.data?.id;
+        } catch {
+          /* ignore parse errors */
+        }
+
+        await logDelivery({
+          channel: 'beehiiv',
+          status: 'success',
+          latencyMs: Date.now() - beehiivT0,
+          metadata: { post_id: postId, subtitle_length: subtitle.length },
         });
-      } catch {
-        /* beehiiv push failed — non-critical */
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[daily-brief] beehiiv publish failed:', msg);
+        await logDelivery({
+          channel: 'beehiiv',
+          status: 'failed',
+          error: msg,
+          latencyMs: Date.now() - beehiivT0,
+        });
       }
     }
 
@@ -638,6 +719,7 @@ ${(() => {
     // Hardcoded NexusWatchDev channel ID (stable, verified working)
     const bufferChannelId = '69d95485031bfa423cee6b71';
     if (bufferToken) {
+      const bufferT0 = Date.now();
       try {
         // Build post content from brief
         const gmMatch = briefText.match(/## ☕ Good Morning\n+([\s\S]*?)(?=\n##)/);
@@ -661,7 +743,7 @@ ${(() => {
           .slice(0, 280);
 
         // Create and queue the post on @NexusWatchDev
-        await fetch('https://api.buffer.com', {
+        const bufferRes = await fetch('https://api.buffer.com', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -686,8 +768,47 @@ ${(() => {
           }),
           signal: AbortSignal.timeout(10000),
         });
-      } catch {
-        /* Buffer/X post failed — non-critical */
+
+        if (!bufferRes.ok) {
+          const body = await bufferRes.text().catch(() => '');
+          throw new Error(`buffer ${bufferRes.status}: ${body.slice(0, 200)}`);
+        }
+
+        // Buffer returns 200 even on GraphQL-level errors — inspect the body.
+        let bufferPostId: string | undefined;
+        let bufferMutationError: string | undefined;
+        try {
+          const bufferData = (await bufferRes.json()) as {
+            data?: { createPost?: { post?: { id?: string }; message?: string } };
+            errors?: Array<{ message?: string }>;
+          };
+          bufferPostId = bufferData.data?.createPost?.post?.id;
+          bufferMutationError =
+            bufferData.data?.createPost?.message ||
+            bufferData.errors?.[0]?.message;
+        } catch {
+          /* non-JSON response — treat as soft success, Buffer's GraphQL is stable */
+        }
+
+        if (bufferMutationError) {
+          throw new Error(`buffer mutation: ${bufferMutationError}`);
+        }
+
+        await logDelivery({
+          channel: 'buffer',
+          status: 'success',
+          latencyMs: Date.now() - bufferT0,
+          metadata: { post_id: bufferPostId, post_length: postText.length },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[daily-brief] Buffer/X post failed:', msg);
+        await logDelivery({
+          channel: 'buffer',
+          status: 'failed',
+          error: msg,
+          latencyMs: Date.now() - bufferT0,
+        });
       }
     }
 
@@ -705,6 +826,8 @@ ${(() => {
     // self-heal hooks that will trigger the migration signal.
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
+      const resendT0 = Date.now();
+      let resendRecipientCount = 0;
       try {
         const subscribers = await sql`SELECT email FROM email_subscribers WHERE unsubscribed = FALSE`;
         const adminEmail = process.env.ADMIN_EMAILS;
@@ -712,6 +835,7 @@ ${(() => {
         if (adminEmail) adminEmail.split(',').forEach((e: string) => allEmails.add(e.trim()));
         subscribers.forEach((s) => allEmails.add(s.email as string));
 
+        resendRecipientCount = allEmails.size;
         if (allEmails.size > 0) {
           const recipients = Array.from(allEmails);
           const html = wrapEmailTemplate(briefHtml, today, utcTime, markets);
@@ -762,24 +886,71 @@ ${(() => {
             }
           }
 
-          // Surface failures to logs — do NOT silently swallow (was a P1 bug).
-          if (failed > 0) {
+          // Surface failures to logs AND log to brief_delivery_log so the
+          // admin dashboard can see per-channel delivery state.
+          if (failed > 0 && sent === 0) {
+            console.error(
+              `[daily-brief] Resend batch total failure: failed=${failed}/${recipients.length}. First errors: ${errors.slice(0, 3).join(' | ')}`,
+            );
+            await logDelivery({
+              channel: 'resend',
+              status: 'failed',
+              recipientCount: recipients.length,
+              failedCount: failed,
+              error: errors.slice(0, 3).join(' | '),
+              latencyMs: Date.now() - resendT0,
+              metadata: { batches: Math.ceil(recipients.length / BATCH_SIZE) },
+            });
+          } else if (failed > 0) {
             console.error(
               `[daily-brief] Resend batch partial failure: sent=${sent}, failed=${failed}/${recipients.length}. First errors: ${errors.slice(0, 3).join(' | ')}`,
             );
+            await logDelivery({
+              channel: 'resend',
+              status: 'partial',
+              recipientCount: sent,
+              failedCount: failed,
+              error: errors.slice(0, 3).join(' | '),
+              latencyMs: Date.now() - resendT0,
+              metadata: { batches: Math.ceil(recipients.length / BATCH_SIZE) },
+            });
           } else {
             console.log(
               `[daily-brief] Resend batch delivered to ${sent}/${recipients.length} recipients`,
             );
+            await logDelivery({
+              channel: 'resend',
+              status: 'success',
+              recipientCount: sent,
+              failedCount: 0,
+              latencyMs: Date.now() - resendT0,
+              metadata: { batches: Math.ceil(recipients.length / BATCH_SIZE) },
+            });
           }
+        } else {
+          // Zero subscribers — not a failure, but log so the dashboard shows
+          // "no recipients" rather than a missing row.
+          await logDelivery({
+            channel: 'resend',
+            status: 'success',
+            recipientCount: 0,
+            failedCount: 0,
+            latencyMs: Date.now() - resendT0,
+            metadata: { note: 'no subscribers' },
+          });
         }
       } catch (err) {
-        // Top-level failure (e.g. DB query) — log, do not swallow. Brief is
-        // still stored in Postgres via the archive step above.
-        console.error(
-          '[daily-brief] Resend email path failed:',
-          err instanceof Error ? err.message : err,
-        );
+        // Top-level failure (e.g. DB query). Brief is still stored in
+        // Postgres via the archive step above.
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[daily-brief] Resend email path failed:', msg);
+        await logDelivery({
+          channel: 'resend',
+          status: 'failed',
+          recipientCount: resendRecipientCount,
+          error: msg,
+          latencyMs: Date.now() - resendT0,
+        });
       }
     }
 
@@ -787,6 +958,7 @@ ${(() => {
     const notionKey = process.env.NOTION_API_KEY;
     const notionBriefsPage = '33e45c2d-baf4-8104-b0e9-f6794c462363';
     if (notionKey) {
+      const notionT0 = Date.now();
       try {
         // Use the markdown text directly — already clean and copy-paste ready
         const plainBrief = briefText;
@@ -809,23 +981,30 @@ ${(() => {
           signal: AbortSignal.timeout(10000),
         });
 
-        if (pageRes.ok) {
-          const page = (await pageRes.json()) as { id: string };
+        if (!pageRes.ok) {
+          const body = await pageRes.text().catch(() => '');
+          throw new Error(`notion page create ${pageRes.status}: ${body.slice(0, 200)}`);
+        }
 
-          // Split into chunks of ~2000 chars (Notion block limit)
-          const chunks = splitTextToChunks(plainBrief, 1900);
-          const blocks = chunks.map((chunk) => ({
-            object: 'block' as const,
-            type: 'paragraph' as const,
-            paragraph: {
-              rich_text: [{ type: 'text' as const, text: { content: chunk } }],
-            },
-          }));
+        const page = (await pageRes.json()) as { id: string };
 
-          // Notion API accepts max 100 blocks per request
-          for (let i = 0; i < blocks.length; i += 100) {
-            const batch = blocks.slice(i, i + 100);
-            await fetch(`https://api.notion.com/v1/blocks/${page.id}/children`, {
+        // Split into chunks of ~2000 chars (Notion block limit)
+        const chunks = splitTextToChunks(plainBrief, 1900);
+        const blocks = chunks.map((chunk) => ({
+          object: 'block' as const,
+          type: 'paragraph' as const,
+          paragraph: {
+            rich_text: [{ type: 'text' as const, text: { content: chunk } }],
+          },
+        }));
+
+        // Notion API accepts max 100 blocks per request
+        let blocksWritten = 0;
+        for (let i = 0; i < blocks.length; i += 100) {
+          const batch = blocks.slice(i, i + 100);
+          const blockRes = await fetch(
+            `https://api.notion.com/v1/blocks/${page.id}/children`,
+            {
               method: 'PATCH',
               headers: {
                 Authorization: `Bearer ${notionKey}`,
@@ -834,11 +1013,32 @@ ${(() => {
               },
               body: JSON.stringify({ children: batch }),
               signal: AbortSignal.timeout(10000),
-            });
+            },
+          );
+          if (!blockRes.ok) {
+            const body = await blockRes.text().catch(() => '');
+            throw new Error(
+              `notion block patch ${blockRes.status} (batch ${i}): ${body.slice(0, 200)}`,
+            );
           }
+          blocksWritten += batch.length;
         }
-      } catch {
-        /* Notion push failed — non-critical */
+
+        await logDelivery({
+          channel: 'notion',
+          status: 'success',
+          latencyMs: Date.now() - notionT0,
+          metadata: { page_id: page.id, blocks: blocksWritten },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[daily-brief] Notion push failed:', msg);
+        await logDelivery({
+          channel: 'notion',
+          status: 'failed',
+          error: msg,
+          latencyMs: Date.now() - notionT0,
+        });
       }
     }
 

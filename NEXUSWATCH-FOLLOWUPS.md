@@ -10,6 +10,12 @@ Severity key:
 
 ---
 
+## From Track A.4 (Delivery observability — shipped `<pending>`)
+
+- **FUTURE** — Retry endpoint `POST /api/admin/brief/retry/:runId` was scoped in v5 plan Track A.4 but deferred from the first commit. The work it implies: (a) persist enough of the original brief payload (HTML, markdown, markets, CII data) to `brief_delivery_log.metadata` so a retry doesn't need to re-run the full Sonnet generation, (b) build a re-send handler that loads the failed channel rows for a `runId` and re-attempts only those, (c) the retry itself must be idempotent against the channels that already succeeded. Natural home after A.5/A.6 land, because those will stabilize the brief content format.
+- **FUTURE** — `brief_delivery_log` could gain a `stripe_webhook_failures` sibling table absorbing webhook processing errors from `api/stripe/webhook.ts`. Today those errors are only in Vercel function logs. Low priority until Stripe volume demands a structured audit trail.
+- **CLEANUP** — `resolveAdmin` was extracted to `api/admin/_auth.ts` during A.4 and `api/admin/data-health.ts` refactored to import from it. Any future admin endpoint should import from `_auth.ts` — don't re-implement session lookup + allowlist checking. The `_` prefix marks the file as Vercel-private (not routed).
+
 ## From Track A.1 (P0 privacy fix — shipped `cb755ba`)
 
 - **FUTURE** — Migrate daily-brief Resend batch loop to Vercel Workflow (WDK) when subscriber count exceeds ~30K. Current sync implementation fits inside the 300s function limit through that threshold. Inline comment at `api/cron/daily-brief.ts:694-699` documents the trigger + migration path. Track D.1 self-heal is the monitoring signal.

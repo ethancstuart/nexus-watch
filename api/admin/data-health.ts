@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { resolveAdmin } from './_auth';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -11,60 +12,10 @@ export const config = { runtime: 'nodejs', maxDuration: 10 };
  *   GET /api/admin/data-health?layer=earthquakes
  *     → 24h history for a single layer from data_health
  *
- * Requires the caller to be in the ADMIN_EMAILS / ADMIN_IDS allowlist. Session
- * is resolved via the __Host-session cookie (same pattern as api/auth/session.ts),
- * so this is a read-only view surfaced inside the authenticated dashboard.
+ * Requires the caller to be in the ADMIN_EMAILS / ADMIN_IDS allowlist, enforced
+ * via the shared `resolveAdmin` helper in api/admin/_auth.ts (extracted 2026-04-11
+ * during Track A.4).
  */
-
-interface SessionUser {
-  id?: string;
-  email?: string;
-  isAdmin?: boolean;
-}
-
-async function resolveAdmin(req: VercelRequest): Promise<SessionUser | null> {
-  const cookieHeader = req.headers.cookie || '';
-  const sessionCookie = cookieHeader
-    .split(';')
-    .map((c) => c.trim())
-    .find((c) => c.startsWith('__Host-session='));
-  const sessionId = sessionCookie?.split('=')[1];
-  if (!sessionId) return null;
-
-  const kvUrl = process.env.KV_REST_API_URL;
-  const kvToken = process.env.KV_REST_API_TOKEN;
-  if (!kvUrl || !kvToken) return null;
-
-  try {
-    const res = await fetch(`${kvUrl}/get/session:${sessionId}`, {
-      headers: { Authorization: `Bearer ${kvToken}` },
-    });
-    const data = (await res.json()) as { result: string | null };
-    if (!data.result) return null;
-    let user: unknown = JSON.parse(data.result);
-    if (typeof user === 'string') user = JSON.parse(user);
-    if (!user || typeof user !== 'object') return null;
-    const u = user as SessionUser;
-
-    const adminIds = (process.env.ADMIN_IDS || '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const adminEmails = (process.env.ADMIN_EMAILS || '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const isAdmin =
-      Boolean(u.isAdmin) ||
-      (u.id != null && adminIds.includes(u.id)) ||
-      (u.email != null && adminEmails.includes(u.email));
-
-    return isAdmin ? u : null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
