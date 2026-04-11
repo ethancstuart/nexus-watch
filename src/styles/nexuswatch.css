@@ -2750,3 +2750,243 @@
     display: none;
   }
 }
+
+/* ── Live News Ticker ── */
+.nw-news-ticker {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  background: #050505;
+  border-top: 1px solid var(--color-border, #1a1a1a);
+  overflow: hidden;
+  font-family: 'JetBrains Mono', monospace;
+}
+.nw-ticker-label {
+  padding: 0 10px;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #ef4444;
+  font-weight: 700;
+  background: #ef444415;
+  border-right: 1px solid #1a1a1a;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.nw-ticker-track {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.nw-ticker-scroll {
+  display: flex;
+  white-space: nowrap;
+  animation: nw-ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+@keyframes nw-ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+.nw-ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+}
+.nw-ticker-source {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #ff6600;
+  font-weight: 600;
+}
+.nw-ticker-headline {
+  font-size: 10px;
+  color: #aaa;
+}
+.nw-ticker-time {
+  font-size: 8px;
+  color: #555;
+}
+.nw-ticker-sep {
+  color: #222;
+  font-size: 8px;
+}
+
+/* ── CCTV Panel ── */
+.nw-cctv-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 80;
+  background: rgba(5, 5, 5, 0.97);
+  border: 1px solid #ff660025;
+  border-radius: 8px;
+  width: 720px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+.nw-cctv-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border, #1a1a1a);
+  flex-shrink: 0;
+}
+.nw-cctv-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #e0e0e0;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nw-cctv-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: nw-hud-pulse 2s ease-in-out infinite;
+}
+.nw-cctv-filters {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.nw-cctv-filter {
+  background: transparent;
+  border: 1px solid var(--color-border, #222);
+  color: var(--color-text-muted, #666);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.nw-cctv-filter.active {
+  border-color: #ff6600;
+  color: #ff6600;
+}
+.nw-cctv-close {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 16px;
+  cursor: pointer;
+}
+.nw-cctv-close:hover {
+  color: #fff;
+}
+.nw-cctv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+.nw-cctv-card {
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.nw-cctv-card:hover {
+  border-color: #ff660040;
+}
+.nw-cctv-card-preview {
+  height: 80px;
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nw-cctv-card-static {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px;
+}
+.nw-cctv-card-rec {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: #ef4444;
+  animation: nw-hud-pulse 2s ease-in-out infinite;
+}
+.nw-cctv-card-type {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: #555;
+}
+.nw-cctv-card-info {
+  padding: 6px 8px;
+  display: flex;
+  justify-content: space-between;
+}
+.nw-cctv-card-name {
+  font-size: 10px;
+  color: #ccc;
+  font-weight: 600;
+}
+.nw-cctv-card-region {
+  font-size: 9px;
+  color: #555;
+}
+.nw-cctv-card-actions {
+  display: flex;
+  gap: 4px;
+  padding: 0 8px 8px;
+}
+.nw-cctv-card-actions button {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--color-border, #222);
+  color: var(--color-text-muted, #888);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  padding: 4px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.nw-cctv-card-actions button:hover {
+  border-color: #ff660060;
+  color: #ff6600;
+}
+.nw-cctv-loading,
+.nw-cctv-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #555;
+  font-size: 11px;
+  padding: 32px;
+}
+@media (max-width: 768px) {
+  .nw-cctv-panel {
+    width: calc(100% - 16px);
+  }
+  .nw-cctv-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .nw-cctv-grid {
+    grid-template-columns: 1fr;
+  }
+}

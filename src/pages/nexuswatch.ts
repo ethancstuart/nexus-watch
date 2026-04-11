@@ -50,6 +50,8 @@ import { EntityGraphPanel } from '../ui/entityGraph.ts';
 import { MultiViewController } from '../ui/multiView.ts';
 import { InvestigationManager } from '../ui/investigations.ts';
 import { CommandHud } from '../ui/commandHud.ts';
+import { NewsTicker } from '../ui/newsTicker.ts';
+import { CctvPanel } from '../ui/cctvPanel.ts';
 import { runThreatDetection, getAutoAlerts } from '../services/aiMonitor.ts';
 import {
   loadWatchlist,
@@ -246,6 +248,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   moreMenu.appendChild(multiBtn);
   moreMenu.appendChild(invBtn);
   moreMenu.appendChild(popoutSlot);
+  const cctvBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'CCTV' });
+  cctvBtn.title = 'Live cameras — ports, cities, launch sites';
+  moreMenu.appendChild(cctvBtn);
   moreMenu.appendChild(styleToggle);
   moreWrapper.appendChild(moreBtn);
   moreWrapper.appendChild(moreMenu);
@@ -470,6 +475,14 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // ── Command Center HUD ──
   const hud = new CommandHud(mapContainer, mapView);
   void hud;
+
+  // ── Live News Ticker ──
+  const ticker = new NewsTicker(app);
+  void ticker;
+
+  // ── CCTV Panel ──
+  const cctvPanelCtrl = new CctvPanel(mapView);
+  cctvBtn.addEventListener('click', () => cctvPanelCtrl.toggle(mapContainer));
 
   // ── Crisis Replay ──
   const crisisPlayer = new CrisisReplayPlayer(mapContainer, mapView);
