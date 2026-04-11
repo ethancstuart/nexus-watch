@@ -691,7 +691,18 @@ ${(() => {
       }
     }
 
-    // === Send transactional email via Resend (legacy subscribers only) ===
+    // === Send transactional email via Resend (per-recipient, batch API) ===
+    // Fix 2026-04-11 (P0 privacy): previously used a single /emails POST with
+    // `to: [allSubscribers]` which CC'd every subscriber to every other
+    // subscriber — a GDPR/CAN-SPAM incident. Now uses /emails/batch with a
+    // single-recipient payload per email object. Max 100 per batch request;
+    // paced to stay under Resend's default 10 req/sec rate limit.
+    //
+    // Scale note: the sync loop is fine up to ~30K subscribers (~30s of work
+    // inside the 300s Vercel function limit). Above that, migrate this block
+    // to Vercel Workflow (WDK) for durable execution, pause/resume, and
+    // crash-safe retries across multiple cron ticks. See Track D.1 for the
+    // self-heal hooks that will trigger the migration signal.
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
       try {
@@ -702,20 +713,73 @@ ${(() => {
         subscribers.forEach((s) => allEmails.add(s.email as string));
 
         if (allEmails.size > 0) {
-          const emailBatch = Array.from(allEmails).slice(0, 50);
-          await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-            body: JSON.stringify({
-              from: 'NexusWatch Intelligence <brief@nexuswatch.dev>',
-              to: emailBatch,
-              subject: `NexusWatch Intelligence Brief — ${today}`,
-              html: wrapEmailTemplate(briefHtml, today, utcTime, markets),
-            }),
-          });
+          const recipients = Array.from(allEmails);
+          const html = wrapEmailTemplate(briefHtml, today, utcTime, markets);
+          const subject = `NexusWatch Intelligence Brief — ${today}`;
+          const from = 'NexusWatch Intelligence <brief@nexuswatch.dev>';
+          const BATCH_SIZE = 100;
+
+          let sent = 0;
+          let failed = 0;
+          const errors: string[] = [];
+
+          for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+            const chunk = recipients.slice(i, i + BATCH_SIZE);
+            // Per-recipient payload: each email object has its own single-item
+            // `to` array, so no subscriber's address is ever exposed to another.
+            const payload = chunk.map((email) => ({ from, to: [email], subject, html }));
+
+            try {
+              const resp = await fetch('https://api.resend.com/emails/batch', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${resendKey}`,
+                },
+                body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(30000),
+              });
+
+              if (!resp.ok) {
+                const body = await resp.text().catch(() => '');
+                failed += chunk.length;
+                errors.push(
+                  `batch ${i}-${i + chunk.length - 1}: ${resp.status} ${body.slice(0, 200)}`,
+                );
+              } else {
+                sent += chunk.length;
+              }
+            } catch (err) {
+              failed += chunk.length;
+              errors.push(
+                `batch ${i}-${i + chunk.length - 1}: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            }
+
+            // Pace between batches to respect Resend's 10 req/sec default.
+            if (i + BATCH_SIZE < recipients.length) {
+              await new Promise((r) => setTimeout(r, 100));
+            }
+          }
+
+          // Surface failures to logs — do NOT silently swallow (was a P1 bug).
+          if (failed > 0) {
+            console.error(
+              `[daily-brief] Resend batch partial failure: sent=${sent}, failed=${failed}/${recipients.length}. First errors: ${errors.slice(0, 3).join(' | ')}`,
+            );
+          } else {
+            console.log(
+              `[daily-brief] Resend batch delivered to ${sent}/${recipients.length} recipients`,
+            );
+          }
         }
-      } catch {
-        /* Email failed — brief still stored */
+      } catch (err) {
+        // Top-level failure (e.g. DB query) — log, do not swallow. Brief is
+        // still stored in Postgres via the archive step above.
+        console.error(
+          '[daily-brief] Resend email path failed:',
+          err instanceof Error ? err.message : err,
+        );
       }
     }
 
