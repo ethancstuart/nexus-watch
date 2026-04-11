@@ -10,7 +10,17 @@ Severity key:
 
 ---
 
-## From Track A.4 (Delivery observability — shipped `<pending>`)
+## From Track A.6 (Light Intel Dossier email template — shipped `c09762d`)
+
+- **FUTURE (A.6.1)** — `/api/brief/preview?date=YYYY-MM-DD` endpoint that renders `renderDossierEmail({...})` for a given historical brief so designers can iterate visually without triggering a real cron. Should reuse `logDelivery` free. Low risk, small scope, next logical commit after A.6.
+- **FUTURE (A.6.2)** — 7-client cross-client test matrix execution: Gmail web, Gmail iOS, Apple Mail mac (light + dark), Apple Mail iOS, Outlook web, Outlook Windows, beehiiv preview. This is a MANUAL pass — ship the preview endpoint first, generate test sends to each client, screenshot, fix rendering issues until all 7 match. Litmus or an equivalent test service would automate this.
+- **FUTURE (A.6.3)** — Per-story hero images. Top Stories currently render with card shells and serif headlines but no imagery. The Apr 11 design direction calls for real news photos per story (no AI-generated images — credibility bomb on geopolitical content). Needs a source-article image fetcher + attribution line + branded gradient fallback.
+- **FUTURE (A.6.4)** — CII Movers dedicated module. A table of top climbers/fallers with sparklines disabled (Outlook kills them) styled with the dossier tokens. Currently the Sonnet "Top Stories" section mentions CII context inline but there's no dedicated module.
+- **FUTURE (A.6.5)** — Map of the Day static image embed. Depends on Track A.7 (`api/brief-screenshot.ts`) landing. The dossier template already has a Map of the Day text section; A.7 fills it with a generated image.
+- **FUTURE (A.9)** — Per-recipient Watchlist section. Requires Track F onboarding to land first (interests picker → stored interests → per-user brief variant). The Sonnet prompt already declares Watchlist out-of-scope, so Sonnet will never generate it; the template appends it per user at send time.
+- **CLEANUP** — The legacy `wrapEmailTemplate` function was deleted in A.6. `markdownToHtml` and `buildFallbackHtml` are still used by the site archive path (`daily_briefs.summary` column) and were intentionally NOT touched. If/when the site archive gets its own design pass (Track B, site surfaces), those two should also move to the tokens-based system or be documented as "intentionally dark terminal for the product surface."
+
+## From Track A.4 (Delivery observability — shipped `cfef0ea`)
 
 - **FUTURE** — Retry endpoint `POST /api/admin/brief/retry/:runId` was scoped in v5 plan Track A.4 but deferred from the first commit. The work it implies: (a) persist enough of the original brief payload (HTML, markdown, markets, CII data) to `brief_delivery_log.metadata` so a retry doesn't need to re-run the full Sonnet generation, (b) build a re-send handler that loads the failed channel rows for a `runId` and re-attempts only those, (c) the retry itself must be idempotent against the channels that already succeeded. Natural home after A.5/A.6 land, because those will stabilize the brief content format.
 - **FUTURE** — `brief_delivery_log` could gain a `stripe_webhook_failures` sibling table absorbing webhook processing errors from `api/stripe/webhook.ts`. Today those errors are only in Vercel function logs. Low priority until Stripe volume demands a structured audit trail.
