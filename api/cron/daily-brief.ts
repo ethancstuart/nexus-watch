@@ -1124,11 +1124,31 @@ ${(() => {
 // ============================================================================
 
 import { colors, fonts, type, space, layout, style, typeStyle } from '../../src/styles/email-tokens';
+import { REGIONS, THREATS, matchesInterests, type Interests, type RegionId } from '../../src/services/interests-types';
 
 export interface RenderedBrief {
   emailHtml: string;
   beehiivHtml: string;
   plainText: string;
+}
+
+/**
+ * Country shape used by the Watchlist personalization layer. Intentionally
+ * narrower than CIIEntry so callers that don't have the full component
+ * breakdown can still feed the renderer — only name/code/score are required.
+ *
+ * `regionIds` lets the caller pre-tag a country with the regions it belongs
+ * to so matchesInterests() can fire on region matches. Track A.9.1 ships
+ * this as an optional passthrough; Track A.9.2 will generate the mapping
+ * server-side during brief generation so the per-user render doesn't need
+ * to reconstruct country → region membership.
+ */
+export interface WatchlistCountry {
+  code?: string;
+  name: string;
+  score: number;
+  regionIds?: RegionId[];
+  topThreat?: 'conflict' | 'disasters' | 'disease' | 'cyber' | 'markets' | 'space';
 }
 
 export interface RenderBriefOptions {
@@ -1138,6 +1158,22 @@ export interface RenderBriefOptions {
   markets: MarketQuote[];
   /** URL of the corresponding /brief/:date permalink, for forward-to-colleague. */
   archiveUrl?: string;
+  /**
+   * Per-recipient interests. When present, renderDossierEmail emits a
+   * "Your Watchlist" module at the end of the inner content showing the
+   * top-risk countries that match the user's interest regions/threats.
+   * When absent, no Watchlist module is rendered — appropriate for the
+   * shared beehiiv post body or for anonymous preview requests. See
+   * Track A.9 in NEXUSWATCH-COMPLETION-PLAN.md.
+   */
+  interests?: Interests;
+  /**
+   * The country-level risk data the Watchlist filter runs against. Pulled
+   * from briefData.topRiskCountries at send time and forwarded through
+   * renderDossierEmail. Accepts the narrow WatchlistCountry shape above
+   * so callers can project from whatever their own structure looks like.
+   */
+  watchlistCountries?: WatchlistCountry[];
 }
 
 /**
@@ -1353,6 +1389,156 @@ function renderMarketPulse(markets: MarketQuote[]): string {
       }),
     )}>Market Pulse</div>` +
     strip +
+    `</div>`
+  );
+}
+
+/**
+ * Render the "Your Watchlist" personalized module (Track A.9).
+ *
+ * Takes a recipient's declared interests + the brief's top-risk
+ * countries, filters the countries down to the ones matching the
+ * recipient's regions or top threat category, and emits a dossier
+ * module with the top 3 matches. Each match gets a score badge and
+ * a short "why this matters to you" tag built from the intersection
+ * reasons.
+ *
+ * Returns an empty string if:
+ *   - interests is undefined (anonymous preview / shared beehiiv path)
+ *   - countries list is empty
+ *   - no country matches the user's interests (we'd rather show
+ *     nothing than a misleading empty card; the brief's main body
+ *     still covers the global situation)
+ *
+ * This is the "hybrid personalization" from Apr 10 Decision 9: the
+ * shared brief body is the same for every reader; the Watchlist
+ * module is the one slice that varies per recipient.
+ */
+function renderYourWatchlist(interests: Interests | undefined, countries: WatchlistCountry[] | undefined): string {
+  if (!interests || !countries || countries.length === 0) return '';
+
+  // Score each country against the user's interests and keep the
+  // matches. matchesInterests returns {match, reasons} — we sort by
+  // CII score within the matched set so the most urgent items lead.
+  const matched = countries
+    .map((country) => {
+      const result = matchesInterests(country, interests);
+      return result.match ? { country, reasons: result.reasons } : null;
+    })
+    .filter((m): m is { country: WatchlistCountry; reasons: string[] } => m !== null)
+    .sort((a, b) => b.country.score - a.country.score)
+    .slice(0, 3);
+
+  if (matched.length === 0) return '';
+
+  const rows = matched
+    .map(({ country, reasons }) => {
+      const scoreColor =
+        country.score >= 70
+          ? colors.down
+          : country.score >= 50
+            ? colors.accent
+            : country.score >= 30
+              ? colors.divider
+              : colors.up;
+
+      return (
+        `<div ${styleAttr(
+          style({
+            display: 'block',
+            margin: `0 0 ${space.md} 0`,
+            padding: `${space.md} ${space.lg}`,
+            background: colors.bgCard,
+            border: `1px solid ${colors.border}`,
+            borderLeft: `3px solid ${scoreColor}`,
+            borderRadius: layout.radiusCallout,
+          }),
+        )}>` +
+        // Row: country name on the left, score chip on the right.
+        `<div ${styleAttr(
+          style({
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            marginBottom: space.xs,
+          }),
+        )}>` +
+        `<span ${styleAttr(
+          typeStyle(type.storyHeadline, {
+            color: colors.textPrimary,
+            fontSize: '18px',
+            margin: 0,
+          }),
+        )}>${escapeHtml(country.name)}</span>` +
+        `<span ${styleAttr(
+          typeStyle(type.dataStrong, {
+            color: scoreColor,
+            fontSize: '14px',
+          }),
+        )}>CII ${country.score}</span>` +
+        `</div>` +
+        // Reasons tag — why this country is in THIS user's Watchlist.
+        `<div ${styleAttr(
+          typeStyle(type.caption, {
+            color: colors.textTertiary,
+            marginTop: space.xs,
+          }),
+        )}>` +
+        `<span ${styleAttr(
+          style({
+            fontFamily: fonts.mono,
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: colors.accent,
+            marginRight: space.sm,
+          }),
+        )}>Matches</span>` +
+        `${reasons.map((r) => escapeHtml(r)).join(' · ')}` +
+        `</div>` +
+        `</div>`
+      );
+    })
+    .join('');
+
+  // Summary strip at the top of the section so the reader sees which
+  // of their interests the match was against. Built from the
+  // intersection of the interests enums so we don't leak the raw
+  // region/threat IDs into the email.
+  const regionLabels = interests.regions.map((r) => REGIONS.find((x) => x.id === r)?.label ?? r).join(' · ');
+  const threatLabels = interests.threats.map((t) => THREATS.find((x) => x.id === t)?.label ?? t).join(' · ');
+
+  return (
+    `<div ${styleAttr(
+      style({
+        margin: `${space.xxl} 0 ${space.xxl} 0`,
+        paddingTop: space.xl,
+        borderTop: `2px solid ${colors.divider}`,
+      }),
+    )}>` +
+    // Kicker label + serif headline
+    `<div ${styleAttr(
+      typeStyle(type.kicker, {
+        color: colors.accent,
+        margin: `0 0 ${space.xs} 0`,
+      }),
+    )}>YOUR WATCHLIST</div>` +
+    `<h2 ${styleAttr(
+      typeStyle(type.storyHeadline, {
+        color: colors.textPrimary,
+        margin: `0 0 ${space.sm} 0`,
+      }),
+    )}>Based on your interests</h2>` +
+    // Interest summary strip
+    `<div ${styleAttr(
+      typeStyle(type.caption, {
+        color: colors.textTertiary,
+        margin: `0 0 ${space.lg} 0`,
+      }),
+    )}>${[regionLabels, threatLabels].filter(Boolean).join(' · ')}</div>` +
+    // Matched country rows
+    rows +
     `</div>`
   );
 }
@@ -1590,13 +1776,24 @@ function renderPlainText(briefText: string, date: string, time: string, archiveU
 /**
  * Compose the inner dossier content block (used by both the full email and
  * the beehiiv post body). Structure: Market Pulse → all Sonnet sections in
- * order. The Sonnet output controls the narrative sections; this function
- * just styles them and inserts the Market Pulse module after Good Morning.
+ * order → optional Your Watchlist module (per-recipient). The Sonnet output
+ * controls the narrative sections; this function just styles them and
+ * inserts the Market Pulse module after Good Morning and the Watchlist
+ * module at the end.
  *
  * Passes `date` down to renderSection so the Map of the Day module can
- * embed the correct screenshot URL.
+ * embed the correct screenshot URL. When `interests` + `watchlistCountries`
+ * are provided, appends the personalized Watchlist at the end via
+ * renderYourWatchlist (Track A.9). When absent, no Watchlist is rendered —
+ * appropriate for the shared beehiiv post body.
  */
-function renderDossierInner(briefText: string, markets: MarketQuote[], date: string): string {
+function renderDossierInner(
+  briefText: string,
+  markets: MarketQuote[],
+  date: string,
+  interests?: Interests,
+  watchlistCountries?: WatchlistCountry[],
+): string {
   const sections = parseSections(briefText);
   if (sections.length === 0) {
     // Fallback: wrap the whole body as a single paragraph block.
@@ -1621,6 +1818,12 @@ function renderDossierInner(briefText: string, markets: MarketQuote[], date: str
   if (!marketPulseInserted) {
     pieces.unshift(renderMarketPulse(markets));
   }
+
+  // Per-recipient Watchlist module — empty string when interests is
+  // undefined or no countries match, so the beehiiv shared post body
+  // gets no Watchlist section automatically.
+  const watchlistHtml = renderYourWatchlist(interests, watchlistCountries);
+  if (watchlistHtml) pieces.push(watchlistHtml);
 
   return pieces.join('\n');
 }
@@ -1661,9 +1864,9 @@ function renderDarkModeStyleBlock(): string {
  * renderings (email shell, beehiiv content, plain-text).
  */
 export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
-  const { briefText, date, time, markets } = opts;
+  const { briefText, date, time, markets, interests, watchlistCountries } = opts;
   const archiveUrl = opts.archiveUrl ?? `https://nexuswatch.dev/#/brief/${date}`;
-  const inner = renderDossierInner(briefText, markets, date);
+  const inner = renderDossierInner(briefText, markets, date, interests, watchlistCountries);
 
   // Full standalone email shell for Resend transactional path.
   const emailHtml = `<!DOCTYPE html>

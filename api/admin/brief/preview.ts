@@ -1,7 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { resolveAdmin } from '../_auth';
-import { renderDossierEmail } from '../../cron/daily-brief';
+import { renderDossierEmail, type WatchlistCountry } from '../../cron/daily-brief';
+import {
+  DEFAULT_INTERESTS,
+  type Interests,
+  type RegionId,
+  type ThreatId,
+  type SectorId,
+} from '../../../src/services/interests-types';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -46,6 +53,100 @@ interface BriefContent {
   briefText?: string;
   utcTime?: string;
   markets?: Array<{ symbol: string; price: string; change: string; direction: 'up' | 'down' | 'flat' }>;
+  topRiskCountries?: Array<{
+    code?: string;
+    name?: string;
+    score?: number;
+    components?: Record<string, number>;
+  }>;
+}
+
+/**
+ * Parse a CSV-style interests query param into the structured
+ * Interests object renderDossierEmail expects. Accepts a compact
+ * shape like:
+ *
+ *   ?interests=regions:asia,middle-east;threats:conflict,cyber;sectors:energy;freq:daily
+ *
+ * Any missing groups fall back to the DEFAULT_INTERESTS values so
+ * a caller can test with just `?interests=regions:oceania` and get
+ * a sensible render. Marks onboarded=true so the renderer treats
+ * these as deliberate picks, not inferred defaults.
+ */
+function parseInterestsQueryParam(raw: string | undefined): Interests | undefined {
+  if (!raw) return undefined;
+  const parts: Record<string, string[]> = {};
+  for (const segment of raw.split(';')) {
+    const [group, values] = segment.split(':');
+    if (!group || !values) continue;
+    parts[group.trim()] = values
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  const regions: RegionId[] = (parts.regions ?? []).filter((r): r is RegionId =>
+    ['africa', 'asia', 'europe', 'north-america', 'south-america', 'oceania', 'middle-east', 'caribbean'].includes(r),
+  ) as RegionId[];
+  const threats: ThreatId[] = (parts.threats ?? []).filter((t): t is ThreatId =>
+    ['conflict', 'disasters', 'disease', 'cyber', 'markets', 'space'].includes(t),
+  ) as ThreatId[];
+  const sectors: SectorId[] = (parts.sectors ?? []).filter((s): s is SectorId =>
+    ['energy', 'shipping', 'defense', 'tech', 'crypto', 'agriculture'].includes(s),
+  ) as SectorId[];
+
+  const rawFreq = parts.freq?.[0];
+  const frequency: Interests['frequency'] =
+    rawFreq === 'daily' || rawFreq === 'mwf' || rawFreq === 'weekly' ? rawFreq : 'daily';
+
+  return {
+    regions: regions.length > 0 ? regions : DEFAULT_INTERESTS.regions,
+    threats: threats.length > 0 ? threats : DEFAULT_INTERESTS.threats,
+    sectors,
+    frequency,
+    updatedAt: new Date().toISOString(),
+    onboarded: true,
+  };
+}
+
+/**
+ * Build the WatchlistCountry projection the renderer expects from
+ * whatever topRiskCountries shape is in the stored content. Best-
+ * effort: if a country lacks code/name we drop it rather than
+ * render garbage.
+ *
+ * Does NOT yet infer regionIds from country codes — that mapping
+ * table will ship with Track A.9.2 alongside the per-user Resend
+ * loop. Until then Watchlist matches on topThreat only, which is
+ * derived from whichever component has the highest weight on that
+ * country's CII.
+ */
+function toWatchlistCountries(countries: BriefContent['topRiskCountries']): WatchlistCountry[] {
+  if (!countries) return [];
+  return countries
+    .filter(
+      (c): c is { code?: string; name: string; score: number; components?: Record<string, number> } =>
+        typeof c.name === 'string' && typeof c.score === 'number',
+    )
+    .map((c) => {
+      // Pick the component with the highest value as the "top
+      // threat" for matching. conflict/disasters/governance
+      // components map to the equivalent threat IDs where possible.
+      const componentToThreat: Record<string, WatchlistCountry['topThreat']> = {
+        conflict: 'conflict',
+        disasters: 'disasters',
+        sentiment: 'conflict',
+        infrastructure: 'cyber',
+        marketExposure: 'markets',
+        governance: 'conflict',
+      };
+      let topThreat: WatchlistCountry['topThreat'];
+      if (c.components) {
+        const entries = Object.entries(c.components).sort(([, a], [, b]) => b - a);
+        if (entries.length > 0) topThreat = componentToThreat[entries[0][0]];
+      }
+      return { code: c.code, name: c.name, score: c.score, topThreat };
+    });
 }
 
 function formatGeneratedAt(iso: string | null): string {
@@ -133,11 +234,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'brief_text_missing' });
     }
 
+    // Optional per-recipient personalization. When the caller passes
+    // ?interests=regions:asia;threats:conflict the renderer appends a
+    // Your Watchlist section filtered against those interests. This is
+    // how we visually verify Track A.9 without needing a real logged-in
+    // user with stored interests.
+    const interestsParam = typeof req.query.interests === 'string' ? req.query.interests : undefined;
+    const interests = parseInterestsQueryParam(interestsParam);
+    const watchlistCountries = interests ? toWatchlistCountries(content.topRiskCountries) : undefined;
+
     const dossier = renderDossierEmail({
       briefText,
       date: row.brief_date,
       time: content.utcTime ?? formatGeneratedAt(row.generated_at),
       markets: content.markets ?? [],
+      interests,
+      watchlistCountries,
     });
 
     // Disable browser cache so iteration-time reloads always fetch fresh.
