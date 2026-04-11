@@ -5,6 +5,7 @@
 
 import { createElement } from '../utils/dom.ts';
 import { getUser, login, logout, checkSession, onAuthChange } from '../services/auth.ts';
+import { getTheme, applyTheme } from '../config/theme.ts';
 import type { User } from '../types/index.ts';
 
 export function createUserMenu(container: HTMLElement): { refresh: () => void } {
@@ -110,6 +111,11 @@ function showLoginModal(container: HTMLElement): void {
 
 function showDropdown(wrapper: HTMLElement, user: User): void {
   const dropdown = createElement('div', { className: 'nw-user-dropdown' });
+  const currentTheme = getTheme();
+  // Render the next-theme label on the button so users see what clicking
+  // does, not what they're currently on. Terminal ↔ Dossier cycle.
+  const nextThemeLabel = currentTheme === 'terminal' ? 'Dossier (light)' : 'Terminal (dark)';
+
   dropdown.innerHTML = `
     <div class="nw-dropdown-header">
       <div class="nw-dropdown-name">${user.name}</div>
@@ -120,8 +126,21 @@ function showDropdown(wrapper: HTMLElement, user: User): void {
     <button class="nw-dropdown-item api-keys">API Keys</button>
     <a class="nw-dropdown-item" href="/api/v1/docs" target="_blank" style="text-decoration:none">API Documentation</a>
     <div class="nw-dropdown-divider"></div>
+    <button class="nw-dropdown-item theme-toggle" data-theme="${currentTheme}">Theme: ${nextThemeLabel}</button>
+    <div class="nw-dropdown-divider"></div>
     <button class="nw-dropdown-item logout">Sign Out</button>
   `;
+
+  // Theme toggle — cycle terminal ↔ dossier. Keeps the dropdown open
+  // so users can immediately toggle back if they want to compare.
+  const themeBtn = dropdown.querySelector<HTMLButtonElement>('.theme-toggle');
+  themeBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const now = themeBtn.dataset.theme === 'terminal' ? 'dossier' : 'terminal';
+    applyTheme(now);
+    themeBtn.dataset.theme = now;
+    themeBtn.textContent = `Theme: ${now === 'terminal' ? 'Dossier (light)' : 'Terminal (dark)'}`;
+  });
 
   wrapper.appendChild(dropdown);
 
