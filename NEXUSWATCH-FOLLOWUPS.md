@@ -42,9 +42,9 @@ Severity key:
 
 ### Code / documentation drift (action items for other tracks)
 
-- **CLEANUP** — `CLAUDE.md` says the Country Intelligence Index covers 23 nations. Actual `src/services/countryInstabilityIndex.ts` covers **50**. Update the CLAUDE.md section on Intelligence Systems to reflect the real number before it bites another agent.
+- ~~**CLEANUP** — `CLAUDE.md` CII count stale~~ — Resolved in commit `<pending>`. The actual situation was different from the E.1 agent's framing. See correction below.
+- **CLEANUP (corrected)** — Two CII implementations coexist but neither is "legacy duplication." `src/services/countryIndex.ts` (139 lines, 23 countries, 4-component scoring) is the **live** path, imported by `src/pages/nexuswatch.ts`. `src/services/countryInstabilityIndex.ts` (327 lines, 50 countries, 6-component scoring: Conflict 20% + Disasters 15% + Sentiment 15% + Infrastructure 15% + Governance 15% + Market Exposure 20%) is **unused scaffolding** added Apr 8 with zero imports. The E.1 agent read this backwards. Real cleanup path is the Track E.7 migration: port `nexuswatch.ts` to the new file, expand coverage to 80+ per `docs/GLOBAL-COVERAGE-BASELINE.md` tier plan, then delete the 23-country file. **Do not delete either file in isolation** — the 327-line file is load-bearing scaffolding and the 139-line file is the live production path.
 - **BUG** — `src/services/interests.ts` is referenced in `CLAUDE.md` as an existing service but does not exist in the repo. Track F (onboarding) must **create** it, not update it. Flagged before the onboarding agent writes a wrong import.
-- **CLEANUP** — Two CII services coexist: `src/services/countryIndex.ts` (legacy, 23 countries) and `src/services/countryInstabilityIndex.ts` (current, 50 countries). One should be removed once we confirm nothing still imports the legacy file. Run: `grep -r "countryIndex" src/` before deletion.
 
 ### Data quality caveats
 

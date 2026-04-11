@@ -37,7 +37,9 @@ The primary view at `#/intel` — a full-screen MapLibre GL 3D globe with 30 dat
 ### Intelligence Systems (4)
 - **Tension Index Algorithm**: composite 0-100 score from conflict, disasters, sentiment, instability. 7-day rolling history
 - **Geo-correlation engine** (`src/services/geoIntelligence.ts`): detects earthquake clusters, fire convergence, negative news surges, multi-signal events
-- **Country Intelligence Index** (`src/services/countryIndex.ts`): 23 nations scored 0-100 across events/disasters/sentiment/predictions
+- **Country Intelligence Index** — two coexisting implementations:
+  - **Live (current production path):** `src/services/countryIndex.ts` — 23 nations, 4-component scoring (events/disasters/sentiment/predictions). Wired into `src/pages/nexuswatch.ts`.
+  - **Next-gen scaffolding (unused until Track E.7):** `src/services/countryInstabilityIndex.ts` — 50 nations, richer 6-component CII (Conflict 20% + Disasters 15% + Sentiment 15% + Infrastructure 15% + Governance 15% + Market Exposure 20%). Built Apr 8 but never wired up. Track E.7 will migrate `nexuswatch.ts` to this file and expand coverage to 80+ countries per the `docs/GLOBAL-COVERAGE-BASELINE.md` tier plan. Do not delete — it's load-bearing scaffolding.
 - **Personal Intel Engine**: user-defined watchlists, keyword/country matching, AI morning briefs, browser notifications
 - **Intel Bar** (`src/ui/intelBar.ts`): severity-colored alert pills with fly-to-location on click
 - **AI Sitreps** (`api/sitrep.ts`): Claude Haiku generates situation reports from current layer data
