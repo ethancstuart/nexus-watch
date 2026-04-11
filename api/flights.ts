@@ -169,6 +169,12 @@ async function fetchAdsbLol(res: VercelResponse) {
     { lat: 13, lon: 100, dist: 250 }, // Southeast Asia / Thailand
     { lat: 19, lon: 73, dist: 250 }, // South Asia / India
     { lat: -33, lon: 151, dist: 250 }, // Australia / Sydney
+    { lat: 15, lon: -60, dist: 250 }, // Caribbean
+    { lat: -34, lon: -58, dist: 250 }, // South America / Argentina
+    { lat: 50, lon: 10, dist: 250 }, // Central Europe / Germany
+    { lat: 30, lon: 70, dist: 250 }, // Central Asia / Pakistan
+    { lat: -15, lon: 28, dist: 250 }, // Southern Africa / Zambia
+    { lat: 60, lon: 25, dist: 250 }, // Scandinavia / Finland
   ];
 
   const MIL_PREFIXES = [
