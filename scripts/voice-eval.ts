@@ -26,11 +26,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import {
-  runDeterministicChecks,
-  formatResult,
-  type Platform,
-} from '../src/voice/deterministic.ts';
+import { runDeterministicChecks, formatResult, type Platform } from '../src/voice/deterministic.ts';
 
 interface CliArgs {
   platform: Platform;

@@ -370,11 +370,7 @@ button.landing-price-btn:disabled {
   margin: 0 auto 28px;
   padding: 18px 24px;
   border: 1px solid rgba(255, 102, 0, 0.35);
-  background: linear-gradient(
-    90deg,
-    rgba(255, 102, 0, 0.08) 0%,
-    rgba(255, 102, 0, 0.02) 100%
-  );
+  background: linear-gradient(90deg, rgba(255, 102, 0, 0.08) 0%, rgba(255, 102, 0, 0.02) 100%);
   border-radius: 6px;
 }
 .landing-founding-banner[hidden] {

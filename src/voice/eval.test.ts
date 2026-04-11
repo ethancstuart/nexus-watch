@@ -67,8 +67,7 @@ describe('runDeterministicChecks — forbidden phrases', () => {
   it('fails when the founder is named', () => {
     const r = runDeterministicChecks({
       platform: 'linkedin',
-      content:
-        'NexusWatch was built by Ethan and we are proud of the work. Our team is tracking many layers daily.',
+      content: 'NexusWatch was built by Ethan and we are proud of the work. Our team is tracking many layers daily.',
     });
     expect(r.passed).toBe(false);
     expect(r.violations.some((v) => v.includes('founder'))).toBe(true);
@@ -106,8 +105,7 @@ describe('runDeterministicChecks — forbidden phrases', () => {
   it('fails on "wake up" conspiracy phrasing', () => {
     const r = runDeterministicChecks({
       platform: 'x',
-      content:
-        'Our layer is showing something the media is not covering. Wake up and look at the data.',
+      content: 'Our layer is showing something the media is not covering. Wake up and look at the data.',
     });
     expect(r.passed).toBe(false);
     expect(r.violations.some((v) => v.includes('wake up'))).toBe(true);
@@ -135,8 +133,7 @@ describe('runDeterministicChecks — forbidden phrases', () => {
   it('fails on overclaimed prediction accuracy', () => {
     const r = runDeterministicChecks({
       platform: 'x',
-      content:
-        'Our AI can predict with 95% accuracy when a major strike event will occur. We have forecasted several.',
+      content: 'Our AI can predict with 95% accuracy when a major strike event will occur. We have forecasted several.',
     });
     expect(r.passed).toBe(false);
     expect(r.violations.some((v) => v.includes('overclaims'))).toBe(true);
@@ -155,14 +152,12 @@ describe('runDeterministicChecks — forbidden phrases', () => {
   it('fails on named partisan US politician criticism', () => {
     const r = runDeterministicChecks({
       platform: 'x',
-      content:
-        'Biden is completely wrong about the Taiwan situation and we think his approach is a disaster.',
+      content: 'Biden is completely wrong about the Taiwan situation and we think his approach is a disaster.',
     });
     expect(r.passed).toBe(false);
-    expect(
-      r.violations.some((v) => v.includes('partisan') || v.includes('founder')) ||
-        r.violations.length > 0,
-    ).toBe(true);
+    expect(r.violations.some((v) => v.includes('partisan') || v.includes('founder')) || r.violations.length > 0).toBe(
+      true,
+    );
   });
 
   it('fails on "unpopular opinion" engagement bait', () => {
@@ -301,7 +296,7 @@ describe('reference good drafts', () => {
     const r = runDeterministicChecks({
       platform: 'x',
       content:
-        "We are — our GPS jamming layer flagged a fresh spike over Kaliningrad about 6 hours ago. About a dozen commercial flights rerouted. Worth watching because the last jamming window like this lasted nine days.",
+        'We are — our GPS jamming layer flagged a fresh spike over Kaliningrad about 6 hours ago. About a dozen commercial flights rerouted. Worth watching because the last jamming window like this lasted nine days.',
     });
     expect(r.passed).toBe(true);
   });

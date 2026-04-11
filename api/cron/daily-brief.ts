@@ -663,24 +663,21 @@ ${(() => {
           ? subtitleMatch[1].trim().slice(0, 200)
           : `Your daily geopolitical intelligence scan — ${today}`;
 
-        const beehiivRes = await fetch(
-          `https://api.beehiiv.com/v2/publications/${beehiivPubId}/posts`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${beehiivKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              title: `The NexusWatch Brief — ${today}`,
-              subtitle,
-              content_html: briefHtml,
-              status: 'confirmed',
-              send_to: 'all',
-            }),
-            signal: AbortSignal.timeout(15000),
+        const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/posts`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${beehiivKey}`,
+            'Content-Type': 'application/json',
           },
-        );
+          body: JSON.stringify({
+            title: `The NexusWatch Brief — ${today}`,
+            subtitle,
+            content_html: briefHtml,
+            status: 'confirmed',
+            send_to: 'all',
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
 
         if (!beehiivRes.ok) {
           const body = await beehiivRes.text().catch(() => '');
@@ -783,9 +780,7 @@ ${(() => {
             errors?: Array<{ message?: string }>;
           };
           bufferPostId = bufferData.data?.createPost?.post?.id;
-          bufferMutationError =
-            bufferData.data?.createPost?.message ||
-            bufferData.errors?.[0]?.message;
+          bufferMutationError = bufferData.data?.createPost?.message || bufferData.errors?.[0]?.message;
         } catch {
           /* non-JSON response — treat as soft success, Buffer's GraphQL is stable */
         }
@@ -867,17 +862,13 @@ ${(() => {
               if (!resp.ok) {
                 const body = await resp.text().catch(() => '');
                 failed += chunk.length;
-                errors.push(
-                  `batch ${i}-${i + chunk.length - 1}: ${resp.status} ${body.slice(0, 200)}`,
-                );
+                errors.push(`batch ${i}-${i + chunk.length - 1}: ${resp.status} ${body.slice(0, 200)}`);
               } else {
                 sent += chunk.length;
               }
             } catch (err) {
               failed += chunk.length;
-              errors.push(
-                `batch ${i}-${i + chunk.length - 1}: ${err instanceof Error ? err.message : String(err)}`,
-              );
+              errors.push(`batch ${i}-${i + chunk.length - 1}: ${err instanceof Error ? err.message : String(err)}`);
             }
 
             // Pace between batches to respect Resend's 10 req/sec default.
@@ -915,9 +906,7 @@ ${(() => {
               metadata: { batches: Math.ceil(recipients.length / BATCH_SIZE) },
             });
           } else {
-            console.log(
-              `[daily-brief] Resend batch delivered to ${sent}/${recipients.length} recipients`,
-            );
+            console.log(`[daily-brief] Resend batch delivered to ${sent}/${recipients.length} recipients`);
             await logDelivery({
               channel: 'resend',
               status: 'success',
@@ -1002,24 +991,19 @@ ${(() => {
         let blocksWritten = 0;
         for (let i = 0; i < blocks.length; i += 100) {
           const batch = blocks.slice(i, i + 100);
-          const blockRes = await fetch(
-            `https://api.notion.com/v1/blocks/${page.id}/children`,
-            {
-              method: 'PATCH',
-              headers: {
-                Authorization: `Bearer ${notionKey}`,
-                'Content-Type': 'application/json',
-                'Notion-Version': '2022-06-28',
-              },
-              body: JSON.stringify({ children: batch }),
-              signal: AbortSignal.timeout(10000),
+          const blockRes = await fetch(`https://api.notion.com/v1/blocks/${page.id}/children`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${notionKey}`,
+              'Content-Type': 'application/json',
+              'Notion-Version': '2022-06-28',
             },
-          );
+            body: JSON.stringify({ children: batch }),
+            signal: AbortSignal.timeout(10000),
+          });
           if (!blockRes.ok) {
             const body = await blockRes.text().catch(() => '');
-            throw new Error(
-              `notion block patch ${blockRes.status} (batch ${i}): ${body.slice(0, 200)}`,
-            );
+            throw new Error(`notion block patch ${blockRes.status} (batch ${i}): ${body.slice(0, 200)}`);
           }
           blocksWritten += batch.length;
         }

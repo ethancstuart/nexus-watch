@@ -58,10 +58,7 @@ describe('computeScore', () => {
   });
 
   it('treats null record/freshness as neutral passes on a successful probe', () => {
-    const score = computeScore(
-      happyProbe({ recordCount: null, freshnessSeconds: null, latencyMs: 100 }),
-      3600,
-    );
+    const score = computeScore(happyProbe({ recordCount: null, freshnessSeconds: null, latencyMs: 100 }), 3600);
     expect(score).toBe(100);
   });
 });
@@ -155,10 +152,7 @@ describe('advanceBreaker', () => {
   });
 
   it('re-opens from half_open on a single failure', () => {
-    const next = advanceBreaker(
-      { circuitState: 'half_open', consecutiveFailures: 0, halfOpenSuccesses: 1 },
-      false,
-    );
+    const next = advanceBreaker({ circuitState: 'half_open', consecutiveFailures: 0, halfOpenSuccesses: 1 }, false);
     expect(next.circuitState).toBe('open');
   });
 });
@@ -177,9 +171,7 @@ describe('resolveProbeUrl', () => {
   });
 
   it('prefixes relative paths with a VERCEL_URL that already has scheme', () => {
-    expect(resolveProbeUrl('/api/fires', 'https://preview.vercel.app')).toBe(
-      'https://preview.vercel.app/api/fires',
-    );
+    expect(resolveProbeUrl('/api/fires', 'https://preview.vercel.app')).toBe('https://preview.vercel.app/api/fires');
   });
 
   it('falls back to nexuswatch.dev when no base is provided', () => {

@@ -107,7 +107,8 @@ const FORBIDDEN_PHRASES: { pattern: RegExp; reason: string }[] = [
     reason: 'speculative violence framing (not allowed without a named source)',
   },
   {
-    pattern: /\b(biden|trump|harris|desantis|aoc|mcconnell|pelosi) (is|was) (wrong|right|completely|asleep|a disaster)\b/i,
+    pattern:
+      /\b(biden|trump|harris|desantis|aoc|mcconnell|pelosi) (is|was) (wrong|right|completely|asleep|a disaster)\b/i,
     reason: 'partisan US politics about a named US politician',
   },
   { pattern: /\bunpopular opinion\b/i, reason: 'uses engagement-bait phrase "unpopular opinion"' },
@@ -155,14 +156,10 @@ function runDeterministicChecks(draft: VoiceDraft): { passed: boolean; violation
   if (emojiMatches.length > emojiLimit) {
     violations.push(`exceeds ${draft.platform} emoji limit: ${emojiMatches.length}/${emojiLimit}`);
   }
-  const nonBrandEmoji = emojiMatches.filter(
-    (e) => !(BRAND_EMOJI_SET as readonly string[]).includes(e),
-  );
+  const nonBrandEmoji = emojiMatches.filter((e) => !(BRAND_EMOJI_SET as readonly string[]).includes(e));
   if (nonBrandEmoji.length > 0) {
     const unique = [...new Set(nonBrandEmoji)].join('');
-    violations.push(
-      `contains emoji outside the brand set (${unique}); allowed: ${BRAND_EMOJI_SET.join('')}`,
-    );
+    violations.push(`contains emoji outside the brand set (${unique}); allowed: ${BRAND_EMOJI_SET.join('')}`);
   }
 
   if (FIRST_PERSON_SINGULAR.test(content)) {

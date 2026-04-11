@@ -43,11 +43,7 @@ interface StripeEvent {
   };
 }
 
-async function verifySignature(
-  payload: string,
-  sigHeader: string,
-  secret: string,
-): Promise<boolean> {
+async function verifySignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
   const parts = sigHeader.split(',').reduce(
     (acc, part) => {
       const [key, value] = part.split('=');
@@ -120,10 +116,7 @@ export default async function handler(req: Request): Promise<Response> {
   } catch (err) {
     // KV read failed — log and continue. Worst case we re-process an event,
     // which our handlers are idempotent against.
-    console.error(
-      '[stripe/webhook] Idempotency check failed:',
-      err instanceof Error ? err.message : err,
-    );
+    console.error('[stripe/webhook] Idempotency check failed:', err instanceof Error ? err.message : err);
   }
 
   try {
@@ -180,9 +173,7 @@ export default async function handler(req: Request): Promise<Response> {
         const metadata = (session.metadata as Record<string, string>) || {};
         if (metadata.tier === 'founding') {
           await kvDecr(kvUrl, kvToken, 'stripe-founding-reserved');
-          console.log(
-            `[stripe/webhook] Released founding reservation for expired session (user ${metadata.userId})`,
-          );
+          console.log(`[stripe/webhook] Released founding reservation for expired session (user ${metadata.userId})`);
         }
         break;
       }
@@ -194,9 +185,7 @@ export default async function handler(req: Request): Promise<Response> {
 
         const userId = await findUserByCustomerId(kvUrl, kvToken, customerId);
         if (!userId) {
-          console.error(
-            `[stripe/webhook] subscription.updated: no user found for customer ${customerId}`,
-          );
+          console.error(`[stripe/webhook] subscription.updated: no user found for customer ${customerId}`);
           break;
         }
 
@@ -223,9 +212,7 @@ export default async function handler(req: Request): Promise<Response> {
 
         const userId = await findUserByCustomerId(kvUrl, kvToken, customerId);
         if (!userId) {
-          console.error(
-            `[stripe/webhook] subscription.deleted: no user found for customer ${customerId}`,
-          );
+          console.error(`[stripe/webhook] subscription.deleted: no user found for customer ${customerId}`);
           break;
         }
 
@@ -287,11 +274,7 @@ async function kvSet(kvUrl: string, kvToken: string, key: string, value: unknown
   });
 }
 
-async function kvGetJson<T>(
-  kvUrl: string,
-  kvToken: string,
-  key: string,
-): Promise<T | null> {
+async function kvGetJson<T>(kvUrl: string, kvToken: string, key: string): Promise<T | null> {
   try {
     const res = await fetch(`${kvUrl}/get/${encodeURIComponent(key)}`, {
       headers: { Authorization: `Bearer ${kvToken}` },
@@ -328,11 +311,7 @@ async function kvDecr(kvUrl: string, kvToken: string, key: string): Promise<void
  * existed (pre-A.2). Opportunistically writes the reverse index on successful
  * scan hits so future lookups become O(1).
  */
-async function findUserByCustomerId(
-  kvUrl: string,
-  kvToken: string,
-  customerId: string,
-): Promise<string | null> {
+async function findUserByCustomerId(kvUrl: string, kvToken: string, customerId: string): Promise<string | null> {
   // Fast path: reverse index
   try {
     const res = await fetch(`${kvUrl}/get/stripe-customer:${customerId}`, {
@@ -379,10 +358,7 @@ async function findUserByCustomerId(
       }
     } while (cursor !== '0');
   } catch (err) {
-    console.error(
-      '[stripe/webhook] Legacy scan fallback failed:',
-      err instanceof Error ? err.message : err,
-    );
+    console.error('[stripe/webhook] Legacy scan fallback failed:', err instanceof Error ? err.message : err);
   }
   return null;
 }

@@ -121,7 +121,8 @@ const FORBIDDEN_PHRASES: { pattern: RegExp; reason: string }[] = [
   },
   // Partisan US politics — trigger phrases
   {
-    pattern: /\b(biden|trump|harris|desantis|aoc|mcconnell|pelosi) (is|was) (wrong|right|completely|asleep|a disaster)\b/i,
+    pattern:
+      /\b(biden|trump|harris|desantis|aoc|mcconnell|pelosi) (is|was) (wrong|right|completely|asleep|a disaster)\b/i,
     reason: 'partisan US politics about a named US politician',
   },
   {
@@ -232,14 +233,10 @@ export function runDeterministicChecks(draft: VoiceDraft): DeterministicResult {
     violations.push(`unknown platform: ${String(draft.platform)}`);
   } else {
     if (charCount > limits.maxChars) {
-      violations.push(
-        `exceeds ${draft.platform} max length: ${charCount}/${limits.maxChars} chars`,
-      );
+      violations.push(`exceeds ${draft.platform} max length: ${charCount}/${limits.maxChars} chars`);
     }
     if (charCount < limits.minChars) {
-      violations.push(
-        `below ${draft.platform} min length: ${charCount}/${limits.minChars} chars`,
-      );
+      violations.push(`below ${draft.platform} min length: ${charCount}/${limits.minChars} chars`);
     }
   }
 
@@ -247,16 +244,12 @@ export function runDeterministicChecks(draft: VoiceDraft): DeterministicResult {
   const emojiList = extractEmoji(content);
   const emojiLimit = EMOJI_LIMITS[draft.platform] ?? 0;
   if (emojiList.length > emojiLimit) {
-    violations.push(
-      `exceeds ${draft.platform} emoji limit: ${emojiList.length}/${emojiLimit}`,
-    );
+    violations.push(`exceeds ${draft.platform} emoji limit: ${emojiList.length}/${emojiLimit}`);
   }
   const nonBrandEmoji = emojiList.filter((e) => !isBrandEmoji(e));
   if (nonBrandEmoji.length > 0) {
     const unique = [...new Set(nonBrandEmoji)].join('');
-    violations.push(
-      `contains emoji outside the brand set (${unique}); allowed: ${BRAND_EMOJI_SET.join('')}`,
-    );
+    violations.push(`contains emoji outside the brand set (${unique}); allowed: ${BRAND_EMOJI_SET.join('')}`);
   }
 
   // --- Pronoun checks ---

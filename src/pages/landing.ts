@@ -314,10 +314,7 @@ export function renderLanding(root: HTMLElement): void {
       console.error('[landing] Checkout failed:', err);
       button.disabled = false;
       button.textContent = originalText;
-      setStatus(
-        err instanceof Error ? err.message : 'Checkout failed — try again',
-        '#ef4444',
-      );
+      setStatus(err instanceof Error ? err.message : 'Checkout failed — try again', '#ef4444');
     }
   }
 

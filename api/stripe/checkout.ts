@@ -151,10 +151,7 @@ export default async function handler(req: Request): Promise<Response> {
         });
       }
     } catch (err) {
-      console.error(
-        '[stripe/checkout] Founding stock reservation failed:',
-        err instanceof Error ? err.message : err,
-      );
+      console.error('[stripe/checkout] Founding stock reservation failed:', err instanceof Error ? err.message : err);
       return jsonResponse(500, { error: 'Unable to reserve founding seat' });
     }
   }
