@@ -349,6 +349,100 @@
 .landing-price-btn.featured:hover {
   background: #ff8533;
 }
+/* Normalize <button> element to match the anchor-based .landing-price-btn look */
+button.landing-price-btn {
+  width: 100%;
+  font-family: inherit;
+  cursor: pointer;
+  background: transparent;
+}
+button.landing-price-btn.featured {
+  background: #ff6600;
+}
+button.landing-price-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Founding banner — appears above the pricing grid when seats remain */
+.landing-founding-banner {
+  max-width: 900px;
+  margin: 0 auto 28px;
+  padding: 18px 24px;
+  border: 1px solid rgba(255, 102, 0, 0.35);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 102, 0, 0.08) 0%,
+    rgba(255, 102, 0, 0.02) 100%
+  );
+  border-radius: 6px;
+}
+.landing-founding-banner[hidden] {
+  display: none;
+}
+.landing-founding-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.landing-founding-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.3px;
+  line-height: 1.5;
+  flex: 1;
+  min-width: 240px;
+}
+.landing-founding-text strong {
+  color: #ff6600;
+  letter-spacing: 2px;
+  font-weight: 700;
+  display: inline-block;
+  margin-right: 6px;
+}
+.landing-founding-price {
+  color: #fff;
+  font-weight: 700;
+}
+.landing-founding-remaining {
+  display: inline-block;
+  margin-left: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+}
+.landing-founding-btn {
+  padding: 10px 18px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  background: #ff6600;
+  color: #000;
+  border: 1px solid #ff6600;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.landing-founding-btn:hover {
+  background: #ff8533;
+}
+.landing-founding-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Checkout status line under the pricing grid (errors, redirects, etc.) */
+.landing-checkout-status {
+  max-width: 900px;
+  margin: 16px auto 0;
+  padding: 0 32px;
+  font-size: 12px;
+  text-align: center;
+  min-height: 18px;
+}
 
 /* Footer */
 .landing-footer {
