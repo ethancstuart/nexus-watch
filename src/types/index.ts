@@ -119,7 +119,24 @@ export interface CryptoData {
 
 // ── Auth ──
 
+/**
+ * Binary tier flag — free vs any paid.
+ * Kept for backward compatibility with existing `user.tier === 'premium'` checks
+ * throughout the codebase. New code should prefer `PaidTier` for granular access.
+ */
 export type UserTier = 'free' | 'premium';
+
+/**
+ * Granular paid tier — corresponds to actual Stripe products.
+ * - 'analyst' — $29/mo, daily brief + 5 NL alerts + 7-day timeline + email alerts
+ * - 'pro'     — $99/mo, unlimited alerts + 90-day timeline + API + personalized brief
+ * - 'founding'— $19/mo lifetime (first 100 subscribers), grants Analyst feature set
+ *               at a locked price that never increases. Stored as a distinct Stripe
+ *               product so the price is grandfathered.
+ *
+ * Locked 2026-04-11 — see project_nexuswatch_decisions_apr11.md.
+ */
+export type PaidTier = 'analyst' | 'pro' | 'founding';
 
 export interface User {
   id: string;
@@ -128,6 +145,12 @@ export interface User {
   avatar: string;
   provider: 'google' | 'github';
   tier: UserTier;
+  /**
+   * Granular paid tier, populated by Stripe webhook on successful checkout.
+   * Optional because free users have no paid tier. When present, supersedes
+   * `tier === 'premium'` for access decisions — tierGating reads this first.
+   */
+  paidTier?: PaidTier;
   isAdmin?: boolean;
   createdAt: string;
 }

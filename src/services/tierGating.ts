@@ -66,10 +66,16 @@ function getUserTierLevel(): TierLevel {
   const user = getUser();
   if (!user) return 'free';
   if (user.isAdmin) return 'pro';
-  // Map UserTier to our 3-tier model
-  // 'premium' from Stripe = 'pro', 'analyst' tier needs to be added to Stripe
+
+  // Prefer granular paidTier (set by Stripe webhook on successful checkout).
+  // Founding tier is a discounted Analyst seat — grants the Analyst feature set
+  // at a locked $19/mo price that never increases.
+  if (user.paidTier === 'pro') return 'pro';
+  if (user.paidTier === 'analyst' || user.paidTier === 'founding') return 'analyst';
+
+  // Backward compat: legacy sessions that only have `tier: 'premium'` without
+  // the new paidTier field are grandfathered as 'pro' (the pre-A.2 behavior).
   if (user.tier === 'premium') return 'pro';
-  // Check for analyst tier in user metadata (future: separate Stripe price)
   return 'free';
 }
 
@@ -83,6 +89,10 @@ export function getCurrentTier(): TierLevel {
 }
 
 export function getTierName(): string {
+  const user = getUser();
+  // Founding members get a distinct display label even though they share the
+  // Analyst access tier — they bought into the founding cohort.
+  if (user?.paidTier === 'founding') return 'FOUNDING';
   const tier = getUserTierLevel();
   if (tier === 'pro') return 'PRO';
   if (tier === 'analyst') return 'ANALYST';

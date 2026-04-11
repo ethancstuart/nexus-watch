@@ -151,7 +151,7 @@ export function renderRoadmap(root: HTMLElement): void {
     ctaBtn.addEventListener('click', async () => {
       ctaBtn.textContent = '\u2026';
       try {
-        const res = await fetch('/api/stripe/checkout?founding=true', { method: 'POST' });
+        const res = await fetch('/api/stripe/checkout?tier=founding', { method: 'POST' });
         const data = await res.json();
         if (data.url) {
           window.location.href = data.url;
