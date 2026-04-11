@@ -7,7 +7,17 @@ function setCors(res: VercelResponse): VercelResponse {
 
 export const config = { runtime: 'nodejs' };
 
-// Major world cities to monitor — 50 cities for true global coverage
+// Global monitor points for Open-Meteo weather alerts.
+//
+// Expanded 2026-04-11 (Track E.2.1) per the E.1 global-coverage audit
+// in docs/GLOBAL-COVERAGE-BASELINE.md. Biggest pre-E.2 gaps: Oceania
+// (3 of 14 countries), Latin America outside the top 4, Sub-Saharan
+// Africa outside the conflict belt, Caribbean, Central Asia. This list
+// now covers ~78 points across all six continents with rough parity
+// vs. population centers + strategic sub-regions. Pacific Island
+// states are included with the understanding that some will have
+// thin upstream data — the goal is coverage completeness, not
+// uniform data density.
 const MONITOR_POINTS = [
   // North America
   { lat: 40.7, lon: -74.0, city: 'New York', country: 'US' },
@@ -17,6 +27,14 @@ const MONITOR_POINTS = [
   { lat: 25.8, lon: -80.2, city: 'Miami', country: 'US' },
   { lat: 43.7, lon: -79.4, city: 'Toronto', country: 'CA' },
   { lat: 19.4, lon: -99.1, city: 'Mexico City', country: 'MX' },
+  // Central America + Caribbean (added E.2.1)
+  { lat: 14.6, lon: -90.5, city: 'Guatemala City', country: 'GT' },
+  { lat: 9.9, lon: -84.1, city: 'San José', country: 'CR' },
+  { lat: 8.9, lon: -79.5, city: 'Panama City', country: 'PA' },
+  { lat: 18.0, lon: -76.8, city: 'Kingston', country: 'JM' },
+  { lat: 23.1, lon: -82.4, city: 'Havana', country: 'CU' },
+  { lat: 18.5, lon: -69.9, city: 'Santo Domingo', country: 'DO' },
+  { lat: 18.5, lon: -72.3, city: 'Port-au-Prince', country: 'HT' },
   // Europe
   { lat: 51.5, lon: -0.1, city: 'London', country: 'GB' },
   { lat: 48.9, lon: 2.3, city: 'Paris', country: 'FR' },
@@ -49,6 +67,11 @@ const MONITOR_POINTS = [
   { lat: -6.2, lon: 106.8, city: 'Jakarta', country: 'ID' },
   { lat: 22.3, lon: 114.2, city: 'Hong Kong', country: 'HK' },
   { lat: 25.0, lon: 121.5, city: 'Taipei', country: 'TW' },
+  // Central Asia + South Asia (added E.2.1)
+  { lat: 43.2, lon: 76.9, city: 'Almaty', country: 'KZ' },
+  { lat: 47.9, lon: 106.9, city: 'Ulaanbaatar', country: 'MN' },
+  { lat: 24.9, lon: 67.0, city: 'Karachi', country: 'PK' },
+  { lat: -8.6, lon: 125.6, city: 'Dili', country: 'TL' },
   // Africa
   { lat: 6.5, lon: 3.4, city: 'Lagos', country: 'NG' },
   { lat: -1.3, lon: 36.8, city: 'Nairobi', country: 'KE' },
@@ -56,15 +79,40 @@ const MONITOR_POINTS = [
   { lat: -26.2, lon: 28.0, city: 'Johannesburg', country: 'ZA' },
   { lat: 9.0, lon: 38.7, city: 'Addis Ababa', country: 'ET' },
   { lat: 33.6, lon: -7.6, city: 'Casablanca', country: 'MA' },
+  // Sub-Saharan Africa expansion (added E.2.1 — fills the E.1 gap
+  // outside the conflict belt)
+  { lat: -8.8, lon: 13.2, city: 'Luanda', country: 'AO' },
+  { lat: 14.7, lon: -17.4, city: 'Dakar', country: 'SN' },
+  { lat: -6.8, lon: 39.3, city: 'Dar es Salaam', country: 'TZ' },
+  { lat: -18.9, lon: 47.5, city: 'Antananarivo', country: 'MG' },
+  { lat: 0.3, lon: 32.6, city: 'Kampala', country: 'UG' },
+  { lat: -17.8, lon: 31.1, city: 'Harare', country: 'ZW' },
+  { lat: 5.3, lon: -4.0, city: 'Abidjan', country: 'CI' },
+  { lat: 5.6, lon: -0.2, city: 'Accra', country: 'GH' },
   // South America
   { lat: -23.5, lon: -46.6, city: 'São Paulo', country: 'BR' },
   { lat: -34.6, lon: -58.4, city: 'Buenos Aires', country: 'AR' },
   { lat: 4.6, lon: -74.1, city: 'Bogotá', country: 'CO' },
   { lat: -12.0, lon: -77.0, city: 'Lima', country: 'PE' },
-  // Oceania
+  // South America expansion (added E.2.1)
+  { lat: -33.5, lon: -70.7, city: 'Santiago', country: 'CL' },
+  { lat: 10.5, lon: -66.9, city: 'Caracas', country: 'VE' },
+  { lat: -0.2, lon: -78.5, city: 'Quito', country: 'EC' },
+  { lat: -16.5, lon: -68.1, city: 'La Paz', country: 'BO' },
+  { lat: -34.9, lon: -56.2, city: 'Montevideo', country: 'UY' },
+  { lat: 6.8, lon: -58.2, city: 'Georgetown', country: 'GY' },
+  // Oceania (was just Sydney/Melbourne/Auckland — biggest E.1 gap)
   { lat: -33.9, lon: 151.2, city: 'Sydney', country: 'AU' },
   { lat: -37.8, lon: 145.0, city: 'Melbourne', country: 'AU' },
   { lat: -36.9, lon: 174.8, city: 'Auckland', country: 'NZ' },
+  // Oceania expansion (added E.2.1)
+  { lat: -41.3, lon: 174.8, city: 'Wellington', country: 'NZ' },
+  { lat: -18.1, lon: 178.4, city: 'Suva', country: 'FJ' },
+  { lat: -9.5, lon: 147.2, city: 'Port Moresby', country: 'PG' },
+  { lat: -9.4, lon: 160.0, city: 'Honiara', country: 'SB' },
+  { lat: -17.7, lon: 168.3, city: 'Port Vila', country: 'VU' },
+  { lat: -13.8, lon: -171.8, city: 'Apia', country: 'WS' },
+  { lat: -21.1, lon: -175.2, city: 'Nukuʻalofa', country: 'TO' },
 ];
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
