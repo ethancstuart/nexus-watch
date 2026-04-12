@@ -118,20 +118,48 @@ cat .vercel/project.json                    # should show projectName:"nexus-wat
 
 ---
 
-## Section 3 — beehiiv verification 🔑
+## Section 3 — beehiiv credentials 🔑 ⚠️ DISCOVERED BROKEN 2026-04-11
 
-**Why:** the daily brief pipeline posts to beehiiv with the pre-rendered Light Intel Dossier HTML. Track C.1 locked "we own the HTML, beehiiv handles delivery." Need to confirm the API credentials work.
+**Why:** the daily brief pipeline posts to beehiiv with the pre-rendered Light Intel Dossier HTML. Track C.1 locked "we own the HTML, beehiiv handles delivery."
 
-### 3.1 Test the API key
+### 3.0 ⚠️ Discovered issue
+During session wrap-up, the production env was pulled and the beehiiv credentials were tested end-to-end:
+- `BEEHIIV_API_KEY` is a 36-char UUID (real beehiiv API keys are longer opaque strings)
+- `BEEHIIV_PUB_ID` is `pub_<same-uuid-as-key>` — clearly a placeholder, not a real publication ID
+- The stored values also have a literal `\n` suffix (not a newline — the characters `\` `n`), which would break auth even if they were real
+- Live auth test returns `HTTP 401 INVALID_API_KEY` against `api.beehiiv.com/v2/publications/{pub_id}`
+
+**Consequence:** the daily brief will fail to post to beehiiv until real credentials are provisioned. This does not affect Stripe checkout or the website itself — only the email delivery path.
+
+### 3.1 Provision real beehiiv credentials
+1. Go to https://app.beehiiv.com — log in or create an account
+2. Create a Publication (if none exists):
+   - Name: `NexusWatch`
+   - Sending domain: `nexuswatch.dev` (you'll need to add DNS TXT/DKIM/SPF records)
+3. From the Publication dashboard: **Settings → Integrations → API**
+4. Generate an API key. Copy it immediately — beehiiv only shows it once.
+5. Find the Pub ID:
+   - From the Publication settings URL, or
+   - From the API key page (shown as `pub_xxxxx` under the key)
+
+### 3.2 Update Vercel env + local
 ```bash
 cd ~/Projects/nexus-watch
-source .env.local 2>/dev/null
-curl -H "Authorization: Bearer $BEEHIIV_API_KEY" \
-  "https://api.beehiiv.com/v2/publications/$BEEHIIV_PUB_ID/posts?limit=1"
+# Replace the placeholder values
+echo "PASTE_REAL_API_KEY_HERE" | vercel env update BEEHIIV_API_KEY production
+echo "pub_REAL_PUB_ID_HERE"    | vercel env update BEEHIIV_PUB_ID  production
+# Pull back into local .env.local so dev/test scripts work
+vercel env pull .env.local --yes
 ```
-- Should return JSON with a `data` array (can be empty)
-- If 401: the key is stale → regenerate at https://app.beehiiv.com/settings/integrations/api
-- If 404: the pub ID is wrong → grab it from the Publication settings URL
+
+### 3.3 Verify
+```bash
+cd ~/Projects/nexus-watch
+set -a; source .env.local; set +a
+curl -H "Authorization: Bearer $BEEHIIV_API_KEY" \
+  "https://api.beehiiv.com/v2/publications/$BEEHIIV_PUB_ID"
+```
+Should return HTTP 200 JSON with publication details. If 401 → regenerate key. If 404 → wrong pub_id.
 
 ### 3.2 Confirm the publication is configured
 - Log in at https://app.beehiiv.com
