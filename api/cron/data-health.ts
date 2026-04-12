@@ -345,6 +345,242 @@ async function ensureSchema(sql: NeonSql): Promise<void> {
     ALTER TABLE data_health_current
     ADD COLUMN IF NOT EXISTS half_open_successes INTEGER NOT NULL DEFAULT 0
   `;
+
+  // Track D.2 — self-heal action audit log. Idempotent creation so
+  // the cron self-bootstraps the schema on first run. See
+  // docs/migrations/2026-04-11-data-health-actions.sql for the
+  // canonical definition and column docs.
+  await sql`
+    CREATE TABLE IF NOT EXISTS data_health_actions (
+      id SERIAL PRIMARY KEY,
+      layer TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      triggered_by TEXT NOT NULL,
+      action_details JSONB,
+      outcome TEXT NOT NULL DEFAULT 'pending',
+      error TEXT,
+      before_status TEXT,
+      after_status TEXT,
+      latency_ms INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_data_health_actions_layer_created
+    ON data_health_actions (layer, created_at DESC)
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_data_health_actions_unattributed
+    ON data_health_actions (after_status, created_at DESC)
+    WHERE after_status IS NULL
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Track D.2 — active self-heal actions
+// ---------------------------------------------------------------------------
+
+// How many consecutive failures before we start attempting heals. 3 is
+// conservative enough that transient upstream blips don't trigger a
+// storm of unnecessary actions, but fast enough to kick in before the
+// circuit breaker opens at 5.
+const HEAL_FAILURE_THRESHOLD = 3;
+
+/**
+ * Attempt a proxy cache-bust on a layer that's currently red.
+ *
+ * For layers whose probeUrl starts with `/api/` (i.e., our own
+ * serverless proxies), this forces a refetch with a cache-bust
+ * query param, bypassing any edge cache on the proxy route. For
+ * layers that probe external URLs directly, this is a no-op — there's
+ * nothing we can do server-side to flush a third-party cache.
+ *
+ * Returns the outcome shape the caller records in data_health_actions.
+ * Never throws; captures errors into the returned object so the cron's
+ * main loop isn't disrupted by a single layer's heal failing.
+ */
+async function attemptProxyCacheBust(
+  layer: LayerConfig,
+  activeSource: string | null,
+  base: string | undefined,
+): Promise<{
+  outcome: 'succeeded' | 'failed';
+  error: string | null;
+  latencyMs: number;
+  actionDetails: Record<string, unknown>;
+}> {
+  const startedAt = Date.now();
+
+  // Pick the source that matches the active_source name — default to
+  // the primary if we can't find a match. Bail early for external URLs.
+  const source =
+    layer.primary.name === activeSource
+      ? layer.primary
+      : (layer.fallbacks.find((f) => f.name === activeSource) ?? layer.primary);
+
+  if (!source.probeUrl.startsWith('/api/')) {
+    return {
+      outcome: 'succeeded',
+      error: null,
+      latencyMs: Date.now() - startedAt,
+      actionDetails: {
+        action: 'proxy_cache_bust',
+        skipped: 'external_probe_url',
+        probe_url: source.probeUrl,
+      },
+    };
+  }
+
+  const cacheBustToken = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const probeBase = base ? (base.startsWith('http') ? base : `https://${base}`) : '';
+  const separator = source.probeUrl.includes('?') ? '&' : '?';
+  const healUrl = `${probeBase}${source.probeUrl}${separator}cache-bust=${encodeURIComponent(cacheBustToken)}`;
+
+  try {
+    const res = await fetch(healUrl, {
+      signal: AbortSignal.timeout(source.probeTimeoutMs),
+      headers: { 'Cache-Control': 'no-cache, no-store' },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return {
+        outcome: 'failed',
+        error: `HTTP ${res.status}: ${body.slice(0, 400)}`,
+        latencyMs: Date.now() - startedAt,
+        actionDetails: {
+          action: 'proxy_cache_bust',
+          probe_url: source.probeUrl,
+          cache_bust_token: cacheBustToken,
+          http_status: res.status,
+        },
+      };
+    }
+    return {
+      outcome: 'succeeded',
+      error: null,
+      latencyMs: Date.now() - startedAt,
+      actionDetails: {
+        action: 'proxy_cache_bust',
+        probe_url: source.probeUrl,
+        cache_bust_token: cacheBustToken,
+      },
+    };
+  } catch (err) {
+    return {
+      outcome: 'failed',
+      error: (err instanceof Error ? err.message : String(err)).slice(0, 500),
+      latencyMs: Date.now() - startedAt,
+      actionDetails: {
+        action: 'proxy_cache_bust',
+        probe_url: source.probeUrl,
+        cache_bust_token: cacheBustToken,
+      },
+    };
+  }
+}
+
+/**
+ * Decide whether a layer needs heal + kick off the action. Runs
+ * INSIDE the cron's main loop, right after the probe row is persisted.
+ *
+ * Heal criteria:
+ *   - current status is 'red' (status='amber' recovers on its own)
+ *   - consecutive_failures >= HEAL_FAILURE_THRESHOLD
+ *   - no successful heal within the last hour for this layer (avoids
+ *     action storms on persistent outages)
+ *
+ * The heal itself is best-effort: we don't wait for the layer to
+ * recover on THIS cron run — the next run (15 min later) will
+ * evaluate and populate after_status via attributeHealOutcomes.
+ */
+async function maybeHealLayer(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sql: any,
+  row: ProbedRow,
+  layer: LayerConfig,
+  base: string | undefined,
+): Promise<void> {
+  if (row.status !== 'red' || row.consecutiveFailures < HEAL_FAILURE_THRESHOLD) return;
+
+  // Rate-limit: one heal attempt per layer per hour. Prevents the
+  // cron from spamming action rows on a persistently-down upstream.
+  try {
+    const recent = (await sql`
+      SELECT id FROM data_health_actions
+      WHERE layer = ${row.layer}
+        AND action_type = 'proxy_cache_bust'
+        AND created_at > NOW() - INTERVAL '1 hour'
+      LIMIT 1
+    `) as unknown as Array<{ id: number }>;
+    if (recent.length > 0) return;
+  } catch (err) {
+    console.error('[data-health] heal rate-limit check failed (continuing):', err instanceof Error ? err.message : err);
+  }
+
+  const result = await attemptProxyCacheBust(layer, row.activeSource, base);
+
+  try {
+    await sql`
+      INSERT INTO data_health_actions (
+        layer, action_type, triggered_by, action_details,
+        outcome, error, before_status, latency_ms
+      ) VALUES (
+        ${row.layer}, 'proxy_cache_bust', 'red_threshold', ${JSON.stringify(result.actionDetails)},
+        ${result.outcome}, ${result.error}, ${row.status}, ${result.latencyMs}
+      )
+    `;
+  } catch (err) {
+    console.error('[data-health] heal audit insert failed (non-fatal):', err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * Attribution pass — walks unattributed heal rows (after_status IS NULL)
+ * older than 1 minute and populates their after_status from the current
+ * layer state. Runs once per cron tick AFTER all probes have been
+ * persisted, so the "after" reflects the result of the most recent probe.
+ *
+ * Kept intentionally simple: one UPDATE per unattributed row. At scale
+ * this could become a single correlated UPDATE, but heal actions are
+ * rare enough that per-row is fine and easier to reason about.
+ */
+async function attributeHealOutcomes(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sql: any,
+  current: Map<string, StoredBreakerState>,
+): Promise<void> {
+  try {
+    const unattributed = (await sql`
+      SELECT id, layer
+      FROM data_health_actions
+      WHERE after_status IS NULL
+        AND created_at < NOW() - INTERVAL '1 minute'
+        AND created_at > NOW() - INTERVAL '2 hours'
+      LIMIT 50
+    `) as unknown as Array<{ id: number; layer: string }>;
+
+    for (const action of unattributed) {
+      // Find the current post-cron state for this layer. We look it up
+      // from the latest data_health row rather than the `current` map
+      // because the map holds pre-probe state. The CREATE TABLE IF NOT
+      // EXISTS in ensureSchema guarantees the table exists.
+      const latest = (await sql`
+        SELECT status
+        FROM data_health
+        WHERE layer = ${action.layer}
+        ORDER BY created_at DESC
+        LIMIT 1
+      `) as unknown as Array<{ status: string }>;
+      const afterStatus = latest[0]?.status ?? current.get(action.layer)?.circuit_state ?? 'unknown';
+      await sql`
+        UPDATE data_health_actions
+        SET after_status = ${afterStatus}
+        WHERE id = ${action.id}
+      `;
+    }
+  } catch (err) {
+    console.error('[data-health] heal attribution pass failed (non-fatal):', err instanceof Error ? err.message : err);
+  }
 }
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
@@ -360,8 +596,19 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     const tasks = DATA_SOURCES.map((layer) => async () => probeLayer(layer, current.get(layer.id), base));
     const probed = await runBounded(tasks, MAX_CONCURRENT_PROBES);
 
+    // Build a layer id → config map so maybeHealLayer can look up the
+    // probe URL for the red layers it needs to heal.
+    const layerConfigById = new Map(DATA_SOURCES.map((l) => [l.id, l]));
+
     // Persist results.
-    const summary = { probed: probed.length, green: 0, amber: 0, red: 0, open_circuits: [] as string[] };
+    const summary = {
+      probed: probed.length,
+      green: 0,
+      amber: 0,
+      red: 0,
+      open_circuits: [] as string[],
+      heals_attempted: 0,
+    };
     for (const row of probed) {
       if (row.status === 'green') summary.green++;
       else if (row.status === 'amber') summary.amber++;
@@ -397,10 +644,31 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
           active_source = EXCLUDED.active_source,
           updated_at = NOW()
       `;
+
+      // Track D.2 — attempt a heal action if this layer meets the
+      // criteria. maybeHealLayer runs its own status/threshold check
+      // internally AND self-rate-limits (one attempt per layer per
+      // hour). Counted in summary only when criteria are met here so
+      // the cron response reflects actual attempts, not skipped ones.
+      const layerConfig = layerConfigById.get(row.layer);
+      if (layerConfig && row.status === 'red' && row.consecutiveFailures >= HEAL_FAILURE_THRESHOLD) {
+        summary.heals_attempted++;
+        await maybeHealLayer(sql, row, layerConfig, base);
+      }
     }
+
+    // Attribution pass — populate after_status for any heal rows
+    // from the previous cron run. Runs after all probes so the
+    // "after" reflects the latest status. Non-fatal.
+    await attributeHealOutcomes(sql, current);
 
     // Prune >30d of history to keep table bounded.
     await sql`DELETE FROM data_health WHERE created_at < NOW() - INTERVAL '30 days'`;
+    // Also prune >30d of heal action rows so the audit table doesn't
+    // grow unbounded. 30 days is enough to run the D.3 action-type
+    // effectiveness analysis that will decide which heal types we
+    // keep and which we drop.
+    await sql`DELETE FROM data_health_actions WHERE created_at < NOW() - INTERVAL '30 days'`;
 
     return res.json(summary);
   } catch (err) {
