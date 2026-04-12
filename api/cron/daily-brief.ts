@@ -857,6 +857,48 @@ ${(() => {
           latencyMs: Date.now() - bufferT0,
           metadata: { post_id: bufferPostId, post_length: postText.length },
         });
+
+        // === Track C.2 — Also enqueue the X thread draft for
+        // human-in-loop review via the Track C.1 social queue.
+        //
+        // Dual-write: the legacy Buffer path above still posts the
+        // thread to X directly via Buffer's scheduled pipeline. This
+        // enqueue call ALSO puts the same text into social_queue as a
+        // pending draft so, once the Track C.5 send worker ships, we
+        // can flip from "Buffer pipeline" to "queue + send worker"
+        // by removing the Buffer call and letting the worker drain
+        // approved drafts. No-op if SOCIAL_AUTONOMY_ENABLED is not
+        // 'true' — the core function short-circuits and returns 503.
+        // Non-fatal: an enqueue failure here never breaks the brief
+        // cron, only logs.
+        try {
+          const enqueueResult = await enqueueDraftCore(sql, {
+            platform: 'x',
+            action_type: 'thread',
+            draft_content: postText,
+            rationale: `daily brief X thread for ${today}`,
+            source: `daily-brief cron run ${runId}`,
+            source_url: `https://nexuswatch.dev/brief/${today}`,
+          });
+          if (enqueueResult.ok) {
+            const enqueuedId = (enqueueResult.body as { id?: number }).id;
+            console.log(
+              `[daily-brief] C.2 enqueue: queued X thread draft id=${enqueuedId} (SOCIAL_AUTONOMY_ENABLED=true)`,
+            );
+          } else if (enqueueResult.status === 503) {
+            // Kill switch off — expected until autonomy is enabled.
+            // Log at debug level, not error, so we don't spam the
+            // cron logs with expected output.
+            console.log('[daily-brief] C.2 enqueue skipped — SOCIAL_AUTONOMY_ENABLED is off (expected during staging)');
+          } else {
+            console.error(`[daily-brief] C.2 enqueue returned ${enqueueResult.status}:`, enqueueResult.body);
+          }
+        } catch (enqueueErr) {
+          console.error(
+            '[daily-brief] C.2 enqueue threw (non-fatal):',
+            enqueueErr instanceof Error ? enqueueErr.message : enqueueErr,
+          );
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error('[daily-brief] Buffer/X post failed:', msg);
@@ -1125,6 +1167,7 @@ ${(() => {
 
 import { colors, fonts, type, space, layout, style, typeStyle } from '../../src/styles/email-tokens';
 import { REGIONS, THREATS, matchesInterests, type Interests, type RegionId } from '../../src/services/interests-types';
+import { enqueueDraftCore } from '../social/enqueue-core';
 
 export interface RenderedBrief {
   emailHtml: string;
