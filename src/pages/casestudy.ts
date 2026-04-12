@@ -26,7 +26,7 @@ export function renderCaseStudy(root: HTMLElement): void {
         </div>
         <div class="cs-hero-actions">
           <a href="#/" class="cs-btn cs-btn-primary">LAUNCH PLATFORM →</a>
-          <a href="https://github.com/ethancstuart/dashboard" target="_blank" rel="noopener" class="cs-btn cs-btn-ghost">VIEW SOURCE</a>
+          <a href="https://github.com/ethancstuart/nexus-watch" target="_blank" rel="noopener" class="cs-btn cs-btn-ghost">VIEW SOURCE</a>
         </div>
       </div>
       <div class="cs-hero-right">
@@ -296,7 +296,7 @@ export function renderCaseStudy(root: HTMLElement): void {
   footer.innerHTML = `
     <div class="cs-footer-links">
       <a href="#/" class="cs-footer-link">LAUNCH PLATFORM</a>
-      <a href="https://github.com/ethancstuart/dashboard" target="_blank" rel="noopener" class="cs-footer-link">GITHUB</a>
+      <a href="https://github.com/ethancstuart/nexus-watch" target="_blank" rel="noopener" class="cs-footer-link">GITHUB</a>
       <a href="https://ethancstuart.com" target="_blank" rel="noopener" class="cs-footer-link">ETHAN STUART</a>
     </div>
     <div class="cs-footer-copy">NEXUSWATCH // MIT LICENSE // BUILT WITH CLAUDE CODE</div>

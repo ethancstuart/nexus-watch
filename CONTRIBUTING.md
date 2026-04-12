@@ -5,8 +5,8 @@ Thanks for your interest in contributing! NexusWatch is built entirely with [Cla
 ## Development Setup
 
 ```bash
-git clone https://github.com/ethancstuart/Dashboard.git
-cd Dashboard
+git clone https://github.com/ethancstuart/nexus-watch.git
+cd nexus-watch
 cp .env.example .env.local
 # Add API keys to .env.local (see below)
 npm install

@@ -123,7 +123,7 @@ export function renderMethodology(root: HTMLElement): void {
       </ul>
 
       <h2 class="brief-section-header">Open Source</h2>
-      <p>The CII computation is fully open source. The algorithm runs in <code style="background:#1a1a1a;padding:2px 6px;border-radius:3px;font-size:13px;">api/cron/compute-cii.ts</code> and can be inspected on <a href="https://github.com/ethancstuart/dashboard" target="_blank" style="color:#ff6600;">GitHub</a>.</p>
+      <p>The CII computation is fully open source. The algorithm runs in <code style="background:#1a1a1a;padding:2px 6px;border-radius:3px;font-size:13px;">api/cron/compute-cii.ts</code> and can be inspected on <a href="https://github.com/ethancstuart/nexus-watch" target="_blank" style="color:#ff6600;">GitHub</a>.</p>
 
       <div style="text-align:center;padding:32px 0;">
         <a href="#/intel" style="display:inline-block;padding:10px 24px;background:#ff660018;border:1px solid #ff660040;color:#ff6600;text-decoration:none;font-size:11px;letter-spacing:2px;font-family:'JetBrains Mono',monospace;border-radius:4px;">EXPLORE CII ON THE LIVE MAP →</a>

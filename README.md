@@ -84,8 +84,8 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/ethancstuart/dashboard.git
-cd dashboard
+git clone https://github.com/ethancstuart/nexus-watch.git
+cd nexus-watch
 npm install && npm run dev
 ```
 
