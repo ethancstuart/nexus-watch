@@ -14,7 +14,8 @@
     { "path": "/api/cron/alert-x", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/dark-vessels", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/data-lake", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/data-health", "schedule": "*/15 * * * *" }
+    { "path": "/api/cron/data-health", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/social-send", "schedule": "*/15 * * * *" }
   ],
   "headers": [
     {
