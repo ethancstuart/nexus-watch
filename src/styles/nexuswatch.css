@@ -549,6 +549,26 @@
   min-width: 56px;
   text-align: right;
 }
+.nw-country-tier {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #555;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 2px;
+  padding: 0 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+  cursor: help;
+}
+.nw-country-trend {
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 12px;
+  text-align: center;
+}
 
 /* Placeholder / skeleton */
 

@@ -38,7 +38,15 @@ import {
   getIntelItems,
   getLayerData,
 } from '../services/geoIntelligence.ts';
-import { computeCountryScores, getCachedScores, scoreToLabel } from '../services/countryIndex.ts';
+import {
+  computeAllCII,
+  getCachedCII,
+  ciiColor,
+  ciiLabel,
+  COUNTRY_COUNT,
+  getMonitoredCountries,
+  type CIIScore,
+} from '../services/countryInstabilityIndex.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -87,7 +95,7 @@ import { copyShareUrl, getViewStateFromUrl, type ViewState } from '../services/s
 import { canAccess, showUpgradePrompt } from '../services/tierGating.ts';
 import '../styles/tier-gating.css';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
-import type { IntelItem, CountryIntelScore, MapLayerCategory } from '../types/index.ts';
+import type { IntelItem, MapLayerCategory } from '../types/index.ts';
 
 let nwAbort: AbortController | null = null;
 
@@ -704,7 +712,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     'dashview:layer-data',
     ((e: CustomEvent) => {
       const ld = getLayerData();
-      computeCountryScores(ld);
+      computeAllCII(ld);
       computeCorrelations(ld);
       evaluateAlerts(ld);
 
@@ -1068,10 +1076,11 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
   }
 
   // Country index section
-  const countryHeader = createElement('div', { className: 'nw-section-header', textContent: 'COUNTRY INDEX' });
+  const countryHeader = createElement('div', { className: 'nw-section-header' });
+  countryHeader.textContent = `COUNTRY INSTABILITY INDEX (${COUNTRY_COUNT})`;
   container.appendChild(countryHeader);
 
-  const scores = getCachedScores();
+  const scores = getCachedCII();
   // Fetch 30-day CII history for sparklines
   const ciiHistoryMap = new Map<string, number[]>();
   fetch('/api/v1/timeline-data?days=30')
@@ -1192,14 +1201,34 @@ function createAlertRow(item: IntelItem, mapView: MapView): HTMLElement {
   return row;
 }
 
-function createCountryRow(score: CountryIntelScore, mapView: MapView): HTMLElement {
+function createCountryRow(score: CIIScore, mapView: MapView): HTMLElement {
   const row = createElement('div', { className: 'nw-country-row' });
-  const { label, color } = scoreToLabel(score.score);
+  const color = ciiColor(score.score);
+  const label = ciiLabel(score.score);
 
   const flag = createElement('span', { className: 'nw-country-flag' });
-  flag.textContent = countryFlag(score.code);
+  flag.textContent = countryFlag(score.countryCode);
 
-  const name = createElement('span', { className: 'nw-country-name', textContent: score.name });
+  const name = createElement('span', { className: 'nw-country-name', textContent: score.countryName });
+
+  // Tier badge for transparency — shows coverage depth
+  if (score.tier !== 'core') {
+    const tierBadge = createElement('span', { className: 'nw-country-tier' });
+    tierBadge.textContent = score.tier === 'extended' ? 'EXT' : 'MON';
+    tierBadge.title =
+      score.tier === 'extended' ? 'Extended coverage — partial feed data' : 'Monitoring — baseline + global feeds';
+    name.appendChild(tierBadge);
+  }
+
+  // Trend arrow
+  const trendEl = createElement('span', { className: 'nw-country-trend' });
+  if (score.trend === 'rising') {
+    trendEl.textContent = '↑';
+    trendEl.style.color = '#dc2626';
+  } else if (score.trend === 'falling') {
+    trendEl.textContent = '↓';
+    trendEl.style.color = '#22c55e';
+  }
 
   const labelEl = createElement('span', { className: 'nw-country-label' });
   labelEl.style.color = color;
@@ -1211,47 +1240,23 @@ function createCountryRow(score: CountryIntelScore, mapView: MapView): HTMLEleme
 
   // Sparkline placeholder — replaced when CII history loads
   const sparkPlaceholder = createElement('span', { className: 'nw-sparkline-placeholder' });
-  sparkPlaceholder.dataset.sparkline = score.code;
+  sparkPlaceholder.dataset.sparkline = score.countryCode;
   sparkPlaceholder.style.width = '48px';
   sparkPlaceholder.style.height = '14px';
   sparkPlaceholder.style.display = 'inline-block';
 
   row.appendChild(flag);
   row.appendChild(name);
+  row.appendChild(trendEl);
   row.appendChild(sparkPlaceholder);
   row.appendChild(labelEl);
   row.appendChild(scoreEl);
 
-  // Fly to country on click
-  const COORDS: Record<string, [number, number]> = {
-    US: [-98.5, 39.8],
-    RU: [105.3, 61.5],
-    CN: [104.2, 35.9],
-    UA: [31.2, 48.4],
-    IL: [34.9, 31.0],
-    IR: [53.7, 32.4],
-    IN: [78.9, 20.6],
-    GB: [-2.0, 54.0],
-    FR: [2.2, 46.2],
-    DE: [10.4, 51.2],
-    JP: [138.3, 36.2],
-    BR: [-51.9, -14.2],
-    TR: [35.2, 38.9],
-    SA: [45.1, 23.9],
-    EG: [30.8, 26.8],
-    PK: [69.3, 30.4],
-    NG: [8.7, 9.1],
-    MX: [-102.6, 23.6],
-    KR: [127.8, 35.9],
-    AU: [133.8, -25.3],
-    SY: [38.9, 34.8],
-    AF: [67.7, 33.9],
-    IQ: [43.7, 33.2],
-  };
-
-  const coords = COORDS[score.code];
-  if (coords) {
-    row.addEventListener('click', () => mapView.flyTo(coords[0], coords[1], 5));
+  // Fly to country on click — coordinates come from the monitored countries list
+  const countries = getMonitoredCountries();
+  const match = countries.find((c) => c.code === score.countryCode);
+  if (match) {
+    row.addEventListener('click', () => mapView.flyTo(match.lon, match.lat, 5));
   }
 
   return row;
