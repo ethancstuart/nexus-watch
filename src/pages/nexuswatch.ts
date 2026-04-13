@@ -62,6 +62,7 @@ import {
   verificationIcon,
   verificationLabel,
 } from '../services/verificationEngine.ts';
+import { checkCrisisTriggers } from '../services/crisisPlaybook.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -742,6 +743,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       computeCorrelations(ld);
       evaluateAlerts(ld);
       runVerification(ld);
+      checkCrisisTriggers(ld);
 
       // Update tension index
       const tension = computeTensionIndex(getLayerData());
