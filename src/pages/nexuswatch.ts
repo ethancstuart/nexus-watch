@@ -1341,14 +1341,122 @@ function createCountryRow(score: CIIScore, mapView: MapView): HTMLElement {
   row.appendChild(labelEl);
   row.appendChild(scoreEl);
 
-  // Fly to country on click — coordinates come from the monitored countries list
+  // Click → fly to country AND show detail panel with evidence chain
   const countries = getMonitoredCountries();
   const match = countries.find((c) => c.code === score.countryCode);
-  if (match) {
-    row.addEventListener('click', () => mapView.flyTo(match.lon, match.lat, 5));
-  }
+  row.addEventListener('click', () => {
+    if (match) mapView.flyTo(match.lon, match.lat, 5);
+    showCountryDetail(document.querySelector('.nw-sidebar') || document.body, score);
+  });
 
   return row;
+}
+
+// ── Country Detail Panel (Evidence Chain) ──
+
+function showCountryDetail(container: HTMLElement, score: CIIScore): void {
+  // Remove existing detail panel
+  container.querySelector('.nw-country-detail')?.remove();
+
+  const panel = createElement('div', { className: 'nw-country-detail' });
+  const ev = score.evidence;
+
+  // Header
+  const header = createElement('div', { className: 'nw-detail-header' });
+  const title = createElement('div', { className: 'nw-detail-title' });
+  title.textContent = `${countryFlag(score.countryCode)} ${score.countryName}`;
+  const closeBtn = createElement('button', { className: 'nw-detail-close', textContent: '✕' });
+  closeBtn.addEventListener('click', () => panel.remove());
+  const scoreBadge = createElement('div', { className: 'nw-detail-score' });
+  scoreBadge.style.color = ciiColor(score.score);
+  scoreBadge.textContent = `CII ${score.score}`;
+  const confBadge = createElement('span', { className: 'nw-detail-conf' });
+  confBadge.style.color = confidenceColor(score.confidence);
+  confBadge.textContent = ` ${confidenceIcon(score.confidence)} ${score.confidence.toUpperCase()} CONFIDENCE`;
+  scoreBadge.appendChild(confBadge);
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+  panel.appendChild(scoreBadge);
+
+  // Meta line
+  const meta = createElement('div', { className: 'nw-detail-meta' });
+  meta.textContent = `${ev.totalSourceCount} sources · ${ev.totalDataPoints} data points · Tier: ${score.tier.toUpperCase()}`;
+  panel.appendChild(meta);
+
+  // Component breakdown
+  const COMPONENT_LABELS: Record<string, string> = {
+    conflict: 'CONFLICT',
+    disasters: 'DISASTERS',
+    sentiment: 'SENTIMENT',
+    infrastructure: 'INFRASTRUCTURE',
+    governance: 'GOVERNANCE',
+    marketExposure: 'MARKET EXPOSURE',
+  };
+
+  for (const comp of ev.components) {
+    const compRow = createElement('div', { className: 'nw-detail-comp' });
+
+    // Label + score bar
+    const compHeader = createElement('div', { className: 'nw-detail-comp-header' });
+    const compLabel = createElement('span', {});
+    compLabel.textContent = COMPONENT_LABELS[comp.component] || comp.component;
+    const compScore = createElement('span', {});
+    compScore.style.color = confidenceColor(comp.confidence);
+    compScore.textContent = `${comp.score}/${comp.maxScore} ${confidenceIcon(comp.confidence)}`;
+    compHeader.appendChild(compLabel);
+    compHeader.appendChild(compScore);
+    compRow.appendChild(compHeader);
+
+    // Score bar
+    const barContainer = createElement('div', { className: 'nw-detail-bar' });
+    const barFill = createElement('div', { className: 'nw-detail-bar-fill' });
+    barFill.style.width = `${(comp.score / comp.maxScore) * 100}%`;
+    barFill.style.background = confidenceColor(comp.confidence);
+    barContainer.appendChild(barFill);
+    compRow.appendChild(barContainer);
+
+    // Sources
+    if (comp.sources.length > 0) {
+      const srcLine = createElement('div', { className: 'nw-detail-sources' });
+      srcLine.textContent = comp.sources.map((s) => `${s.name} (${s.dataPointCount})`).join(' · ');
+      compRow.appendChild(srcLine);
+    }
+
+    // Data points (top 3)
+    for (const dp of comp.dataPoints.slice(0, 3)) {
+      const dpLine = createElement('div', { className: 'nw-detail-datapoint' });
+      dpLine.textContent = `▸ ${dp.text}`;
+      dpLine.title = `Source: ${dp.source}`;
+      compRow.appendChild(dpLine);
+    }
+
+    // Gaps
+    for (const gap of comp.gaps) {
+      const gapLine = createElement('div', { className: 'nw-detail-gap' });
+      gapLine.textContent = `⚠ ${gap}`;
+      compRow.appendChild(gapLine);
+    }
+
+    panel.appendChild(compRow);
+  }
+
+  // Summary gaps
+  if (ev.summaryGaps.length > 0) {
+    const gapSection = createElement('div', { className: 'nw-detail-gaps-section' });
+    const gapHeader = createElement('div', { className: 'nw-detail-gaps-title' });
+    gapHeader.textContent = "WHAT WE DON'T COVER";
+    gapSection.appendChild(gapHeader);
+    for (const gap of ev.summaryGaps.slice(0, 5)) {
+      const g = createElement('div', { className: 'nw-detail-gap' });
+      g.textContent = `⚠ ${gap}`;
+      gapSection.appendChild(g);
+    }
+    panel.appendChild(gapSection);
+  }
+
+  container.appendChild(panel);
 }
 
 // ── Sitrep Overlay ──
