@@ -2,6 +2,7 @@ import { createElement } from '../utils/dom.ts';
 import { fetchWithRetry } from '../utils/fetch.ts';
 import type { MapView } from '../map/MapView.ts';
 import type { MapLayerManager } from '../map/MapLayerManager.ts';
+import { simulateScenario, matchScenarioQuery, PRESET_SCENARIOS } from '../services/scenarioEngine.ts';
 
 interface TerminalConfig {
   mapView: MapView;
@@ -227,7 +228,7 @@ function processCommand(cmd: string, config: TerminalConfig, output: HTMLElement
   if (lower === 'help' || lower === '?') {
     showOutput(
       output,
-      'Commands:\n• Ask questions: "what conflicts are near Iran?"\n• Fly to locations: "ukraine", "tokyo", "strait of hormuz"\n• Toggle layers: "enable sanctions", "disable flights"\n• Queries: "show me all earthquakes", "flights status"\n• Reports: "sitrep", "brief"\n• System: "status", "help"',
+      'Commands:\n• Ask questions: "what conflicts are near Iran?"\n• Fly to locations: "ukraine", "tokyo", "strait of hormuz"\n• Toggle layers: "enable sanctions", "disable flights"\n• Queries: "show me all earthquakes", "flights status"\n• Reports: "sitrep", "brief"\n• AI analyst: "analyst [question]" — cited intelligence with confidence\n• Deep dive: "deep-dive [country]" — comprehensive country analysis\n• Scenarios: "scenario hormuz-closure" — what-if simulation\n• System: "status", "help"',
       'info',
     );
     return;
@@ -250,6 +251,31 @@ function processCommand(cmd: string, config: TerminalConfig, output: HTMLElement
   if (lower === 'sitrep' || lower === 'brief' || lower === 'report') {
     showOutput(output, 'Generating sitrep...', 'info');
     void generateTerminalSitrep(config, output);
+    return;
+  }
+
+  // Scenario simulation
+  if (lower.startsWith('scenario')) {
+    const query = cmd.replace(/^scenario\s*/i, '').trim();
+    void runScenarioCommand(query, output);
+    return;
+  }
+
+  // Deep-dive (country analysis via AI analyst)
+  if (lower.startsWith('deep-dive') || lower.startsWith('deepdive') || lower.startsWith('analyze')) {
+    const target = cmd.replace(/^(deep-?dive|analyze)\s*/i, '').trim();
+    void runAnalystQuery(
+      `Give me a comprehensive deep-dive analysis of ${target}. Include all 6 CII components with evidence, historical trend, active alerts, news sentiment, upcoming events, and data gaps.`,
+      config,
+      output,
+    );
+    return;
+  }
+
+  // AI analyst (freeform query with citations)
+  if (lower.startsWith('analyst') || lower.startsWith('intel')) {
+    const query = cmd.replace(/^(analyst|intel)\s*/i, '').trim();
+    void runAnalystQuery(query, config, output);
     return;
   }
 
@@ -651,5 +677,152 @@ function showOutput(output: HTMLElement, text: string, type: 'success' | 'error'
     setTimeout(() => {
       output.style.display = 'none';
     }, 8000);
+  }
+}
+
+// ── Scenario Simulation Command ──
+
+async function runScenarioCommand(query: string, output: HTMLElement): Promise<void> {
+  if (!query || query === 'list') {
+    const presetList = PRESET_SCENARIOS.map((p) => `• ${p.id}: ${p.name} — ${p.description}`).join('\n');
+    showOutput(
+      output,
+      `Available scenarios:\n${presetList}\n\nUsage: scenario [name or description]\nExample: "scenario hormuz-closure" or "scenario what if Iran closes Hormuz"`,
+      'info',
+    );
+    return;
+  }
+
+  // Try direct preset match first
+  let presetId = query;
+  let preset = PRESET_SCENARIOS.find((p) => p.id === query);
+  if (!preset) {
+    // Try free-text match
+    const matched = matchScenarioQuery(query);
+    if (matched) {
+      preset = matched;
+      presetId = matched.id;
+    }
+  }
+
+  if (!preset) {
+    showOutput(
+      output,
+      `No matching scenario found for "${query}". Type "scenario list" to see available scenarios.`,
+      'error',
+    );
+    return;
+  }
+
+  showOutput(output, `Running scenario: ${preset.name}...`, 'info');
+
+  const result = simulateScenario(presetId);
+  if (!result) {
+    showOutput(output, 'Scenario simulation failed.', 'error');
+    return;
+  }
+
+  // Format the result
+  const lines: string[] = [];
+  lines.push(`═══ SCENARIO: ${result.name.toUpperCase()} ═══`);
+  lines.push(`[${result.confidence.toUpperCase()} CONFIDENCE] ${result.confidenceNote}`);
+  lines.push('');
+
+  if (result.affectedInfrastructure.length > 0) {
+    lines.push('AFFECTED INFRASTRUCTURE:');
+    for (const infra of result.affectedInfrastructure) {
+      lines.push(`  ▸ ${infra.name} — ${infra.impact}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('COUNTRY IMPACT (estimated CII change):');
+  for (const country of result.affectedCountries.slice(0, 10)) {
+    const arrow = country.delta >= 8 ? '▲▲' : country.delta >= 4 ? '▲' : '△';
+    lines.push(`  ${arrow} ${country.name}: ${country.currentCII} → ${country.estimatedCII} (+${country.delta})`);
+    lines.push(`     ${country.reason}`);
+  }
+  lines.push('');
+
+  if (result.precedents.length > 0) {
+    lines.push('HISTORICAL PRECEDENTS:');
+    for (const p of result.precedents) {
+      lines.push(`  • ${p.event} (${p.date})`);
+      lines.push(`    ${p.outcome}`);
+    }
+    lines.push('');
+  }
+
+  if (result.cascades.length > 0) {
+    lines.push('CASCADE CHAINS:');
+    for (const c of result.cascades.slice(0, 8)) {
+      const mag = c.magnitude === 'high' ? '●●●' : c.magnitude === 'medium' ? '●●' : '●';
+      lines.push(`  ${mag} ${c.from} → ${c.to}: ${c.mechanism}`);
+    }
+  }
+
+  showOutput(output, lines.join('\n'), 'info');
+}
+
+// ── AI Analyst Query ──
+
+async function runAnalystQuery(query: string, config: TerminalConfig, output: HTMLElement): Promise<void> {
+  showOutput(output, 'Consulting NexusWatch analyst...', 'info');
+
+  // Build context from current layer data
+  const contextParts: string[] = [];
+  const ld = config.getLayerData();
+
+  // CII scores
+  const ciiScores = ld.get('cii-cache') as
+    | Array<{ countryCode: string; countryName: string; score: number }>
+    | undefined;
+  if (ciiScores) {
+    contextParts.push('TOP CII SCORES:');
+    for (const s of (ciiScores as Array<{ countryCode: string; countryName: string; score: number }>).slice(0, 15)) {
+      contextParts.push(`  ${s.countryName} (${s.countryCode}): CII ${s.score}`);
+    }
+  }
+
+  // Earthquakes
+  const quakes = ld.get('earthquakes') as Array<{ magnitude?: number; place?: string }> | undefined;
+  if (quakes) {
+    const significant = quakes.filter((q) => (q.magnitude || 0) >= 4.5);
+    contextParts.push(`\nEARTHQUAKES: ${quakes.length} total, ${significant.length} above M4.5`);
+    for (const q of significant.slice(0, 5)) {
+      contextParts.push(`  M${(q.magnitude || 0).toFixed(1)} — ${q.place || 'unknown'}`);
+    }
+  }
+
+  // ACLED
+  const acled = ld.get('acled') as Array<{ country?: string }> | undefined;
+  if (acled) {
+    contextParts.push(`\nACLED CONFLICTS: ${acled.length} events`);
+  }
+
+  // Enabled layers
+  const enabled = config.layerManager.getEnabledLayers();
+  contextParts.push(`\nENABLED LAYERS: ${enabled.map((l) => l.name).join(', ')}`);
+
+  try {
+    const res = await fetchWithRetry('/api/ai-analyst', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        context: contextParts.join('\n'),
+      }),
+    });
+
+    if (!res.ok) {
+      showOutput(output, 'Analyst unavailable. Try again later.', 'error');
+      return;
+    }
+
+    const data = (await res.json()) as { text: string; toolsUsed: string[] };
+    const toolNote = data.toolsUsed.length > 0 ? `[Tools used: ${data.toolsUsed.join(', ')}]\n\n` : '';
+    showOutput(output, `${toolNote}${data.text}`, 'info');
+  } catch {
+    showOutput(output, 'Analyst request failed. Check network connection.', 'error');
   }
 }
