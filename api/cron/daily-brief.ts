@@ -706,6 +706,29 @@ ${(() => {
       metadata: { brief_html_length: briefHtml.length, ai: aiDebug },
     });
 
+    // === Record CII snapshots for prediction ledger (Phase 3) ===
+    // Every daily brief records the CII scores at publication time.
+    // Used by the accuracy dashboard to track prediction accuracy.
+    try {
+      for (const country of briefData.topRiskCountries.slice(0, 30)) {
+        const components = country.components || {};
+        await sql`
+          INSERT INTO cii_daily_snapshots (date, country_code, cii_score, confidence,
+            component_conflict, component_disasters, component_sentiment,
+            component_infrastructure, component_governance, component_market_exposure,
+            source_count, data_point_count)
+          VALUES (${today}, ${country.code}, ${country.score}, ${'medium'},
+            ${components.conflict ?? null}, ${components.disasters ?? null}, ${components.sentiment ?? null},
+            ${components.infrastructure ?? null}, ${components.governance ?? null}, ${components.marketExposure ?? null},
+            ${0}, ${0})
+          ON CONFLICT (date, country_code) DO NOTHING
+        `;
+      }
+    } catch (snapshotErr) {
+      // Non-fatal — the brief still sends even if snapshots fail
+      console.error('CII snapshot recording failed:', snapshotErr instanceof Error ? snapshotErr.message : snapshotErr);
+    }
+
     // === Publish to beehiiv ===
     const beehiivKey = process.env.BEEHIIV_API_KEY;
     const beehiivPubId = process.env.BEEHIIV_PUB_ID;
