@@ -55,6 +55,13 @@ import {
 import { getProvenance, computeFreshness, freshnessColor, relativeTime } from '../services/dataProvenance.ts';
 import { confidenceColor, confidenceIcon } from '../services/confidenceScoring.ts';
 import { computePlatformHealth } from '../services/platformHealth.ts';
+import {
+  runVerification,
+  getVerifiedSignals,
+  verificationColor,
+  verificationIcon,
+  verificationLabel,
+} from '../services/verificationEngine.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -734,6 +741,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       computeAllCII(ld);
       computeCorrelations(ld);
       evaluateAlerts(ld);
+      runVerification(ld);
 
       // Update tension index
       const tension = computeTensionIndex(getLayerData());
@@ -1104,6 +1112,40 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
   }
 
   // Country index section
+  // Verified signals section — cross-source verified intelligence
+  const verifiedSignals = getVerifiedSignals();
+  if (verifiedSignals.length > 0) {
+    const verifiedHeader = createElement('div', { className: 'nw-section-header' });
+    verifiedHeader.textContent = `VERIFIED SIGNALS (${verifiedSignals.length})`;
+    container.appendChild(verifiedHeader);
+
+    for (const sig of verifiedSignals.slice(0, 8)) {
+      const row = createElement('div', { className: 'nw-verified-row' });
+      const badge = createElement('span', { className: 'nw-verified-badge' });
+      badge.textContent = verificationIcon(sig.level);
+      badge.style.color = verificationColor(sig.level);
+      badge.title = `${verificationLabel(sig.level)} — ${sig.sources.length} sources: ${sig.sources.map((s) => s.name).join(', ')}`;
+
+      const text = createElement('span', { className: 'nw-verified-text' });
+      text.textContent = sig.summary.length > 60 ? sig.summary.slice(0, 57) + '...' : sig.summary;
+
+      const sourceCount = createElement('span', { className: 'nw-verified-sources' });
+      sourceCount.textContent = `${sig.sources.length} src`;
+      sourceCount.style.color = verificationColor(sig.level);
+
+      row.appendChild(badge);
+      row.appendChild(text);
+      row.appendChild(sourceCount);
+
+      if (sig.lat && sig.lon) {
+        row.addEventListener('click', () => mapView.flyTo(sig.lon, sig.lat, 6));
+        row.style.cursor = 'pointer';
+      }
+
+      container.appendChild(row);
+    }
+  }
+
   const countryHeader = createElement('div', { className: 'nw-section-header' });
   countryHeader.textContent = `COUNTRY INSTABILITY INDEX (${COUNTRY_COUNT})`;
   container.appendChild(countryHeader);

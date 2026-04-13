@@ -192,6 +192,39 @@
   cursor: help;
 }
 
+/* Verified Signals */
+.nw-verified-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-bottom: 1px solid #0d0d0d;
+  font-size: 11px;
+  transition: background 0.15s;
+}
+.nw-verified-row:hover {
+  background: #111111;
+}
+.nw-verified-badge {
+  font-size: 12px;
+  flex-shrink: 0;
+  min-width: 16px;
+  text-align: center;
+}
+.nw-verified-text {
+  flex: 1;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nw-verified-sources {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
 .nw-topbar-right {
   display: flex;
   align-items: center;
