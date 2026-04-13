@@ -559,7 +559,6 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
     // === Generate AI brief (outputs markdown text) ===
     let briefText: string;
-    let briefHtml: string;
     let aiDebug: string | null = null;
 
     if (anthropicKey) {
@@ -689,7 +688,7 @@ ${(() => {
       time: utcTime,
       markets,
     });
-    briefHtml = dossier.beehiivHtml;
+    const briefHtml = dossier.beehiivHtml;
 
     // Store both markdown and HTML versions. Instrumented as the 'archive'
     // channel — this row failing means the entire run is broken, so the outer
