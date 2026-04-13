@@ -1,8 +1,26 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { colors, fonts, type, space, layout, style, typeStyle } from '../src/styles/email-tokens';
 
 export const config = { runtime: 'nodejs' };
 
 const CORS_ORIGIN = 'https://nexuswatch.dev';
+
+/** Map alert severity to a semantic color from the dossier palette. */
+function severityColor(sev: string): string {
+  if (sev === 'critical') return colors.down;
+  if (sev === 'elevated') return colors.accent;
+  return colors.divider;
+}
+
+/** Wrap a CSS declaration string in a style="..." HTML attribute. */
+function s(declarations: Parameters<typeof style>[0]): string {
+  return `style="${style(declarations)}"`;
+}
+
+/** Wrap a typeStyle result in a style="..." HTML attribute. */
+function ts(token: Parameters<typeof typeStyle>[0], overrides?: Parameters<typeof typeStyle>[1]): string {
+  return `style="${typeStyle(token, overrides)}"`;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
@@ -24,11 +42,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'to, subject, alertText required' });
   }
 
-  const sevColor = severity === 'critical' ? '#dc2626' : severity === 'elevated' ? '#f97316' : '#eab308';
+  const sevColor = severityColor(severity);
   const mapLink =
     lat && lon
       ? `https://nexuswatch.dev/#/intel?v=${btoa(JSON.stringify({ c: [lon, lat], z: 6, p: 10, b: 0, l: [] }))}`
       : 'https://nexuswatch.dev';
+
+  const emailHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NexusWatch Alert</title>
+</head>
+<body ${s({ margin: '0', padding: '0', background: colors.bgPage, fontFamily: fonts.sans })}>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ${s({ background: colors.bgPage, padding: `${space.xl} ${space.md}` })}>
+    <tr><td align="center">
+      <table role="presentation" width="${layout.contentWidth}" cellpadding="0" cellspacing="0" border="0" ${s({ maxWidth: layout.contentWidth, background: colors.bgCard, borderRadius: layout.radiusCard, border: `1px solid ${colors.border}`, padding: layout.gutter })}>
+        <tr><td>
+          <div ${s({ borderBottom: `2px solid ${colors.divider}`, paddingBottom: space.md, marginBottom: space.lg })}>
+            <span ${ts(type.kicker, { color: colors.accent })}>NEXUSWATCH ALERT</span>
+          </div>
+          <div ${s({ display: 'inline-block', padding: `2px ${space.sm}`, background: `${sevColor}15`, border: `1px solid ${sevColor}`, borderRadius: layout.radiusCallout, marginBottom: space.md })}>
+            <span ${ts(type.kicker, { color: sevColor })}>${severity.toUpperCase()}</span>
+          </div>
+          <div ${ts(type.body, { color: colors.textPrimary, marginBottom: space.xl })}>
+            ${alertText}
+          </div>
+          <a href="${mapLink}" ${s({ display: 'inline-block', padding: `${space.md} ${space.xl}`, background: colors.accent, color: colors.textInverse, textDecoration: 'none', borderRadius: layout.radiusCallout, fontFamily: fonts.mono, fontSize: '11px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase' })}>
+            View on Map →
+          </a>
+          <div ${s({ marginTop: space.xl, paddingTop: space.md, borderTop: `1px solid ${colors.border}`, textAlign: 'center' })}>
+            <span ${ts(type.caption, { color: colors.textTertiary })}>NexusWatch Intelligence · nexuswatch.dev · Unsubscribe in account settings</span>
+          </div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
@@ -41,25 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         from: 'NexusWatch Alerts <alerts@nexuswatch.dev>',
         to: [to],
         subject,
-        html: `
-          <div style="font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 24px; max-width: 600px;">
-            <div style="border-bottom: 2px solid #ff6600; padding-bottom: 12px; margin-bottom: 16px;">
-              <span style="font-size: 11px; letter-spacing: 3px; color: #ff6600; font-weight: bold;">NEXUSWATCH ALERT</span>
-            </div>
-            <div style="display: inline-block; padding: 2px 8px; background: ${sevColor}20; border: 1px solid ${sevColor}50; border-radius: 2px; font-size: 10px; color: ${sevColor}; letter-spacing: 1px; font-weight: bold; margin-bottom: 12px;">
-              ${severity.toUpperCase()}
-            </div>
-            <div style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
-              ${alertText}
-            </div>
-            <a href="${mapLink}" style="display: inline-block; padding: 8px 16px; background: #ff660020; border: 1px solid #ff660050; color: #ff6600; text-decoration: none; font-size: 11px; letter-spacing: 1px; border-radius: 3px;">
-              VIEW ON MAP →
-            </a>
-            <div style="margin-top: 24px; padding-top: 12px; border-top: 1px solid #1a1a1a; font-size: 9px; color: #444;">
-              NexusWatch Intelligence Platform · nexuswatch.dev · Unsubscribe in account settings
-            </div>
-          </div>
-        `,
+        html: emailHtml,
       }),
       signal: AbortSignal.timeout(10000),
     });

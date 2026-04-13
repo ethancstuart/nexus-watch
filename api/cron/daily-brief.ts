@@ -658,29 +658,38 @@ ${(() => {
           if (!briefText) {
             aiDebug = 'ai-empty-response';
             briefText = buildFallbackText(briefData);
-            briefHtml = buildFallbackHtml(briefData);
           } else {
             aiDebug = 'ai-success';
-            briefHtml = markdownToHtml(briefText);
           }
         } else {
           const errBody = await aiRes.text().catch(() => 'unknown');
           aiDebug = `ai-failed:${aiRes.status}:${errBody.slice(0, 300)}`;
           console.error(`AI brief failed: ${aiRes.status} — ${errBody.slice(0, 200)}`);
           briefText = buildFallbackText(briefData);
-          briefHtml = buildFallbackHtml(briefData);
         }
       } catch (aiErr) {
         aiDebug = `ai-error:${aiErr instanceof Error ? aiErr.message : String(aiErr)}`;
         console.error('AI brief error:', aiErr instanceof Error ? aiErr.message : aiErr);
         briefText = buildFallbackText(briefData);
-        briefHtml = buildFallbackHtml(briefData);
       }
     } else {
       aiDebug = 'no-api-key';
       briefText = buildFallbackText(briefData);
-      briefHtml = buildFallbackHtml(briefData);
     }
+
+    // === Render Light Intel Dossier (Track B.3) ===
+    // Single rendering pass produces all outputs: email shell for Resend,
+    // inner-modules HTML for beehiiv, plain-text multipart fallback, and
+    // the DB archive summary. All paths (AI success, AI failure, no key)
+    // go through the same dossier pipeline so the archive, email, and
+    // beehiiv post are visually identical.
+    const dossier = renderDossierEmail({
+      briefText,
+      date: today,
+      time: utcTime,
+      markets,
+    });
+    briefHtml = dossier.beehiivHtml;
 
     // Store both markdown and HTML versions. Instrumented as the 'archive'
     // channel — this row failing means the entire run is broken, so the outer
@@ -696,19 +705,6 @@ ${(() => {
       status: 'success',
       latencyMs: Date.now() - archiveT0,
       metadata: { brief_html_length: briefHtml.length, ai: aiDebug },
-    });
-
-    // === Render Light Intel Dossier email (Track A.6) ===
-    // renderDossierEmail produces three outputs — a full standalone HTML
-    // shell for Resend, an inner-modules-only HTML for beehiiv, and a
-    // text/plain multipart fallback used by both channels for
-    // deliverability. Computed ONCE per run so the two channels are
-    // guaranteed to be rendering the same content.
-    const dossier = renderDossierEmail({
-      briefText,
-      date: today,
-      time: utcTime,
-      markets,
     });
 
     // === Publish to beehiiv ===
@@ -1975,139 +1971,6 @@ export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
   return { emailHtml, beehiivHtml, plainText };
 }
 
-// === Fallback brief (no AI) — still produces decent HTML ===
-function buildFallbackHtml(data: BriefData): string {
-  const trendArrow = (c: CIIEntry) => {
-    if (c.prevScore === null) return '';
-    const d = c.score - c.prevScore;
-    if (d >= 3) return ` <span style="color:#f87171">↑${d.toFixed(0)}</span>`;
-    if (d <= -3) return ` <span style="color:#4ade80">↓${Math.abs(d).toFixed(0)}</span>`;
-    return ' <span style="color:#888">→</span>';
-  };
-
-  const h2 = (text: string) =>
-    `<h2 style="color:#ff6600;font-size:14px;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid #333;padding-bottom:6px;margin-top:24px;font-weight:bold;">${text}</h2>`;
-
-  const topCountry = data.topRiskCountries[0];
-  const eqTrend =
-    data.yesterdayEqCount !== null
-      ? data.earthquakeCount > data.yesterdayEqCount
-        ? `, up from ${data.yesterdayEqCount} yesterday`
-        : data.earthquakeCount < data.yesterdayEqCount
-          ? `, down from ${data.yesterdayEqCount} yesterday`
-          : ', unchanged from yesterday'
-      : '';
-
-  let html = '';
-
-  // Situation Summary
-  html += h2('Situation Summary');
-  html += `<p style="color:#ccc;font-size:13px;line-height:1.7;">`;
-  html += topCountry
-    ? `${topCountry.name} leads the Country Instability Index at <strong style="color:#ff6600">${topCountry.score}/100</strong>${topCountry.prevScore !== null ? ` (${topCountry.score > topCountry.prevScore ? 'up' : topCountry.score < topCountry.prevScore ? 'down' : 'unchanged'} from ${topCountry.prevScore})` : ''}, driven primarily by ${Object.entries(topCountry.components).sort(([, a], [, b]) => b - a)[0][0]} risk. `
-    : '';
-  html += `NexusWatch is monitoring <strong>${data.totalCountries} countries</strong> across ${data.topRiskCountries.filter((c) => c.score >= 50).length} elevated-risk zones. `;
-  html += `${data.earthquakeCount} seismic events recorded globally${eqTrend}${data.significantQuakes.length > 0 ? `, including ${data.significantQuakes.length} events above M4.5` : ''}.`;
-  html += `</p>`;
-
-  // Threat Matrix
-  html += h2('Threat Matrix');
-  html += `<table style="border-collapse:collapse;width:100%;margin:8px 0;">`;
-  html += `<tr style="border-bottom:1px solid #333;">
-    <td style="padding:6px 12px;color:#888;font-size:10px;letter-spacing:1px;">COUNTRY</td>
-    <td style="padding:6px 12px;color:#888;font-size:10px;letter-spacing:1px;">CII</td>
-    <td style="padding:6px 12px;color:#888;font-size:10px;letter-spacing:1px;">24H</td>
-    <td style="padding:6px 12px;color:#888;font-size:10px;letter-spacing:1px;">PRIMARY DRIVER</td>
-  </tr>`;
-  for (const c of data.topRiskCountries.slice(0, 8)) {
-    const level = c.score >= 70 ? '🔴' : c.score >= 50 ? '🟠' : c.score >= 30 ? '🟡' : '🟢';
-    const driver = Object.entries(c.components).sort(([, a], [, b]) => b - a)[0];
-    html += `<tr style="border-bottom:1px solid #1a1a1a;">
-      <td style="padding:8px 12px;color:#e0e0e0;font-size:12px;">${level} ${c.name}</td>
-      <td style="padding:8px 12px;color:#e0e0e0;font-size:12px;font-weight:bold;">${c.score}</td>
-      <td style="padding:8px 12px;font-size:12px;">${trendArrow(c)}</td>
-      <td style="padding:8px 12px;color:#888;font-size:11px;">${driver[0]} (${driver[1]})</td>
-    </tr>`;
-  }
-  html += `</table>`;
-
-  // Key Developments
-  if (data.conflictHeadlines.length > 0) {
-    html += h2('Key Developments');
-    for (const h of data.conflictHeadlines.slice(0, 6)) {
-      html += `<p style="color:#e0e0e0;font-size:13px;line-height:1.7;margin:4px 0;padding-left:12px;">▸ ${h}</p>`;
-    }
-  }
-
-  // Seismic & Environmental
-  html += h2('Seismic &amp; Environmental');
-  html += `<p style="color:#ccc;font-size:13px;line-height:1.7;">`;
-  html += `<strong>${data.earthquakeCount}</strong> earthquakes in the last 24 hours${eqTrend}. `;
-  if (data.significantQuakes.length > 0) {
-    html += `Notable events: ${data.significantQuakes.join('; ')}. `;
-  } else {
-    html += `No events above M4.5. `;
-  }
-  if (data.diseaseCount > 0) {
-    html += `WHO reports <strong>${data.diseaseCount}</strong> active outbreak notices.`;
-  }
-  html += `</p>`;
-  if (data.recentOutbreaks.length > 0) {
-    for (const o of data.recentOutbreaks.slice(0, 3)) {
-      html += `<p style="color:#aaa;font-size:12px;line-height:1.5;margin:2px 0;padding-left:12px;">▸ ${o}</p>`;
-    }
-  }
-
-  // Correlations
-  if (data.correlations.length > 0) {
-    html += h2('Cross-Domain Alerts');
-    for (const c of data.correlations) {
-      const isProximity = c.startsWith('PROXIMITY');
-      const isCluster = c.startsWith('SEISMIC CLUSTER');
-      const color = isProximity ? '#f87171' : isCluster ? '#fbbf24' : '#ff6600';
-      html += `<p style="color:${color};font-size:12px;line-height:1.6;margin:6px 0;padding:8px 12px;background:#ffffff08;border-left:2px solid ${color};">⚠ ${c}</p>`;
-    }
-  }
-
-  // Weekly trends
-  if (data.weeklyTrends.length > 0) {
-    html += h2('7-Day Trajectories');
-    for (const t of data.weeklyTrends.slice(0, 5)) {
-      const arrow =
-        t.direction === 'rising'
-          ? '<span style="color:#f87171">↗ RISING</span>'
-          : t.direction === 'falling'
-            ? '<span style="color:#4ade80">↘ FALLING</span>'
-            : t.direction === 'volatile'
-              ? '<span style="color:#fbbf24">↕ VOLATILE</span>'
-              : '<span style="color:#888">→ STABLE</span>';
-      html += `<p style="color:#ccc;font-size:12px;line-height:1.5;margin:4px 0;">▸ <strong>${t.name}</strong>: ${t.weekAgoScore ?? '?'} → ${t.currentScore} ${arrow}</p>`;
-    }
-  }
-
-  // News headlines
-  if (data.newsHeadlines.length > 0) {
-    html += h2('Headlines');
-    for (const n of data.newsHeadlines.slice(0, 6)) {
-      html += `<p style="color:#aaa;font-size:12px;line-height:1.5;margin:3px 0;padding-left:12px;">▸ <span style="color:#888;">[${n.source}]</span> ${n.title}</p>`;
-    }
-  }
-
-  // Markets
-  if (data.markets.length > 0) {
-    html += h2('Market Signal');
-    html += `<p style="color:#ccc;font-size:13px;line-height:1.7;">`;
-    html += data.markets
-      .map((m) => {
-        const color = m.direction === 'up' ? '#4ade80' : m.direction === 'down' ? '#f87171' : '#ccc';
-        return `${m.symbol}: ${m.price} (<span style="color:${color}">${m.change}</span>)`;
-      })
-      .join(' &nbsp;|&nbsp; ');
-    html += `</p>`;
-  }
-
-  return html;
-}
 
 // === RSS fetcher for news headlines ===
 async function fetchNewsHeadlines(): Promise<NewsItem[]> {
@@ -2162,33 +2025,6 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-// === Markdown to HTML (for site archive + email fallback) ===
-function markdownToHtml(md: string): string {
-  let html = md;
-  // Headers
-  html = html.replace(
-    /^## (.+)$/gm,
-    '<h2 style="color:#ff6600;font-size:16px;font-weight:700;margin:24px 0 8px;border-bottom:1px solid #e5e5e5;padding-bottom:6px;">$1</h2>',
-  );
-  html = html.replace(/^### (.+)$/gm, '<h3 style="font-size:14px;font-weight:600;margin:16px 0 6px;">$1</h3>');
-  // Bold
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  // Italic
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  // Numbered lists
-  html = html.replace(/^(\d+)\. (.+)$/gm, '<div style="margin:6px 0 6px 16px;">$1. $2</div>');
-  // Bullet points
-  html = html.replace(/^[•▸-] (.+)$/gm, '<div style="margin:4px 0 4px 16px;">▸ $1</div>');
-  html = html.replace(/^\* (.+)$/gm, '<div style="margin:4px 0 4px 16px;">▸ $1</div>');
-  // Paragraphs (double newlines)
-  html = html.replace(/\n\n/g, '</p><p style="margin:8px 0;line-height:1.7;">');
-  // Single newlines within sections
-  html = html.replace(/\n/g, '<br>');
-  // Wrap in container
-  html = `<div style="font-family:Inter,-apple-system,sans-serif;font-size:15px;line-height:1.7;color:#1a1a1a;max-width:640px;"><p style="margin:8px 0;line-height:1.7;">${html}</p></div>`;
-  return html;
 }
 
 // === Fallback brief in markdown (when AI fails) ===

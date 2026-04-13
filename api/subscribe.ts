@@ -1,7 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { colors, fonts, type, space, layout, style, typeStyle } from '../src/styles/email-tokens';
 
 export const config = { runtime: 'nodejs' };
+
+function s(declarations: Parameters<typeof style>[0]): string {
+  return `style="${style(declarations)}"`;
+}
+function ts(token: Parameters<typeof typeStyle>[0], overrides?: Parameters<typeof typeStyle>[1]): string {
+  return `style="${typeStyle(token, overrides)}"`;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
@@ -37,22 +45,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             from: 'NexusWatch <hello@nexuswatch.dev>',
             to: [email.toLowerCase().trim()],
             subject: 'Welcome to NexusWatch Intelligence',
-            html: `<div style="font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 24px; max-width: 600px;">
-              <div style="border-bottom: 2px solid #ff6600; padding-bottom: 12px; margin-bottom: 16px;">
-                <span style="font-size: 14px; letter-spacing: 3px; color: #ff6600; font-weight: bold;">NEXUSWATCH</span>
-              </div>
-              <p style="font-size: 14px; line-height: 1.7;">You're now subscribed to the NexusWatch Daily Intelligence Brief.</p>
-              <p style="font-size: 13px; line-height: 1.7; color: rgba(255,255,255,0.7);">Every morning at 06:00 UTC, you'll receive an AI-generated intelligence briefing covering:</p>
-              <ul style="font-size: 12px; color: rgba(255,255,255,0.6); line-height: 2;">
-                <li>Bottom Line Up Front (BLUF) — the single most important development</li>
-                <li>Top risk countries with Country Instability Index scores</li>
-                <li>Regional highlights across 5 theaters</li>
-                <li>Market implications with specific index/commodity data</li>
-                <li>Indicators to watch for the next 24-48 hours</li>
-              </ul>
-              <div style="margin-top: 20px;"><a href="https://nexuswatch.dev" style="display:inline-block;padding:10px 20px;background:#ff6600;color:#000;text-decoration:none;font-size:12px;font-weight:bold;letter-spacing:1px;border-radius:3px;">OPEN NEXUSWATCH →</a></div>
-              <div style="margin-top: 24px; padding-top: 12px; border-top: 1px solid #1a1a1a; font-size: 9px; color: #444;">NexusWatch Intelligence Platform · Real-time geopolitical monitoring for 50+ countries</div>
-            </div>`,
+            html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome to NexusWatch</title></head>
+<body ${s({ margin: '0', padding: '0', background: colors.bgPage, fontFamily: fonts.sans })}>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ${s({ background: colors.bgPage, padding: `${space.xl} ${space.md}` })}>
+    <tr><td align="center">
+      <table role="presentation" width="${layout.contentWidth}" cellpadding="0" cellspacing="0" border="0" ${s({ maxWidth: layout.contentWidth, background: colors.bgCard, borderRadius: layout.radiusCard, border: `1px solid ${colors.border}`, padding: layout.gutter })}>
+        <tr><td>
+          <div ${s({ borderBottom: `2px solid ${colors.divider}`, paddingBottom: space.md, marginBottom: space.lg, textAlign: 'center' })}>
+            <span ${ts(type.masthead, { color: colors.textPrimary, letterSpacing: '-0.01em' })}>NexusWatch</span>
+          </div>
+          <p ${ts(type.bodyLarge, { color: colors.textPrimary, margin: `0 0 ${space.md} 0` })}>You're now subscribed to the NexusWatch Daily Intelligence Brief.</p>
+          <p ${ts(type.body, { color: colors.textSecondary, margin: `0 0 ${space.lg} 0` })}>Every morning, you'll receive an AI-generated intelligence briefing covering:</p>
+          <div ${s({ margin: `0 0 ${space.xl} 0` })}>
+            <div ${ts(type.body, { color: colors.textPrimary, margin: `0 0 ${space.sm} 0`, paddingLeft: space.lg })}><span ${s({ color: colors.accent, marginRight: space.sm })}>▸</span>Top stories — the developments worth your attention</div>
+            <div ${ts(type.body, { color: colors.textPrimary, margin: `0 0 ${space.sm} 0`, paddingLeft: space.lg })}><span ${s({ color: colors.accent, marginRight: space.sm })}>▸</span>Country Instability Index — risk scores across 50+ nations</div>
+            <div ${ts(type.body, { color: colors.textPrimary, margin: `0 0 ${space.sm} 0`, paddingLeft: space.lg })}><span ${s({ color: colors.accent, marginRight: space.sm })}>▸</span>US impact analysis — why it matters if you're stateside</div>
+            <div ${ts(type.body, { color: colors.textPrimary, margin: `0 0 ${space.sm} 0`, paddingLeft: space.lg })}><span ${s({ color: colors.accent, marginRight: space.sm })}>▸</span>Market signal — energy, commodities, and index moves</div>
+            <div ${ts(type.body, { color: colors.textPrimary, margin: `0 0 ${space.sm} 0`, paddingLeft: space.lg })}><span ${s({ color: colors.accent, marginRight: space.sm })}>▸</span>48-hour outlook — what to watch next</div>
+          </div>
+          <div ${s({ textAlign: 'center', margin: `${space.xl} 0` })}>
+            <a href="https://nexuswatch.dev" ${s({ display: 'inline-block', padding: `${space.md} ${space.xl}`, background: colors.accent, color: colors.textInverse, textDecoration: 'none', borderRadius: layout.radiusCallout, fontFamily: fonts.mono, fontSize: '11px', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase' })}>Open NexusWatch →</a>
+          </div>
+          <div ${s({ marginTop: space.xl, paddingTop: space.md, borderTop: `1px solid ${colors.border}`, textAlign: 'center' })}>
+            <span ${ts(type.caption, { color: colors.textTertiary })}>NexusWatch Intelligence · Real-time geopolitical monitoring for 50+ countries</span>
+          </div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
           }),
         });
       } catch {
