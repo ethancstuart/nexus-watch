@@ -9,6 +9,7 @@
  */
 
 import { haversineKm } from '../utils/geo.ts';
+import { getCachedCII } from './countryInstabilityIndex.ts';
 
 export interface AlertRule {
   id: string;
@@ -25,6 +26,52 @@ export interface ParsedRule {
   radiusKm: number | null;
   comparisonLayer: string | null;
   humanReadable: string;
+}
+
+/**
+ * Composite alert rule — supports AND/OR logic across multiple conditions.
+ * "Alert when Sudan CII > 60 AND oil price moves > 3%"
+ */
+export interface CompositeRule {
+  id: string;
+  operator: 'AND' | 'OR';
+  conditions: ParsedRule[];
+  label: string;
+  active: boolean;
+}
+
+// Composite rules store
+let compositeRules: CompositeRule[] = [];
+
+export function getCompositeRules(): CompositeRule[] {
+  return compositeRules;
+}
+
+export function addCompositeRule(rule: CompositeRule): void {
+  compositeRules.push(rule);
+  saveCompositeRules();
+}
+
+export function removeCompositeRule(id: string): void {
+  compositeRules = compositeRules.filter((r) => r.id !== id);
+  saveCompositeRules();
+}
+
+function saveCompositeRules(): void {
+  try {
+    localStorage.setItem('nw:composite-rules', JSON.stringify(compositeRules));
+  } catch {
+    /* quota exceeded — non-fatal */
+  }
+}
+
+export function loadCompositeRules(): void {
+  try {
+    const saved = localStorage.getItem('nw:composite-rules');
+    if (saved) compositeRules = JSON.parse(saved);
+  } catch {
+    /* corrupt data — start fresh */
+  }
 }
 
 export interface TriggeredAlert {
@@ -89,6 +136,35 @@ export function evaluateAlerts(layerData: Map<string, unknown>): TriggeredAlert[
       };
       newAlerts.push(alert);
       recentTriggers.set(rule.id, Date.now());
+    }
+  }
+
+  // === Composite rule evaluation ===
+  for (const composite of compositeRules) {
+    if (!composite.active) continue;
+    const lastTrigger = recentTriggers.get(composite.id);
+    if (lastTrigger && Date.now() - lastTrigger < COOLDOWN) continue;
+
+    const conditionResults = composite.conditions.map((c) => evaluateRule(c, layerData));
+
+    const allConditionsMet =
+      composite.operator === 'AND'
+        ? conditionResults.every((r) => r.length > 0)
+        : conditionResults.some((r) => r.length > 0);
+
+    const allMatches = allConditionsMet ? conditionResults.flat() : [];
+
+    if (allMatches.length > 0) {
+      const alert: TriggeredAlert = {
+        ruleId: composite.id,
+        ruleText: composite.label,
+        humanReadable: `[${composite.operator}] ${composite.label}`,
+        matchedEvents: allMatches.slice(0, 5),
+        severity: 'elevated',
+        timestamp: Date.now(),
+      };
+      newAlerts.push(alert);
+      recentTriggers.set(composite.id, Date.now());
     }
   }
 
@@ -231,6 +307,41 @@ function evaluateRule(
         const lat = Number(first.lat) || 0;
         const lon = Number(first.lon) || 0;
         matches.push({ text: `New ${parsed.layer} data: ${data.length} events`, lat, lon });
+      }
+      break;
+    }
+
+    case 'cii_above': {
+      // Alert when a country's CII score exceeds a threshold
+      if (parsed.threshold === null) return [];
+      const ciiScores = getCachedCII();
+      for (const s of ciiScores) {
+        if (s.score >= parsed.threshold) {
+          if (
+            parsed.location &&
+            !s.countryName.toLowerCase().includes(parsed.location.toLowerCase()) &&
+            !s.countryCode.toLowerCase().includes(parsed.location.toLowerCase())
+          )
+            continue;
+          matches.push({ text: `${s.countryName} CII ${s.score} (threshold: ${parsed.threshold})`, lat: 0, lon: 0 });
+        }
+      }
+      break;
+    }
+
+    case 'cii_rising': {
+      // Alert when a country's CII trend is 'rising'
+      const ciiScores = getCachedCII();
+      for (const s of ciiScores) {
+        if (s.trend === 'rising') {
+          if (
+            parsed.location &&
+            !s.countryName.toLowerCase().includes(parsed.location.toLowerCase()) &&
+            !s.countryCode.toLowerCase().includes(parsed.location.toLowerCase())
+          )
+            continue;
+          matches.push({ text: `${s.countryName} CII RISING (score: ${s.score})`, lat: 0, lon: 0 });
+        }
       }
       break;
     }
