@@ -4,6 +4,7 @@ import type { MapDataLayer } from './LayerDefinition.ts';
 import { newsPopup } from '../PopupCard.ts';
 import type { GdeltArticle } from '../../types/index.ts';
 import { fetchGdeltArticles } from '../../services/gdelt.ts';
+import { updateProvenance, SOURCE_REGISTRY } from '../../services/dataProvenance.ts';
 
 // Tone → color (negative=red, neutral=yellow, positive=green)
 function toneToColor(tone: number): string {
@@ -42,13 +43,22 @@ export class NewsLayer implements MapDataLayer {
   }
 
   async refresh(): Promise<void> {
+    const reg = SOURCE_REGISTRY[this.id];
     try {
       this.data = await fetchGdeltArticles();
       this.lastUpdated = Date.now();
+      if (reg) updateProvenance(this.id, { ...reg, dataPointCount: this.data.length, lastFetchOk: true });
       if (this.enabled) this.renderLayer();
       document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
     } catch (err) {
       console.error('News layer refresh error:', err);
+      if (reg)
+        updateProvenance(this.id, {
+          ...reg,
+          dataPointCount: this.data.length,
+          lastFetchOk: false,
+          lastError: err instanceof Error ? err.message : String(err),
+        });
     }
   }
 

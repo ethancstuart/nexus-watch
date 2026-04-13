@@ -5,6 +5,7 @@ import type { EarthquakeFeature } from '../../types/index.ts';
 import { fetchEarthquakes } from '../../services/earthquakes.ts';
 import { earthquakePopup } from '../PopupCard.ts';
 import { cacheLayerData, getCachedLayerData } from '../../utils/layerCache.ts';
+import { updateProvenance, SOURCE_REGISTRY } from '../../services/dataProvenance.ts';
 
 export class EarthquakeLayer implements MapDataLayer {
   readonly id = 'earthquakes';
@@ -34,14 +35,28 @@ export class EarthquakeLayer implements MapDataLayer {
   }
 
   async refresh(): Promise<void> {
+    const reg = SOURCE_REGISTRY[this.id];
     try {
       this.data = await fetchEarthquakes('day', 2.5);
       this.lastUpdated = Date.now();
       cacheLayerData(this.id, this.data);
+      if (reg)
+        updateProvenance(this.id, {
+          ...reg,
+          dataPointCount: this.data.length,
+          lastFetchOk: true,
+        });
     } catch (err) {
       console.error('Earthquake layer refresh error:', err);
       const cached = getCachedLayerData<EarthquakeFeature[]>(this.id);
       if (cached && cached.length > 0) this.data = cached;
+      if (reg)
+        updateProvenance(this.id, {
+          ...reg,
+          dataPointCount: this.data.length,
+          lastFetchOk: false,
+          lastError: err instanceof Error ? err.message : String(err),
+        });
     }
     if (this.enabled && this.data.length > 0) this.renderLayer();
     document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));

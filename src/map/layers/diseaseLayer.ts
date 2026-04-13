@@ -3,6 +3,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
 import { renderPopupCard } from '../PopupCard.ts';
+import { updateProvenance, SOURCE_REGISTRY } from '../../services/dataProvenance.ts';
 
 interface Outbreak {
   disease: string;
@@ -59,16 +60,25 @@ export class DiseaseLayer implements MapDataLayer {
   }
 
   async refresh(): Promise<void> {
+    const reg = SOURCE_REGISTRY['disease-outbreaks'];
     try {
       const res = await fetchWithRetry('/api/disease-outbreaks');
       if (!res.ok) throw new Error('Disease API error');
       const result = (await res.json()) as { outbreaks: Outbreak[] };
       this.data = result.outbreaks;
       this.lastUpdated = Date.now();
+      if (reg) updateProvenance('disease-outbreaks', { ...reg, dataPointCount: this.data.length, lastFetchOk: true });
       if (this.enabled) this.renderLayer();
       document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
     } catch (err) {
       console.error('Disease layer error:', err);
+      if (reg)
+        updateProvenance('disease-outbreaks', {
+          ...reg,
+          dataPointCount: this.data.length,
+          lastFetchOk: false,
+          lastError: err instanceof Error ? err.message : String(err),
+        });
     }
   }
 

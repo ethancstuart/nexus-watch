@@ -4,6 +4,7 @@ import type { MapDataLayer } from './LayerDefinition.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
 import { renderPopupCard } from '../PopupCard.ts';
 import { cacheLayerData, getCachedLayerData } from '../../utils/layerCache.ts';
+import { updateProvenance, SOURCE_REGISTRY } from '../../services/dataProvenance.ts';
 
 interface AcledEvent {
   id: string;
@@ -56,6 +57,7 @@ export class AcledLayer implements MapDataLayer {
   }
 
   async refresh(): Promise<void> {
+    const reg = SOURCE_REGISTRY[this.id];
     try {
       const res = await fetchWithRetry('/api/acled');
       if (!res.ok) throw new Error('ACLED API error');
@@ -63,10 +65,18 @@ export class AcledLayer implements MapDataLayer {
       this.data = result.events;
       this.lastUpdated = Date.now();
       cacheLayerData(this.id, this.data);
+      if (reg) updateProvenance(this.id, { ...reg, dataPointCount: this.data.length, lastFetchOk: true });
     } catch (err) {
       console.error('ACLED layer error:', err);
       const cached = getCachedLayerData<AcledEvent[]>(this.id);
       if (cached && cached.length > 0) this.data = cached;
+      if (reg)
+        updateProvenance(this.id, {
+          ...reg,
+          dataPointCount: this.data.length,
+          lastFetchOk: false,
+          lastError: err instanceof Error ? err.message : String(err),
+        });
     }
     if (this.enabled && this.data.length > 0) this.renderLayer();
     document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));

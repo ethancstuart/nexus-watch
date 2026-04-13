@@ -777,6 +777,16 @@
   min-width: 20px;
   text-align: right;
 }
+.nw-layer-fresh-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #333;
+  flex-shrink: 0;
+  margin-right: 4px;
+  cursor: help;
+  transition: background 0.3s;
+}
 
 /* ── Markets Tab ── */
 

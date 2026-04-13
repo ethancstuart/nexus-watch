@@ -4,6 +4,7 @@ import type { MapDataLayer } from './LayerDefinition.ts';
 import { firePopup } from '../PopupCard.ts';
 import type { FireHotspot } from '../../types/index.ts';
 import { fetchFireHotspots } from '../../services/fires.ts';
+import { updateProvenance, SOURCE_REGISTRY } from '../../services/dataProvenance.ts';
 
 export class FireLayer implements MapDataLayer {
   readonly id = 'fires';
@@ -33,13 +34,22 @@ export class FireLayer implements MapDataLayer {
   }
 
   async refresh(): Promise<void> {
+    const reg = SOURCE_REGISTRY[this.id];
     try {
       this.data = await fetchFireHotspots();
       this.lastUpdated = Date.now();
+      if (reg) updateProvenance(this.id, { ...reg, dataPointCount: this.data.length, lastFetchOk: true });
       if (this.enabled) this.renderLayer();
       document.dispatchEvent(new CustomEvent('dashview:layer-data', { detail: { layerId: this.id, data: this.data } }));
     } catch (err) {
       console.error('Fire layer refresh error:', err);
+      if (reg)
+        updateProvenance(this.id, {
+          ...reg,
+          dataPointCount: this.data.length,
+          lastFetchOk: false,
+          lastError: err instanceof Error ? err.message : String(err),
+        });
     }
   }
 

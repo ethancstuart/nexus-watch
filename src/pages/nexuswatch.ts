@@ -47,6 +47,7 @@ import {
   getMonitoredCountries,
   type CIIScore,
 } from '../services/countryInstabilityIndex.ts';
+import { getProvenance, computeFreshness, freshnessColor, relativeTime } from '../services/dataProvenance.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -1169,12 +1170,23 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
       });
 
       const name = createElement('span', { className: 'nw-layer-name', textContent: layer.name });
+
+      // Freshness indicator dot — shows data recency at a glance
+      const freshDot = createElement('span', { className: 'nw-layer-fresh-dot' });
+      const prov = getProvenance(layer.id);
+      if (prov) {
+        const freshness = computeFreshness(prov);
+        freshDot.style.background = freshnessColor(freshness);
+        freshDot.title = `${prov.source} · ${relativeTime(prov.fetchedAt)} · ${prov.dataPointCount} points`;
+      }
+
       const count = createElement('span', { className: 'nw-layer-count' });
       if (layer.isEnabled() && layer.getFeatureCount() > 0) {
         count.textContent = String(layer.getFeatureCount());
       }
 
       row.appendChild(toggle);
+      row.appendChild(freshDot);
       row.appendChild(name);
       row.appendChild(count);
       layersBody.appendChild(row);
