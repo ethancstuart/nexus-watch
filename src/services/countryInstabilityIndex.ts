@@ -7,7 +7,13 @@
  *
  * Computed from live layer data every 5 minutes.
  * Complements the global Tension Index (cinema mode) with per-country depth.
+ *
+ * Every score includes a full evidence chain: click 72 → see the 14 ACLED
+ * events, 2 USGS quakes, and 23 GDELT articles that computed it. Plus
+ * explicit disclosure of data gaps.
  */
+
+import { EvidenceBuilder, type CIIEvidenceChain, type ConfidenceLevel } from './confidenceScoring.ts';
 
 export interface CIIScore {
   countryCode: string;
@@ -15,6 +21,7 @@ export interface CIIScore {
   score: number; // 0-100
   trend: 'rising' | 'falling' | 'stable';
   tier: CountryTier;
+  confidence: ConfidenceLevel;
   components: {
     conflict: number; // 0-20
     disasters: number; // 0-15
@@ -24,6 +31,8 @@ export interface CIIScore {
     marketExposure: number; // 0-20
   };
   topSignals: string[]; // Human-readable top 3 contributing factors
+  /** Full evidence chain — source data, confidence, gaps. The receipt for every number. */
+  evidence: CIIEvidenceChain;
 }
 
 // Tier system for coverage depth transparency:
@@ -200,61 +209,67 @@ export function computeAllCII(layerData: Map<string, unknown>): CIIScore[] {
   return scores;
 }
 
+// Conflict baselines — ensures countries at war don't show 0 when ACLED is unavailable
+const BASELINE_CONFLICT: Record<string, number> = {
+  // Active war zones
+  UA: 18,
+  RU: 10,
+  SD: 18,
+  SS: 16,
+  YE: 17,
+  SY: 17,
+  PS: 18,
+  IL: 8,
+  // Insurgencies & civil conflict
+  MM: 15,
+  AF: 14,
+  SO: 15,
+  CD: 14,
+  IQ: 10,
+  LY: 12,
+  ML: 12,
+  BF: 13,
+  CF: 13,
+  NE: 10,
+  HT: 11,
+  NG: 9,
+  MZ: 8,
+  ET: 10,
+  TD: 9,
+  PK: 7,
+  CO: 6,
+  KP: 5,
+  UG: 4,
+  CM: 5,
+  // Low-level / frozen conflicts
+  LB: 6,
+  VE: 4,
+  PH: 3,
+  TH: 2,
+  DZ: 3,
+  GE: 3,
+  AZ: 3,
+  AM: 3,
+  LK: 2,
+  NP: 1,
+  RW: 2,
+  ZW: 2,
+  JO: 2,
+};
+
 function computeCountryCII(
   country: { code: string; name: string; lat: number; lon: number; radius: number; tier: CountryTier },
   layerData: Map<string, unknown>,
 ): CIIScore {
   const signals: string[] = [];
+  const eb = new EvidenceBuilder();
 
   // ── Component 1: Conflict (0-20) — live data + baseline ──
-  // Baseline ensures countries at war don't show 0 when ACLED is unavailable
-  const BASELINE_CONFLICT: Record<string, number> = {
-    // Active war zones
-    UA: 18,
-    RU: 10,
-    SD: 18,
-    SS: 16,
-    YE: 17,
-    SY: 17,
-    PS: 18,
-    IL: 8,
-    // Insurgencies & civil conflict
-    MM: 15,
-    AF: 14,
-    SO: 15,
-    CD: 14,
-    IQ: 10,
-    LY: 12,
-    ML: 12,
-    BF: 13,
-    CF: 13,
-    NE: 10,
-    HT: 11,
-    NG: 9,
-    MZ: 8,
-    ET: 10,
-    TD: 9,
-    PK: 7,
-    CO: 6,
-    KP: 5,
-    UG: 4,
-    CM: 5,
-    // Low-level / frozen conflicts
-    LB: 6,
-    VE: 4,
-    PH: 3,
-    TH: 2,
-    DZ: 3,
-    GE: 3,
-    AZ: 3,
-    AM: 3,
-    LK: 2,
-    NP: 1,
-    RW: 2,
-    ZW: 2,
-    JO: 2,
-  };
+  eb.startComponent('conflict', 20);
   let conflict = BASELINE_CONFLICT[country.code] ?? 0;
+  if (conflict > 0) {
+    eb.markBaseline('conflict', `Baseline conflict score ${conflict}/20 from known conflict status`);
+  }
   const acled = layerData.get('acled') as
     | Array<{ lat: number; lon: number; fatalities?: number; event_type?: string }>
     | undefined;
@@ -266,29 +281,79 @@ function computeCountryCII(
     conflict = Math.min(20, Math.max(conflict, liveConflict));
     if (eventCount > 10) signals.push(`${eventCount} conflict events this week`);
     if (fatalities > 100) signals.push(`${fatalities} casualties reported`);
+    eb.addSource(
+      'conflict',
+      'acled',
+      'ACLED',
+      nearby.slice(0, 10).map((e) => ({
+        text: `${e.event_type || 'Conflict event'} — ${e.fatalities || 0} fatalities`,
+        lat: e.lat,
+        lon: e.lon,
+        timestamp: 0,
+        source: 'ACLED',
+      })),
+    );
+  } else {
+    eb.addGap('conflict', 'ACLED data unavailable — using baseline conflict score only');
   }
+  eb.setScore('conflict', conflict);
 
   // ── Component 2: Disasters (0-15) ──
+  eb.startComponent('disasters', 15);
   let disasters = 0;
-  const quakes = layerData.get('earthquakes') as Array<{ lat: number; lon: number; magnitude?: number }> | undefined;
+  const quakes = layerData.get('earthquakes') as
+    | Array<{ lat: number; lon: number; magnitude?: number; place?: string; time?: number }>
+    | undefined;
   if (quakes) {
     const nearby = quakes.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
     const maxMag = Math.max(0, ...nearby.map((e) => e.magnitude || 0));
     disasters += Math.min(8, nearby.length * 1.5 + (maxMag > 5 ? (maxMag - 5) * 4 : 0));
     if (maxMag >= 5) signals.push(`M${maxMag.toFixed(1)} earthquake`);
+    eb.addSource(
+      'disasters',
+      'earthquakes',
+      'USGS',
+      nearby.slice(0, 5).map((e) => ({
+        text: `M${(e.magnitude || 0).toFixed(1)} earthquake${e.place ? ` — ${e.place}` : ''}`,
+        lat: e.lat,
+        lon: e.lon,
+        timestamp: e.time || 0,
+        source: 'USGS',
+      })),
+    );
+  } else {
+    eb.addGap('disasters', 'USGS earthquake data unavailable');
   }
   const fires = layerData.get('fires') as Array<{ lat: number; lon: number }> | undefined;
   if (fires) {
     const nearby = fires.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
     disasters += Math.min(7, nearby.length / 10);
     if (nearby.length > 50) signals.push(`${nearby.length} active fire hotspots`);
+    if (nearby.length > 0) {
+      eb.addSource(
+        'disasters',
+        'fires',
+        'NASA FIRMS',
+        nearby.slice(0, 5).map((e) => ({
+          text: 'Active fire hotspot',
+          lat: e.lat,
+          lon: e.lon,
+          timestamp: 0,
+          source: 'NASA FIRMS',
+        })),
+      );
+    }
+  } else {
+    eb.addGap('disasters', 'NASA FIRMS fire data unavailable');
   }
   disasters = Math.min(15, disasters);
+  eb.setScore('disasters', disasters);
 
   // ── Component 3: Sentiment (0-15) ──
+  eb.startComponent('sentiment', 15);
   let sentiment = 0;
   const news = layerData.get('news') as
-    | Array<{ lat?: number; lon?: number; tone?: number; country?: string }>
+    | Array<{ lat?: number; lon?: number; tone?: number; country?: string; title?: string; source?: string }>
     | undefined;
   if (news) {
     const nearby = news.filter(
@@ -298,13 +363,30 @@ function computeCountryCII(
     );
     if (nearby.length > 0) {
       const avgTone = nearby.reduce((s, e) => s + (e.tone || 0), 0) / nearby.length;
-      // Negative tone = higher instability
       sentiment = Math.min(15, Math.max(0, (-avgTone / 10) * 15));
       if (avgTone < -5) signals.push(`Strongly negative sentiment (${avgTone.toFixed(1)})`);
+      eb.addSource(
+        'sentiment',
+        'news',
+        'GDELT',
+        nearby.slice(0, 5).map((e) => ({
+          text: e.title || `News article (tone: ${(e.tone || 0).toFixed(1)})`,
+          lat: e.lat || country.lat,
+          lon: e.lon || country.lon,
+          timestamp: 0,
+          source: e.source || 'GDELT',
+        })),
+      );
+    } else {
+      eb.addGap('sentiment', `No GDELT news articles matched ${country.name} — sentiment score is 0`);
     }
+  } else {
+    eb.addGap('sentiment', 'GDELT news data unavailable — sentiment unscored');
   }
+  eb.setScore('sentiment', sentiment);
 
   // ── Component 4: Infrastructure (0-15) ──
+  eb.startComponent('infrastructure', 15);
   let infrastructure = 0;
   const outages = layerData.get('internet-outages') as
     | Array<{ code?: string; severity?: string; score?: number }>
@@ -316,18 +398,44 @@ function computeCountryCII(
         match.score || (match.severity === 'critical' ? 1.0 : match.severity === 'high' ? 0.75 : 0.25);
       infrastructure += outageScore * 10;
       if (outageScore > 0.5) signals.push(`Internet disruption: ${match.severity}`);
+      eb.addSource('infrastructure', 'internet-outages', 'Cloudflare Radar', [
+        {
+          text: `Internet ${match.severity || 'disruption'} detected`,
+          lat: country.lat,
+          lon: country.lon,
+          timestamp: 0,
+          source: 'Cloudflare Radar',
+        },
+      ]);
     }
+  } else {
+    eb.addGap('infrastructure', 'Cloudflare Radar data unavailable');
   }
-  // GPS jamming and cyber threats
   const gpsJamming = layerData.get('gps-jamming') as Array<{ lat: number; lon: number }> | undefined;
   if (gpsJamming) {
     const nearby = gpsJamming.filter((e) => isNear(e.lat, e.lon, country.lat, country.lon, country.radius));
     infrastructure += Math.min(5, nearby.length * 2.5);
-    if (nearby.length > 0) signals.push(`GPS jamming zone detected`);
+    if (nearby.length > 0) {
+      signals.push(`GPS jamming zone detected`);
+      eb.addSource(
+        'infrastructure',
+        'gps-jamming',
+        'GPS Jamming Monitor',
+        nearby.slice(0, 3).map((e) => ({
+          text: 'GPS jamming zone',
+          lat: e.lat,
+          lon: e.lon,
+          timestamp: 0,
+          source: 'GPS Monitor',
+        })),
+      );
+    }
   }
   infrastructure = Math.min(15, infrastructure);
+  eb.setScore('infrastructure', infrastructure);
 
   // ── Component 5: Governance (0-15) ──
+  eb.startComponent('governance', 15);
   let governance = 0;
   const elections = layerData.get('elections') as
     | Array<{ lat: number; lon: number; date?: string; significance?: string }>
@@ -340,6 +448,15 @@ function computeCountryCII(
         if (daysUntil > 0 && daysUntil < 90) {
           governance += Math.min(8, (90 - daysUntil) / 10);
           signals.push(`Election in ${Math.ceil(daysUntil)} days`);
+          eb.addSource('governance', 'elections', 'NexusWatch Election Calendar', [
+            {
+              text: `Election in ${Math.ceil(daysUntil)} days`,
+              lat: el.lat,
+              lon: el.lon,
+              timestamp: new Date(el.date).getTime(),
+              source: 'Election Calendar',
+            },
+          ]);
         }
       }
     }
@@ -350,9 +467,22 @@ function computeCountryCII(
     if (match) {
       governance += match.severity === 'comprehensive' ? 7 : match.severity === 'targeted' ? 4 : 2;
       signals.push(`Under ${match.severity} sanctions`);
+      eb.addSource('governance', 'sanctions', 'OFAC Sanctions', [
+        {
+          text: `Under ${match.severity} sanctions`,
+          lat: country.lat,
+          lon: country.lon,
+          timestamp: 0,
+          source: 'OFAC',
+        },
+      ]);
     }
   }
+  if (!elections && !sanctions) {
+    eb.addGap('governance', 'No election or sanctions data available for this country');
+  }
   governance = Math.min(15, governance);
+  eb.setScore('governance', governance);
 
   // ── Component 6: Market Exposure (0-20) ──
   // This component uses cached market data when available
@@ -445,10 +575,18 @@ function computeCountryCII(
   };
   const marketExposure = MARKET_RISK[country.code] ?? 8;
 
+  // Market exposure evidence — always baseline since we use static weights
+  eb.startComponent('marketExposure', 20);
+  eb.markBaseline('marketExposure', 'Static baseline — economic vulnerability weight, not live market data');
+  eb.setScore('marketExposure', marketExposure);
+
   // ── Total Score ──
   const score = Math.round(
     Math.min(100, conflict + disasters + sentiment + infrastructure + governance + marketExposure),
   );
+
+  // ── Build evidence chain ──
+  const evidence = eb.build(country.code);
 
   return {
     countryCode: country.code,
@@ -456,6 +594,7 @@ function computeCountryCII(
     score,
     trend: 'stable', // Overwritten by computeAllCII when previous scores exist
     tier: country.tier,
+    confidence: evidence.overallConfidence,
     components: {
       conflict: Math.round(conflict * 10) / 10,
       disasters: Math.round(disasters * 10) / 10,
@@ -465,6 +604,7 @@ function computeCountryCII(
       marketExposure: Math.round(marketExposure * 10) / 10,
     },
     topSignals: signals.slice(0, 3),
+    evidence,
   };
 }
 

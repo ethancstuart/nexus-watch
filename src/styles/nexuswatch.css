@@ -166,6 +166,32 @@
   margin-left: 4px;
 }
 
+.nw-topbar-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border-left: 1px solid #1a1a1a;
+}
+.nw-health-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #444444;
+}
+.nw-health-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #22c55e;
+  font-variant-numeric: tabular-nums;
+}
+.nw-country-confidence {
+  font-size: 10px;
+  min-width: 12px;
+  text-align: center;
+  cursor: help;
+}
+
 .nw-topbar-right {
   display: flex;
   align-items: center;

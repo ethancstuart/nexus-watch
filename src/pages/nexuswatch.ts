@@ -32,6 +32,11 @@ import { LaunchLayer } from '../map/layers/launchLayer.ts';
 import { FrontlinesLayer } from '../map/layers/frontlinesLayer.ts';
 import { EnergyLayer } from '../map/layers/energyLayer.ts';
 import { SentimentLayer } from '../map/layers/sentimentLayer.ts';
+import { RefugeeLayer } from '../map/layers/refugeeLayer.ts';
+import { NuclearThreatLayer } from '../map/layers/nuclearThreatLayer.ts';
+import { CyberThreatLayer } from '../map/layers/cyberThreatLayer.ts';
+import { ProtestLayer } from '../map/layers/protestLayer.ts';
+import { ChokepointThreatLayer } from '../map/layers/chokepointThreatLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -48,6 +53,8 @@ import {
   type CIIScore,
 } from '../services/countryInstabilityIndex.ts';
 import { getProvenance, computeFreshness, freshnessColor, relativeTime } from '../services/dataProvenance.ts';
+import { confidenceColor, confidenceIcon } from '../services/confidenceScoring.ts';
+import { computePlatformHealth } from '../services/platformHealth.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -273,8 +280,14 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   topRight.appendChild(userMenuSlot);
   topRight.appendChild(statusArea);
 
+  // Platform health badge — aggregate data confidence
+  const healthSlot = createElement('div', { className: 'nw-topbar-health' });
+  healthSlot.innerHTML = '<span class="nw-health-label">DATA CONFIDENCE</span><span class="nw-health-value">--</span>';
+  healthSlot.title = 'Aggregate data confidence across all sources and countries';
+
   topbar.appendChild(topLeft);
   topbar.appendChild(tensionSlot);
+  topbar.appendChild(healthSlot);
   topbar.appendChild(topRight);
 
   // Main area
@@ -393,6 +406,11 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new FrontlinesLayer(),
     new EnergyLayer(),
     new SentimentLayer(),
+    new RefugeeLayer(),
+    new NuclearThreatLayer(),
+    new CyberThreatLayer(),
+    new ProtestLayer(),
+    new ChokepointThreatLayer(),
   ];
 
   for (const layer of allLayers) {
@@ -752,6 +770,15 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         const sparkValues = tension.history.slice(-24).map((h) => h.value);
         tensionSlot.appendChild(createSparkline(sparkValues, 40, 14, tensionColor(tension.global)));
       }
+      // Update platform health badge
+      const health = computePlatformHealth();
+      const healthValue = healthSlot.querySelector('.nw-health-value');
+      if (healthValue) {
+        healthValue.textContent = `${health.score}%`;
+        (healthValue as HTMLElement).style.color = health.color;
+      }
+      healthSlot.title = `DATA CONFIDENCE: ${health.score}% (${health.label}) — ${health.breakdown.layersFresh}/${health.breakdown.layersTotal} layers fresh, ${health.breakdown.highConfidenceCountries}/${health.breakdown.totalCountries} countries HIGH confidence`;
+
       layerDrawer.refresh();
       if (activeTab === 'intel') debouncedSidebarRender();
 
@@ -1250,6 +1277,13 @@ function createCountryRow(score: CIIScore, mapView: MapView): HTMLElement {
   scoreEl.style.color = color;
   scoreEl.textContent = String(score.score);
 
+  // Confidence indicator — the trust signal
+  const confEl = createElement('span', { className: 'nw-country-confidence' });
+  confEl.textContent = confidenceIcon(score.confidence);
+  confEl.style.color = confidenceColor(score.confidence);
+  const ev = score.evidence;
+  confEl.title = `${score.confidence.toUpperCase()} CONFIDENCE — ${ev.totalSourceCount} sources, ${ev.totalDataPoints} data points${ev.summaryGaps.length > 0 ? ` | Gaps: ${ev.summaryGaps[0]}` : ''}`;
+
   // Sparkline placeholder — replaced when CII history loads
   const sparkPlaceholder = createElement('span', { className: 'nw-sparkline-placeholder' });
   sparkPlaceholder.dataset.sparkline = score.countryCode;
@@ -1259,6 +1293,7 @@ function createCountryRow(score: CIIScore, mapView: MapView): HTMLElement {
 
   row.appendChild(flag);
   row.appendChild(name);
+  row.appendChild(confEl);
   row.appendChild(trendEl);
   row.appendChild(sparkPlaceholder);
   row.appendChild(labelEl);

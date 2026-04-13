@@ -228,4 +228,39 @@ export const SOURCE_REGISTRY: Record<
     methodology:
       'Curated calendar of upcoming elections, referenda, and leadership transitions in monitored countries. Manual editorial review. Updated daily.',
   },
+  refugees: {
+    source: 'UNHCR Population Statistics',
+    sourceUrl: 'https://api.unhcr.org/population/',
+    refreshIntervalMs: 86_400_000,
+    methodology:
+      'Refugee displacement flows between countries from UNHCR population data. Shows top 30 corridors by displaced population with animated arcs. Updated daily.',
+  },
+  'nuclear-threat': {
+    source: 'NexusWatch Composite (USGS + ACLED + OFAC)',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 300_000,
+    methodology:
+      'Composite nuclear threat score per facility. Cross-references seismic activity (USGS), armed conflict proximity (ACLED), sanctions status (OFAC), and facility type. Recomputed every 5 minutes.',
+  },
+  'cyber-threat': {
+    source: 'NexusWatch Composite (Cloudflare Radar + APT Intel)',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 900_000,
+    methodology:
+      'Per-country cyber threat level aggregated from known APT group regions, Cloudflare Radar attack corridors, and internet outage correlation. Updated every 15 minutes.',
+  },
+  protests: {
+    source: 'NexusWatch Composite (ACLED + GDELT)',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 3_600_000,
+    methodology:
+      'Global protest intensity index. Filters protest and riot events from ACLED conflict data and GDELT news articles. Per-country scoring with density heat map. Updated hourly.',
+  },
+  'chokepoint-threat': {
+    source: 'NexusWatch Composite (AIS + ACLED + OFAC)',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 600_000,
+    methodology:
+      'Real-time threat assessment for 6 strategic maritime chokepoints (Hormuz, Suez, Bab el-Mandeb, Malacca, Panama, Taiwan Strait). Cross-references ship traffic, conflict proximity, and geopolitical factors. Updated every 10 minutes.',
+  },
 };
