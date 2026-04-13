@@ -1970,7 +1970,6 @@ export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
   return { emailHtml, beehiivHtml, plainText };
 }
 
-
 // === RSS fetcher for news headlines ===
 async function fetchNewsHeadlines(): Promise<NewsItem[]> {
   const headlines: NewsItem[] = [];
