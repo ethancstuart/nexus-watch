@@ -212,49 +212,97 @@ export function computeAllCII(layerData: Map<string, unknown>): CIIScore[] {
 // Conflict baselines — ensures countries at war don't show 0 when ACLED is unavailable
 const BASELINE_CONFLICT: Record<string, number> = {
   // Active war zones
-  UA: 18,
-  RU: 10,
-  SD: 18,
-  SS: 16,
-  YE: 17,
+  UA: 19,
+  RU: 12,
+  SD: 19,
+  SS: 17,
+  YE: 18,
   SY: 17,
-  PS: 18,
-  IL: 8,
+  PS: 19,
+  IL: 16, // Active regional conflict — raised from 8
+  IR: 14, // Proxy conflicts, nuclear program, sanctions — NEW
+  LB: 14, // Hezbollah conflict — raised from 6
   // Insurgencies & civil conflict
   MM: 15,
-  AF: 14,
+  AF: 15,
   SO: 15,
   CD: 14,
-  IQ: 10,
+  IQ: 11,
   LY: 12,
-  ML: 12,
+  ML: 13,
   BF: 13,
   CF: 13,
-  NE: 10,
-  HT: 11,
-  NG: 9,
+  NE: 11,
+  HT: 12,
+  NG: 10,
   MZ: 8,
-  ET: 10,
-  TD: 9,
-  PK: 7,
-  CO: 6,
-  KP: 5,
-  UG: 4,
-  CM: 5,
+  ET: 11,
+  TD: 10,
+  PK: 8,
+  CO: 7,
+  KP: 12, // Raised — active nuclear provocations, militarized regime
+  UG: 5,
+  CM: 6,
   // Low-level / frozen conflicts
-  LB: 6,
-  VE: 4,
-  PH: 3,
-  TH: 2,
-  DZ: 3,
-  GE: 3,
-  AZ: 3,
-  AM: 3,
+  VE: 6,
+  PH: 4,
+  TH: 3,
+  DZ: 4,
+  GE: 4,
+  AZ: 5,
+  AM: 5,
   LK: 2,
   NP: 1,
-  RW: 2,
-  ZW: 2,
-  JO: 2,
+  RW: 3,
+  ZW: 3,
+  JO: 4,
+  TR: 5, // Kurdish conflict, Syria border ops
+  CN: 4, // Taiwan Strait tensions, internal ethnic tensions
+  TW: 8, // Taiwan Strait threat exposure
+};
+
+// Governance baselines — authoritarian regimes, election crises, sanctions
+const BASELINE_GOVERNANCE: Record<string, number> = {
+  KP: 12,
+  VE: 10,
+  AF: 10,
+  SD: 9,
+  MM: 10,
+  IR: 9,
+  RU: 8,
+  SY: 10,
+  BY: 9,
+  NI: 8,
+  CU: 8,
+  CD: 7,
+  SS: 8,
+  YE: 9,
+  SO: 8,
+  CF: 7,
+  LY: 8,
+  HT: 8,
+  ER: 10,
+};
+
+// Sentiment baselines — persistently negative news coverage for war zones
+const BASELINE_SENTIMENT: Record<string, number> = {
+  UA: 11,
+  RU: 9,
+  IL: 10,
+  PS: 12,
+  SY: 10,
+  YE: 10,
+  SD: 11,
+  AF: 9,
+  IR: 9,
+  MM: 9,
+  SO: 9,
+  VE: 7,
+  KP: 8,
+  LB: 8,
+  HT: 9,
+  CD: 8,
+  SS: 9,
 };
 
 function computeCountryCII(
@@ -351,7 +399,10 @@ function computeCountryCII(
 
   // ── Component 3: Sentiment (0-15) ──
   eb.startComponent('sentiment', 15);
-  let sentiment = 0;
+  let sentiment = BASELINE_SENTIMENT[country.code] ?? 0;
+  if (sentiment > 0) {
+    eb.markBaseline('sentiment', `Baseline sentiment ${sentiment}/15 from known ongoing crisis coverage`);
+  }
   const news = layerData.get('news') as
     | Array<{ lat?: number; lon?: number; tone?: number; country?: string; title?: string; source?: string }>
     | undefined;
@@ -363,7 +414,9 @@ function computeCountryCII(
     );
     if (nearby.length > 0) {
       const avgTone = nearby.reduce((s, e) => s + (e.tone || 0), 0) / nearby.length;
-      sentiment = Math.min(15, Math.max(0, (-avgTone / 10) * 15));
+      const liveSentiment = Math.min(15, Math.max(0, (-avgTone / 10) * 15));
+      // Take max of baseline and live — never lose the baseline floor
+      sentiment = Math.max(sentiment, liveSentiment);
       if (avgTone < -5) signals.push(`Strongly negative sentiment (${avgTone.toFixed(1)})`);
       eb.addSource(
         'sentiment',
@@ -436,7 +489,13 @@ function computeCountryCII(
 
   // ── Component 5: Governance (0-15) ──
   eb.startComponent('governance', 15);
-  let governance = 0;
+  let governance = BASELINE_GOVERNANCE[country.code] ?? 0;
+  if (governance > 0) {
+    eb.markBaseline(
+      'governance',
+      `Baseline governance ${governance}/15 from authoritarian regime / institutional fragility`,
+    );
+  }
   const elections = layerData.get('elections') as
     | Array<{ lat: number; lon: number; date?: string; significance?: string }>
     | undefined;

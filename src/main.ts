@@ -91,6 +91,38 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/pricing', () => {
+    import('./pages/pricing.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderPricingPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/api', () => {
+    import('./pages/apidocs.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderApiDocsPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/whats-new', () => {
+    import('./pages/releaseNotes.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderReleaseNotes(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/status', () => {
+    import('./pages/status.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        void m.renderStatusPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/settings', () => {
     import('./pages/settings.ts')
       .then((m) => {

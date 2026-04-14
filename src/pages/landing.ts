@@ -27,23 +27,23 @@ export function renderLanding(root: HTMLElement): void {
     </nav>
 
     <section class="landing-hero anim-fade-up">
-      <div class="landing-hero-badge">REAL-TIME GEOPOLITICAL INTELLIGENCE</div>
-      <h1 class="landing-hero-title">Intelligence for<br>a volatile world.</h1>
+      <div class="landing-hero-badge">VERIFIED GEOPOLITICAL INTELLIGENCE</div>
+      <h1 class="landing-hero-title">Intelligence<br>you can audit.</h1>
       <p class="landing-hero-subtitle">
-        For analysts, traders, and anyone who needs to understand global risk.<br>
-        30 data layers. 50 countries scored. AI daily briefs. Dark vessel detection. All on a 3D globe.
+        Every number traced to its source. Every AI claim cited. Every prediction tracked against reality.<br>
+        We're the only geopolitical intelligence platform that tells you what we <em>don't</em> know.
       </p>
 
       <div class="landing-cta-group">
-        <a href="#/intel" class="landing-cta-primary">LAUNCH NEXUSWATCH</a>
-        <a href="#/intel?cinema=1" class="landing-cta-secondary">WATCH CINEMA MODE</a>
+        <a href="#/intel" class="landing-cta-primary">LAUNCH PLATFORM</a>
+        <a href="#/pricing" class="landing-cta-secondary">VIEW PRICING</a>
       </div>
 
       <div class="landing-stats">
-        <div class="landing-stat"><span class="landing-stat-num">30</span><span class="landing-stat-label">DATA LAYERS</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">50</span><span class="landing-stat-label">COUNTRIES SCORED</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">6</span><span class="landing-stat-label">CRONS RUNNING</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">5 AM</span><span class="landing-stat-label">DAILY BRIEF</span></div>
+        <div class="landing-stat"><span class="landing-stat-num">35+</span><span class="landing-stat-label">DATA LAYERS</span></div>
+        <div class="landing-stat"><span class="landing-stat-num">86</span><span class="landing-stat-label">COUNTRIES</span></div>
+        <div class="landing-stat"><span class="landing-stat-num">12</span><span class="landing-stat-label">VERIFIED SOURCES</span></div>
+        <div class="landing-stat"><span class="landing-stat-num">100%</span><span class="landing-stat-label">AUDITABLE</span></div>
       </div>
 
       <div class="landing-brief-signup">
@@ -65,24 +65,49 @@ export function renderLanding(root: HTMLElement): void {
 
     <section class="landing-features">
       <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[:::]</div>
-        <h3>30 Live Data Layers</h3>
-        <p>Earthquakes, conflicts, flights, ships, fires, disease outbreaks, internet outages, prediction markets — all on one 3D globe.</p>
+        <div class="landing-feature-icon">[◆◆◆]</div>
+        <h3>Intelligence Confidence System</h3>
+        <p>Every CII score decomposes to its source data. Click 72 → see the 14 ACLED events, 2 USGS quakes, and 23 GDELT articles. With confidence badges.</p>
       </div>
       <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[///]</div>
-        <h3>Country Instability Index</h3>
-        <p>50 countries scored 0-100 across 6 risk components. Updated every 5 minutes. Trend trajectories over 7/14/30 days.</p>
+        <div class="landing-feature-icon">[🛡🛡]</div>
+        <h3>Multi-Source Verification</h3>
+        <p>Events tagged CONFIRMED (3+ sources), CORROBORATED (2 sources), or UNVERIFIED (single source) — how actual intel agencies work.</p>
       </div>
       <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[>>>]</div>
-        <h3>Cinema Mode</h3>
-        <p>Immersive intelligence broadcast. Smart camera flies between hotspots. AI narrates with voice synthesis. 8 profiles.</p>
+        <div class="landing-feature-icon">[?!?]</div>
+        <h3>Scenario Simulation</h3>
+        <p>"What happens if Iran closes the Strait of Hormuz?" Forward-looking what-if analysis with CII deltas, cascade chains, historical precedents.</p>
+      </div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[📊]</div>
+        <h3>Portfolio Geopolitical Exposure</h3>
+        <p>Map your holdings to country-level risk. "Your portfolio has 23% exposure to countries with CII > 60." For hedge funds and family offices.</p>
+      </div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[◷◷◷]</div>
+        <h3>Time-Travel Intelligence</h3>
+        <p>Scrub through history. See what the Middle East looked like 6 months ago. Track Sudan's trajectory week by week. 90 days of CII history.</p>
+      </div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[✓✗]</div>
+        <h3>Prediction Ledger</h3>
+        <p>We publish our accuracy. "Learning in public." Every assessment tracked against outcome. We'll never hide a wrong call.</p>
+      </div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[!⚠!]</div>
+        <h3>Crisis Playbooks</h3>
+        <p>Auto-activates when major events fire. Historical precedent, monitoring priorities, at-risk infrastructure — all in one modal.</p>
+      </div>
+      <div class="landing-feature anim-fade-up">
+        <div class="landing-feature-icon">[<=>]</div>
+        <h3>Risk Cascade Engine</h3>
+        <p>56 cross-border dependency rules. Sudan → Chad refugees. Iran → Japan oil. Taiwan → US semiconductors. See how crises propagate.</p>
       </div>
       <div class="landing-feature anim-fade-up">
         <div class="landing-feature-icon">[!?!]</div>
         <h3>Natural Language Alerts</h3>
-        <p>"Alert me when earthquake above 6.0 occurs near a nuclear facility." AI parses your intent into persistent monitoring rules.</p>
+        <p>"Alert me when Sudan CII > 60 AND oil moves > 3%." Composite multi-condition alerts with AND/OR logic.</p>
       </div>
       <div class="landing-feature anim-fade-up">
         <div class="landing-feature-icon">[<->]</div>
