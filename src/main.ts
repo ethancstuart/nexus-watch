@@ -2,9 +2,12 @@ import './styles/main.css';
 import { applyTheme } from './config/theme.ts';
 import { applyDensity } from './config/density.ts';
 import { Router } from './router.ts';
+import { registerCommandPalette } from './ui/commandPalette.ts';
 
 applyTheme();
 applyDensity();
+// Cmd+K / Ctrl+K opens the command palette from anywhere
+registerCommandPalette();
 
 const router = new Router();
 const appRoot = document.getElementById('app')!;
@@ -168,6 +171,22 @@ router
       .then((m) => {
         appRoot.textContent = '';
         m.renderCountryBrief(appRoot, params?.code || '');
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/watchlist', () => {
+    import('./pages/watchlist.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderWatchlistPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/feed', () => {
+    import('./pages/feed.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderFeedPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
