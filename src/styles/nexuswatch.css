@@ -1849,6 +1849,235 @@ body.nw-historical-mode .nw-map-container::after {
   text-decoration: none;
 }
 
+/* Audit Page */
+.nw-audit-page {
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #e0e0e0;
+  padding: 40px 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.nw-audit-header {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #1a1a1a;
+}
+.nw-audit-back {
+  display: inline-block;
+  color: #888;
+  text-decoration: none;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid #222;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.nw-audit-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 26px;
+  font-weight: 700;
+}
+.nw-audit-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #888;
+  line-height: 1.5;
+  max-width: 700px;
+}
+.nw-audit-picker {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  background: #111;
+  border: 1px solid #1a1a1a;
+  border-radius: 6px;
+}
+.nw-audit-input {
+  flex: 1;
+  min-width: 200px;
+  background: #0a0a0a;
+  border: 1px solid #222;
+  color: #e0e0e0;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+.nw-audit-submit {
+  background: #ff6600;
+  border: none;
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.nw-audit-hint {
+  font-size: 10px;
+  color: #666;
+}
+.nw-audit-loading,
+.nw-audit-empty {
+  padding: 40px 20px;
+  text-align: center;
+  background: #111;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  color: #888;
+}
+.nw-audit-empty a {
+  color: #ff6600;
+  text-decoration: none;
+}
+.nw-audit-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.nw-audit-stat {
+  background: #111;
+  border: 1px solid #1a1a1a;
+  padding: 14px;
+  border-radius: 4px;
+  text-align: center;
+}
+.nw-audit-stat-num {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #e0e0e0;
+}
+.nw-audit-stat-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: #666;
+  margin-top: 4px;
+}
+.nw-audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nw-audit-entry {
+  background: #111;
+  border: 1px solid #1a1a1a;
+  padding: 12px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.nw-audit-entry-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.nw-audit-entry-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #888;
+}
+.nw-audit-entry-score {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e0e0e0;
+  font-variant-numeric: tabular-nums;
+}
+.nw-audit-entry-delta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+.nw-audit-entry-conf {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+.nw-conf-high {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+.nw-conf-medium {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+}
+.nw-conf-low {
+  background: rgba(220, 38, 38, 0.15);
+  color: #dc2626;
+}
+.nw-audit-entry-rule {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #ff6600;
+  background: rgba(255, 102, 0, 0.08);
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+.nw-audit-entry-components {
+  display: flex;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+.nw-audit-entry-rules,
+.nw-audit-entry-gaps,
+.nw-audit-entry-lineage {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.nw-audit-entry-gaps {
+  color: #b8341c;
+}
+.nw-audit-entry-lineage a {
+  color: #ff6600;
+  text-decoration: none;
+}
+.nw-audit-footer {
+  margin-top: 30px;
+  padding: 20px;
+  background: #111;
+  border: 1px solid #1a1a1a;
+  border-radius: 6px;
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.nw-audit-footer h3 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #ff6600;
+}
+.nw-audit-footer code {
+  background: #0a0a0a;
+  border: 1px solid #222;
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  color: #ff8800;
+  font-size: 11px;
+}
+.nw-audit-footer a {
+  color: #ff6600;
+  text-decoration: none;
+}
+
 .nw-topbar-right {
   display: flex;
   align-items: center;

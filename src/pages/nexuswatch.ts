@@ -74,6 +74,7 @@ import {
 import { checkCrisisTriggers } from '../services/crisisPlaybook.ts';
 import { showCrisisModal } from '../ui/crisisModal.ts';
 import { detectActiveCascades } from '../services/cascadeEngine.ts';
+import { runDisagreementDetection } from '../services/sourceDisagreement.ts';
 import { TimelineScrubber } from '../ui/timelineScrubber.ts';
 import { registerShortcutsKey } from '../ui/shortcutsOverlay.ts';
 import { showNewsView } from '../ui/newsView.ts';
@@ -836,6 +837,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       computeCorrelations(ld);
       evaluateAlerts(ld);
       runVerification(ld);
+      runDisagreementDetection(ld);
       const newCrisis = checkCrisisTriggers(ld);
       if (newCrisis) showCrisisModal(newCrisis, mapView);
       refreshCascadeOverlay();

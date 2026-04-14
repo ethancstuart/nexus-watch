@@ -824,7 +824,23 @@ async function runAnalystQuery(query: string, config: TerminalConfig, output: HT
 
     const data = (await res.json()) as { text: string; toolsUsed: string[] };
     const toolNote = data.toolsUsed.length > 0 ? `[Tools used: ${data.toolsUsed.join(', ')}]\n\n` : '';
-    showOutput(output, `${toolNote}${data.text}`, 'info');
+
+    // Parse per-sentence confidence tags and count them for display
+    const { parseClaims, overallConfidence } = await import('../utils/claimConfidence.ts');
+    const claims = parseClaims(data.text);
+    const overall = overallConfidence(claims);
+    const counts = { H: 0, M: 0, L: 0 };
+    for (const c of claims) {
+      if (c.confidence === 'high') counts.H++;
+      else if (c.confidence === 'medium') counts.M++;
+      else counts.L++;
+    }
+    const confSummary =
+      claims.length > 0
+        ? `\n\n[OVERALL: ${overall.toUpperCase()} · ${counts.H}H / ${counts.M}M / ${counts.L}L claims]`
+        : '';
+
+    showOutput(output, `${toolNote}${data.text}${confSummary}`, 'info');
   } catch {
     showOutput(output, 'Analyst request failed. Check network connection.', 'error');
   }

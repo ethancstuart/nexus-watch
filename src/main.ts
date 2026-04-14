@@ -123,6 +123,22 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/audit', () => {
+    import('./pages/audit.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        void m.renderAuditPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/audit/:country', (params) => {
+    import('./pages/audit.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        void m.renderAuditPage(appRoot, params?.country);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/settings', () => {
     import('./pages/settings.ts')
       .then((m) => {
