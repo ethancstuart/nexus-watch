@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { cronJitter } from '../_cron-utils';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
@@ -21,6 +22,7 @@ interface DataSource {
 }
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
+  await cronJitter(15);
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'DATABASE_URL not configured' });
 

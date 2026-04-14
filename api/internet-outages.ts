@@ -113,7 +113,8 @@ async function fetchIODA(countryCode: string): Promise<{ bgpScore: number; descr
     else description = 'Normal connectivity';
 
     return { bgpScore: ratio, description };
-  } catch {
+  } catch (err) {
+    console.error('[internet-outages] BGP probe failed:', err instanceof Error ? err.message : err);
     return null;
   }
 }

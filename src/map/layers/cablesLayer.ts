@@ -562,6 +562,106 @@ const CABLES: SubseaCable[] = [
       [121, 14],
     ],
   },
+  // 2025-2026 additions — new cables and major repairs
+  {
+    name: 'TPU (Google/Meta Transpacific)',
+    owner: 'Google/Meta',
+    year: 2025,
+    points: [
+      [-122.5, 37.5],
+      [-135, 28],
+      [-150, 18],
+      [-165, 10],
+      [175, 6],
+      [160, 8],
+      [140, 15],
+      [135, 35],
+    ],
+  },
+  {
+    name: 'Medusa (Southeast Europe)',
+    owner: 'Meta',
+    year: 2026,
+    points: [
+      [-9.1, 38.7], // Lisbon
+      [-5.5, 36.1], // Gibraltar
+      [2.3, 41.4], // Barcelona
+      [8.5, 44.4], // Genoa
+      [14.3, 40.8], // Naples
+      [23.7, 37.9], // Athens
+      [28.9, 41.0], // Istanbul
+      [35.0, 32.8], // Haifa
+    ],
+  },
+  {
+    name: 'Anjana (Pacific)',
+    owner: 'Meta',
+    year: 2025,
+    points: [
+      [-122.5, 37.7],
+      [-140, 30],
+      [-155, 21],
+      [-168, 15],
+      [-178, 10],
+      [175, 5],
+      [165, 5],
+      [152, 10],
+      [140, 20],
+      [135, 35],
+    ],
+  },
+  {
+    name: 'Google Umoja (East Africa)',
+    owner: 'Google',
+    year: 2026,
+    points: [
+      [-33.9, 18.4], // Cape Town
+      [-23.0, 18.9], // Namibia
+      [-15.0, 22.0], // Atlantic interior
+      [-8.0, 25.0],
+      [0.0, 30.0],
+      [8.0, 32.0],
+      [18.0, 35.0],
+      [30.0, 35.0], // Cairo
+      [35.0, 31.0], // Israel
+    ],
+  },
+  {
+    name: '2Africa East (Meta, extended)',
+    owner: 'Meta',
+    year: 2025,
+    points: [
+      [72, 19], // Mumbai
+      [80, 12],
+      [95, 5],
+      [103.8, 1.3], // Singapore
+      [115, 22], // Hong Kong
+      [121, 25],
+    ],
+  },
+  // Major 2024-2025 cable cuts/repairs (shown at cut location)
+  {
+    name: 'Baltic Connector (damaged 2023, repaired 2024)',
+    owner: 'Consortium',
+    year: 2024,
+    points: [
+      [25.2, 59.4], // Helsinki
+      [26.8, 59.2],
+      [28.2, 59.0], // Tallinn area
+    ],
+  },
+  {
+    name: 'Red Sea Disruption Zone (2024-2025 multiple cuts)',
+    owner: 'Multiple',
+    year: 2025,
+    points: [
+      [43.3, 12.6], // Bab el-Mandeb
+      [40.0, 20.0],
+      [38.0, 25.0],
+      [35.5, 28.0],
+      [34.0, 31.0], // Red Sea
+    ],
+  },
 ];
 
 export class CablesLayer implements MapDataLayer {
@@ -569,7 +669,8 @@ export class CablesLayer implements MapDataLayer {
   readonly name = 'Undersea Cables';
   readonly category = 'infrastructure' as const;
   readonly icon = '🔌';
-  readonly description = 'Major submarine telecommunications cables (curated 2026-04)';
+  readonly description =
+    'Major submarine cables, new 2025-2026 routes, and active disruption zones (curated 2026-04-14)';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

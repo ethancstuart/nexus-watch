@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { cronJitter } from '../_cron-utils';
 
-export const config = { runtime: 'nodejs', maxDuration: 30 };
+export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 // Countries to score with their geographic centers
 const COUNTRIES: { code: string; name: string; lat: number; lon: number; radius: number }[] = [
@@ -287,6 +288,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && !process.env.VERCEL_URL?.includes('localhost')) {
     // Allow without auth for now (cron secret optional)
   }
+
+  // Stagger cron execution to prevent thundering herd on upstream APIs
+  await cronJitter(20);
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
