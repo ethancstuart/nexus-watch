@@ -139,6 +139,38 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/compare', () => {
+    import('./pages/compare.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        void m.renderComparePage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/entities', () => {
+    import('./pages/entities.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderEntitiesPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/entities/:id', (params) => {
+    import('./pages/entities.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderEntitiesPage(appRoot, params?.id);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/brief-country/:code', (params) => {
+    import('./pages/countryBrief.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderCountryBrief(appRoot, params?.code || '');
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/settings', () => {
     import('./pages/settings.ts')
       .then((m) => {

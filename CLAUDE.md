@@ -1,9 +1,9 @@
 # NexusWatch — Geopolitical Intelligence Platform
 
 ## Project Overview
-Vite + vanilla TypeScript intelligence platform: 30 data layers on a 3D MapLibre GL globe,
-AI command center with terminal interface, auto-threat detection, 4 intelligence systems,
-and personalized watchlists. Bloomberg terminal aesthetic.
+Vite + vanilla TypeScript intelligence platform: 45+ data layers on a 3D MapLibre GL globe,
+AI command center with terminal interface, auto-threat detection, 6 intelligence systems,
+personalized watchlists, full audit trail, and public API v2. Bloomberg terminal aesthetic.
 Open-source, MIT licensed. Ships with smart defaults, fully configurable.
 Deployed to Vercel at https://nexuswatch.dev. Built with Claude Code.
 Inspired by SitDeck, World Monitor, and Bloomberg Terminal — information-dense, map-centric, AI-native.
@@ -22,7 +22,7 @@ Part of Ethan Stuart's portfolio: "I don't just manage products — I build them
 ## Intel Map (v2)
 The primary view at `#/intel` — a full-screen MapLibre GL 3D globe with 30 data layers across 5 categories:
 
-### Data Layers (30 total)
+### Data Layers (45+ total, growing)
 
 **Conflict & Military (7):** ACLED Live Conflicts, Conflict Zones, Military Bases (28), Cyber Threat Corridors, OFAC Sanctions, GPS Jamming Zones, Frontlines
 
@@ -38,8 +38,8 @@ The primary view at `#/intel` — a full-screen MapLibre GL 3D globe with 30 dat
 - **Tension Index Algorithm**: composite 0-100 score from conflict, disasters, sentiment, instability. 7-day rolling history
 - **Geo-correlation engine** (`src/services/geoIntelligence.ts`): detects earthquake clusters, fire convergence, negative news surges, multi-signal events
 - **Country Intelligence Index** — two coexisting implementations:
-  - **Live (current production path):** `src/services/countryIndex.ts` — 23 nations, 4-component scoring (events/disasters/sentiment/predictions). Wired into `src/pages/nexuswatch.ts`.
-  - **Next-gen scaffolding (unused until Track E.7):** `src/services/countryInstabilityIndex.ts` — 50 nations, richer 6-component CII (Conflict 20% + Disasters 15% + Sentiment 15% + Infrastructure 15% + Governance 15% + Market Exposure 20%). Built Apr 8 but never wired up. Track E.7 will migrate `nexuswatch.ts` to this file and expand coverage to 80+ countries per the `docs/GLOBAL-COVERAGE-BASELINE.md` tier plan. Do not delete — it's load-bearing scaffolding.
+  - **Live production path:** `src/services/countryInstabilityIndex.ts` — 86 nations in 3 tiers (core/extended/monitor), 6-component CII (Conflict 20% + Disasters 15% + Sentiment 15% + Infrastructure 15% + Governance 15% + Market Exposure 20%). Evidence chain + confidence scoring baked in. Rule version 2.1.0.
+  - **Retired:** `src/services/countryIndex.ts` was the old 4-component 23-country version, deleted 2026-04-14.
 - **Personal Intel Engine**: user-defined watchlists, keyword/country matching, AI morning briefs, browser notifications
 - **Intel Bar** (`src/ui/intelBar.ts`): severity-colored alert pills with fly-to-location on click
 - **AI Sitreps** (`api/sitrep.ts`): Claude Haiku generates situation reports from current layer data

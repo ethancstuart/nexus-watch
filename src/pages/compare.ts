@@ -1,0 +1,303 @@
+/**
+ * Country Comparison Page (/#/compare?codes=UA,RU,TW,IR).
+ *
+ * Side-by-side analytical view of 2-6 countries: CII totals,
+ * 6-component breakdown, trend direction, data tier, top signals,
+ * verified evidence. The view analysts reach for when they need
+ * to decide "which of these is the worse bet right now?"
+ */
+
+import { createElement } from '../utils/dom.ts';
+
+interface CiiApiRow {
+  country_code: string;
+  cii_score: number;
+  confidence: string;
+  components?: {
+    conflict?: number;
+    disasters?: number;
+    sentiment?: number;
+    infrastructure?: number;
+    governance?: number;
+    market_exposure?: number;
+  };
+}
+
+const COUNTRY_NAMES: Record<string, string> = {
+  UA: 'Ukraine',
+  RU: 'Russia',
+  CN: 'China',
+  TW: 'Taiwan',
+  IR: 'Iran',
+  IQ: 'Iraq',
+  SY: 'Syria',
+  IL: 'Israel',
+  PS: 'Palestine',
+  YE: 'Yemen',
+  SD: 'Sudan',
+  SS: 'South Sudan',
+  ET: 'Ethiopia',
+  SO: 'Somalia',
+  CD: 'DR Congo',
+  MM: 'Myanmar',
+  AF: 'Afghanistan',
+  PK: 'Pakistan',
+  KP: 'North Korea',
+  KR: 'South Korea',
+  VE: 'Venezuela',
+  NG: 'Nigeria',
+  LY: 'Libya',
+  LB: 'Lebanon',
+  SA: 'Saudi Arabia',
+  US: 'United States',
+  JP: 'Japan',
+  DE: 'Germany',
+  GB: 'United Kingdom',
+  FR: 'France',
+  IN: 'India',
+  BR: 'Brazil',
+  MX: 'Mexico',
+  PH: 'Philippines',
+  ID: 'Indonesia',
+  TR: 'Turkey',
+  EG: 'Egypt',
+  ZA: 'South Africa',
+  KE: 'Kenya',
+  BD: 'Bangladesh',
+  ML: 'Mali',
+  BF: 'Burkina Faso',
+  HT: 'Haiti',
+  CU: 'Cuba',
+  NE: 'Niger',
+  CF: 'Central African Rep.',
+  MZ: 'Mozambique',
+  CO: 'Colombia',
+  UG: 'Uganda',
+  TD: 'Chad',
+  TH: 'Thailand',
+  VN: 'Vietnam',
+  MY: 'Malaysia',
+  PL: 'Poland',
+  RO: 'Romania',
+  AU: 'Australia',
+  CA: 'Canada',
+  IT: 'Italy',
+  ES: 'Spain',
+  AR: 'Argentina',
+  CL: 'Chile',
+  PE: 'Peru',
+  DZ: 'Algeria',
+  MA: 'Morocco',
+  TN: 'Tunisia',
+};
+
+function scoreColor(score: number): string {
+  if (score >= 75) return '#dc2626';
+  if (score >= 50) return '#f97316';
+  if (score >= 25) return '#eab308';
+  return '#22c55e';
+}
+
+export async function renderComparePage(root: HTMLElement): Promise<void> {
+  root.innerHTML = '';
+  root.className = 'nw-compare-page';
+
+  // Parse codes from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const codesParam = urlParams.get('codes') || '';
+  const codes = codesParam
+    .split(',')
+    .map((c) => c.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const header = createElement('header', { className: 'nw-compare-header' });
+  header.innerHTML = `
+    <a href="#/intel" class="nw-compare-back">← Back to Intel Map</a>
+    <h1>Country Comparison</h1>
+    <p class="nw-compare-subtitle">
+      Side-by-side CII breakdown. Pick 2-6 countries to see who's deteriorating faster,
+      which component is driving risk, and where the confidence is.
+    </p>
+  `;
+  root.appendChild(header);
+
+  // Picker
+  const picker = createElement('div', { className: 'nw-compare-picker' });
+  picker.innerHTML = `
+    <input type="text" class="nw-compare-input" placeholder="Comma-separated codes (e.g., UA,RU,TW,IR)"
+           value="${codes.join(',')}">
+    <button class="nw-compare-submit">Compare</button>
+    <div class="nw-compare-presets">
+      <span class="nw-compare-preset-label">Presets:</span>
+      <button class="nw-compare-preset" data-codes="UA,RU,PL,DE">Russia–NATO</button>
+      <button class="nw-compare-preset" data-codes="IR,IL,LB,SA">Middle East</button>
+      <button class="nw-compare-preset" data-codes="TW,CN,US,JP,KR">Taiwan Strait</button>
+      <button class="nw-compare-preset" data-codes="SD,SS,TD,ET,CF">Horn of Africa</button>
+      <button class="nw-compare-preset" data-codes="ML,BF,NE,NG">Sahel</button>
+      <button class="nw-compare-preset" data-codes="VE,CO,HT,CU">Latin America</button>
+      <button class="nw-compare-preset" data-codes="US,CN,RU,GB,FR,DE">G6</button>
+    </div>
+  `;
+  root.appendChild(picker);
+
+  const content = createElement('div', { className: 'nw-compare-content' });
+  root.appendChild(content);
+
+  const input = picker.querySelector('.nw-compare-input') as HTMLInputElement;
+  const submit = picker.querySelector('.nw-compare-submit') as HTMLButtonElement;
+
+  const load = async (codesToLoad: string[]) => {
+    if (codesToLoad.length < 1) return;
+    window.history.replaceState(null, '', `#/compare?codes=${codesToLoad.join(',')}`);
+    content.innerHTML = '<div class="nw-compare-loading">Loading CII data...</div>';
+
+    try {
+      const res = await fetch('/api/v2/cii?apikey=public-compare', { method: 'GET' });
+      // If API auth fails, fall back to client-side cached CII
+      let rows: CiiApiRow[];
+      if (res.ok) {
+        const data = (await res.json()) as { data: CiiApiRow[] };
+        rows = (data.data || []).filter((r) => codesToLoad.includes(r.country_code));
+      } else {
+        // Fallback: use client-side getCachedCII
+        const mod = await import('../services/countryInstabilityIndex.ts');
+        const cached = mod.getCachedCII();
+        rows = cached
+          .filter((s) => codesToLoad.includes(s.countryCode))
+          .map((s) => ({
+            country_code: s.countryCode,
+            cii_score: s.score,
+            confidence: s.confidence,
+            components: {
+              conflict: s.components.conflict,
+              disasters: s.components.disasters,
+              sentiment: s.components.sentiment,
+              infrastructure: s.components.infrastructure,
+              governance: s.components.governance,
+              market_exposure: s.components.marketExposure,
+            },
+          }));
+      }
+
+      // Always render all requested codes, with placeholder for unknown
+      const display = codesToLoad.map((code) => {
+        const match = rows.find((r) => r.country_code === code);
+        return match || { country_code: code, cii_score: 0, confidence: 'low' };
+      });
+
+      renderComparison(content, display);
+    } catch {
+      content.innerHTML = '<div class="nw-compare-empty">Comparison data unavailable.</div>';
+    }
+  };
+
+  submit.addEventListener('click', () => {
+    const parsed = input.value
+      .split(',')
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean)
+      .slice(0, 6);
+    void load(parsed);
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submit.click();
+  });
+
+  picker.querySelectorAll('.nw-compare-preset').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const presetCodes = ((btn as HTMLElement).dataset.codes || '').split(',');
+      input.value = presetCodes.join(',');
+      void load(presetCodes);
+    });
+  });
+
+  if (codes.length > 0) {
+    void load(codes);
+  } else {
+    content.innerHTML = `
+      <div class="nw-compare-empty">
+        <p>Enter country codes above or pick a preset to start comparing.</p>
+        <p style="margin-top:12px;font-size:12px;">
+          Popular: <a href="?codes=UA,RU,TW,IR">UA,RU,TW,IR</a> ·
+          <a href="?codes=SD,SS,ET,TD">Horn of Africa</a> ·
+          <a href="?codes=IR,IL,LB,SA">Middle East</a>
+        </p>
+      </div>
+    `;
+  }
+}
+
+function renderComparison(container: HTMLElement, rows: CiiApiRow[]): void {
+  container.innerHTML = '';
+
+  // Overall scores row
+  const scores = createElement('div', { className: 'nw-compare-scores' });
+  for (const r of rows) {
+    const col = createElement('div', { className: 'nw-compare-score-col' });
+    const name = COUNTRY_NAMES[r.country_code] || r.country_code;
+    col.innerHTML = `
+      <div class="nw-compare-name">${name}</div>
+      <div class="nw-compare-code">${r.country_code}</div>
+      <div class="nw-compare-score" style="color: ${scoreColor(r.cii_score)}">${r.cii_score}</div>
+      <div class="nw-compare-conf nw-conf-${r.confidence}">${r.confidence.toUpperCase()}</div>
+    `;
+    scores.appendChild(col);
+  }
+  container.appendChild(scores);
+
+  // Component breakdown
+  const COMPONENTS = [
+    { key: 'conflict', label: 'Conflict', max: 20 },
+    { key: 'disasters', label: 'Disasters', max: 15 },
+    { key: 'sentiment', label: 'Sentiment', max: 15 },
+    { key: 'infrastructure', label: 'Infrastructure', max: 15 },
+    { key: 'governance', label: 'Governance', max: 15 },
+    { key: 'market_exposure', label: 'Market Exposure', max: 20 },
+  ] as const;
+
+  const breakdown = createElement('div', { className: 'nw-compare-breakdown' });
+  const header = createElement('div', { className: 'nw-compare-breakdown-header' });
+  header.innerHTML =
+    `<div class="nw-compare-component-label">Component</div>` +
+    rows.map((r) => `<div class="nw-compare-breakdown-col">${r.country_code}</div>`).join('');
+  breakdown.appendChild(header);
+
+  for (const comp of COMPONENTS) {
+    const row = createElement('div', { className: 'nw-compare-breakdown-row' });
+    const cells = [
+      `<div class="nw-compare-component-label">${comp.label} <span class="nw-compare-max">/${comp.max}</span></div>`,
+    ];
+    // Find max value across rows for this component for visual scaling
+    const vals = rows.map((r) => Number(r.components?.[comp.key as keyof typeof r.components] ?? 0));
+    const maxVal = Math.max(...vals, 1);
+    for (let i = 0; i < rows.length; i++) {
+      const v = vals[i];
+      const pct = (v / comp.max) * 100;
+      const rel = v / maxVal;
+      const color = rel > 0.8 ? '#dc2626' : rel > 0.5 ? '#f97316' : rel > 0.25 ? '#eab308' : '#22c55e';
+      cells.push(`
+        <div class="nw-compare-breakdown-cell">
+          <div class="nw-compare-bar-container">
+            <div class="nw-compare-bar" style="width: ${pct}%; background: ${color}"></div>
+          </div>
+          <div class="nw-compare-value">${v.toFixed(1)}</div>
+        </div>
+      `);
+    }
+    row.innerHTML = cells.join('');
+    breakdown.appendChild(row);
+  }
+  container.appendChild(breakdown);
+
+  // Links to detail views
+  const links = createElement('div', { className: 'nw-compare-links' });
+  links.innerHTML = rows
+    .map(
+      (r) => `
+    <a href="#/audit/${r.country_code}" class="nw-compare-link">${r.country_code} audit →</a>
+  `,
+    )
+    .join('');
+  container.appendChild(links);
+}
