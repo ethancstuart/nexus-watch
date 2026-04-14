@@ -63,6 +63,8 @@ import {
   verificationLabel,
 } from '../services/verificationEngine.ts';
 import { checkCrisisTriggers } from '../services/crisisPlaybook.ts';
+import { detectActiveCascades } from '../services/cascadeEngine.ts';
+import { TimelineScrubber } from '../ui/timelineScrubber.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -432,6 +434,27 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     setTimeout(() => loadingOverlay.remove(), 600);
   });
 
+  // ── Timeline Scrubber (time-travel intelligence) ──
+  const timelineScrubber = new TimelineScrubber({
+    container: mapContainer,
+    onDateChange: (snapshot) => {
+      if (snapshot) {
+        document.body.classList.add('nw-historical-mode');
+      } else {
+        document.body.classList.remove('nw-historical-mode');
+      }
+    },
+  });
+
+  // Toggle scrubber with 'T' key
+  document.addEventListener('keydown', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    if (e.key === 't' || e.key === 'T') {
+      timelineScrubber.toggle();
+    }
+  });
+
   // ── User Menu ──
   createUserMenu(userMenuSlot);
 
@@ -744,6 +767,11 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       evaluateAlerts(ld);
       runVerification(ld);
       checkCrisisTriggers(ld);
+      // Detect active risk cascades — visible in sidebar count
+      const cascadeCount = detectActiveCascades().length;
+      if (cascadeCount > 0) {
+        document.body.dataset.activeCascades = String(cascadeCount);
+      }
 
       // Update tension index
       const tension = computeTensionIndex(getLayerData());
