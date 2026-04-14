@@ -75,6 +75,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/accuracy', () => {
+    import('./pages/accuracy.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        void m.renderAccuracyPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/settings', () => {
     import('./pages/settings.ts')
       .then((m) => {

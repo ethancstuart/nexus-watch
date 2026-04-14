@@ -464,6 +464,166 @@ body.nw-historical-mode .nw-map-container::after {
   pointer-events: none;
 }
 
+/* Accuracy Dashboard */
+.nw-accuracy-page {
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #e0e0e0;
+  padding: 40px 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.nw-accuracy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #1a1a1a;
+}
+.nw-accuracy-title h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.nw-accuracy-subtitle {
+  margin: 0;
+  color: #888;
+  font-size: 14px;
+}
+.nw-accuracy-back {
+  color: #888;
+  text-decoration: none;
+  font-size: 12px;
+  padding: 6px 12px;
+  border: 1px solid #222;
+  border-radius: 4px;
+}
+.nw-accuracy-back:hover {
+  color: #fff;
+  border-color: #444;
+}
+.nw-accuracy-intro {
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+.nw-accuracy-intro p {
+  margin: 0 0 14px 0;
+  color: #ccc;
+}
+.nw-accuracy-callout {
+  padding: 16px;
+  background: #12161c;
+  border-left: 3px solid #ff6600;
+  border-radius: 0 4px 4px 0;
+}
+.nw-accuracy-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.nw-accuracy-stat-card {
+  background: #111;
+  border: 1px solid #1a1a1a;
+  padding: 18px;
+  border-radius: 4px;
+  text-align: center;
+}
+.nw-accuracy-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.nw-accuracy-stat-label {
+  margin-top: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #666;
+}
+.nw-accuracy-loading,
+.nw-accuracy-empty {
+  padding: 40px 20px;
+  text-align: center;
+  background: #111;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  color: #888;
+}
+.nw-accuracy-empty-icon {
+  font-size: 48px;
+  color: #444;
+  margin-bottom: 16px;
+}
+.nw-accuracy-empty h3 {
+  margin: 0 0 12px 0;
+  color: #ccc;
+}
+.nw-accuracy-empty-note {
+  margin-top: 20px;
+  font-size: 12px;
+  color: #666;
+}
+.nw-accuracy-method-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.nw-accuracy-method-card {
+  background: #111;
+  border: 1px solid #1a1a1a;
+  padding: 18px;
+  border-radius: 4px;
+}
+.nw-accuracy-method-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: #ff6600;
+}
+.nw-accuracy-method-card ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #bbb;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.nw-accuracy-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #111;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  margin-bottom: 32px;
+}
+.nw-accuracy-table th,
+.nw-accuracy-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid #1a1a1a;
+}
+.nw-accuracy-table th {
+  background: #0d0d0d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #666;
+}
+.nw-accuracy-table td {
+  font-size: 13px;
+}
+.nw-accuracy-footer {
+  padding: 20px;
+  background: #12161c;
+  border-left: 3px solid #9a1b1b;
+  border-radius: 0 4px 4px 0;
+  color: #ccc;
+  line-height: 1.6;
+}
+
 .nw-topbar-right {
   display: flex;
   align-items: center;
