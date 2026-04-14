@@ -63,8 +63,10 @@ import {
   verificationLabel,
 } from '../services/verificationEngine.ts';
 import { checkCrisisTriggers } from '../services/crisisPlaybook.ts';
+import { showCrisisModal } from '../ui/crisisModal.ts';
 import { detectActiveCascades } from '../services/cascadeEngine.ts';
 import { TimelineScrubber } from '../ui/timelineScrubber.ts';
+import { registerShortcutsKey } from '../ui/shortcutsOverlay.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -455,6 +457,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     }
   });
 
+  // Register keyboard shortcuts cheatsheet (? key)
+  registerShortcutsKey();
+
   // ── User Menu ──
   createUserMenu(userMenuSlot);
 
@@ -766,7 +771,8 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       computeCorrelations(ld);
       evaluateAlerts(ld);
       runVerification(ld);
-      checkCrisisTriggers(ld);
+      const newCrisis = checkCrisisTriggers(ld);
+      if (newCrisis) showCrisisModal(newCrisis, mapView);
       // Detect active risk cascades — visible in sidebar count
       const cascadeCount = detectActiveCascades().length;
       if (cascadeCount > 0) {

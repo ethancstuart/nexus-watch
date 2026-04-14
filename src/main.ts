@@ -83,6 +83,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/portfolio', () => {
+    import('./pages/portfolio.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderPortfolioPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/settings', () => {
     import('./pages/settings.ts')
       .then((m) => {
