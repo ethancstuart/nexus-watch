@@ -12,45 +12,45 @@ interface Election {
   significance: 'high' | 'medium';
 }
 
-// Curated from IFES ElectionGuide + Wikipedia. Last updated: 2026-04-07.
+// Curated from IFES ElectionGuide + Wikipedia. Last updated: 2026-04-14.
 // No free global election API exists — this is the standard approach.
-const LAST_CURATED = '2026-04-07';
+// Past elections automatically filtered out at render time.
+const LAST_CURATED = '2026-04-14';
 
-const ELECTIONS: Election[] = [
-  // 2026 upcoming
+const ALL_ELECTIONS: Election[] = [
+  // 2026 — upcoming within the year
   { country: 'Brazil', type: 'presidential', date: '2026-10-04', lat: -15.8, lon: -47.9, significance: 'high' },
-  { country: 'Colombia', type: 'parliamentary', date: '2026-03-08', lat: 4.6, lon: -74.3, significance: 'high' },
-  { country: 'Mexico', type: 'parliamentary', date: '2027-06-01', lat: 19.4, lon: -99.1, significance: 'high' },
-  { country: 'Philippines', type: 'parliamentary', date: '2025-05-12', lat: 14.6, lon: 121.0, significance: 'medium' },
-  { country: 'Australia', type: 'parliamentary', date: '2025-05-17', lat: -33.9, lon: 151.2, significance: 'medium' },
-  { country: 'Chile', type: 'presidential', date: '2025-11-16', lat: -33.4, lon: -70.6, significance: 'medium' },
-  { country: 'Iraq', type: 'parliamentary', date: '2025-10-01', lat: 33.2, lon: 43.7, significance: 'high' },
-  { country: 'Norway', type: 'parliamentary', date: '2025-09-08', lat: 59.9, lon: 10.8, significance: 'medium' },
-  {
-    country: 'Czech Republic',
-    type: 'parliamentary',
-    date: '2025-10-10',
-    lat: 50.1,
-    lon: 14.4,
-    significance: 'medium',
-  },
-  { country: 'Argentina', type: 'parliamentary', date: '2025-10-26', lat: -34.6, lon: -58.4, significance: 'high' },
-  { country: 'Japan', type: 'parliamentary', date: '2025-07-27', lat: 35.7, lon: 139.7, significance: 'high' },
-  { country: 'Bolivia', type: 'presidential', date: '2025-08-17', lat: -16.5, lon: -68.1, significance: 'medium' },
-  { country: 'Ivory Coast', type: 'presidential', date: '2025-10-25', lat: 5.3, lon: -4.0, significance: 'medium' },
-  { country: 'Tanzania', type: 'presidential', date: '2025-10-01', lat: -6.8, lon: 39.3, significance: 'medium' },
-  { country: 'Honduras', type: 'presidential', date: '2025-11-30', lat: 14.1, lon: -87.2, significance: 'medium' },
-  { country: 'Guinea', type: 'presidential', date: '2025-12-01', lat: 9.5, lon: -13.7, significance: 'medium' },
-  // 2027+
-  { country: 'South Korea', type: 'presidential', date: '2027-03-09', lat: 37.6, lon: 127.0, significance: 'high' },
+  { country: 'Hungary', type: 'parliamentary', date: '2026-04-12', lat: 47.5, lon: 19.0, significance: 'high' },
+  { country: 'Peru', type: 'presidential', date: '2026-04-12', lat: -9.2, lon: -75.0, significance: 'high' },
+  { country: 'Sweden', type: 'parliamentary', date: '2026-09-13', lat: 59.3, lon: 18.1, significance: 'medium' },
+  { country: 'Nicaragua', type: 'presidential', date: '2026-11-01', lat: 12.1, lon: -86.3, significance: 'medium' },
+  { country: 'Netherlands', type: 'parliamentary', date: '2026-03-22', lat: 52.4, lon: 4.9, significance: 'medium' },
+  // 2027
+  { country: 'Argentina', type: 'presidential', date: '2027-10-24', lat: -34.6, lon: -58.4, significance: 'high' },
+  { country: 'Mexico', type: 'parliamentary', date: '2027-06-06', lat: 19.4, lon: -99.1, significance: 'high' },
+  { country: 'South Korea', type: 'presidential', date: '2027-03-03', lat: 37.6, lon: 127.0, significance: 'high' },
   { country: 'France', type: 'presidential', date: '2027-04-10', lat: 48.9, lon: 2.3, significance: 'high' },
   { country: 'Nigeria', type: 'presidential', date: '2027-02-18', lat: 9.1, lon: 7.5, significance: 'high' },
+  { country: 'Turkey', type: 'presidential', date: '2028-06-18', lat: 39.9, lon: 32.9, significance: 'high' },
+  { country: 'Kenya', type: 'presidential', date: '2027-08-10', lat: -1.3, lon: 36.8, significance: 'medium' },
+  // 2028+
+  { country: 'United States', type: 'presidential', date: '2028-11-07', lat: 38.9, lon: -77.0, significance: 'high' },
   { country: 'Germany', type: 'parliamentary', date: '2029-02-23', lat: 52.5, lon: 13.4, significance: 'high' },
   { country: 'United Kingdom', type: 'parliamentary', date: '2029-07-01', lat: 51.5, lon: -0.1, significance: 'high' },
-  { country: 'United States', type: 'presidential', date: '2028-11-05', lat: 38.9, lon: -77.0, significance: 'high' },
   { country: 'India', type: 'parliamentary', date: '2029-05-01', lat: 28.6, lon: 77.2, significance: 'high' },
   { country: 'Indonesia', type: 'presidential', date: '2029-02-14', lat: -6.2, lon: 106.8, significance: 'high' },
+  { country: 'Pakistan', type: 'parliamentary', date: '2029-02-08', lat: 30.4, lon: 69.3, significance: 'high' },
 ];
+
+/**
+ * Filter out past elections. Called at render time so the list is
+ * always fresh relative to today — no manual curation decay.
+ */
+function getUpcomingElections(): Election[] {
+  const now = Date.now();
+  return ALL_ELECTIONS.filter((e) => new Date(e.date).getTime() > now);
+}
+const ELECTIONS = getUpcomingElections();
 
 function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
