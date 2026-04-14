@@ -30,13 +30,18 @@ async function exchangeGoogle(
   code: string,
   redirectUri: string,
 ): Promise<{ id: string; email: string; name: string; avatar: string }> {
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!googleClientId || !googleClientSecret) {
+    throw new Error('Google OAuth not configured — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET');
+  }
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      client_id: googleClientId,
+      client_secret: googleClientSecret,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     }),
@@ -61,12 +66,17 @@ async function exchangeGithub(
   code: string,
   _redirectUri: string,
 ): Promise<{ id: string; email: string; name: string; avatar: string }> {
+  const githubClientId = process.env.GITHUB_CLIENT_ID;
+  const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+  if (!githubClientId || !githubClientSecret) {
+    throw new Error('GitHub OAuth not configured — set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET');
+  }
   const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id: process.env.GITHUB_CLIENT_ID!,
-      client_secret: process.env.GITHUB_CLIENT_SECRET!,
+      client_id: githubClientId,
+      client_secret: githubClientSecret,
       code,
     }),
   });

@@ -686,6 +686,47 @@ body.nw-historical-mode .nw-map-container::after {
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 768px) {
+  .nw-portfolio-page,
+  .nw-audit-page,
+  .nw-accuracy-page,
+  .nw-pricing-page,
+  .nw-apidocs-page,
+  .nw-releases-page {
+    padding: 20px 12px;
+  }
+  .nw-portfolio-header,
+  .nw-audit-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .nw-holding-row {
+    grid-template-columns: 1fr 60px auto 28px;
+  }
+  .nw-add-holding {
+    grid-template-columns: 1fr;
+  }
+  .nw-audit-picker {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .nw-audit-input {
+    min-width: 100%;
+  }
+  .nw-audit-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .nw-shortcuts-panel {
+    max-width: 95vw;
+  }
+  .nw-news-panel {
+    width: 100vw;
+  }
+  .nw-scenario-banner {
+    width: calc(100vw - 20px);
+    top: 60px;
+  }
+}
 .nw-portfolio-form-panel {
   background: #111;
   border: 1px solid #1a1a1a;

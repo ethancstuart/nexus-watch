@@ -1019,6 +1019,12 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         case 'g':
           if (!e.ctrlKey && !e.metaKey) entityGraph.toggle();
           break;
+        case 'v':
+          if (!e.ctrlKey && !e.metaKey) multiBtn.click();
+          break;
+        case 'i':
+          if (!e.ctrlKey && !e.metaKey) invBtn.click();
+          break;
         case 'Escape':
           if (cinema.isActive()) {
             cinema.exit();

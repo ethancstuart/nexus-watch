@@ -263,4 +263,184 @@ export const SOURCE_REGISTRY: Record<
     methodology:
       'Real-time threat assessment for 6 strategic maritime chokepoints (Hormuz, Suez, Bab el-Mandeb, Malacca, Panama, Taiwan Strait). Cross-references ship traffic, conflict proximity, and geopolitical factors. Updated every 10 minutes.',
   },
+  'chokepoint-status': {
+    source: 'NexusWatch Strategic Chokepoint Monitor',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 600_000,
+    methodology:
+      'Transit status for 6 strategic maritime chokepoints with oil percentage, traffic flow, and disruption signals.',
+  },
+  'air-quality': {
+    source: 'OpenAQ',
+    sourceUrl: 'https://openaq.org/',
+    refreshIntervalMs: 600_000,
+    methodology: 'Air quality index (AQI) for 30 cities from government monitoring stations. Updated every 10 minutes.',
+  },
+  cables: {
+    source: 'TeleGeography Submarine Cable Map (curated)',
+    sourceUrl: 'https://www.submarinecablemap.com/',
+    refreshIntervalMs: 604_800_000,
+    methodology:
+      'Major submarine telecommunications cables. Curated list of 40+ hyperscale and regional cables. Static — updated on major events.',
+  },
+  pipelines: {
+    source: 'NexusWatch Oil/Gas Pipeline Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 604_800_000,
+    methodology: 'Strategic oil and gas pipelines with capacity and operator data. Static reference.',
+  },
+  ports: {
+    source: 'NexusWatch Strategic Ports Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 604_800_000,
+    methodology: 'World top container and bulk ports with throughput and strategic rating. Static reference.',
+  },
+  'military-bases': {
+    source: 'NexusWatch Military Base Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 604_800_000,
+    methodology:
+      'Major military installations globally (28 bases). Open-source from DoD disclosures and defense reporting. Static reference.',
+  },
+  'submarine-military': {
+    source: 'NexusWatch Naval Base Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 604_800_000,
+    methodology: '30 major naval bases with submarine tenant information. Open-source compilation.',
+  },
+  nuclear: {
+    source: 'IAEA Power Reactor Information System',
+    sourceUrl: 'https://pris.iaea.org/',
+    refreshIntervalMs: 604_800_000,
+    methodology: '22 nuclear power facilities and enrichment sites. Static reference updated on major events.',
+  },
+  'trade-routes': {
+    source: 'NexusWatch Trade Route Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 604_800_000,
+    methodology: '8 major global trade routes with typical transit times and cargo volumes.',
+  },
+  frontlines: {
+    source: 'NexusWatch Frontline Tracker',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 86_400_000,
+    methodology: 'Active conflict frontlines (Ukraine, Middle East). Curated from OSINT and ACLED positional data.',
+  },
+  'conflict-zones': {
+    source: 'NexusWatch Conflict Zone Atlas',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 86_400_000,
+    methodology: 'Active and frozen conflict zone polygons. Updated based on ACLED event density + editorial review.',
+  },
+  'gps-jamming': {
+    source: 'NexusWatch GPS Jamming Monitor',
+    sourceUrl: 'https://gpsjam.org/',
+    refreshIntervalMs: 3_600_000,
+    methodology:
+      'GPS interference zones from ADS-B anomaly detection via gpsjam.org. Indicates electronic warfare activity.',
+  },
+  cyber: {
+    source: 'NexusWatch Cyber Threat Corridors',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 3_600_000,
+    methodology: 'Cyber threat corridor mapping from APT group activity regions and known C2 infrastructure.',
+  },
+  'cyber-attack-campaigns': {
+    source: 'NexusWatch APT Activity Monitor',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 3_600_000,
+    methodology:
+      'Active cyber attack campaigns by 8 known APT groups (APT28/29, Lazarus, Sandworm, APT33/40/41, MuddyWater). Composite scoring from Cloudflare Radar + open threat intel.',
+  },
+  'dark-web-osint': {
+    source: 'NexusWatch Dark Web OSINT',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 86_400_000,
+    methodology:
+      'Curated dark web and Telegram signals from OSINT reports. C2 servers, dark markets, ransomware leak sites, Telegram concentration zones.',
+  },
+  satellites: {
+    source: 'CelesTrak',
+    sourceUrl: 'https://celestrak.org/',
+    refreshIntervalMs: 7_200_000,
+    methodology:
+      'Satellite orbits from TLE data via CelesTrak. GEO/MEO/LEO filtering with animated orbital tracks. Updated every 2 hours.',
+  },
+  launches: {
+    source: 'The Space Devs — Launch Library',
+    sourceUrl: 'https://thespacedevs.com/llapi',
+    refreshIntervalMs: 86_400_000,
+    methodology: 'Upcoming space launches with launchpad coordinates, rocket type, and mission details. Updated daily.',
+  },
+  'space-launch-detail': {
+    source: 'NexusWatch Launch Detail (curated)',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 86_400_000,
+    methodology: 'Expanded launch details for major upcoming missions. Curated list with countdown displays.',
+  },
+  sentiment: {
+    source: 'GDELT (Global Database of Events, Language, and Tone)',
+    sourceUrl: 'https://www.gdeltproject.org/',
+    refreshIntervalMs: 900_000,
+    methodology:
+      'Aggregate news sentiment scores per country. Tone ranges -10 (very negative) to +10 (very positive). Derived from GDELT news layer. Updated every 15 minutes.',
+  },
+  predictions: {
+    source: 'Polymarket',
+    sourceUrl: 'https://polymarket.com/',
+    refreshIntervalMs: 300_000,
+    methodology:
+      'Prediction market odds on geopolitical events. Prices reflect crowd-sourced probability. Updated every 5 minutes.',
+  },
+  displacement: {
+    source: 'NexusWatch Displacement Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 86_400_000,
+    methodology: 'Aggregate refugee displacement counts per crisis. Composite from UNHCR + OSINT updates.',
+  },
+  'migration-corridors': {
+    source: 'NexusWatch Migration Corridor Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 86_400_000,
+    methodology: '15 major migration flows between countries with volume and direction. Curated from IOM/UNHCR data.',
+  },
+  energy: {
+    source: 'NexusWatch Energy Infrastructure Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 604_800_000,
+    methodology: 'Major energy infrastructure (terminals, refineries, pipelines, LNG facilities) globally.',
+  },
+  'food-security': {
+    source: 'IPC / FEWS NET (curated)',
+    sourceUrl: 'https://www.ipcinfo.org/',
+    refreshIntervalMs: 604_800_000,
+    methodology: 'IPC Phase 3+ (Crisis) or worse food security countries. Curated from IPC classifications.',
+  },
+  terrorism: {
+    source: 'ACLED (filtered for terrorism/extremist events)',
+    sourceUrl: 'https://acleddata.com/',
+    refreshIntervalMs: 3_600_000,
+    methodology:
+      'Derived from ACLED conflict data — filtered for terrorism, explosions, remote violence, and known extremist group activity.',
+  },
+  gdacs: {
+    source: 'GDACS (Global Disaster Alert Coordination System)',
+    sourceUrl: 'https://www.gdacs.org/',
+    refreshIntervalMs: 3_600_000,
+    methodology:
+      'Active global disasters: earthquakes, tropical storms, floods, volcanic activity. Cross-validates earthquake and disaster layers.',
+  },
+  'defense-contracts': {
+    source: 'NexusWatch Defense Contract Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 604_800_000,
+    methodology:
+      'Major defense contracts (F-35, Patriot, HIMARS, etc.). Curated from DoD disclosures and defense industry reporting.',
+  },
+  'commodity-flows': {
+    source: 'NexusWatch Commodity Flow Registry',
+    sourceUrl: 'https://nexuswatch.dev/#/methodology',
+    refreshIntervalMs: 604_800_000,
+    methodology: '22 major commodity flow routes (oil, gas, LNG, grain, coal) with volume and direction.',
+  },
 };

@@ -204,8 +204,14 @@ export function renderLanding(root: HTMLElement): void {
     <footer class="landing-footer">
       <div class="landing-footer-brand">NexusWatch Intelligence Platform</div>
       <div class="landing-footer-links">
-        <a href="/api/v1/docs" target="_blank">API Docs</a>
+        <a href="#/pricing">Pricing</a>
+        <a href="#/methodology">Methodology</a>
+        <a href="#/accuracy">Accuracy Ledger</a>
+        <a href="#/audit">Audit Trail</a>
+        <a href="#/status">System Status</a>
+        <a href="#/api">API Docs</a>
         <a href="#/briefs">Brief Archive</a>
+        <a href="#/whats-new">What's New</a>
         <a href="#/about">About</a>
         <a href="#/roadmap">Roadmap</a>
       </div>
