@@ -69,6 +69,8 @@ import { TimelineScrubber } from '../ui/timelineScrubber.ts';
 import { registerShortcutsKey } from '../ui/shortcutsOverlay.ts';
 import { showNewsView } from '../ui/newsView.ts';
 import { downloadJson, copyPermalink } from '../utils/exports.ts';
+import { initCascadeOverlay, toggleCascadeOverlay, refreshCascadeOverlay } from '../ui/cascadeOverlay.ts';
+import { initScenarioOverlay, runScenarioVisual, hideScenarioOverlay } from '../ui/scenarioOverlay.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -433,6 +435,8 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   map.on('load', () => {
     layerManager.initAll();
+    initCascadeOverlay(map);
+    initScenarioOverlay(map);
     // Remove loading overlay
     loadingOverlay.classList.add('fade-out');
     setTimeout(() => loadingOverlay.remove(), 600);
@@ -461,6 +465,28 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   // Register keyboard shortcuts cheatsheet (? key)
   registerShortcutsKey();
+
+  // Toggle cascade overlay with 'R' (risk cascades)
+  document.addEventListener('keydown', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    if (e.key === 'r' || e.key === 'R') {
+      toggleCascadeOverlay();
+    }
+  });
+
+  // Listen for scenario run events from the terminal
+  document.addEventListener('nw:run-scenario', ((e: CustomEvent) => {
+    const { presetId } = e.detail as { presetId: string };
+    runScenarioVisual(presetId);
+  }) as EventListener);
+
+  // Esc to hide scenario banner
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      hideScenarioOverlay();
+    }
+  });
 
   // ── User Menu ──
   createUserMenu(userMenuSlot);
@@ -794,6 +820,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       runVerification(ld);
       const newCrisis = checkCrisisTriggers(ld);
       if (newCrisis) showCrisisModal(newCrisis, mapView);
+      refreshCascadeOverlay();
       // Detect active risk cascades — visible in sidebar count
       const cascadeCount = detectActiveCascades().length;
       if (cascadeCount > 0) {

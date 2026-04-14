@@ -1428,6 +1428,82 @@ body.nw-historical-mode .nw-map-container::after {
   font-size: 12px;
 }
 
+/* Scenario banner (visual overlay) */
+.nw-scenario-banner {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 560px;
+  max-width: calc(100vw - 40px);
+  background: #0a0a0a;
+  border: 1px solid #ff6600;
+  border-radius: 6px;
+  z-index: 500;
+  box-shadow: 0 4px 20px rgba(255, 102, 0, 0.2);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.nw-scenario-banner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1a1a1a;
+}
+.nw-scenario-banner-kicker {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #ff6600;
+  margin-bottom: 3px;
+}
+.nw-scenario-banner-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e0e0e0;
+}
+.nw-scenario-banner-close {
+  background: none;
+  border: 1px solid #333;
+  color: #666;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+}
+.nw-scenario-banner-body {
+  padding: 12px 16px;
+}
+.nw-scenario-banner-conf {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+.nw-scenario-banner-conf[data-conf='high'] {
+  color: #22c55e;
+}
+.nw-scenario-banner-conf[data-conf='medium'] {
+  color: #eab308;
+}
+.nw-scenario-banner-conf[data-conf='low'] {
+  color: #f97316;
+}
+.nw-scenario-banner-note {
+  font-size: 11px;
+  color: #aaa;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.nw-scenario-banner-stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: #ccc;
+}
+
 /* Pricing / API docs / Release notes pages */
 .nw-pricing-page,
 .nw-apidocs-page,

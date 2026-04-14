@@ -716,6 +716,9 @@ async function runScenarioCommand(query: string, output: HTMLElement): Promise<v
 
   showOutput(output, `Running scenario: ${preset.name}...`, 'info');
 
+  // Dispatch visual overlay event — the map renders affected countries + infrastructure
+  document.dispatchEvent(new CustomEvent('nw:run-scenario', { detail: { presetId } }));
+
   const result = simulateScenario(presetId);
   if (!result) {
     showOutput(output, 'Scenario simulation failed.', 'error');
