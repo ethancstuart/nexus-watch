@@ -426,7 +426,10 @@ const CABLES: SubseaCable[] = [
       [-122, 34],
       [-140, 25],
       [-155, 20],
-      [-170, -10],
+      [-165, 5],
+      [-172, -8],
+      [-178, -20],
+      [178, -28],
       [175, -35],
       [173, -41],
     ],
@@ -628,7 +631,9 @@ export class CablesLayer implements MapDataLayer {
     return pts;
   }
 
-  // Split cable into segments at dateline crossings, interpolate each segment as arc
+  // Split cable into segments at dateline crossings, interpolate each segment as arc.
+  // When a dateline crossing is detected, interpolate the crossing point at ±180°
+  // on both sides so the cable visually bridges the antimeridian without a gap.
   private cableToFeatures(c: {
     name: string;
     owner: string;
@@ -638,34 +643,49 @@ export class CablesLayer implements MapDataLayer {
     const features: GeoJSON.Feature[] = [];
     let currentSegment: [number, number][] = [];
 
-    for (let i = 0; i < c.points.length - 1; i++) {
-      const lonDiff = Math.abs(c.points[i][0] - c.points[i + 1][0]);
+    const pushFeature = (segment: [number, number][]) => {
+      if (segment.length > 1) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: this.arcInterpolate(segment) },
+          properties: { name: c.name, owner: c.owner, year: c.year },
+        });
+      }
+    };
 
-      if (lonDiff > 160) {
-        // Dateline crossing — finalize current segment, start new one
-        if (currentSegment.length === 0) currentSegment.push(c.points[i]);
-        if (currentSegment.length > 1) {
-          features.push({
-            type: 'Feature',
-            geometry: { type: 'LineString', coordinates: this.arcInterpolate(currentSegment) },
-            properties: { name: c.name, owner: c.owner, year: c.year },
-          });
-        }
-        currentSegment = [c.points[i + 1]];
+    for (let i = 0; i < c.points.length - 1; i++) {
+      const [lon1, lat1] = c.points[i];
+      const [lon2, lat2] = c.points[i + 1];
+      const lonDiff = Math.abs(lon1 - lon2);
+
+      if (lonDiff > 180) {
+        // Dateline crossing — compute interpolated lat at ±180° so cable reaches
+        // the edge on each side instead of leaving a visible gap.
+        // Unwrap the longitude that's on the "wrong side" so we can interp linearly.
+        const unwrappedLon2 = lon2 + (lon1 > 0 ? 360 : -360);
+        const totalDist = unwrappedLon2 - lon1;
+        // Find the fraction of the way where longitude crosses ±180
+        const targetBoundary = lon1 > 0 ? 180 : -180;
+        const fraction = (targetBoundary - lon1) / totalDist;
+        const boundaryLat = lat1 + fraction * (lat2 - lat1);
+
+        // Add start of current segment if empty
+        if (currentSegment.length === 0) currentSegment.push([lon1, lat1]);
+        // End this segment at the boundary on the originating side
+        currentSegment.push([targetBoundary, boundaryLat]);
+        pushFeature(currentSegment);
+        // Start new segment from the boundary on the other side
+        currentSegment = [
+          [-targetBoundary, boundaryLat],
+          [lon2, lat2],
+        ];
       } else {
-        if (currentSegment.length === 0) currentSegment.push(c.points[i]);
-        currentSegment.push(c.points[i + 1]);
+        if (currentSegment.length === 0) currentSegment.push([lon1, lat1]);
+        currentSegment.push([lon2, lat2]);
       }
     }
 
-    if (currentSegment.length > 1) {
-      features.push({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: this.arcInterpolate(currentSegment) },
-        properties: { name: c.name, owner: c.owner, year: c.year },
-      });
-    }
-
+    pushFeature(currentSegment);
     return features;
   }
 

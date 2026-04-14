@@ -67,6 +67,7 @@ import { showCrisisModal } from '../ui/crisisModal.ts';
 import { detectActiveCascades } from '../services/cascadeEngine.ts';
 import { TimelineScrubber } from '../ui/timelineScrubber.ts';
 import { registerShortcutsKey } from '../ui/shortcutsOverlay.ts';
+import { showNewsView } from '../ui/newsView.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -1420,6 +1421,24 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
   const meta = createElement('div', { className: 'nw-detail-meta' });
   meta.textContent = `${ev.totalSourceCount} sources · ${ev.totalDataPoints} data points · Tier: ${score.tier.toUpperCase()}`;
   panel.appendChild(meta);
+
+  // Action buttons
+  const actions = createElement('div', { className: 'nw-detail-actions' });
+  const newsBtn = createElement('button', { className: 'nw-detail-action-btn' });
+  newsBtn.innerHTML = '📺 News & Videos';
+  newsBtn.addEventListener('click', () => {
+    void showNewsView(score.countryName, score.countryName);
+  });
+  actions.appendChild(newsBtn);
+
+  const sitrepBtn = createElement('button', { className: 'nw-detail-action-btn' });
+  sitrepBtn.innerHTML = '📡 Sitrep';
+  sitrepBtn.addEventListener('click', () => {
+    document.dispatchEvent(new CustomEvent('nw:request-sitrep', { detail: { country: score.countryName } }));
+  });
+  actions.appendChild(sitrepBtn);
+
+  panel.appendChild(actions);
 
   // Component breakdown
   const COMPONENT_LABELS: Record<string, string> = {

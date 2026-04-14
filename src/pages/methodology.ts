@@ -20,13 +20,40 @@ export function renderMethodology(root: HTMLElement): void {
     </nav>
 
     <article class="brief-article" style="padding-top:48px;">
-      <h1 style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#ff6600;letter-spacing:2px;margin:0 0 8px;">Country Instability Index</h1>
-      <p style="color:#888;font-size:14px;margin:0 0 32px;">How NexusWatch scores global risk — methodology, data sources, and component weights.</p>
+      <h1 style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#ff6600;letter-spacing:2px;margin:0 0 8px;">Methodology</h1>
+      <p style="color:#888;font-size:14px;margin:0 0 32px;">How NexusWatch scores global risk — data sources, trust layer, and verification methodology.</p>
+
+      <h2 class="brief-section-header">The Trust Layer</h2>
+      <p>Every NexusWatch number is <strong>auditable</strong>. Click any CII score in the platform and you'll see the exact data points that computed it — which ACLED events, which USGS quakes, which GDELT articles. Alongside, we publish:</p>
+      <ul style="color:#ccc;line-height:1.8;padding-left:20px;">
+        <li><strong>Confidence levels</strong> (HIGH/MEDIUM/LOW) based on source count, freshness, and data volume</li>
+        <li><strong>Verification badges</strong> — events are CONFIRMED (3+ sources), CORROBORATED (2), UNVERIFIED (1), or CONTESTED</li>
+        <li><strong>Explicit data gaps</strong> — we show you what we DON'T have, not just what we do</li>
+        <li><strong>Source freshness</strong> — live/recent/stale/offline indicators on every feed</li>
+        <li><strong>Prediction ledger</strong> — public accuracy tracking at <a href="#/accuracy" style="color:#ff6600;">/#/accuracy</a></li>
+      </ul>
 
       <h2 class="brief-section-header">What is CII?</h2>
       <p>The Country Instability Index (CII) is a composite score from <strong>0 to 100</strong> that quantifies a country's instability across 6 risk dimensions. It's computed every 5 minutes from live data feeds and updated continuously.</p>
-      <p>NexusWatch currently monitors <strong>50 countries</strong> — prioritizing conflict zones, strategic chokepoints, major economies, and regions with high geopolitical volatility.</p>
-      <p>CII powers the daily intelligence brief, correlation detection engine, and 48-hour outlook predictions.</p>
+      <p>NexusWatch currently monitors <strong>86 countries</strong> across three tiers (Core, Extended, Monitor) — prioritizing conflict zones, strategic chokepoints, major economies, and regions with high geopolitical volatility. Every country's tier is visible in the sidebar.</p>
+      <p>CII powers the daily intelligence brief, correlation detection engine, scenario simulation, verification engine, and portfolio exposure calculations.</p>
+
+      <h2 class="brief-section-header">Data Sources (12 primary)</h2>
+      <p>Every CII component and every layer displays which sources contributed. Current primary sources:</p>
+      <ul style="color:#ccc;line-height:1.8;padding-left:20px;">
+        <li><strong>ACLED</strong> — armed conflict events, fatality counts (hourly refresh)</li>
+        <li><strong>USGS</strong> — earthquake hazards feed (60s refresh)</li>
+        <li><strong>NASA FIRMS</strong> — active fire hotspots via MODIS/VIIRS (10min)</li>
+        <li><strong>GDELT</strong> — global news events with tone analysis, 65+ languages (15min)</li>
+        <li><strong>WHO</strong> — disease outbreak news (hourly)</li>
+        <li><strong>Open-Meteo</strong> — severe weather alerts (15min)</li>
+        <li><strong>OpenSky</strong> — live aircraft positions from ADS-B (30s)</li>
+        <li><strong>AIS Marine Traffic</strong> — ship positions (5min)</li>
+        <li><strong>Polymarket</strong> — prediction market odds (5min)</li>
+        <li><strong>Cloudflare Radar</strong> — internet traffic anomalies (5min)</li>
+        <li><strong>OFAC</strong> — US sanctions list (daily)</li>
+        <li><strong>UNHCR</strong> — refugee displacement data (daily)</li>
+      </ul>
 
       <h2 class="brief-section-header">The 6 Components</h2>
       <p>Each country's CII is the sum of 6 independently scored components:</p>
