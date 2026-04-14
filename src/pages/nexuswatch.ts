@@ -41,6 +41,11 @@ import { TerrorismLayer } from '../map/layers/terrorismLayer.ts';
 import { FoodSecurityLayer } from '../map/layers/foodSecurityLayer.ts';
 import { MigrationCorridorsLayer } from '../map/layers/migrationCorridorsLayer.ts';
 import { SpaceLaunchDetailLayer } from '../map/layers/spaceLaunchDetailLayer.ts';
+import { DefenseContractsLayer } from '../map/layers/defenseContractsLayer.ts';
+import { CommodityFlowsLayer } from '../map/layers/commodityFlowsLayer.ts';
+import { CyberAttackCampaignsLayer } from '../map/layers/cyberAttackCampaignsLayer.ts';
+import { DarkWebOsintLayer } from '../map/layers/darkWebOsintLayer.ts';
+import { SubmarineMilitaryLayer } from '../map/layers/submarineMilitaryLayer.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -435,6 +440,11 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new FoodSecurityLayer(),
     new MigrationCorridorsLayer(),
     new SpaceLaunchDetailLayer(),
+    new DefenseContractsLayer(),
+    new CommodityFlowsLayer(),
+    new CyberAttackCampaignsLayer(),
+    new DarkWebOsintLayer(),
+    new SubmarineMilitaryLayer(),
   ];
 
   for (const layer of allLayers) {
