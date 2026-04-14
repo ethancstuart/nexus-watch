@@ -28,7 +28,18 @@ export function openAlertBuilder(container: HTMLElement): void {
         <button class="nw-alert-builder-close">&times;</button>
       </div>
       <div class="nw-alert-builder-body">
-        <p class="nw-alert-builder-hint">Describe your alert in plain English:</p>
+        <div class="nw-alert-templates">
+          <div class="nw-alert-templates-label">QUICK TEMPLATES:</div>
+          <button class="nw-alert-template" data-template="eq6">M6+ earthquake anywhere</button>
+          <button class="nw-alert-template" data-template="eq-nuclear">Earthquake &gt;5.0 near nuclear facility</button>
+          <button class="nw-alert-template" data-template="cii-rising">Any country CII rising</button>
+          <button class="nw-alert-template" data-template="cii-sudan">Sudan CII above 70</button>
+          <button class="nw-alert-template" data-template="cii-ua">Ukraine CII above 80</button>
+          <button class="nw-alert-template" data-template="fire-cluster">50+ fire hotspots clustered</button>
+          <button class="nw-alert-template" data-template="conflict-fatalities">ACLED event with 50+ fatalities</button>
+          <button class="nw-alert-template" data-template="verified-escalation">Verified escalation in Middle East</button>
+        </div>
+        <p class="nw-alert-builder-hint">Or describe your alert in plain English:</p>
         <textarea class="nw-alert-builder-input" rows="3" placeholder="e.g., Alert me when earthquake above 6.0 occurs within 200km of any nuclear facility"></textarea>
         <button class="nw-alert-builder-submit">PARSE ALERT</button>
         <div class="nw-alert-builder-status"></div>
@@ -48,6 +59,25 @@ export function openAlertBuilder(container: HTMLElement): void {
   closeBtn.addEventListener('click', () => {
     overlay?.remove();
     overlay = null;
+  });
+
+  const TEMPLATE_TEXT: Record<string, string> = {
+    eq6: 'Alert me when any earthquake above magnitude 6.0 occurs anywhere',
+    'eq-nuclear': 'Alert me when earthquake above 5.0 occurs within 200km of any nuclear facility',
+    'cii-rising': 'Alert me when any country CII score is rising',
+    'cii-sudan': 'Alert me when Sudan CII score exceeds 70',
+    'cii-ua': 'Alert me when Ukraine CII score exceeds 80',
+    'fire-cluster': 'Alert me when 50 or more fire hotspots cluster within 100km',
+    'conflict-fatalities': 'Alert me when any ACLED conflict event has 50 or more fatalities',
+    'verified-escalation': 'Alert me on any verified escalation event in the Middle East',
+  };
+
+  overlay.querySelectorAll('.nw-alert-template').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const t = (btn as HTMLElement).dataset.template!;
+      input.value = TEMPLATE_TEXT[t] || '';
+      input.focus();
+    });
   });
 
   submitBtn.addEventListener('click', async () => {

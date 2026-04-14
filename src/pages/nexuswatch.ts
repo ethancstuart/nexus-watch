@@ -68,6 +68,7 @@ import { detectActiveCascades } from '../services/cascadeEngine.ts';
 import { TimelineScrubber } from '../ui/timelineScrubber.ts';
 import { registerShortcutsKey } from '../ui/shortcutsOverlay.ts';
 import { showNewsView } from '../ui/newsView.ts';
+import { downloadJson, copyPermalink } from '../utils/exports.ts';
 import { generateSitrep } from '../services/sitrep.ts';
 import { loadRules, checkRules, getTriggeredAlerts } from '../services/alertRules.ts';
 import { computeTensionIndex, tensionColor, tensionLabel } from '../services/tensionIndex.ts';
@@ -463,6 +464,25 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   // ── User Menu ──
   createUserMenu(userMenuSlot);
+
+  // ── Permalink handling — auto-open detail panel if ?country= present ──
+  {
+    const urlParams = new URLSearchParams(window.location.search);
+    const countryCode = urlParams.get('country');
+    const view = urlParams.get('view');
+    if (countryCode && view === 'detail') {
+      // Wait for CII to populate, then open the detail panel
+      setTimeout(() => {
+        const scores = getCachedCII();
+        const match = scores.find((s) => s.countryCode === countryCode.toUpperCase());
+        if (match) {
+          const country = getMonitoredCountries().find((c) => c.code === countryCode.toUpperCase());
+          if (country) mapView.flyTo(country.lon, country.lat, 5);
+          showCountryDetail(document.querySelector('.nw-sidebar') || document.body, match);
+        }
+      }, 3000);
+    }
+  }
 
   // ── Upgrade confirmation (after Stripe checkout) ──
   if (window.location.search.includes('upgraded=true')) {
@@ -1425,18 +1445,29 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
   // Action buttons
   const actions = createElement('div', { className: 'nw-detail-actions' });
   const newsBtn = createElement('button', { className: 'nw-detail-action-btn' });
-  newsBtn.innerHTML = '📺 News & Videos';
+  newsBtn.innerHTML = '📺 News';
   newsBtn.addEventListener('click', () => {
     void showNewsView(score.countryName, score.countryName);
   });
   actions.appendChild(newsBtn);
 
-  const sitrepBtn = createElement('button', { className: 'nw-detail-action-btn' });
-  sitrepBtn.innerHTML = '📡 Sitrep';
-  sitrepBtn.addEventListener('click', () => {
-    document.dispatchEvent(new CustomEvent('nw:request-sitrep', { detail: { country: score.countryName } }));
+  const shareBtn = createElement('button', { className: 'nw-detail-action-btn' });
+  shareBtn.innerHTML = '🔗 Share';
+  shareBtn.addEventListener('click', async () => {
+    const ok = await copyPermalink({ country: score.countryCode, view: 'detail' });
+    shareBtn.innerHTML = ok ? '✓ Copied' : '✗ Failed';
+    setTimeout(() => {
+      shareBtn.innerHTML = '🔗 Share';
+    }, 2000);
   });
-  actions.appendChild(sitrepBtn);
+  actions.appendChild(shareBtn);
+
+  const exportBtn = createElement('button', { className: 'nw-detail-action-btn' });
+  exportBtn.innerHTML = '⬇ Export';
+  exportBtn.addEventListener('click', () => {
+    downloadJson(score, `cii-${score.countryCode.toLowerCase()}-${new Date().toISOString().slice(0, 10)}`);
+  });
+  actions.appendChild(exportBtn);
 
   panel.appendChild(actions);
 
