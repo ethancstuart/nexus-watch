@@ -17,7 +17,15 @@
     { "path": "/api/cron/data-health", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/social-send", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/competitive-scan", "schedule": "0 9 * * 1" },
-    { "path": "/api/cron/weekly-recap", "schedule": "0 15 * * 0" }
+    { "path": "/api/cron/weekly-recap", "schedule": "0 15 * * 0" },
+    { "path": "/api/cron/marketing-x", "schedule": "0 */3 * * *" },
+    { "path": "/api/cron/marketing-linkedin", "schedule": "0 11 * * 1-5" },
+    { "path": "/api/cron/marketing-substack", "schedule": "0 12 * * 0,3" },
+    { "path": "/api/cron/marketing-medium", "schedule": "0 14 * * 0" },
+    { "path": "/api/cron/marketing-bluesky", "schedule": "0 13,19 * * *" },
+    { "path": "/api/cron/marketing-threads", "schedule": "0 23 * * *" },
+    { "path": "/api/cron/marketing-engagement-poll", "schedule": "0 */6 * * *" },
+    { "path": "/api/cron/marketing-voice-learn", "schedule": "0 4 * * 1" }
   ],
   "headers": [
     {

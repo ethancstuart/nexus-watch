@@ -217,6 +217,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/admin/marketing', () => {
+    import('./pages/adminMarketing.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderAdminMarketing(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/brief/:date', (params) => {
     import('./pages/briefs.ts')
       .then((m) => {
