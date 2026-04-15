@@ -26,52 +26,64 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sql: any = neon(dbUrl);
 
-  // Find the most recent posted Substack issue not yet cross-posted to Medium.
-  const candidates = (await sql`
-    SELECT id, content, platform_url, topic_key, entity_keys, pillar
-    FROM marketing_posts
-    WHERE platform = 'substack'
-      AND status = 'posted'
-      AND shadow_mode = FALSE
-      AND posted_at > NOW() - INTERVAL '7 days'
-      AND NOT EXISTS (
-        SELECT 1 FROM marketing_posts m2
-        WHERE m2.platform = 'medium'
-          AND m2.parent_post_id = marketing_posts.id
-          AND m2.status IN ('posted', 'scheduled')
-      )
-    ORDER BY posted_at DESC
-    LIMIT 1
-  `) as unknown as Array<{
-    id: number;
-    content: string;
-    platform_url: string | null;
-    topic_key: string;
-    entity_keys: string[];
-    pillar: string | null;
-  }>;
-
-  const source = candidates[0];
-  if (!source) {
-    await recordRun('medium');
-    return res.json({ proceeded: true, shadow: pf.shadow, reason: 'no_substack_to_crosspost' });
-  }
-
-  // Insert marketing_posts row first so we have an id.
-  const insertRows = (await sql`
+  // Atomically claim the most recent un-crossposted Substack row. The
+  // CTE-with-INSERT-RETURNING is a single statement, and the partial
+  // unique index on (platform, parent_post_id) where parent_post_id IS
+  // NOT NULL (see migration 2026-04-15-marketing-crosspost-unique.sql)
+  // ensures that if two cron runs race, exactly one wins; the loser's
+  // ON CONFLICT DO NOTHING returns zero rows.
+  const claim = (await sql`
+    WITH target AS (
+      SELECT id, content, platform_url, topic_key, entity_keys, pillar
+      FROM marketing_posts
+      WHERE platform = 'substack'
+        AND status = 'posted'
+        AND shadow_mode = FALSE
+        AND posted_at > NOW() - INTERVAL '7 days'
+        AND NOT EXISTS (
+          SELECT 1 FROM marketing_posts m2
+          WHERE m2.platform = 'medium'
+            AND m2.parent_post_id = marketing_posts.id
+            AND m2.status IN ('posted', 'scheduled')
+        )
+      ORDER BY posted_at DESC
+      LIMIT 1
+    )
     INSERT INTO marketing_posts (
       platform, pillar, topic_key, entity_keys, format, content, metadata,
       status, shadow_mode, parent_post_id, scheduled_at
     )
-    VALUES (
-      'medium', ${source.pillar}, ${source.topic_key}, ${source.entity_keys},
-      'longform', ${source.content},
-      ${JSON.stringify({ canonical_url: source.platform_url, parent_substack_id: source.id })}::jsonb,
-      'scheduled', ${pf.shadow}, ${source.id}, NOW()
-    )
-    RETURNING id
-  `) as unknown as Array<{ id: number }>;
-  const postId = insertRows[0]?.id;
+    SELECT
+      'medium', target.pillar, target.topic_key, target.entity_keys,
+      'longform', target.content,
+      jsonb_build_object(
+        'canonical_url', target.platform_url,
+        'parent_substack_id', target.id
+      ),
+      'scheduled', ${pf.shadow}, target.id, NOW()
+    FROM target
+    ON CONFLICT (platform, parent_post_id) WHERE parent_post_id IS NOT NULL
+    DO NOTHING
+    RETURNING id, content, parent_post_id, (SELECT platform_url FROM target) AS parent_url
+  `) as unknown as Array<{
+    id: number;
+    content: string;
+    parent_post_id: number;
+    parent_url: string | null;
+  }>;
+
+  if (claim.length === 0) {
+    // Either nothing to cross-post, or another concurrent run claimed it first.
+    await recordRun('medium');
+    return res.json({ proceeded: true, shadow: pf.shadow, reason: 'no_substack_to_crosspost_or_raced' });
+  }
+
+  const postId = claim[0].id;
+  const source = {
+    id: claim[0].parent_post_id,
+    content: claim[0].content,
+    platform_url: claim[0].parent_url,
+  };
 
   const result = await mediumAdapter.post(
     {

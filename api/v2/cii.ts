@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { kvCached } from '../_lib/kvCache';
 
 export const config = { runtime: 'nodejs' };
 
@@ -49,12 +50,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const sql = neon(dbUrl);
 
-    // Try to get the latest CII data from the snapshots table
-    const latestDate = (await sql`
-      SELECT MAX(date) as max_date FROM cii_daily_snapshots
-    `) as unknown as Array<{ max_date: string | null }>;
+    // KV-cached hot path: the latest snapshot only changes once/day, so a
+    // 15-minute TTL gives effectively-free reads with sub-100ms p99.
+    // Soft TTL of 10m lets a single lazy refresh absorb daily turnover.
+    const cacheKey = code ? `v2:cii:code:${code}` : tier ? `v2:cii:tier:${tier}` : 'v2:cii:all';
+    const cached = await kvCached(
+      cacheKey,
+      900,
+      async () => {
+        const latestDate = (await sql`
+          SELECT MAX(date) as max_date FROM cii_daily_snapshots
+        `) as unknown as Array<{ max_date: string | null }>;
+        const date = latestDate[0]?.max_date;
+        if (!date) return { date: null, rows: [] as Array<Record<string, unknown>> };
 
-    const date = latestDate[0]?.max_date;
+        const rows = code
+          ? ((await sql`
+              SELECT * FROM cii_daily_snapshots
+              WHERE date = ${date} AND country_code = ${code}
+            `) as unknown as Array<Record<string, unknown>>)
+          : ((await sql`
+              SELECT * FROM cii_daily_snapshots
+              WHERE date = ${date}
+              ORDER BY cii_score DESC
+            `) as unknown as Array<Record<string, unknown>>);
+
+        return { date, rows };
+      },
+      { softTtl: 600 },
+    );
+
+    const date = cached.date;
+    const rows = cached.rows;
     if (!date) {
       return res.json({
         data: [],
@@ -69,21 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    let rows;
-    if (code) {
-      rows = await sql`
-        SELECT * FROM cii_daily_snapshots
-        WHERE date = ${date} AND country_code = ${code}
-      `;
-    } else {
-      rows = await sql`
-        SELECT * FROM cii_daily_snapshots
-        WHERE date = ${date}
-        ORDER BY cii_score DESC
-      `;
-    }
-
-    const countries = (rows as unknown as Array<Record<string, unknown>>).map((r) => ({
+    const countries = rows.map((r) => ({
       country_code: r.country_code,
       cii_score: r.cii_score,
       confidence: r.confidence,

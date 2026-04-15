@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { kvCached } from '../_lib/kvCache';
 
 export const config = { runtime: 'nodejs' };
 
@@ -52,61 +53,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql: any = neon(dbUrl);
 
   try {
-    const latestDate = (await sql`SELECT MAX(date) AS d FROM cii_daily_snapshots`) as unknown as Array<{
-      d: string | null;
-    }>;
-    const date = latestDate[0]?.d;
+    // Cache the whole alerts payload for 60s — minute-grained freshness is
+    // appropriate since CII snapshots update daily and crisis_triggers
+    // update every 30min via cron.
+    const cacheKey = `v2:alerts:t${threshold}:d${minDelta}:l${limit}`;
+    const cached = await kvCached(
+      cacheKey,
+      60,
+      async () => {
+        const latestDate = (await sql`SELECT MAX(date) AS d FROM cii_daily_snapshots`) as unknown as Array<{
+          d: string | null;
+        }>;
+        const date = latestDate[0]?.d ?? null;
+        if (!date) return { date: null, breaches: [], movers: [], crisis: [] };
+
+        const breaches = (await sql`
+          SELECT country_code, cii_score, confidence
+          FROM cii_daily_snapshots
+          WHERE date = ${date} AND cii_score >= ${threshold}
+          ORDER BY cii_score DESC
+          LIMIT ${limit}
+        `) as unknown as Array<{ country_code: string; cii_score: number; confidence: string }>;
+
+        const moversRows = (await sql`
+          WITH today AS (
+            SELECT country_code, cii_score FROM cii_daily_snapshots WHERE date = ${date}
+          ),
+          week_ago AS (
+            SELECT DISTINCT ON (country_code) country_code, cii_score
+            FROM cii_daily_snapshots
+            WHERE date <= (${date}::date - INTERVAL '7 days')::date
+            ORDER BY country_code, date DESC
+          )
+          SELECT t.country_code, t.cii_score AS score_now, w.cii_score AS score_prev,
+                 (t.cii_score - w.cii_score) AS delta
+          FROM today t
+          JOIN week_ago w ON w.country_code = t.country_code
+          WHERE ABS(t.cii_score - w.cii_score) >= ${minDelta}
+          ORDER BY ABS(t.cii_score - w.cii_score) DESC
+          LIMIT ${limit}
+        `) as unknown as Array<{ country_code: string; score_now: number; score_prev: number; delta: number }>;
+
+        const crisisRows = (await sql`
+          SELECT id, playbook_key, country_code, trigger_type, triggered_at, notes
+          FROM crisis_triggers
+          WHERE resolved_at IS NULL
+          ORDER BY triggered_at DESC
+          LIMIT ${limit}
+        `.catch(() => [] as unknown)) as unknown as Array<{
+          id: number;
+          playbook_key: string;
+          country_code: string | null;
+          trigger_type: string;
+          triggered_at: string;
+          notes: string | null;
+        }>;
+
+        return {
+          date,
+          breaches,
+          movers: moversRows,
+          crisis: Array.isArray(crisisRows) ? crisisRows : [],
+        };
+      },
+      { softTtl: 30 },
+    );
+
+    const date = cached.date;
     if (!date) {
-      return res.json({
-        data: { threshold_breaches: [], movers: [], crisis_triggers: [] },
-        meta: { note: 'No CII snapshots yet.' },
+      res.setHeader('Retry-After', '300');
+      return res.status(503).json({
+        error: 'data_not_ready',
+        hint: 'cii_daily_snapshots has no rows yet. Run docs/migrations/*.sql and wait for the first /api/cron/compute-cii tick.',
       });
     }
-
-    // Countries above threshold today.
-    const breaches = (await sql`
-      SELECT country_code, cii_score, confidence
-      FROM cii_daily_snapshots
-      WHERE date = ${date} AND cii_score >= ${threshold}
-      ORDER BY cii_score DESC
-      LIMIT ${limit}
-    `) as unknown as Array<{ country_code: string; cii_score: number; confidence: string }>;
-
-    // 7-day movers. Use the snapshot 7 days ago (nearest non-null) for comparison.
-    const moversRows = (await sql`
-      WITH today AS (
-        SELECT country_code, cii_score FROM cii_daily_snapshots WHERE date = ${date}
-      ),
-      week_ago AS (
-        SELECT DISTINCT ON (country_code) country_code, cii_score
-        FROM cii_daily_snapshots
-        WHERE date <= (${date}::date - INTERVAL '7 days')::date
-        ORDER BY country_code, date DESC
-      )
-      SELECT t.country_code, t.cii_score AS score_now, w.cii_score AS score_prev,
-             (t.cii_score - w.cii_score) AS delta
-      FROM today t
-      JOIN week_ago w ON w.country_code = t.country_code
-      WHERE ABS(t.cii_score - w.cii_score) >= ${minDelta}
-      ORDER BY ABS(t.cii_score - w.cii_score) DESC
-      LIMIT ${limit}
-    `) as unknown as Array<{ country_code: string; score_now: number; score_prev: number; delta: number }>;
-
-    // Crisis triggers — table may not exist on older DBs; swallow that.
-    const crisisRows = (await sql`
-      SELECT id, playbook_key, country_code, trigger_type, triggered_at, notes
-      FROM crisis_triggers
-      WHERE resolved_at IS NULL
-      ORDER BY triggered_at DESC
-      LIMIT ${limit}
-    `.catch(() => [] as unknown)) as unknown as Array<{
-      id: number;
-      playbook_key: string;
-      country_code: string | null;
-      trigger_type: string;
-      triggered_at: string;
-      notes: string | null;
-    }>;
+    const breaches = cached.breaches;
+    const moversRows = cached.movers;
+    const crisisRows = cached.crisis;
 
     res.setHeader('Cache-Control', 'public, max-age=60');
     return res.json({

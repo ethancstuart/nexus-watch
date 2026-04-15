@@ -59,13 +59,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let recorded = 0;
     for (const s of snapshots) {
       // Skip if we already logged a prediction today for this country.
-      const existing = (await sql`
-        SELECT 1 FROM assessments
-        WHERE country_code = ${s.country_code}
-          AND DATE(assessed_at) = CURRENT_DATE
-          AND prediction_kind = 'cii'
-        LIMIT 1
-      `.catch(() => [] as unknown)) as unknown as unknown[];
+      // Re-throw on genuine errors (schema/permission/connection) — we only
+      // want to swallow the "nothing to do" case, not missing-table failures.
+      let existing: unknown[];
+      try {
+        existing = (await sql`
+          SELECT 1 FROM assessments
+          WHERE country_code = ${s.country_code}
+            AND DATE(assessed_at) = CURRENT_DATE
+            AND prediction_kind = 'cii'
+          LIMIT 1
+        `) as unknown as unknown[];
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // The only error we genuinely want to swallow is a benign "no rows".
+        // Everything else (relation missing, column missing, permission denied)
+        // should surface as a 500 so the operator sees it.
+        console.error('[record-assessments] dedupe query failed:', msg);
+        throw err;
+      }
       if (Array.isArray(existing) && existing.length > 0) continue;
 
       const delta7 = s.score - s.prior_score;

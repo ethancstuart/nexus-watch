@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { computeApiExposure, type ApiHolding } from './_holding-map';
+import { kvCached } from '../_lib/kvCache';
 
 export const config = { runtime: 'nodejs' };
 
@@ -78,17 +79,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sql: any = neon(dbUrl);
-    const rows = (await sql`
-      SELECT country_code, cii_score, confidence
-      FROM cii_daily_snapshots
-      WHERE date = (SELECT MAX(date) FROM cii_daily_snapshots)
-    `) as unknown as Array<{ country_code: string; cii_score: number; confidence: string }>;
-    const ciiByCountry = new Map<string, { score: number; confidence: string }>();
-    for (const r of rows) ciiByCountry.set(r.country_code, { score: r.cii_score, confidence: r.confidence });
 
-    const latest = (await sql`SELECT MAX(date) AS d FROM cii_daily_snapshots`) as unknown as Array<{
-      d: string | null;
-    }>;
+    // The CII snapshot is shared across all exposure callers; cache it
+    // (15-min TTL) so every POST doesn't re-fetch the whole table. Portfolio
+    // math itself is per-call (depends on holdings), not cached.
+    const snapshot = await kvCached(
+      'v2:exposure:cii-snapshot',
+      900,
+      async () => {
+        const rows = (await sql`
+          SELECT country_code, cii_score::float AS cii_score, confidence
+          FROM cii_daily_snapshots
+          WHERE date = (SELECT MAX(date) FROM cii_daily_snapshots)
+        `) as unknown as Array<{ country_code: string; cii_score: number; confidence: string }>;
+        const latest = (await sql`SELECT MAX(date) AS d FROM cii_daily_snapshots`) as unknown as Array<{
+          d: string | null;
+        }>;
+        return { rows, date: latest[0]?.d ?? null };
+      },
+      { softTtl: 600 },
+    );
+    const ciiByCountry = new Map<string, { score: number; confidence: string }>();
+    for (const r of snapshot.rows) ciiByCountry.set(r.country_code, { score: r.cii_score, confidence: r.confidence });
+
+    const latest = [{ d: snapshot.date }];
     const report = computeApiExposure(holdings, ciiByCountry);
     res.setHeader('Cache-Control', 'no-store');
     return res.json({

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { kvCached } from '../_lib/kvCache';
 
 export const config = { runtime: 'nodejs' };
 
@@ -69,26 +70,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql: any = neon(dbUrl);
 
   try {
-    const latest = (await sql`SELECT MAX(date) AS d FROM cii_daily_snapshots`) as unknown as Array<{
-      d: string | null;
-    }>;
-    const snapDate = latest[0]?.d;
+    // Cached by (lookback, codes). Factors change once/day; 15-min TTL w/ soft
+    // refresh keeps p99 sub-100ms without serving data that drifted a full day.
+    const codesKey = codes.length > 0 ? codes.slice().sort().join(',') : 'ALL';
+    const cached = await kvCached(
+      `v2:factors:${lookback}:${codesKey}`,
+      900,
+      async () => {
+        const latest = (await sql`SELECT MAX(date) AS d FROM cii_daily_snapshots`) as unknown as Array<{
+          d: string | null;
+        }>;
+        const snapDate = latest[0]?.d ?? null;
+        const rows = (codes.length > 0
+          ? await sql`
+              SELECT country_code, cii_score::float AS score, confidence, date::text AS date
+              FROM cii_daily_snapshots
+              WHERE country_code = ANY(${codes}::text[])
+                AND date > (CURRENT_DATE - make_interval(days => ${lookback}))
+              ORDER BY country_code, date ASC
+            `
+          : await sql`
+              SELECT country_code, cii_score::float AS score, confidence, date::text AS date
+              FROM cii_daily_snapshots
+              WHERE date > (CURRENT_DATE - make_interval(days => ${lookback}))
+              ORDER BY country_code, date ASC
+            `) as unknown as FactorRow[];
+        return { snapDate, rows };
+      },
+      { softTtl: 600 },
+    );
+    const snapDate = cached.snapDate;
+    const rows = cached.rows;
     if (!snapDate) return res.json({ snapshot_date: null, lookback_days: lookback, factors: {} });
-
-    const rows = (codes.length > 0
-      ? await sql`
-          SELECT country_code, cii_score::float AS score, confidence, date::text AS date
-          FROM cii_daily_snapshots
-          WHERE country_code = ANY(${codes}::text[])
-            AND date > (CURRENT_DATE - make_interval(days => ${lookback}))
-          ORDER BY country_code, date ASC
-        `
-      : await sql`
-          SELECT country_code, cii_score::float AS score, confidence, date::text AS date
-          FROM cii_daily_snapshots
-          WHERE date > (CURRENT_DATE - make_interval(days => ${lookback}))
-          ORDER BY country_code, date ASC
-        `) as unknown as FactorRow[];
 
     const byCountry = new Map<string, FactorRow[]>();
     for (const r of rows) {

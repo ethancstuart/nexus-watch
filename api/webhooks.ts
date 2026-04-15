@@ -67,8 +67,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await resolveUserFromSession(req);
   if (!user) return res.status(401).json({ error: 'unauthorized' });
 
-  // TODO: check user.tier === 'pro'; for now treat any signed-in user as eligible
-  // In production, gate by: if (user.tier !== 'pro') return res.status(403).json({ error: 'pro_required' });
+  // Pro tier gate — webhooks are a $99/mo feature. Check the KV forward mapping
+  // written by api/stripe/webhook.ts. GET is allowed for any signed-in user so
+  // the dashboard can render an empty list + "upgrade to Pro" CTA.
+  if (req.method !== 'GET' && req.method !== 'OPTIONS') {
+    const isPro = await userIsPro(user.id);
+    if (!isPro) {
+      return res.status(403).json({
+        error: 'pro_required',
+        hint: 'Webhooks are a Pro-tier feature. Upgrade at /#/pricing.',
+      });
+    }
+  }
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'db_not_configured' });
@@ -119,4 +129,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(405).json({ error: 'method_not_allowed' });
+}
+
+/**
+ * Read the Stripe KV forward mapping set by api/stripe/webhook.ts.
+ * Returns true if the user has an active pro/founding subscription.
+ * Non-fatal on errors — returns false so the caller treats as "not pro".
+ */
+async function userIsPro(userId: string): Promise<boolean> {
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  if (!kvUrl || !kvToken) return false;
+  try {
+    const res = await fetch(`${kvUrl}/get/stripe:${userId}`, {
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { result: string | null };
+    if (!data.result) return false;
+    let parsed: unknown = JSON.parse(data.result);
+    if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+    if (!parsed || typeof parsed !== 'object') return false;
+    const rec = parsed as { status?: string; paidTier?: string };
+    if (rec.status !== 'active' && rec.status !== 'trialing') return false;
+    return rec.paidTier === 'pro' || rec.paidTier === 'founding';
+  } catch {
+    return false;
+  }
 }
