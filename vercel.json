@@ -27,7 +27,9 @@
     { "path": "/api/cron/marketing-engagement-poll", "schedule": "0 */6 * * *" },
     { "path": "/api/cron/marketing-voice-learn", "schedule": "0 4 * * 1" },
     { "path": "/api/cron/marketing-abtest-promote", "schedule": "0 5 * * 1" },
-    { "path": "/api/cron/crisis-detection", "schedule": "*/30 * * * *" }
+    { "path": "/api/cron/crisis-detection", "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/record-assessments", "schedule": "30 10 * * *" },
+    { "path": "/api/cron/score-assessments", "schedule": "0 11 * * *" }
   ],
   "headers": [
     {
