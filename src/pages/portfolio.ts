@@ -250,6 +250,57 @@ export function renderPortfolioPage(container: HTMLElement): void {
   container.appendChild(footer);
 }
 
+/**
+ * Simulated-scenario impacts applied to the portfolio. Each entry says:
+ * "if this country's CII hits `targetCii`, recalculate portfolio risk".
+ * Cheap, directionally-correct, and doesn't require a full scenario engine.
+ */
+const SCENARIO_IMPACTS: Array<{
+  id: string;
+  label: string;
+  description: string;
+  overrides: Record<string, number>;
+}> = [
+  {
+    id: 'taiwan',
+    label: 'Taiwan Strait crisis',
+    description: 'TW CII → 85, CN CII → 70',
+    overrides: { TW: 85, CN: 70 },
+  },
+  {
+    id: 'hormuz',
+    label: 'Hormuz closure',
+    description: 'IR → 85, SA → 65, AE → 60, IQ → 65',
+    overrides: { IR: 85, SA: 65, AE: 60, IQ: 65 },
+  },
+  {
+    id: 'nato',
+    label: 'Russia-NATO escalation',
+    description: 'RU → 90, UA → 85, PL → 55, RO → 50',
+    overrides: { RU: 90, UA: 85, PL: 55, RO: 50 },
+  },
+  {
+    id: 'korea',
+    label: 'Korean Peninsula crisis',
+    description: 'KP → 90, KR → 70, JP → 50',
+    overrides: { KP: 90, KR: 70, JP: 50 },
+  },
+];
+
+function applyScenario(report: PortfolioRiskReport, overrides: Record<string, number>): number {
+  // Same weighted-mean math as the base report, but with overridden CII per country.
+  let numer = 0;
+  let denom = 0;
+  for (const c of report.exposures) {
+    const override = overrides[c.countryCode];
+    const cii = override ?? c.ciiScore;
+    numer += c.exposurePct * cii;
+    denom += c.exposurePct;
+  }
+  if (denom === 0) return report.overallRisk;
+  return Math.round(numer / denom);
+}
+
 function renderResults(container: HTMLElement, report: PortfolioRiskReport): void {
   container.innerHTML = '';
 
@@ -261,6 +312,30 @@ function renderResults(container: HTMLElement, report: PortfolioRiskReport): voi
     <div class="nw-risk-score-label-value" style="color: ${report.riskColor}">${report.riskLabel}</div>
   `;
   container.appendChild(overall);
+
+  // Scenario impact — "if X happens, your portfolio risk moves to Y"
+  const scenarios = createElement('div', { className: 'nw-risk-scenarios' });
+  const sHeader = createElement('div', { className: 'nw-risk-scenarios-title' });
+  sHeader.textContent = 'SCENARIO IMPACT — what-if the next crisis fires';
+  scenarios.appendChild(sHeader);
+  for (const s of SCENARIO_IMPACTS) {
+    const projected = applyScenario(report, s.overrides);
+    const delta = projected - report.overallRisk;
+    const row = createElement('div', { className: 'nw-risk-scenario-row' });
+    const deltaColor = delta >= 15 ? '#dc2626' : delta >= 5 ? '#f97316' : delta >= 1 ? '#eab308' : '#6b7280';
+    row.innerHTML = `
+      <div class="nw-scenario-head">
+        <strong>${s.label}</strong>
+        <span class="nw-scenario-desc">${s.description}</span>
+      </div>
+      <div class="nw-scenario-delta" style="color: ${deltaColor}">
+        ${report.overallRisk} → <strong>${projected}</strong>
+        <span class="nw-scenario-deltanum">${delta >= 0 ? '+' : ''}${delta}</span>
+      </div>
+    `;
+    scenarios.appendChild(row);
+  }
+  container.appendChild(scenarios);
 
   // Top risks callouts
   if (report.topRisks.length > 0) {

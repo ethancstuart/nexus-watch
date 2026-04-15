@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'Database not configured' });
 
-  const days = Math.min(30, Math.max(1, parseInt(String(req.query.days || '7'), 10)));
+  const days = Math.min(365, Math.max(1, parseInt(String(req.query.days || '7'), 10)));
   const layer = req.query.layer as string | undefined;
   const sql = neon(dbUrl);
 
@@ -44,13 +44,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           WHERE timestamp > NOW() - make_interval(days => ${days})
           ORDER BY timestamp ASC
         `,
-      // CII history — one score per country per day
+      // CII history — prefer daily snapshots (newer table); fall back to legacy
+      // country_cii_history rows for backfill before 2026-04-13. Both sources
+      // are day-grained; if both tables have the same country/date, the
+      // snapshots row wins via higher synthetic priority.
       sql`
-        SELECT DISTINCT ON (country_code, (timestamp::date))
-          country_code, country_name, score, components, timestamp::date as day
-        FROM country_cii_history
-        WHERE timestamp > NOW() - make_interval(days => ${days})
-        ORDER BY country_code, (timestamp::date), timestamp DESC
+        WITH snap AS (
+          SELECT country_code, country_name, cii_score::float AS score,
+                 jsonb_build_object(
+                   'conflict', component_conflict,
+                   'disasters', component_disasters,
+                   'sentiment', component_sentiment,
+                   'infrastructure', component_infrastructure,
+                   'governance', component_governance,
+                   'market_exposure', component_market_exposure
+                 ) AS components,
+                 confidence,
+                 date AS day,
+                 1 AS priority
+          FROM cii_daily_snapshots
+          WHERE date > (CURRENT_DATE - make_interval(days => ${days}))
+        ),
+        legacy AS (
+          SELECT DISTINCT ON (country_code, (timestamp::date))
+                 country_code, country_name, score::float,
+                 components, NULL::text AS confidence,
+                 (timestamp::date) AS day,
+                 0 AS priority
+          FROM country_cii_history
+          WHERE timestamp > NOW() - make_interval(days => ${days})
+          ORDER BY country_code, (timestamp::date), timestamp DESC
+        ),
+        combined AS (SELECT * FROM snap UNION ALL SELECT * FROM legacy)
+        SELECT DISTINCT ON (country_code, day)
+               country_code, country_name, score, components, confidence, day
+        FROM combined
+        ORDER BY country_code, day, priority DESC
       `,
     ]);
 
@@ -76,22 +105,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Process CII — group by day
     const cii: Array<{
       day: string;
-      countries: Array<{ code: string; name: string; score: number; components: Record<string, number> }>;
+      countries: Array<{
+        code: string;
+        name: string;
+        score: number;
+        components: Record<string, number>;
+        confidence?: string;
+      }>;
     }> = [];
 
     if (ciiResult.status === 'fulfilled') {
       const byDay = new Map<
         string,
-        Array<{ code: string; name: string; score: number; components: Record<string, number> }>
+        Array<{
+          code: string;
+          name: string;
+          score: number;
+          components: Record<string, number>;
+          confidence?: string;
+        }>
       >();
       for (const row of ciiResult.value as Record<string, unknown>[]) {
-        const day = String(row.day);
+        const day = typeof row.day === 'string' ? row.day : new Date(row.day as string).toISOString().slice(0, 10);
         const entries = byDay.get(day) || [];
         entries.push({
           code: String(row.country_code),
           name: String(row.country_name),
           score: Number(row.score),
-          components: row.components as Record<string, number>,
+          components: (row.components as Record<string, number>) ?? {},
+          confidence: row.confidence ? String(row.confidence) : undefined,
         });
         byDay.set(day, entries);
       }

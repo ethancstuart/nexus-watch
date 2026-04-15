@@ -281,3 +281,92 @@ export function checkCrisisTriggers(layerData: Map<string, unknown>): ActiveCris
 export function dismissCrisis(playbookId: string): void {
   activeCrises = activeCrises.filter((c) => c.playbook.id !== playbookId);
 }
+
+// ---------------------------------------------------------------------------
+// Server-side sync
+// ---------------------------------------------------------------------------
+
+/**
+ * Map a server playbook_key (set by api/cron/crisis-detection.ts) to an
+ * in-memory PLAYBOOKS entry. The cron uses underscored keys; the client
+ * uses hyphenated ids — this table is the bridge.
+ */
+const PLAYBOOK_KEY_MAP: Record<string, string> = {
+  middle_east_escalation: 'middle-east-escalation',
+  russia_nato_escalation: 'ukraine-escalation',
+  taiwan_strait_crisis: 'taiwan-strait-crisis',
+  korean_peninsula_crisis: 'korean-peninsula-crisis',
+  horn_of_africa_crisis: 'horn-of-africa-crisis',
+  major_earthquake_response: 'major-earthquake',
+  generic_country_crisis: 'generic-country-crisis',
+};
+
+interface ServerTriggerRow {
+  id: number;
+  playbook_key: string;
+  country_code: string | null;
+  trigger_type: string;
+  cii_score: number | null;
+  cii_delta: number | null;
+  magnitude: number | null;
+  source_ref: string | null;
+  notes: string | null;
+  triggered_at: string;
+  dedup_key: string;
+}
+
+/**
+ * Pull server-detected crisis triggers and merge them into the client
+ * activeCrises list. Called on page load and every 5 min.
+ *
+ * Returns the list of newly-surfaced crises (not previously in
+ * activeCrises) so the caller can showCrisisModal() on them.
+ */
+export async function syncFromServerTriggers(): Promise<ActiveCrisis[]> {
+  let rows: ServerTriggerRow[];
+  try {
+    const res = await fetch('/api/crisis/active', { credentials: 'include' });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { triggers?: ServerTriggerRow[] };
+    rows = Array.isArray(data.triggers) ? data.triggers : [];
+  } catch {
+    return [];
+  }
+
+  const newly: ActiveCrisis[] = [];
+  for (const row of rows) {
+    const playbookId = `server-${row.dedup_key}`;
+    if (activeCrises.some((c) => c.playbook.id === playbookId)) continue;
+
+    const basePlaybookId = PLAYBOOK_KEY_MAP[row.playbook_key] ?? 'middle-east-escalation';
+    const basePlaybook = PLAYBOOKS.find((p) => p.id === basePlaybookId) ?? PLAYBOOKS[0];
+    if (!basePlaybook) continue;
+
+    const playbook: CrisisPlaybook = {
+      ...basePlaybook,
+      id: playbookId,
+      name:
+        row.trigger_type === 'major_quake'
+          ? `M${(row.magnitude ?? 7).toFixed(1)} Earthquake — ${row.notes ?? basePlaybook.name}`
+          : row.country_code
+            ? `${basePlaybook.name} — ${row.country_code}`
+            : basePlaybook.name,
+    };
+
+    const crisis: ActiveCrisis = {
+      playbook,
+      triggeredAt: Date.parse(row.triggered_at) || Date.now(),
+      triggerReason: row.notes ?? `${row.trigger_type} detected`,
+      timeline: [
+        {
+          time: Date.parse(row.triggered_at) || Date.now(),
+          text: row.notes ?? `${row.trigger_type} detected`,
+          source: row.trigger_type === 'major_quake' ? 'USGS' : 'NexusWatch CII cron',
+        },
+      ],
+    };
+    activeCrises.push(crisis);
+    newly.push(crisis);
+  }
+  return newly;
+}

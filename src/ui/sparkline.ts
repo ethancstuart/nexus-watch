@@ -1,5 +1,27 @@
 import { createElement } from '../utils/dom.ts';
 
+/**
+ * Fetch raw CII score history for N country codes over `days` days from
+ * /api/v1/cii-sparklines. Returns { code: number[] } for inline rendering.
+ * Silent-fail on error — sparklines are cosmetic.
+ */
+export async function fetchSparklineData(codes: string[], days = 30): Promise<Record<string, number[]>> {
+  if (codes.length === 0) return {};
+  try {
+    const q = new URLSearchParams({ days: String(days), codes: codes.join(',') });
+    const res = await fetch(`/api/v1/cii-sparklines?${q.toString()}`);
+    if (!res.ok) return {};
+    const data = (await res.json()) as { series?: Record<string, Array<[string, number]>> };
+    const out: Record<string, number[]> = {};
+    for (const [code, pairs] of Object.entries(data.series ?? {})) {
+      out[code] = pairs.map(([, score]) => score);
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 export function createSparkline(values: number[], width = 48, height = 16, color = '#ff6600'): HTMLElement {
   const el = createElement('span', { className: 'nw-sparkline' });
 

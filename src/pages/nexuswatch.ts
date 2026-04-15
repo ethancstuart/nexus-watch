@@ -71,7 +71,7 @@ import {
   verificationIcon,
   verificationLabel,
 } from '../services/verificationEngine.ts';
-import { checkCrisisTriggers } from '../services/crisisPlaybook.ts';
+import { checkCrisisTriggers, syncFromServerTriggers } from '../services/crisisPlaybook.ts';
 import { showCrisisModal } from '../ui/crisisModal.ts';
 import { detectActiveCascades } from '../services/cascadeEngine.ts';
 import { runDisagreementDetection } from '../services/sourceDisagreement.ts';
@@ -840,6 +840,11 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       runDisagreementDetection(ld);
       const newCrisis = checkCrisisTriggers(ld);
       if (newCrisis) showCrisisModal(newCrisis, mapView);
+      // Also pull server-detected crises from the crisis-detection cron
+      // (CII spikes + M7+ quakes). Non-blocking; first unseen one opens modal.
+      void syncFromServerTriggers().then((newly) => {
+        if (newly.length > 0) showCrisisModal(newly[0], mapView);
+      });
       refreshCascadeOverlay();
       // Detect active risk cascades — visible in sidebar count
       const cascadeCount = detectActiveCascades().length;
