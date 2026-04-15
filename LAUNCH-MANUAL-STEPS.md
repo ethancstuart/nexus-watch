@@ -41,6 +41,15 @@ psql "$DATABASE_URL" -f docs/migrations/2026-04-15-crisis-triggers.sql
 
 # Prediction ledger
 psql "$DATABASE_URL" -f docs/migrations/2026-04-15-assessments.sql
+
+# Marketing cross-post race fix (P0 bug sweep)
+psql "$DATABASE_URL" -f docs/migrations/2026-04-15-marketing-crosspost-unique.sql
+
+# CII perf indices (PERF-1)
+psql "$DATABASE_URL" -f docs/migrations/2026-04-15-cii-perf-indices.sql
+
+# New free data sources (OFAC, V-Dem, NOAA, Copernicus)
+psql "$DATABASE_URL" -f docs/migrations/2026-04-15-data-sources.sql
 ```
 
 **Verify each:**
@@ -148,7 +157,19 @@ Only do this if Phase 1 feels clunky (e.g., you want to tap ✅ in Discord inste
 
 Without this var, `/api/v2/*` returns 401 to everyone. Default state = disabled, which is safe.
 
-### 2G. Resend (email delivery)
+### 2G. Data source ingestion (optional but recommended)
+
+These env vars enable the new free-tier data sources shipped 2026-04-15.
+All four sources degrade gracefully if unset — cron runs return
+`{ skipped: true, reason: 'env_not_set' }` instead of 500.
+
+| Variable | Source | Notes |
+|---|---|---|
+| `VDEM_DATA_URL` | V-Dem | URL to a NDJSON subset of V-Dem indicators you host yourself. See `api/cron/source-vdem.ts` header for format. Skip if you don't need democracy indicators (CII falls back to baseline governance). |
+
+No other env vars are needed — OFAC, NOAA, and Copernicus pull from public feeds. Just apply the migration and let the crons run.
+
+### 2H. Resend (email delivery)
 
 | Variable | Value |
 |---|---|
