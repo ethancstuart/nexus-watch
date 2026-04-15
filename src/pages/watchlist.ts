@@ -8,6 +8,7 @@
 import { createElement } from '../utils/dom.ts';
 import { getCiiWatchlist, addCiiWatch, removeCiiWatch, updateCiiWatch } from '../services/ciiWatchlist.ts';
 import { getCachedCII, getMonitoredCountries } from '../services/countryInstabilityIndex.ts';
+import { getCountryNote, setCountryNote } from '../services/countryNotes.ts';
 
 export function renderWatchlistPage(root: HTMLElement): void {
   root.innerHTML = '';
@@ -151,6 +152,10 @@ export function renderWatchlistPage(root: HTMLElement): void {
           <label>Alert when CII ≥</label>
           <input type="number" min="0" max="100" value="${item.alertThreshold ?? ''}" placeholder="--" data-code="${item.countryCode}" class="nw-watchlist-threshold-input">
         </div>
+        <div class="nw-watchlist-card-notes">
+          <label>My notes</label>
+          <textarea class="nw-watchlist-notes-input" data-code="${item.countryCode}" rows="2" placeholder="Your private annotations...">${escapeHtml(getCountryNote(item.countryCode)?.text ?? '')}</textarea>
+        </div>
         <div class="nw-watchlist-card-actions">
           <a href="#/audit/${item.countryCode}" class="nw-watchlist-link">Audit</a>
           <a href="#/brief-country/${item.countryCode}" class="nw-watchlist-link">Brief</a>
@@ -174,6 +179,31 @@ export function renderWatchlistPage(root: HTMLElement): void {
         const val = parseInt(el.value, 10);
         updateCiiWatch(code, { alertThreshold: isNaN(val) ? undefined : val });
       });
+    });
+    // Debounced save on notes textarea
+    grid.querySelectorAll('.nw-watchlist-notes-input').forEach((ta) => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      ta.addEventListener('input', () => {
+        const el = ta as HTMLTextAreaElement;
+        const code = el.dataset.code!;
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          setCountryNote(code, el.value);
+        }, 500);
+      });
+    });
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => {
+      const map: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      };
+      return map[c] || c;
     });
   }
 

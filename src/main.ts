@@ -3,11 +3,14 @@ import { applyTheme } from './config/theme.ts';
 import { applyDensity } from './config/density.ts';
 import { Router } from './router.ts';
 import { registerCommandPalette } from './ui/commandPalette.ts';
+import { registerPwaInstall } from './ui/pwaInstall.ts';
 
 applyTheme();
 applyDensity();
 // Cmd+K / Ctrl+K opens the command palette from anywhere
 registerCommandPalette();
+// PWA install banner (shows on supported browsers after 15s)
+registerPwaInstall();
 
 const router = new Router();
 const appRoot = document.getElementById('app')!;
@@ -187,6 +190,14 @@ router
       .then((m) => {
         appRoot.textContent = '';
         m.renderFeedPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/welcome', () => {
+    import('./pages/welcome.ts')
+      .then((m) => {
+        appRoot.textContent = '';
+        m.renderWelcomePage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
