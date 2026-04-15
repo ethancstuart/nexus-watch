@@ -14,6 +14,8 @@
  * which entry point is used.
  */
 
+import { postApprovalNeeded } from '../_discord/notify';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NeonSql = any;
 
@@ -177,6 +179,32 @@ export async function enqueueDraftCore(sql: NeonSql, input: unknown): Promise<En
       VALUES (${row.id}, 'enqueue', 'system', NULL, 'pending', ${source})
     `;
 
+    // Discord approval notification (Chairman D-14).
+    // Best-effort: a failed notify does NOT fail the enqueue — the web UI at
+    // /#/admin/social-queue remains authoritative. If the webhook is not
+    // configured, postApprovalNeeded returns {skipped: 'no_webhook'}.
+    let discordMessageId: string | null = null;
+    try {
+      const notify = await postApprovalNeeded({
+        queue_id: row.id,
+        platform: body.platform,
+        action_type: body.action_type,
+        draft_content: draftContent,
+        rationale,
+        source,
+        source_url: sourceUrl,
+        voice_score: voiceScore,
+      });
+      if (notify.ok && notify.message_id) {
+        discordMessageId = notify.message_id;
+        await sql`UPDATE social_queue SET discord_message_id = ${discordMessageId} WHERE id = ${row.id}`;
+      } else if (notify.error) {
+        console.warn('[social/enqueue-core] discord notify failed:', notify.error);
+      }
+    } catch (err) {
+      console.warn('[social/enqueue-core] discord notify threw:', err instanceof Error ? err.message : err);
+    }
+
     return {
       ok: true,
       status: 201,
@@ -186,6 +214,7 @@ export async function enqueueDraftCore(sql: NeonSql, input: unknown): Promise<En
         platform: body.platform,
         action_type: body.action_type,
         draft_cap_remaining: Math.max(0, DRAFT_CAP_PER_24H[body.platform] - currentCount - 1),
+        discord_message_id: discordMessageId,
       },
     };
   } catch (err) {

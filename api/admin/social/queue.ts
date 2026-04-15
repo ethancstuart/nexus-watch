@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { resolveAdmin } from '../_auth';
+import { editApprovalMessage } from '../../_discord/notify';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -201,11 +202,11 @@ async function handleTransition(
     // Fetch the current row so we can record from_status and enforce
     // allowed transitions.
     const existing = (await sql`
-      SELECT id, status
+      SELECT id, status, discord_message_id
       FROM social_queue
       WHERE id = ${id}
       LIMIT 1
-    `) as unknown as Array<{ id: number; status: string }>;
+    `) as unknown as Array<{ id: number; status: string; discord_message_id: string | null }>;
 
     if (existing.length === 0) {
       res.status(404).json({ error: 'not_found' });
@@ -253,6 +254,15 @@ async function handleTransition(
       INSERT INTO social_actions (queue_id, action, actor, from_status, to_status, note)
       VALUES (${id}, ${body.action}, ${actor}, ${fromStatus}, ${toStatus}, ${note})
     `;
+
+    // Edit the Discord approval message in place so the channel shows the
+    // decision outcome. Non-blocking — a failed edit never fails the request.
+    const discordMessageId = existing[0].discord_message_id;
+    if (discordMessageId) {
+      void editApprovalMessage(discordMessageId, toStatus as 'approved' | 'rejected' | 'held', actor).catch((err) =>
+        console.warn('[admin/social/queue] discord edit failed:', err),
+      );
+    }
 
     res.status(200).json({
       id,
