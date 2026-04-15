@@ -9,15 +9,21 @@ export const config = { runtime: 'nodejs', maxDuration: 60 };
  * POST /api/ai-analyst
  * Body: { query: string, context?: string }
  *
- * Unlike the basic sitrep endpoint, this uses Claude with tool definitions
- * so the AI can query live data, cite sources, and tag confidence levels.
- * Every response includes source attribution and explicit uncertainty.
+ * Supports two response modes:
+ *   - Default (application/json): buffers the full response and returns
+ *     { text, toolsUsed }. Backward-compatible with existing clients.
+ *   - Streaming (Accept: text/event-stream OR ?stream=1): emits SSE
+ *     events as the model works —
+ *       event: tool_use   data: { name: 'get_country_cii', input: {...} }
+ *       event: tool_result data: { tool: '...', ok: true }
+ *       event: token      data: { text: '...' }
+ *       event: done       data: { toolsUsed: [...] }
+ *     Lets the client show "Checking CII for Sudan…" within ~500 ms
+ *     instead of waiting 15 s for the full two-call round trip.
  *
- * System prompt mandates:
- * - Cite every source by name (ACLED, USGS, GDELT, etc.)
- * - Tag confidence: [HIGH CONFIDENCE], [MEDIUM CONFIDENCE], [LOW CONFIDENCE]
- * - Distinguish confirmed facts from analytical assessments
- * - Disclose data gaps: "We have limited data on X because Y"
+ * Anthropic prompt caching (cache_control: ephemeral) is applied to both
+ * the system prompt and the tool definitions so the second call (follow-
+ * up after tool execution) benefits from ~90% input-token discount.
  */
 
 const SYSTEM_PROMPT = `You are the NexusWatch Intelligence Analyst — a tool-using AI analyst embedded in a geopolitical intelligence platform monitoring 86 countries across 35+ data layers.
@@ -117,6 +123,32 @@ const TOOLS: Tool[] = [
   },
 ];
 
+/**
+ * Build the Anthropic payload with prompt caching applied.
+ * cache_control: ephemeral on the system prompt + last tool gets ~90%
+ * input-token discount on the follow-up call (TOOLS + SYSTEM identical
+ * across both calls).
+ */
+function buildRequestBody(messages: unknown[], opts: { stream: boolean }): Record<string, unknown> {
+  const toolsWithCache = TOOLS.map((t, i) =>
+    i === TOOLS.length - 1 ? { ...t, cache_control: { type: 'ephemeral' } } : t,
+  );
+  return {
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 2048,
+    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+    tools: toolsWithCache,
+    messages,
+    stream: opts.stream,
+  };
+}
+
+function wantsStream(req: VercelRequest): boolean {
+  if (typeof req.query.stream === 'string' && ['1', 'true'].includes(req.query.stream)) return true;
+  const accept = String(req.headers.accept ?? '');
+  return accept.includes('text/event-stream');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
@@ -127,9 +159,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!query) return res.status(400).json({ error: 'query required' });
 
   const userMessage = context ? `${query}\n\nPlatform context:\n${context}` : query;
+  const streaming = wantsStream(req);
 
+  if (streaming) return handleStreaming(req, res, apiKey, userMessage, context);
+  return handleBuffered(res, apiKey, userMessage, context);
+}
+
+// ---------------------------------------------------------------------------
+// Buffered (JSON) mode — backward-compatible
+// ---------------------------------------------------------------------------
+
+async function handleBuffered(
+  res: VercelResponse,
+  apiKey: string,
+  userMessage: string,
+  context?: string,
+): Promise<VercelResponse | void> {
   try {
-    // Initial request with tools
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -137,13 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        tools: TOOLS,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
+      body: JSON.stringify(buildRequestBody([{ role: 'user', content: userMessage }], { stream: false })),
       signal: AbortSignal.timeout(30000),
     });
 
@@ -158,7 +198,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       stop_reason: string;
     };
 
-    // If the model wants to use tools, execute them and continue
     if (data.stop_reason === 'tool_use') {
       const dbUrl = process.env.DATABASE_URL;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -175,7 +214,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      // Continue the conversation with tool results
       const followUp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -183,17 +221,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
         },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 2048,
-          system: SYSTEM_PROMPT,
-          tools: TOOLS,
-          messages: [
-            { role: 'user', content: userMessage },
-            { role: 'assistant', content: data.content },
-            { role: 'user', content: toolResults },
-          ],
-        }),
+        body: JSON.stringify(
+          buildRequestBody(
+            [
+              { role: 'user', content: userMessage },
+              { role: 'assistant', content: data.content },
+              { role: 'user', content: toolResults },
+            ],
+            { stream: false },
+          ),
+        ),
         signal: AbortSignal.timeout(30000),
       });
 
@@ -216,7 +253,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // No tool use — direct response
     const text = data.content
       .filter((b) => b.type === 'text')
       .map((b) => b.text)
@@ -227,6 +263,160 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('AI analyst error:', err instanceof Error ? err.message : err);
     return res.status(500).json({ error: 'AI analyst failed' });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Streaming (SSE) mode — incremental tool-use + token events
+// ---------------------------------------------------------------------------
+
+async function handleStreaming(
+  _req: VercelRequest,
+  res: VercelResponse,
+  apiKey: string,
+  userMessage: string,
+  context?: string,
+): Promise<void> {
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+
+  const sseSend = (event: string, data: unknown): void => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    // ---- First call: let model decide what tools to use ----
+    const firstRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(buildRequestBody([{ role: 'user', content: userMessage }], { stream: false })),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!firstRes.ok) {
+      sseSend('error', { message: `anthropic_${firstRes.status}` });
+      res.end();
+      return;
+    }
+    const firstData = (await firstRes.json()) as {
+      content: Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown>; id?: string }>;
+      stop_reason: string;
+    };
+
+    // No tool use — just emit the text and done.
+    if (firstData.stop_reason !== 'tool_use') {
+      const text = firstData.content
+        .filter((b) => b.type === 'text')
+        .map((b) => b.text ?? '')
+        .join('');
+      // Emit in token-sized chunks so clients can render incrementally even
+      // though the buffered first call doesn't actually stream.
+      for (const chunk of chunkString(text, 40)) sseSend('token', { text: chunk });
+      sseSend('done', { toolsUsed: [] });
+      res.end();
+      return;
+    }
+
+    // ---- Run tools, emit per-tool events ----
+    const dbUrl = process.env.DATABASE_URL;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sql: any = dbUrl ? neon(dbUrl) : null;
+    const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = [];
+    const toolsUsed: string[] = [];
+    for (const block of firstData.content) {
+      if (block.type === 'tool_use' && block.name && block.id) {
+        sseSend('tool_use', { name: block.name, input: block.input ?? {} });
+        const result = await executeToolCall(sql, block.name, block.input || {}, context);
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify(result),
+        });
+        toolsUsed.push(block.name);
+        sseSend('tool_result', { name: block.name, ok: !(result as { error?: unknown }).error });
+      }
+    }
+
+    // ---- Second call: streaming follow-up with tool results ----
+    const followRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(
+        buildRequestBody(
+          [
+            { role: 'user', content: userMessage },
+            { role: 'assistant', content: firstData.content },
+            { role: 'user', content: toolResults },
+          ],
+          { stream: true },
+        ),
+      ),
+      signal: AbortSignal.timeout(45000),
+    });
+
+    if (!followRes.ok || !followRes.body) {
+      sseSend('error', { message: `anthropic_followup_${followRes.status}` });
+      res.end();
+      return;
+    }
+
+    // Relay the Anthropic SSE stream directly, transforming its
+    // content_block_delta events into our own `token` events.
+    const reader = followRes.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // Anthropic SSE frames are separated by \n\n.
+      let idx: number;
+      while ((idx = buffer.indexOf('\n\n')) >= 0) {
+        const frame = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        const dataLine = frame.split('\n').find((l) => l.startsWith('data: '));
+        if (!dataLine) continue;
+        const json = dataLine.slice(6);
+        try {
+          const ev = JSON.parse(json) as {
+            type: string;
+            delta?: { type?: string; text?: string };
+          };
+          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && ev.delta.text) {
+            sseSend('token', { text: ev.delta.text });
+          }
+        } catch {
+          // Skip unparseable frames (e.g. keepalives).
+        }
+      }
+    }
+
+    sseSend('done', { toolsUsed });
+    res.end();
+  } catch (err) {
+    try {
+      sseSend('error', { message: err instanceof Error ? err.message : 'stream_failed' });
+    } catch {
+      /* response may already be closed */
+    }
+    res.end();
+  }
+}
+
+function chunkString(s: string, size: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < s.length; i += size) out.push(s.slice(i, i + size));
+  return out;
 }
 
 /**
@@ -285,7 +475,6 @@ async function executeToolCall(
           }
           return { error: `No CII snapshot for ${code}`, code };
         }
-        // Context fallback.
         const regex = new RegExp(`([^\\n]+?)\\(${code}\\)[:\\s]+CII\\s+(\\d+)`, 'i');
         const match = ctx.match(regex);
         return match
@@ -358,7 +547,6 @@ async function executeToolCall(
             feature_count: number;
           }>;
           if (Array.isArray(rows) && rows.length > 0) {
-            // Collapse to one row per layer (most recent).
             const byLayer = new Map<string, { last_fetch: string; feature_count: number; freshness: string }>();
             for (const r of rows) {
               if (byLayer.has(r.layer_id)) continue;
@@ -418,7 +606,6 @@ async function executeToolCall(
       case 'search_events': {
         const code = String(input.country_code || '').toUpperCase();
         const type = String(input.event_type || 'all');
-        // No unified "events" table in Neon yet — use ACLED for conflict, fall back to context otherwise.
         if (sql && (type === 'all' || type === 'conflict')) {
           const rows = (await sql`
             SELECT country, location, event_type, fatalities, occurred_at, source_url
