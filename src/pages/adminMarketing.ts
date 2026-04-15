@@ -1,6 +1,7 @@
 import '../styles/briefs-dossier.css';
 import { createElement } from '../utils/dom.ts';
 import { colors as dossierColors, fonts as dossierFonts } from '../styles/email-tokens.ts';
+import { v2ShellHtml, v2MountAll, v2WirePostKills } from './adminMarketingV2.ts';
 
 /**
  * Admin — Marketing Automation Dashboard — Track M.1
@@ -161,6 +162,8 @@ function shellHtml(): string {
         <div id="nw-mk-voice-form" style="margin-bottom:16px;"></div>
         <div id="nw-mk-voice-list" style="display:flex;flex-direction:column;gap:8px;">Loading…</div>
       </section>
+
+      ${v2ShellHtml()}
     </main>
   `;
 }
@@ -248,6 +251,16 @@ async function refreshAll(page: HTMLElement): Promise<void> {
   state.pillarDistribution = postsResp?.pillar_distribution ?? [];
   state.voiceContext = await fetchVoiceContext();
   renderAll(page);
+  // V2 cockpit — mounted after v1 so it can reuse #nw-mk-posts rows for kill buttons.
+  void v2MountAll(page).then(() => wirePostKills(page));
+}
+
+function wirePostKills(page: HTMLElement): void {
+  const root = page.querySelector('#nw-mk-posts') as HTMLElement | null;
+  if (!root) return;
+  v2WirePostKills(root, () => {
+    void refreshAll(page);
+  });
 }
 
 function renderAll(page: HTMLElement): void {
@@ -383,6 +396,7 @@ function renderPostFilters(page: HTMLElement): void {
       renderPostFilters(page);
       renderPosts(page);
       renderPillarBars(page);
+      wirePostKills(page);
     });
   });
 }
@@ -404,8 +418,9 @@ function renderPosts(page: HTMLElement): void {
       const errorRow = p.platform_error
         ? `<div style="font-family:${dossierFonts.mono};font-size:11px;color:#dc2626;">ERROR: ${escapeHtml(p.platform_error)}</div>`
         : '';
+      const canKill = p.status !== 'posted' || p.shadow_mode;
       return `
-        <div style="border:1px solid ${dossierColors.border};border-radius:6px;padding:10px 12px;background:white;">
+        <div data-post-id="${canKill ? p.id : ''}" style="border:1px solid ${dossierColors.border};border-radius:6px;padding:10px 12px;background:white;display:flex;flex-direction:column;">
           <div style="font-family:${dossierFonts.mono};font-size:11px;color:${dossierColors.textTertiary};margin-bottom:4px;">
             ${ts}Z · ${p.platform.toUpperCase()} · ${(p.pillar ?? '?').toUpperCase()} · ${status} · ${tag} · voice ${score}
           </div>

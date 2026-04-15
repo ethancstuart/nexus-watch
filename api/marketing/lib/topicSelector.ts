@@ -11,11 +11,12 @@
  */
 
 import type { Platform } from './flags';
+import { getConfig, isEmbargoed, type Pillar as ConfigPillar } from './config';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NeonSql = any;
 
-export type Pillar = 'signal' | 'pattern' | 'methodology' | 'product' | 'context';
+export type Pillar = ConfigPillar;
 
 export interface Topic {
   pillar: Pillar;
@@ -28,7 +29,11 @@ export interface Topic {
   score: number; // higher = preferred
 }
 
-const PILLAR_TARGET_WEIGHTS: Record<Pillar, number> = {
+/**
+ * v1 default — kept as a fallback if KV config is unavailable.
+ * Live runtime reads getConfig().pillarMix instead (overridable via admin).
+ */
+const DEFAULT_PILLAR_TARGET_WEIGHTS: Record<Pillar, number> = {
   signal: 0.4,
   pattern: 0.2,
   methodology: 0.15,
@@ -240,9 +245,12 @@ async function pickPillarToWriteTo(sql: NeonSql, platform: Platform): Promise<Pi
   const total = rows.reduce((s, r) => s + r.c, 0) || 1;
   const actual: Record<string, number> = {};
   for (const r of rows) actual[r.pillar] = r.c / total;
-  const gaps: Array<[Pillar, number]> = (Object.keys(PILLAR_TARGET_WEIGHTS) as Pillar[]).map((p) => [
+  // Read live pillar mix from KV-backed config (falls back to v1 defaults).
+  const cfg = await getConfig().catch(() => null);
+  const target = cfg?.pillarMix ?? DEFAULT_PILLAR_TARGET_WEIGHTS;
+  const gaps: Array<[Pillar, number]> = (Object.keys(DEFAULT_PILLAR_TARGET_WEIGHTS) as Pillar[]).map((p) => [
     p,
-    PILLAR_TARGET_WEIGHTS[p] - (actual[p] ?? 0),
+    (target[p] ?? 0) - (actual[p] ?? 0),
   ]);
   gaps.sort((a, b) => b[1] - a[1]);
   return gaps[0]?.[0] ?? 'signal';
@@ -423,11 +431,15 @@ export async function selectTopic(sql: NeonSql, platform: Platform): Promise<Top
   const primary = await pickPillarToWriteTo(sql, platform);
   const order: Pillar[] = [primary, 'signal', 'pattern', 'context', 'methodology', 'product'];
   const seen = new Set<Pillar>();
+  // Pull embargo list once per call; embargoed topics/entities are silently skipped.
+  const cfg = await getConfig().catch(() => null);
   for (const p of order) {
     if (seen.has(p)) continue;
     seen.add(p);
     const candidate = await buildCandidateForPillar(sql, p, platform);
-    if (candidate) return candidate;
+    if (!candidate) continue;
+    if (cfg && isEmbargoed(cfg, candidate.topic_key, candidate.entity_keys)) continue;
+    return candidate;
   }
   return null;
 }

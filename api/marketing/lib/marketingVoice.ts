@@ -15,6 +15,7 @@
  */
 
 import type { Platform } from './flags';
+import { getConfig, type VoiceKnobs } from './config';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NeonSql = any;
@@ -126,14 +127,93 @@ function renderFewShotBlock(rows: VoiceContextRow[]): string {
   return parts.join('\n\n');
 }
 
+/**
+ * Render the V2 voice-knob block — four 0-100 dials injected into the
+ * system prompt as explicit calibration instructions. Each knob has a
+ * low/mid/high band so the model gets directive guidance rather than a
+ * number to interpret.
+ *
+ * Called once per cron run. Chairman can tune live at /#/admin/marketing.
+ */
+function renderVoiceKnobBlock(knobs: VoiceKnobs): string {
+  const band = (n: number) => (n <= 33 ? 'low' : n >= 67 ? 'high' : 'mid');
+  const lines: string[] = ['--- VOICE CALIBRATION (live-tuned by chairman) ---'];
+
+  // Formality — affects sentence structure + vocabulary.
+  const f = band(knobs.formality);
+  if (f === 'low') {
+    lines.push(
+      `Formality (${knobs.formality}/100 — LOW): lean casual. Contractions are fine. Short plain-English sentences. Avoid policy-speak.`,
+    );
+  } else if (f === 'high') {
+    lines.push(
+      `Formality (${knobs.formality}/100 — HIGH): tighter, more analyst register. Avoid contractions. Full sentences, precise verbs, no colloquialisms.`,
+    );
+  } else {
+    lines.push(
+      `Formality (${knobs.formality}/100 — MID): blended register. Mostly plain English with analyst-grade precision where it matters.`,
+    );
+  }
+
+  // Hedging — affects how assertive claims are.
+  const h = band(knobs.hedging);
+  if (h === 'low') {
+    lines.push(
+      `Hedging (${knobs.hedging}/100 — LOW): when the data is solid, say so directly. Reserve hedges ("appears", "likely") for genuine uncertainty — do not pad.`,
+    );
+  } else if (h === 'high') {
+    lines.push(
+      `Hedging (${knobs.hedging}/100 — HIGH): hedge every analytical claim. "Reports indicate", "the pattern suggests", "we assess". Distinguish fact from interpretation at every turn.`,
+    );
+  } else {
+    lines.push(
+      `Hedging (${knobs.hedging}/100 — MID): hedge analytical claims, state data facts directly. Default v1 posture.`,
+    );
+  }
+
+  // Data density — affects how much numeric/citation the draft carries.
+  const d = band(knobs.dataDensity);
+  if (d === 'low') {
+    lines.push(
+      `Data density (${knobs.dataDensity}/100 — LOW): prioritize narrative flow. Numbers and inline citations are allowed but should not be the backbone of the post.`,
+    );
+  } else if (d === 'high') {
+    lines.push(
+      `Data density (${knobs.dataDensity}/100 — HIGH): numbers-first. Every assertion should carry a figure or inline citation ("(via our ACLED layer)"). Minimize adjectives; maximize specifics.`,
+    );
+  } else {
+    lines.push(
+      `Data density (${knobs.dataDensity}/100 — MID): at least one quantitative anchor and one inline citation per post.`,
+    );
+  }
+
+  // Emoji — caps allowance against the brand set.
+  const e = band(knobs.emoji);
+  if (e === 'low') {
+    lines.push(
+      `Emoji (${knobs.emoji}/100 — LOW): zero emoji across platforms, even when the platform tone would permit one.`,
+    );
+  } else if (e === 'high') {
+    lines.push(
+      `Emoji (${knobs.emoji}/100 — HIGH): use the per-platform max from the brand set (1 on X/Bluesky/Threads, 2 on LinkedIn, 0 on Substack/Medium). Never invent new emoji.`,
+    );
+  } else {
+    lines.push(
+      `Emoji (${knobs.emoji}/100 — MID): emoji optional — use sparingly, only when tonally right, always from the brand set.`,
+    );
+  }
+  return lines.join('\n');
+}
+
 export async function buildVoiceProfile(sql: NeonSql, platform: Platform): Promise<VoiceProfile> {
-  const ctx = await loadVoiceContext(sql, platform);
+  const [ctx, cfg] = await Promise.all([loadVoiceContext(sql, platform), getConfig().catch(() => null)]);
   const fewShot = renderFewShotBlock(ctx);
   const tone = PLATFORM_TONE[platform] ?? '';
-  const systemPrompt = [BASE_SYSTEM_PROMPT, tone, fewShot].filter(Boolean).join('\n\n');
+  const knobBlock = cfg ? renderVoiceKnobBlock(cfg.voiceKnobs) : '';
+  const systemPrompt = [BASE_SYSTEM_PROMPT, tone, knobBlock, fewShot].filter(Boolean).join('\n\n');
   return {
     systemPrompt,
-    pillarBalance: { signal: 0.4, pattern: 0.2, methodology: 0.15, product: 0.15, context: 0.1 },
+    pillarBalance: cfg?.pillarMix ?? { signal: 0.4, pattern: 0.2, methodology: 0.15, product: 0.15, context: 0.1 },
   };
 }
 

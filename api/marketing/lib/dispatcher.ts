@@ -21,6 +21,8 @@ import { type Platform, preflight, recordRun, checkAndIncrementAnthropicCounter 
 import { selectTopic, recordTopicUsed } from './topicSelector';
 import { buildVoiceProfile } from './marketingVoice';
 import { generateContent, evaluateVoice } from './contentGenerator';
+import { getConfig } from './config';
+import { pickVariant } from './variants';
 import type { PlatformAdapter } from '../adapters/types';
 import { xAdapter } from '../adapters/xAdapter';
 import { linkedinAdapter } from '../adapters/linkedinAdapter';
@@ -75,6 +77,31 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   summary.proceeded = true;
   summary.shadow = pf.shadow;
 
+  // Cadence cap (V2) — skip if platform already at its daily post quota.
+  // Only counts LIVE posts (shadow dispatches are exempt so shadow mode can still
+  // exercise the whole pipeline freely). `cadence[platform]` = max posts/day.
+  const cfg = await getConfig().catch(() => null);
+  const cadence = cfg?.cadence?.[platform] ?? 3;
+  if (cadence <= 0) {
+    summary.reason = 'cadence_zero';
+    return summary;
+  }
+  if (!pf.shadow) {
+    const todaysCount = (await sql`
+      SELECT COUNT(*)::int AS c
+      FROM marketing_posts
+      WHERE platform = ${platform}
+        AND shadow_mode = FALSE
+        AND status = 'posted'
+        AND posted_at > CURRENT_DATE
+    `) as unknown as Array<{ c: number }>;
+    const count = todaysCount[0]?.c ?? 0;
+    if (count >= cadence) {
+      summary.reason = 'cadence_cap_reached';
+      return summary;
+    }
+  }
+
   // Anthropic spend cap.
   const underCap = await checkAndIncrementAnthropicCounter();
   if (!underCap) {
@@ -94,6 +121,12 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
 
   // 2. Build voice profile.
   const voice = await buildVoiceProfile(sql, platform);
+
+  // 2a. V2: pick an A/B prompt variant for this scope (if one is running).
+  const variant = await pickVariant(sql, platform, topic.pillar).catch(() => null);
+  if (variant) {
+    voice.systemPrompt = `${voice.systemPrompt}\n\n--- EXPERIMENT ${variant.experiment_key} / ${variant.label} ---\n${variant.prompt_suffix}`;
+  }
 
   // 3. Generate content.
   const gen = await generateContent({ platform, topic, voiceProfile: voice });
@@ -123,12 +156,12 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   const insertRows = (await sql`
     INSERT INTO marketing_posts (
       platform, pillar, topic_key, entity_keys, format, content, metadata,
-      status, shadow_mode, voice_score, voice_violations, scheduled_at
+      status, shadow_mode, voice_score, voice_violations, scheduled_at, variant_id
     )
     VALUES (
       ${platform}, ${topic.pillar}, ${topic.topic_key}, ${topic.entity_keys},
-      ${gen.format}, ${gen.content}, ${JSON.stringify({ source_url: topic.source_url, source_layer: topic.source_layer, rationale: gen.rationale, model: gen.model, input_tokens: gen.input_tokens, output_tokens: gen.output_tokens })}::jsonb,
-      ${status}, ${pf.shadow}, ${voiceScore}, ${voiceViolations}, NOW()
+      ${gen.format}, ${gen.content}, ${JSON.stringify({ source_url: topic.source_url, source_layer: topic.source_layer, rationale: gen.rationale, model: gen.model, input_tokens: gen.input_tokens, output_tokens: gen.output_tokens, variant: variant ? { experiment: variant.experiment_key, label: variant.label } : null })}::jsonb,
+      ${status}, ${pf.shadow}, ${voiceScore}, ${voiceViolations}, NOW(), ${variant?.id ?? null}
     )
     RETURNING id
   `) as unknown as Array<{ id: number }>;
