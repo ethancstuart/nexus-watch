@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { computeApiExposure, type ApiHolding } from './_holding-map';
+import { computeChokepointExposure } from './_chokepoint-map';
 import { kvCached } from '../_lib/kvCache';
 
 export const config = { runtime: 'nodejs' };
@@ -104,13 +105,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const latest = [{ d: snapshot.date }];
     const report = computeApiExposure(holdings, ciiByCountry);
+
+    // Chokepoint overlay: route country-level exposures through the
+    // country→chokepoint dependency map so callers see "if Hormuz closes
+    // you lose X% of portfolio coverage" without running a full scenario.
+    const chokepointExposure = computeChokepointExposure(
+      report.exposures.map((e) => ({ country_code: e.country_code, exposure_pct: e.exposure_pct })),
+    );
     res.setHeader('Cache-Control', 'no-store');
     return res.json({
-      data: report,
+      data: {
+        ...report,
+        chokepoint_exposure: chokepointExposure,
+      },
       meta: {
-        source: 'NexusWatch Portfolio Exposure Engine v1',
+        source: 'NexusWatch Portfolio Exposure Engine v1 + Chokepoint Overlay',
         methodology:
-          'Per-holding country attribution mapped from public filings × live CII. weighted_risk = exposure_pct × (cii_score / 100). overall_risk is the exposure-weighted mean CII across mapped countries.',
+          'Per-holding country attribution mapped from public filings × live CII. weighted_risk = exposure_pct × (cii_score / 100). overall_risk is the exposure-weighted mean CII across mapped countries. Chokepoint overlay routes country exposures through EIA/Lloyd-sourced country→chokepoint dependency weights to show which maritime chokepoints a portfolio depends on and their current status.',
         cii_snapshot_date: latest[0]?.d ?? null,
         docs: 'https://nexuswatch.dev/#/api',
       },
