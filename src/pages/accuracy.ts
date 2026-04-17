@@ -139,8 +139,22 @@ export async function renderAccuracyPage(container: HTMLElement): Promise<void> 
     data = await res.json();
   } catch {
     data = {
-      overview: { total_predictions: 0, scored: 0, pending: 0, accurate: 0, close: 0, miss: 0, accuracy_rate: null, mean_abs_error: null, median_abs_error: null, days_active: 0 },
-      calibration: [], weekly_trend: [], biggest_misses: [], countries: [],
+      overview: {
+        total_predictions: 0,
+        scored: 0,
+        pending: 0,
+        accurate: 0,
+        close: 0,
+        miss: 0,
+        accuracy_rate: null,
+        mean_abs_error: null,
+        median_abs_error: null,
+        days_active: 0,
+      },
+      calibration: [],
+      weekly_trend: [],
+      biggest_misses: [],
+      countries: [],
     };
   }
 
@@ -263,9 +277,10 @@ function renderCalibration(main: HTMLElement, bins: CalibrationBin[]): void {
     <h2 class="acc-section-title">CONFIDENCE CALIBRATION</h2>
     <p class="acc-section-desc">Are our confidence labels meaningful? High-confidence predictions should have lower error.</p>
     <div class="acc-calibration-grid">
-      ${bins.map((b) => {
-        const delta = b.mean_delta != null ? b.mean_delta.toFixed(1) : '—';
-        return `
+      ${bins
+        .map((b) => {
+          const delta = b.mean_delta != null ? b.mean_delta.toFixed(1) : '—';
+          return `
           <div class="acc-cal-card">
             <div class="acc-cal-badge acc-cal-${b.confidence || 'unknown'}">${(b.confidence || 'N/A').toUpperCase()}</div>
             <div class="acc-cal-row">
@@ -285,7 +300,8 @@ function renderCalibration(main: HTMLElement, bins: CalibrationBin[]): void {
               <span class="acc-cal-value">${b.within_10_pct}%</span>
             </div>
           </div>`;
-      }).join('')}
+        })
+        .join('')}
     </div>
   `;
   main.appendChild(section);
@@ -302,17 +318,19 @@ function renderWeeklyTrend(main: HTMLElement, weeks: WeeklyPoint[]): void {
     <h2 class="acc-section-title">WEEKLY TREND</h2>
     <p class="acc-section-desc">Mean absolute error by week — lower bars mean better predictions.</p>
     <div class="acc-trend-chart">
-      ${weeks.map((w) => {
-        const mae = w.mae ?? 0;
-        const h = Math.max(4, (mae / maxMAE) * barHeight);
-        const weekLabel = new Date(w.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        return `
+      ${weeks
+        .map((w) => {
+          const mae = w.mae ?? 0;
+          const h = Math.max(4, (mae / maxMAE) * barHeight);
+          const weekLabel = new Date(w.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          return `
           <div class="acc-trend-bar-wrap">
             <div class="acc-trend-bar" style="height: ${h}px; background: ${maeColor(mae)}"></div>
             <div class="acc-trend-mae">${mae.toFixed(1)}</div>
             <div class="acc-trend-week">${weekLabel}</div>
           </div>`;
-      }).join('')}
+        })
+        .join('')}
     </div>
   `;
   main.appendChild(section);
@@ -336,14 +354,18 @@ function renderBiggestMisses(main: HTMLElement, misses: MissEntry[]): void {
         </tr>
       </thead>
       <tbody>
-        ${misses.map((m) => `
+        ${misses
+          .map(
+            (m) => `
           <tr>
             <td>${m.country_name}</td>
             <td class="acc-mono">${m.date || '—'}</td>
             <td class="acc-mono">${m.predicted != null ? m.predicted.toFixed(1) : '—'}</td>
             <td class="acc-mono">${m.actual != null ? m.actual.toFixed(1) : '—'}</td>
             <td class="acc-mono" style="color: ${RED}">+${m.delta != null ? m.delta.toFixed(1) : '—'}</td>
-          </tr>`).join('')}
+          </tr>`,
+          )
+          .join('')}
       </tbody>
     </table>
   `;
@@ -369,7 +391,9 @@ function renderCountries(main: HTMLElement, countries: CountryEntry[]): void {
         </tr>
       </thead>
       <tbody>
-        ${countries.map((c) => `
+        ${countries
+          .map(
+            (c) => `
           <tr>
             <td>${c.country_name}</td>
             <td class="acc-mono">${c.scored}</td>
@@ -377,7 +401,9 @@ function renderCountries(main: HTMLElement, countries: CountryEntry[]): void {
             <td class="acc-mono" style="color: ${accColor(c.accuracy_pct)}">${c.accuracy_pct}%</td>
             <td class="acc-mono">${c.avg_predicted != null ? c.avg_predicted.toFixed(1) : '—'}</td>
             <td class="acc-mono">${c.avg_actual != null ? c.avg_actual.toFixed(1) : '—'}</td>
-          </tr>`).join('')}
+          </tr>`,
+          )
+          .join('')}
       </tbody>
     </table>
   `;

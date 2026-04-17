@@ -24,14 +24,40 @@ export const config = { runtime: 'nodejs' };
  */
 
 const NAME_MAP: Record<string, string> = {
-  UA: 'Ukraine', RU: 'Russia', CN: 'China', TW: 'Taiwan', IR: 'Iran',
-  IQ: 'Iraq', SY: 'Syria', IL: 'Israel', YE: 'Yemen', SD: 'Sudan',
-  KP: 'North Korea', KR: 'South Korea', TR: 'Turkey', SA: 'Saudi Arabia',
-  EG: 'Egypt', PK: 'Pakistan', AF: 'Afghanistan', MM: 'Myanmar',
-  ET: 'Ethiopia', SO: 'Somalia', CD: 'DR Congo', LB: 'Lebanon',
-  VE: 'Venezuela', NG: 'Nigeria', LY: 'Libya', US: 'United States',
-  JP: 'Japan', DE: 'Germany', GB: 'United Kingdom', FR: 'France',
-  IN: 'India', BR: 'Brazil', PL: 'Poland', RO: 'Romania',
+  UA: 'Ukraine',
+  RU: 'Russia',
+  CN: 'China',
+  TW: 'Taiwan',
+  IR: 'Iran',
+  IQ: 'Iraq',
+  SY: 'Syria',
+  IL: 'Israel',
+  YE: 'Yemen',
+  SD: 'Sudan',
+  KP: 'North Korea',
+  KR: 'South Korea',
+  TR: 'Turkey',
+  SA: 'Saudi Arabia',
+  EG: 'Egypt',
+  PK: 'Pakistan',
+  AF: 'Afghanistan',
+  MM: 'Myanmar',
+  ET: 'Ethiopia',
+  SO: 'Somalia',
+  CD: 'DR Congo',
+  LB: 'Lebanon',
+  VE: 'Venezuela',
+  NG: 'Nigeria',
+  LY: 'Libya',
+  US: 'United States',
+  JP: 'Japan',
+  DE: 'Germany',
+  GB: 'United Kingdom',
+  FR: 'France',
+  IN: 'India',
+  BR: 'Brazil',
+  PL: 'Poland',
+  RO: 'Romania',
 };
 
 interface TelegramUpdate {
@@ -73,21 +99,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ON CONFLICT (chat_id) DO UPDATE SET active = TRUE, username = ${username}
       `;
 
-      await sendMessage(chatId, [
-        '<b>Welcome to NexusWatch Alerts</b> 🌍',
-        '',
-        'You\'ll receive alerts when countries on your watchlist breach your CII threshold.',
-        '',
-        '<b>Commands:</b>',
-        '/watch UA,RU,CN — set countries (ISO-2 codes)',
-        '/threshold 50 — set CII threshold (0-100)',
-        '/status — view your subscription',
-        '/stop — unsubscribe',
-        '',
-        `Default: all countries above CII 60.`,
-        '',
-        '<i>Powered by NexusWatch Country Instability Index</i>',
-      ].join('\n'));
+      await sendMessage(
+        chatId,
+        [
+          '<b>Welcome to NexusWatch Alerts</b> 🌍',
+          '',
+          "You'll receive alerts when countries on your watchlist breach your CII threshold.",
+          '',
+          '<b>Commands:</b>',
+          '/watch UA,RU,CN — set countries (ISO-2 codes)',
+          '/threshold 50 — set CII threshold (0-100)',
+          '/status — view your subscription',
+          '/stop — unsubscribe',
+          '',
+          `Default: all countries above CII 60.`,
+          '',
+          '<i>Powered by NexusWatch Country Instability Index</i>',
+        ].join('\n'),
+      );
 
       return res.status(200).json({ ok: true });
     }
@@ -96,7 +125,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (text.startsWith('/watch')) {
       const args = text.replace('/watch', '').trim().toUpperCase();
       if (!args) {
-        await sendMessage(chatId, 'Usage: <code>/watch UA,RU,CN</code>\n\nUse ISO-2 codes separated by commas. Send <code>/watch all</code> to watch everything.');
+        await sendMessage(
+          chatId,
+          'Usage: <code>/watch UA,RU,CN</code>\n\nUse ISO-2 codes separated by commas. Send <code>/watch all</code> to watch everything.',
+        );
         return res.status(200).json({ ok: true });
       }
 
@@ -108,9 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE chat_id = ${chatId}
       `;
 
-      const label = codes.length === 0
-        ? 'all countries'
-        : codes.map((c) => `${NAME_MAP[c] || c} (${c})`).join(', ');
+      const label = codes.length === 0 ? 'all countries' : codes.map((c) => `${NAME_MAP[c] || c} (${c})`).join(', ');
 
       await sendMessage(chatId, `✅ Watchlist updated: <b>${label}</b>`);
       return res.status(200).json({ ok: true });
@@ -120,7 +150,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (text.startsWith('/threshold')) {
       const num = parseInt(text.replace('/threshold', '').trim(), 10);
       if (isNaN(num) || num < 0 || num > 100) {
-        await sendMessage(chatId, 'Usage: <code>/threshold 50</code>\n\nSet a CII score (0-100). You\'ll be alerted when any watched country reaches this level.');
+        await sendMessage(
+          chatId,
+          "Usage: <code>/threshold 50</code>\n\nSet a CII score (0-100). You'll be alerted when any watched country reaches this level.",
+        );
         return res.status(200).json({ ok: true });
       }
 
@@ -130,36 +163,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         WHERE chat_id = ${chatId}
       `;
 
-      await sendMessage(chatId, `✅ Threshold set to <b>${num}</b>. You'll be alerted when watched countries hit CII ≥ ${num}.`);
+      await sendMessage(
+        chatId,
+        `✅ Threshold set to <b>${num}</b>. You'll be alerted when watched countries hit CII ≥ ${num}.`,
+      );
       return res.status(200).json({ ok: true });
     }
 
     // /status — show subscription
     if (text === '/status') {
-      const rows = await sql`
+      const rows = (await sql`
         SELECT country_codes, cii_threshold, active, created_at, last_alerted_at
         FROM telegram_subscriptions WHERE chat_id = ${chatId}
-      ` as unknown as Array<Record<string, unknown>>;
+      `) as unknown as Array<Record<string, unknown>>;
 
       if (rows.length === 0) {
-        await sendMessage(chatId, 'You\'re not subscribed. Send /start to begin.');
+        await sendMessage(chatId, "You're not subscribed. Send /start to begin.");
         return res.status(200).json({ ok: true });
       }
 
       const sub = rows[0];
       const codes = sub.country_codes as string[];
-      const watchLabel = !codes || codes.length === 0 ? 'All countries' : codes.map((c: string) => `${NAME_MAP[c] || c}`).join(', ');
-      const lastAlert = sub.last_alerted_at ? new Date(String(sub.last_alerted_at)).toISOString().slice(0, 16) : 'Never';
+      const watchLabel =
+        !codes || codes.length === 0 ? 'All countries' : codes.map((c: string) => `${NAME_MAP[c] || c}`).join(', ');
+      const lastAlert = sub.last_alerted_at
+        ? new Date(String(sub.last_alerted_at)).toISOString().slice(0, 16)
+        : 'Never';
 
-      await sendMessage(chatId, [
-        '<b>Your NexusWatch Subscription</b>',
-        '',
-        `Status: ${sub.active ? '✅ Active' : '⏸ Paused'}`,
-        `Watching: ${watchLabel}`,
-        `Threshold: CII ≥ ${sub.cii_threshold}`,
-        `Last alert: ${lastAlert}`,
-        `Since: ${new Date(String(sub.created_at)).toISOString().slice(0, 10)}`,
-      ].join('\n'));
+      await sendMessage(
+        chatId,
+        [
+          '<b>Your NexusWatch Subscription</b>',
+          '',
+          `Status: ${sub.active ? '✅ Active' : '⏸ Paused'}`,
+          `Watching: ${watchLabel}`,
+          `Threshold: CII ≥ ${sub.cii_threshold}`,
+          `Last alert: ${lastAlert}`,
+          `Since: ${new Date(String(sub.created_at)).toISOString().slice(0, 10)}`,
+        ].join('\n'),
+      );
 
       return res.status(200).json({ ok: true });
     }
@@ -175,14 +217,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Unknown command
     if (text.startsWith('/')) {
-      await sendMessage(chatId, [
-        '<b>Commands:</b>',
-        '/start — subscribe to alerts',
-        '/watch UA,RU,CN — set countries',
-        '/threshold 50 — set CII threshold',
-        '/status — view subscription',
-        '/stop — unsubscribe',
-      ].join('\n'));
+      await sendMessage(
+        chatId,
+        [
+          '<b>Commands:</b>',
+          '/start — subscribe to alerts',
+          '/watch UA,RU,CN — set countries',
+          '/threshold 50 — set CII threshold',
+          '/status — view subscription',
+          '/stop — unsubscribe',
+        ].join('\n'),
+      );
     }
 
     return res.status(200).json({ ok: true });

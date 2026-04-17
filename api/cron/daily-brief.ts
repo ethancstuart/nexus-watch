@@ -1187,7 +1187,13 @@ ${(() => {
 // ============================================================================
 
 import { colors, fonts, type, space, layout, style, typeStyle } from '../../src/styles/email-tokens.js';
-import { REGIONS, THREATS, matchesInterests, type Interests, type RegionId } from '../../src/services/interests-types.js';
+import {
+  REGIONS,
+  THREATS,
+  matchesInterests,
+  type Interests,
+  type RegionId,
+} from '../../src/services/interests-types.js';
 import { enqueueDraftCore } from '../social/enqueue-core.js';
 
 export interface RenderedBrief {

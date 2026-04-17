@@ -13,7 +13,13 @@
  * can be exercised end-to-end without credentials.
  */
 
-import { type AdapterPostInput, type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types.js';
+import {
+  type AdapterPostInput,
+  type AdapterPostResult,
+  type PlatformAdapter,
+  shadowResult,
+  stubResult,
+} from './types.js';
 
 const TYPEFULLY_DRAFT_URL = 'https://api.typefully.com/v1/drafts/';
 const X_API_TWEETS_URL = 'https://api.x.com/2/tweets';

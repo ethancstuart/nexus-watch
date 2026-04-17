@@ -773,8 +773,13 @@ button.landing-price-btn:disabled {
   animation: ticker-pulse 2s ease-in-out infinite;
 }
 @keyframes ticker-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 .landing-ticker-label {
   font-size: 10px;
@@ -791,7 +796,9 @@ button.landing-price-btn:disabled {
   flex: 1;
   scrollbar-width: none;
 }
-.landing-ticker-strip::-webkit-scrollbar { display: none; }
+.landing-ticker-strip::-webkit-scrollbar {
+  display: none;
+}
 .landing-ticker-loading {
   color: rgba(255, 255, 255, 0.25);
   font-size: 11px;
@@ -805,7 +812,9 @@ button.landing-price-btn:disabled {
   border-radius: 3px;
   text-decoration: none;
   flex-shrink: 0;
-  transition: border-color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 }
 .landing-ticker-item:hover {
   border-color: #ff6600;

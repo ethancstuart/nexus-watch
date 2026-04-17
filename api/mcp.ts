@@ -50,7 +50,7 @@ async function callApi(
     body?: unknown;
     params?: Record<string, string>;
     apiKey?: string;
-  } = {}
+  } = {},
 ) {
   const url = new URL(path, BASE);
   if (opts.params) {
@@ -111,7 +111,7 @@ const TOOLS: ToolDef[] = [
   {
     name: 'run_scenario',
     description:
-      "Run a geopolitical what-if scenario. Presets: hormuz-closure, taiwan-blockade, suez-disruption, russia-nato, nk-nuclear, istanbul-earthquake, tehran-earthquake. Omit scenario_id to list all.",
+      'Run a geopolitical what-if scenario. Presets: hormuz-closure, taiwan-blockade, suez-disruption, russia-nato, nk-nuclear, istanbul-earthquake, tehran-earthquake. Omit scenario_id to list all.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -172,14 +172,12 @@ const TOOLS: ToolDef[] = [
   },
   {
     name: 'get_active_crises',
-    description:
-      'All currently active (unresolved) crisis triggers: CII spikes, M7+ earthquakes, verified signals.',
+    description: 'All currently active (unresolved) crisis triggers: CII spikes, M7+ earthquakes, verified signals.',
     inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'get_sanctions_attribution',
-    description:
-      'Cross-reference OFAC/UN sanctions events with ACLED conflict data and crisis triggers for a country.',
+    description: 'Cross-reference OFAC/UN sanctions events with ACLED conflict data and crisis triggers for a country.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -196,7 +194,7 @@ const TOOLS: ToolDef[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        scenario_id: { type: 'string', description: "Scenario ID. Omit for all." },
+        scenario_id: { type: 'string', description: 'Scenario ID. Omit for all.' },
         days: { type: 'number', description: 'Lookback days (1-90). Default 14.', default: 14 },
       },
     },
@@ -331,9 +329,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       name: 'nexuswatch',
       version: '1.0.0',
       protocol: 'MCP (Model Context Protocol)',
-      description: 'Geopolitical intelligence for AI agents — 9 tools covering country risk, scenarios, portfolio exposure, alerts, and prediction accuracy.',
+      description:
+        'Geopolitical intelligence for AI agents — 9 tools covering country risk, scenarios, portfolio exposure, alerts, and prediction accuracy.',
       tools: TOOLS.map((t) => t.name),
-      connect: 'claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp --header "X-API-Key: YOUR_KEY"',
+      connect:
+        'claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp --header "X-API-Key: YOUR_KEY"',
       docs: 'https://nexuswatch.dev/#/apidocs',
     });
   }
@@ -349,9 +349,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Extract API key
   const apiKey =
-    (req.headers['x-api-key'] as string) ||
-    (req.headers['authorization'] as string)?.replace('Bearer ', '') ||
-    '';
+    (req.headers['x-api-key'] as string) || (req.headers['authorization'] as string)?.replace('Bearer ', '') || '';
 
   // Parse JSON-RPC
   const body = req.body as JsonRpcRequest | JsonRpcRequest[];

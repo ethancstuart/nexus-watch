@@ -17,14 +17,40 @@ export const config = { runtime: 'nodejs', maxDuration: 60 };
  */
 
 const NAME_MAP: Record<string, string> = {
-  UA: 'Ukraine', RU: 'Russia', CN: 'China', TW: 'Taiwan', IR: 'Iran',
-  IQ: 'Iraq', SY: 'Syria', IL: 'Israel', YE: 'Yemen', SD: 'Sudan',
-  KP: 'North Korea', KR: 'South Korea', TR: 'Turkey', SA: 'Saudi Arabia',
-  EG: 'Egypt', PK: 'Pakistan', AF: 'Afghanistan', MM: 'Myanmar',
-  ET: 'Ethiopia', SO: 'Somalia', CD: 'DR Congo', LB: 'Lebanon',
-  VE: 'Venezuela', NG: 'Nigeria', LY: 'Libya', US: 'United States',
-  JP: 'Japan', DE: 'Germany', GB: 'United Kingdom', FR: 'France',
-  IN: 'India', BR: 'Brazil', PL: 'Poland', RO: 'Romania',
+  UA: 'Ukraine',
+  RU: 'Russia',
+  CN: 'China',
+  TW: 'Taiwan',
+  IR: 'Iran',
+  IQ: 'Iraq',
+  SY: 'Syria',
+  IL: 'Israel',
+  YE: 'Yemen',
+  SD: 'Sudan',
+  KP: 'North Korea',
+  KR: 'South Korea',
+  TR: 'Turkey',
+  SA: 'Saudi Arabia',
+  EG: 'Egypt',
+  PK: 'Pakistan',
+  AF: 'Afghanistan',
+  MM: 'Myanmar',
+  ET: 'Ethiopia',
+  SO: 'Somalia',
+  CD: 'DR Congo',
+  LB: 'Lebanon',
+  VE: 'Venezuela',
+  NG: 'Nigeria',
+  LY: 'Libya',
+  US: 'United States',
+  JP: 'Japan',
+  DE: 'Germany',
+  GB: 'United Kingdom',
+  FR: 'France',
+  IN: 'India',
+  BR: 'Brazil',
+  PL: 'Poland',
+  RO: 'Romania',
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -151,9 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               `<i>NexusWatch Country Instability Index</i>`,
             ];
             const markup = {
-              inline_keyboard: [[
-                { text: '📊 View Intel Map', url: 'https://nexuswatch.dev/#/intel' },
-              ]],
+              inline_keyboard: [[{ text: '📊 View Intel Map', url: 'https://nexuswatch.dev/#/intel' }]],
             };
             const result = await sendMessage(chatId, lines.join('\n'), { replyMarkup: markup });
             if (result.blocked) {
@@ -177,7 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { text, markup } = formatCrisisAlert({
           playbookKey: crisis.playbook_key,
           countryCode: crisis.country_code,
-          countryName: crisis.country_code ? (NAME_MAP[crisis.country_code] || crisis.country_code) : 'Global',
+          countryName: crisis.country_code ? NAME_MAP[crisis.country_code] || crisis.country_code : 'Global',
           triggerType: crisis.trigger_type,
           ciiScore: crisis.cii_score,
           ciiDelta: crisis.cii_delta,

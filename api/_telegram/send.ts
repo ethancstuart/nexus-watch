@@ -28,7 +28,7 @@ export async function sendMessage(
   opts?: {
     replyMarkup?: unknown;
     disablePreview?: boolean;
-  }
+  },
 ): Promise<SendResult> {
   const token = getToken();
   const body: Record<string, unknown> = {
@@ -118,8 +118,7 @@ export function formatCrisisAlert(trigger: {
 }): { text: string; markup: unknown } {
   const { playbookKey, countryCode, countryName, triggerType, ciiScore, ciiDelta, magnitude, notes } = trigger;
 
-  const emoji =
-    triggerType === 'major_quake' ? '🌍' : triggerType === 'cii_spike' ? '📈' : '⚡';
+  const emoji = triggerType === 'major_quake' ? '🌍' : triggerType === 'cii_spike' ? '📈' : '⚡';
 
   const lines = [
     `<b>${emoji} CRISIS TRIGGER</b>`,
@@ -138,9 +137,7 @@ export function formatCrisisAlert(trigger: {
       [
         {
           text: '🗺 View on Map',
-          url: countryCode
-            ? `https://nexuswatch.dev/#/intel?country=${countryCode}`
-            : 'https://nexuswatch.dev/#/intel',
+          url: countryCode ? `https://nexuswatch.dev/#/intel?country=${countryCode}` : 'https://nexuswatch.dev/#/intel',
         },
       ],
     ],

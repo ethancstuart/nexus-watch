@@ -416,15 +416,15 @@ export function renderLanding(root: HTMLElement): void {
       .then((data: { scores?: Array<{ countryCode: string; score: number; trend: string }> }) => {
         const scores = data.scores || [];
         if (scores.length === 0) {
-          tickerStrip.innerHTML = '<span class="landing-ticker-loading">Intelligence data loading — check back shortly.</span>';
+          tickerStrip.innerHTML =
+            '<span class="landing-ticker-loading">Intelligence data loading — check back shortly.</span>';
           return;
         }
         // Sort by score desc, take top 12
         const top = scores.sort((a, b) => b.score - a.score).slice(0, 12);
         tickerStrip.innerHTML = top
           .map((s) => {
-            const color =
-              s.score >= 70 ? '#dc2626' : s.score >= 50 ? '#ff6600' : s.score >= 30 ? '#eab308' : '#22c55e';
+            const color = s.score >= 70 ? '#dc2626' : s.score >= 50 ? '#ff6600' : s.score >= 30 ? '#eab308' : '#22c55e';
             const arrow = s.trend === 'rising' ? '↑' : s.trend === 'falling' ? '↓' : '→';
             return `<a href="#/intel" class="landing-ticker-item" title="${s.countryCode}: CII ${s.score}">
               <span class="landing-ticker-code">${s.countryCode}</span>
