@@ -756,15 +756,30 @@ ${(() => {
             // Light Intel Dossier inner modules. beehiiv wraps with its own
             // masthead/footer/unsubscribe chrome, so we ship just the content.
             content_html: dossier.beehiivHtml,
-            status: 'confirmed',
-            send_to: 'all',
+            // 'draft' works on all beehiiv plans. 'confirmed' + send_to requires Enterprise.
+            // Drafts appear in beehiiv dashboard for review + manual send.
+            // To auto-send: upgrade beehiiv to Enterprise and change to status: 'confirmed', send_to: 'all'.
+            status: 'draft',
           }),
           signal: AbortSignal.timeout(15000),
         });
 
         if (!beehiivRes.ok) {
           const body = await beehiivRes.text().catch(() => '');
-          throw new Error(`beehiiv ${beehiivRes.status}: ${body.slice(0, 200)}`);
+          // beehiiv POST API requires Enterprise plan. Log and skip gracefully.
+          if (beehiivRes.status === 403) {
+            console.log(
+              '[daily-brief] beehiiv API requires Enterprise plan — skipping. Brief delivered via other channels.',
+            );
+            await logDelivery({
+              channel: 'beehiiv',
+              status: 'partial',
+              latencyMs: Date.now() - beehiivT0,
+              metadata: { reason: 'enterprise_plan_required' },
+            });
+          } else {
+            throw new Error(`beehiiv ${beehiivRes.status}: ${body.slice(0, 200)}`);
+          }
         }
 
         // Parse post ID for traceability — not fatal if the shape changes.
