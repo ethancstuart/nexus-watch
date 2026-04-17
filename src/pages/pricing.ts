@@ -45,7 +45,7 @@ export function renderPricingPage(container: HTMLElement): void {
     <div class="nw-tier nw-tier-analyst nw-tier-popular">
       <div class="nw-tier-badge">MOST POPULAR</div>
       <div class="nw-tier-name">Analyst</div>
-      <div class="nw-tier-price">$29<span class="nw-tier-period">/mo</span></div>
+      <div class="nw-tier-price" id="pricing-analyst-price">$29<span class="nw-tier-period">/mo</span></div>
       <div class="nw-tier-tag">For professionals who need verified intel</div>
       <ul class="nw-tier-features">
         <li>✓ Everything in Explorer, plus:</li>
@@ -57,7 +57,7 @@ export function renderPricingPage(container: HTMLElement): void {
         <li>✓ 30-day time-travel intelligence</li>
         <li>✓ Push notifications for crisis alerts</li>
       </ul>
-      <a href="/api/stripe/checkout?tier=analyst" class="nw-tier-cta nw-tier-cta-primary">Start Analyst →</a>
+      <a href="/api/stripe/checkout?tier=analyst" class="nw-tier-cta nw-tier-cta-primary" id="pricing-analyst-cta">Start Analyst →</a>
     </div>
 
     <div class="nw-tier nw-tier-pro">
@@ -154,4 +154,14 @@ export function renderPricingPage(container: HTMLElement): void {
     </div>
   `;
   container.appendChild(faq);
+
+  // A/B test: variant B shows $19 Analyst instead of $29
+  const abVariant = localStorage.getItem('nw:ab-analyst') || (Math.random() < 0.5 ? 'a' : 'b');
+  localStorage.setItem('nw:ab-analyst', abVariant);
+  if (abVariant === 'b') {
+    const priceEl = document.getElementById('pricing-analyst-price');
+    if (priceEl) priceEl.innerHTML = '$19<span class="nw-tier-period">/mo</span>';
+    const ctaEl = document.getElementById('pricing-analyst-cta') as HTMLAnchorElement | null;
+    if (ctaEl) ctaEl.href = `/api/stripe/checkout?tier=analyst&variant=b`;
+  }
 }

@@ -49,6 +49,8 @@ const STATIC_ROUTES: Array<{ path: string; changefreq: string; priority: string 
   { path: 'methodology', changefreq: 'monthly', priority: '0.5' },
   { path: 'about', changefreq: 'monthly', priority: '0.5' },
   { path: 'roadmap', changefreq: 'weekly', priority: '0.4' },
+  { path: 'accuracy', changefreq: 'daily', priority: '0.7' },
+  { path: 'rss/cii', changefreq: 'daily', priority: '0.3' },
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

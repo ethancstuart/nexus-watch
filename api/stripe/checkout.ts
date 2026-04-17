@@ -99,14 +99,21 @@ export default async function handler(req: Request): Promise<Response> {
   }
   const tier = resolvedTier as Tier;
 
+  // A/B test: if variant=b and STRIPE_ANALYST_PRICE_B is set, use the $19 price
+  const variant = url.searchParams.get('variant') || 'a';
+  const analystPriceB = process.env.STRIPE_ANALYST_PRICE_B;
+
   // Explicit tier → price mapping. Reject if the configured price is missing —
   // no silent fallback to a legacy default (that was the pre-A.2 bug).
   let selectedPrice: string;
   if (tier === 'analyst') {
-    if (!analystPriceId) {
+    if (variant === 'b' && analystPriceB) {
+      selectedPrice = analystPriceB;
+    } else if (!analystPriceId) {
       return jsonResponse(500, { error: 'Analyst tier not configured (STRIPE_ANALYST_PRICE_ID)' });
+    } else {
+      selectedPrice = analystPriceId;
     }
-    selectedPrice = analystPriceId;
   } else if (tier === 'pro') {
     if (!proPriceId) {
       return jsonResponse(500, { error: 'Pro tier not configured (STRIPE_PRO_PRICE_ID)' });
@@ -169,6 +176,7 @@ export default async function handler(req: Request): Promise<Response> {
   params.append('metadata[sessionId]', sessionId);
   params.append('metadata[tier]', tier);
   params.append('metadata[userId]', user.id);
+  params.append('metadata[variant]', variant);
 
   try {
     const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {

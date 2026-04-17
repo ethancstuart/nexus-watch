@@ -185,7 +185,7 @@ export function renderLanding(root: HTMLElement): void {
         </div>
         <div class="landing-price-card">
           <div class="landing-price-tier">ANALYST</div>
-          <div class="landing-price-amount">$29<span>/mo</span></div>
+          <div class="landing-price-amount" id="analyst-price">$29<span>/mo</span></div>
           <ul class="landing-price-features">
             <li>Everything in Free, plus:</li>
             <li>Daily intelligence brief</li>
@@ -298,6 +298,17 @@ export function renderLanding(root: HTMLElement): void {
     bar?.remove();
   }
 
+  // ── Analyst pricing A/B test ─────────────────────────────────────────────
+  // Variant A = $29/mo (control), Variant B = $19/mo (test).
+  // Assignment is sticky via localStorage.
+  const abVariant = localStorage.getItem('nw:ab-analyst') || (Math.random() < 0.5 ? 'a' : 'b');
+  localStorage.setItem('nw:ab-analyst', abVariant);
+
+  if (abVariant === 'b') {
+    const priceEl = document.getElementById('analyst-price');
+    if (priceEl) priceEl.innerHTML = '$19<span>/mo</span>';
+  }
+
   // ── Pricing checkout wiring ──────────────────────────────────────────────
   // Replaces the old dead hrefs that navigated to #/intel. Now each paid
   // tier button POSTs to /api/stripe/checkout with the tier query parameter
@@ -318,7 +329,8 @@ export function renderLanding(root: HTMLElement): void {
     button.textContent = '…';
     clearStatus();
     try {
-      const res = await fetch(`/api/stripe/checkout?tier=${tier}`, {
+      const variantParam = tier === 'analyst' ? `&variant=${abVariant}` : '';
+      const res = await fetch(`/api/stripe/checkout?tier=${tier}${variantParam}`, {
         method: 'POST',
         credentials: 'include',
       });
