@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://nexuswatch.dev/api/mcp",
       "headers": {
-        "X-API-Key": "${NEXUSWATCH_API_KEY:-nwk_65805b4692f6b73106aaad08c71e946b}"
+        "X-API-Key": "${NEXUSWATCH_API_KEY:-nwk_pub_02e13b5a7ff73aed53e2ceb5}"
       }
     }
   }

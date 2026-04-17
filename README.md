@@ -125,8 +125,11 @@ NexusWatch exposes a [Model Context Protocol](https://modelcontextprotocol.io/) 
 ### Quick Start (Claude Code)
 
 ```bash
-claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp
+claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp \
+  --header "X-API-Key: nwk_pub_02e13b5a7ff73aed53e2ceb5"
 ```
+
+Public key: `nwk_pub_02e13b5a7ff73aed53e2ceb5` (100 calls/hour, no signup required).
 
 Then ask: *"What's the instability score for Taiwan?"* or *"Run the Hormuz closure scenario."*
 

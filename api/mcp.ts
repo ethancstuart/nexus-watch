@@ -333,7 +333,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Geopolitical intelligence for AI agents — 9 tools covering country risk, scenarios, portfolio exposure, alerts, and prediction accuracy.',
       tools: TOOLS.map((t) => t.name),
       connect:
-        'claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp --header "X-API-Key: YOUR_KEY"',
+        'claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp --header "X-API-Key: nwk_pub_02e13b5a7ff73aed53e2ceb5"',
+      public_key: 'nwk_pub_02e13b5a7ff73aed53e2ceb5',
+      public_key_limit: '100 calls/hour',
       docs: 'https://nexuswatch.dev/#/apidocs',
     });
   }
@@ -347,9 +349,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Extract API key
+  // Extract API key — accept full keys, public MCP key, or forwarded auth
   const apiKey =
     (req.headers['x-api-key'] as string) || (req.headers['authorization'] as string)?.replace('Bearer ', '') || '';
+
+  // Validate: accept any key in API_V2_KEYS or the public MCP key
+  const fullKeys = (process.env.API_V2_KEYS || '').split(',').filter(Boolean);
+  const publicKey = process.env.NW_MCP_PUBLIC_KEY;
+  const isValidKey = fullKeys.includes(apiKey) || (publicKey != null && apiKey === publicKey);
+
+  if (!apiKey || !isValidKey) {
+    return res
+      .status(401)
+      .json(
+        rpcError(null, -32600, 'API key required. Use the public key: nwk_pub_02e13b5a7ff73aed53e2ceb5 (100 calls/hr)'),
+      );
+  }
 
   // Parse JSON-RPC
   const body = req.body as JsonRpcRequest | JsonRpcRequest[];
