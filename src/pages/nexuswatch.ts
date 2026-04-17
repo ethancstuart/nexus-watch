@@ -7,6 +7,7 @@ import { NewsLayer } from '../map/layers/newsLayer.ts';
 import { FireLayer } from '../map/layers/fireLayer.ts';
 import { WeatherAlertLayer } from '../map/layers/weatherLayer.ts';
 import { PredictionLayer } from '../map/layers/predictionLayer.ts';
+import { PolymarketDivergenceLayer } from '../map/layers/polymarketDivergenceLayer.ts';
 import { FlightLayer } from '../map/layers/flightLayer.ts';
 import { CyberLayer } from '../map/layers/cyberLayer.ts';
 import { MilitaryBasesLayer } from '../map/layers/militaryBasesLayer.ts';
@@ -410,6 +411,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     new FireLayer(),
     new WeatherAlertLayer(),
     new PredictionLayer(),
+    new PolymarketDivergenceLayer(),
     new FlightLayer(),
     new CyberLayer(),
     new MilitaryBasesLayer(),
