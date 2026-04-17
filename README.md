@@ -118,6 +118,52 @@ src/
 api/                     # Vercel Edge Functions (16 endpoints)
 ```
 
+## MCP Server (AI Agent Access)
+
+NexusWatch exposes a [Model Context Protocol](https://modelcontextprotocol.io/) server for AI agents. Query country risk scores, run geopolitical scenarios, analyze portfolio exposure, and more — directly from Claude, GPT, or any MCP-compatible client.
+
+### Quick Start (Claude Code)
+
+```bash
+claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp
+```
+
+Then ask: *"What's the instability score for Taiwan?"* or *"Run the Hormuz closure scenario."*
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_country_risk` | CII score (0-100) with 6 components for any of 86 countries |
+| `get_alerts` | Active threshold breaches, 7-day movers, crisis triggers |
+| `run_scenario` | 7 preset what-if simulations with cascade chains |
+| `get_portfolio_exposure` | Map holdings to geopolitical risk + chokepoint deps |
+| `get_risk_factors` | Z-scores, momentum, realized vol for quant strategies |
+| `get_audit_trail` | Full computation history with evidence chains |
+| `get_active_crises` | Live crisis triggers (CII spikes, M7+ quakes) |
+| `get_sanctions_attribution` | OFAC/UN sanctions cross-referenced with conflicts |
+| `validate_predictions` | Prediction accuracy: predicted vs actual CII |
+
+### Configuration
+
+Add to your `.mcp.json` or MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "nexus-watch": {
+      "type": "http",
+      "url": "https://nexuswatch.dev/api/mcp",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Server info: `GET https://nexuswatch.dev/api/mcp`
+
 ## License
 
 MIT
