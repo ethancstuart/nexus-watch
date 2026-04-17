@@ -710,7 +710,8 @@ ${(() => {
     // Every daily brief records the CII scores at publication time.
     // Used by the accuracy dashboard to track prediction accuracy.
     try {
-      for (const country of briefData.topRiskCountries.slice(0, 30)) {
+      let snapshotCount = 0;
+      for (const country of allCII) {
         const components = country.components || {};
         await sql`
           INSERT INTO cii_daily_snapshots (date, country_code, cii_score, confidence,
@@ -723,7 +724,9 @@ ${(() => {
             ${0}, ${0})
           ON CONFLICT (date, country_code) DO NOTHING
         `;
+        snapshotCount++;
       }
+      console.log(`[daily-brief] Recorded ${snapshotCount} CII snapshots for ${today}`);
     } catch (snapshotErr) {
       // Non-fatal — the brief still sends even if snapshots fail
       console.error('CII snapshot recording failed:', snapshotErr instanceof Error ? snapshotErr.message : snapshotErr);

@@ -66,7 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         existing = (await sql`
           SELECT 1 FROM assessments
           WHERE country_code = ${s.country_code}
-            AND DATE(assessed_at) = CURRENT_DATE
+            AND DATE(created_at) = CURRENT_DATE
             AND prediction_kind = 'cii'
           LIMIT 1
         `) as unknown as unknown[];
@@ -87,10 +87,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       await sql`
         INSERT INTO assessments
-          (country_code, prediction_kind, predicted_value, predicted_confidence,
+          (date, country_code, assessment_type, assessment_text,
+           cii_score_at_time, confidence,
+           prediction_kind, predicted_value, predicted_confidence,
            rationale, horizon_days, snapshot_cii, snapshot_date)
         VALUES
-          (${s.country_code}, 'cii', ${predicted}, ${s.confidence},
+          (${s.today_date}, ${s.country_code}, 'cii_snapshot', ${rationale},
+           ${Math.round(s.score)}, ${s.confidence},
+           'cii', ${predicted}, ${s.confidence},
            ${rationale}, 7, ${s.score}, ${s.today_date})
       `;
       recorded++;

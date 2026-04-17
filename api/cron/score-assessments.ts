@@ -25,16 +25,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const unscored = (await sql`
-      SELECT id, country_code, assessed_at, horizon_days, predicted_value, snapshot_cii
+      SELECT id, country_code, created_at, horizon_days, predicted_value, snapshot_cii
       FROM assessments
       WHERE outcome_scored_at IS NULL
-        AND assessed_at + make_interval(days => horizon_days) < NOW()
-      ORDER BY assessed_at ASC
+        AND created_at + make_interval(days => horizon_days) < NOW()
+      ORDER BY created_at ASC
       LIMIT 500
     `.catch(() => [] as unknown)) as unknown as Array<{
       id: number;
       country_code: string;
-      assessed_at: string;
+      created_at: string;
       horizon_days: number;
       predicted_value: number | null;
       snapshot_cii: number | null;
@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let scored = 0;
     for (const row of unscored) {
-      const horizonDate = new Date(Date.parse(row.assessed_at) + row.horizon_days * 86400000);
+      const horizonDate = new Date(Date.parse(row.created_at) + row.horizon_days * 86400000);
       const iso = horizonDate.toISOString().slice(0, 10);
       const outcomeRows = (await sql`
         SELECT cii_score::float AS score
