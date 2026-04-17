@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "nexus-watch": {
+      "type": "http",
+      "url": "https://nexuswatch.dev/api/mcp",
+      "headers": {
+        "X-API-Key": "${NEXUSWATCH_API_KEY:-nwk_65805b4692f6b73106aaad08c71e946b}"
+      }
+    }
+  }
+}

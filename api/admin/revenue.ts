@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { resolveAdmin } from './_auth';
+import { resolveAdmin } from './_auth.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 15 };
 

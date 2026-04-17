@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { runVoiceRetune } from '../marketing/lib/marketingVoice';
+import { runVoiceRetune } from '../marketing/lib/marketingVoice.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 

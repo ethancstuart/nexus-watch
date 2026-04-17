@@ -14,7 +14,7 @@
  * which entry point is used.
  */
 
-import { postApprovalNeeded } from '../_discord/notify';
+import { postApprovalNeeded } from '../_discord/notify.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NeonSql = any;

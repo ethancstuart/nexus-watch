@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { preflight, recordRun } from '../marketing/lib/flags';
-import { mediumAdapter } from '../marketing/adapters/mediumAdapter';
+import { preflight, recordRun } from '../marketing/lib/flags.js';
+import { mediumAdapter } from '../marketing/adapters/mediumAdapter.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 

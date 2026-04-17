@@ -13,7 +13,7 @@
  * session JWT in KV for ~30min and only refresh on 401.
  */
 
-import { type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types';
+import { type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types.js';
 
 const PDS = 'https://bsky.social';
 

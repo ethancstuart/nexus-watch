@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { resolveAdmin } from '../_auth';
-import { editApprovalMessage } from '../../_discord/notify';
+import { resolveAdmin } from '../_auth.js';
+import { editApprovalMessage } from '../../_discord/notify.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 

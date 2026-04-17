@@ -17,19 +17,19 @@
  */
 
 import { neon } from '@neondatabase/serverless';
-import { type Platform, preflight, recordRun, checkAndIncrementAnthropicCounter } from './flags';
-import { selectTopic, recordTopicUsed } from './topicSelector';
-import { buildVoiceProfile } from './marketingVoice';
-import { generateContent, evaluateVoice } from './contentGenerator';
-import { getConfig } from './config';
-import { pickVariant } from './variants';
-import type { PlatformAdapter } from '../adapters/types';
-import { xAdapter } from '../adapters/xAdapter';
-import { linkedinAdapter } from '../adapters/linkedinAdapter';
-import { substackAdapter } from '../adapters/substackAdapter';
-import { mediumAdapter } from '../adapters/mediumAdapter';
-import { threadsAdapter } from '../adapters/threadsAdapter';
-import { blueskyAdapter } from '../adapters/blueskyAdapter';
+import { type Platform, preflight, recordRun, checkAndIncrementAnthropicCounter } from './flags.js';
+import { selectTopic, recordTopicUsed } from './topicSelector.js';
+import { buildVoiceProfile } from './marketingVoice.js';
+import { generateContent, evaluateVoice } from './contentGenerator.js';
+import { getConfig } from './config.js';
+import { pickVariant } from './variants.js';
+import type { PlatformAdapter } from '../adapters/types.js';
+import { xAdapter } from '../adapters/xAdapter.js';
+import { linkedinAdapter } from '../adapters/linkedinAdapter.js';
+import { substackAdapter } from '../adapters/substackAdapter.js';
+import { mediumAdapter } from '../adapters/mediumAdapter.js';
+import { threadsAdapter } from '../adapters/threadsAdapter.js';
+import { blueskyAdapter } from '../adapters/blueskyAdapter.js';
 
 const ADAPTERS: Partial<Record<Platform, PlatformAdapter>> = {
   x: xAdapter,

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { resolveAdmin } from '../_auth';
+import { resolveAdmin } from '../_auth.js';
 import {
   isPaused,
   isShadowMode,
@@ -7,7 +7,7 @@ import {
   getLastRun,
   getAnthropicCountToday,
   listAllPlatforms,
-} from '../../marketing/lib/flags';
+} from '../../marketing/lib/flags.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 

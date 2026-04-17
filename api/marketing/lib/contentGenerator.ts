@@ -12,9 +12,9 @@
  * evaluation happens AFTER generation (caller routes to /api/voice/eval).
  */
 
-import type { Platform } from './flags';
-import type { Topic, Pillar } from './topicSelector';
-import type { VoiceProfile } from './marketingVoice';
+import type { Platform } from './flags.js';
+import type { Topic, Pillar } from './topicSelector.js';
+import type { VoiceProfile } from './marketingVoice.js';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 

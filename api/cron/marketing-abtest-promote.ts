@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { promoteWinners } from '../marketing/lib/variants';
+import { promoteWinners } from '../marketing/lib/variants.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 

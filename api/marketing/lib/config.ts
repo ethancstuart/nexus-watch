@@ -16,7 +16,7 @@
  * leave every voice knob at 50 (neutral) to not disturb v1 behavior.
  */
 
-import type { Platform } from './flags';
+import type { Platform } from './flags.js';
 
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;

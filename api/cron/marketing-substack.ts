@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { runDispatch } from '../marketing/lib/dispatcher';
+import { runDispatch } from '../marketing/lib/dispatcher.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 90 };
 

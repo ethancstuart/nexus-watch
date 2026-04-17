@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { resolveAdmin } from '../_auth';
-import { getConfig, writeConfig, DEFAULT_CONFIG, type MarketingConfig } from '../../marketing/lib/config';
+import { resolveAdmin } from '../_auth.js';
+import { getConfig, writeConfig, DEFAULT_CONFIG, type MarketingConfig } from '../../marketing/lib/config.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 

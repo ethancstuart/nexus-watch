@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { resolveAdmin } from '../_auth';
-import { selectTopic } from '../../marketing/lib/topicSelector';
-import { buildVoiceProfile } from '../../marketing/lib/marketingVoice';
-import { generateContent, evaluateVoice } from '../../marketing/lib/contentGenerator';
-import type { Platform } from '../../marketing/lib/flags';
+import { resolveAdmin } from '../_auth.js';
+import { selectTopic } from '../../marketing/lib/topicSelector.js';
+import { buildVoiceProfile } from '../../marketing/lib/marketingVoice.js';
+import { generateContent, evaluateVoice } from '../../marketing/lib/contentGenerator.js';
+import type { Platform } from '../../marketing/lib/flags.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 

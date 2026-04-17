@@ -10,8 +10,8 @@
  * to repeat ourselves.
  */
 
-import type { Platform } from './flags';
-import { getConfig, isEmbargoed, type Pillar as ConfigPillar } from './config';
+import type { Platform } from './flags.js';
+import { getConfig, isEmbargoed, type Pillar as ConfigPillar } from './config.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NeonSql = any;

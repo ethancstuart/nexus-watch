@@ -14,8 +14,8 @@
  * query) so chairman edits to voice context propagate without redeploy.
  */
 
-import type { Platform } from './flags';
-import { getConfig, type VoiceKnobs } from './config';
+import type { Platform } from './flags.js';
+import { getConfig, type VoiceKnobs } from './config.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NeonSql = any;

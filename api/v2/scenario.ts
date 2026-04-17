@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { PRESET_SCENARIOS, simulateScenario } from './_scenarios';
+import { PRESET_SCENARIOS, simulateScenario } from './_scenarios.js';
 
 export const config = { runtime: 'nodejs' };
 

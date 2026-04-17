@@ -14,7 +14,7 @@
  *      → publishes
  */
 
-import { type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types';
+import { type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types.js';
 
 const META_API = 'https://graph.threads.net/v1.0';
 

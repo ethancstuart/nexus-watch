@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { DATA_SOURCES, pickSource, type LayerConfig, type LayerSource } from '../../src/config/data-sources';
+import { DATA_SOURCES, pickSource, type LayerConfig, type LayerSource } from '../../src/config/data-sources.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 

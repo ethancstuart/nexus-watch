@@ -13,7 +13,7 @@
  */
 
 import { Resend } from 'resend';
-import { type PlatformAdapter, shadowResult, stubResult } from './types';
+import { type PlatformAdapter, shadowResult, stubResult } from './types.js';
 
 interface MarkdownPost {
   title: string;

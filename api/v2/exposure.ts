@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { computeApiExposure, type ApiHolding } from './_holding-map';
-import { computeChokepointExposure } from './_chokepoint-map';
-import { kvCached } from '../_lib/kvCache';
+import { computeApiExposure, type ApiHolding } from './_holding-map.js';
+import { computeChokepointExposure } from './_chokepoint-map.js';
+import { kvCached } from '../_lib/kvCache.js';
 
 export const config = { runtime: 'nodejs' };
 

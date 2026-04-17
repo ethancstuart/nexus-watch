@@ -1,14 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { resolveAdmin } from '../_auth';
-import { renderDossierEmail, type WatchlistCountry } from '../../cron/daily-brief';
+import { resolveAdmin } from '../_auth.js';
+import { renderDossierEmail, type WatchlistCountry } from '../../cron/daily-brief.js';
 import {
   DEFAULT_INTERESTS,
   type Interests,
   type RegionId,
   type ThreatId,
   type SectorId,
-} from '../../../src/services/interests-types';
+} from '../../../src/services/interests-types.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 

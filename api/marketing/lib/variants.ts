@@ -13,8 +13,8 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type NeonSql = any;
 
-import type { Platform } from './flags';
-import type { Pillar } from './config';
+import type { Platform } from './flags.js';
+import type { Pillar } from './config.js';
 
 export interface VariantPick {
   id: number;

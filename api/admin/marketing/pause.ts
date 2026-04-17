@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { resolveAdmin } from '../_auth';
-import { setPaused, setShadowMode, setPlatformEnabled, type Platform } from '../../marketing/lib/flags';
+import { resolveAdmin } from '../_auth.js';
+import { setPaused, setShadowMode, setPlatformEnabled, type Platform } from '../../marketing/lib/flags.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 

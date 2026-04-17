@@ -1183,9 +1183,9 @@ ${(() => {
 //                   are on text-only clients + higher deliverability)
 // ============================================================================
 
-import { colors, fonts, type, space, layout, style, typeStyle } from '../../src/styles/email-tokens';
-import { REGIONS, THREATS, matchesInterests, type Interests, type RegionId } from '../../src/services/interests-types';
-import { enqueueDraftCore } from '../social/enqueue-core';
+import { colors, fonts, type, space, layout, style, typeStyle } from '../../src/styles/email-tokens.js';
+import { REGIONS, THREATS, matchesInterests, type Interests, type RegionId } from '../../src/services/interests-types.js';
+import { enqueueDraftCore } from '../social/enqueue-core.js';
 
 export interface RenderedBrief {
   emailHtml: string;

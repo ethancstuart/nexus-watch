@@ -10,7 +10,7 @@
  *   LINKEDIN_ORG_URN       — urn:li:organization:{id} of the Company Page
  */
 
-import { type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types';
+import { type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types.js';
 
 const LINKEDIN_POSTS_URL = 'https://api.linkedin.com/v2/ugcPosts';
 const TYPEFULLY_DRAFT_URL = 'https://api.typefully.com/v1/drafts/';

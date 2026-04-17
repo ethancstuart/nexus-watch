@@ -15,7 +15,7 @@
  * marketing-medium cron schedule, not by this adapter.
  */
 
-import { type AdapterPostInput, type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types';
+import { type AdapterPostInput, type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult } from './types.js';
 
 const MEDIUM_API = 'https://api.medium.com/v1';
 

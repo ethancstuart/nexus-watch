@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { cronJitter } from '../_cron-utils';
+import { cronJitter } from '../_cron-utils.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 

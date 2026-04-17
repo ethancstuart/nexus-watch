@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { colors, fonts, type, space, layout, style, typeStyle } from '../src/styles/email-tokens';
+import { colors, fonts, type, space, layout, style, typeStyle } from '../src/styles/email-tokens.js';
 
 export const config = { runtime: 'nodejs' };
 

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { enqueueDraftCore } from './enqueue-core';
+import { enqueueDraftCore } from './enqueue-core.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
