@@ -107,6 +107,7 @@ import { createMarketsTab } from '../ui/sidebarMarkets.ts';
 import { createFeedsTab } from '../ui/sidebarFeeds.ts';
 import { createMapSearch } from '../map/MapSearch.ts';
 import { showOnboarding } from '../ui/onboardingOverlay.ts';
+import { showFreeTierTour } from '../ui/freeTierTour.ts';
 import { createMapLegend } from '../ui/mapLegend.ts';
 import { createAiTerminal } from '../ui/aiTerminal.ts';
 import { animateCounter } from '../ui/animatedCounter.ts';
@@ -391,7 +392,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   root.appendChild(app);
 
   // ── Onboarding (first visit only) ──
+  // Logged-in users get the full wizard; anonymous visitors get the lightweight tour.
   showOnboarding(root);
+  showFreeTierTour(root);
 
   // ── Initialize map ──
   const mapView = new MapView(mapContainer);

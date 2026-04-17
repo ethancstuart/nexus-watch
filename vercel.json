@@ -6,6 +6,7 @@
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/rss/cii", "destination": "/api/rss/cii" },
+    { "source": "/country/:code", "destination": "/api/country/:code" },
     { "source": "/brief/:date(\\d{4}-\\d{2}-\\d{2})", "destination": "/api/brief/og?date=:date" }
   ],
   "crons": [

@@ -893,3 +893,120 @@ button.landing-price-btn:disabled {
     align-self: flex-end;
   }
 }
+
+/* ── Portfolio Demo ── */
+.landing-portfolio-demo {
+  padding: 40px 32px;
+  border-top: 1px solid #1a1a1a;
+}
+.landing-portfolio-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.landing-portfolio-header h2 {
+  font-size: 16px;
+  margin: 0;
+  color: #fff;
+}
+.landing-portfolio-desc {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  margin: 0 0 16px;
+}
+.landing-portfolio-desc a {
+  color: #ff6600;
+  text-decoration: none;
+}
+.landing-portfolio-holdings {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.landing-holding-chip {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  padding: 4px 12px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #ccc;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.landing-portfolio-result {
+  min-height: 80px;
+}
+.landing-demo-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.landing-demo-risk {
+  text-align: center;
+  padding: 16px;
+  background: #0a0a0a;
+  border: 1px solid #222;
+  border-radius: 4px;
+}
+.landing-demo-risk-score {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.landing-demo-risk-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  margin-top: 4px;
+  color: #ccc;
+}
+.landing-demo-risk-note {
+  font-size: 9px;
+  color: #555;
+  margin-top: 4px;
+  letter-spacing: 0.1em;
+}
+.landing-demo-section {
+  margin-bottom: 16px;
+}
+.landing-demo-section-title {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.landing-demo-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #ccc;
+  border-bottom: 1px solid #1a1a1a;
+}
+.landing-demo-row span:first-child {
+  font-weight: 600;
+}
+.landing-demo-cta {
+  display: inline-block;
+  margin-top: 16px;
+  color: #ff6600;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+}
+.landing-demo-cta:hover {
+  text-decoration: underline;
+}
+@media (max-width: 768px) {
+  .landing-portfolio-demo {
+    padding: 24px 16px;
+  }
+  .landing-demo-grid {
+    grid-template-columns: 1fr;
+  }
+}

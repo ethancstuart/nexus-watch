@@ -133,6 +133,23 @@ export function renderLanding(root: HTMLElement): void {
       </div>
     </section>
 
+    <section class="landing-portfolio-demo anim-fade-up">
+      <div class="landing-portfolio-header">
+        <h2>Portfolio Geopolitical Exposure</h2>
+        <span class="landing-brief-badge">LIVE DEMO</span>
+      </div>
+      <p class="landing-portfolio-desc">See how geopolitical risk maps to real holdings. This is a sample portfolio — <a href="#/portfolio">run your own</a> with Pro.</p>
+      <div class="landing-portfolio-holdings">
+        <span class="landing-holding-chip">TSM 25%</span>
+        <span class="landing-holding-chip">XOM 20%</span>
+        <span class="landing-holding-chip">AAPL 30%</span>
+        <span class="landing-holding-chip">VWO 25%</span>
+      </div>
+      <div class="landing-portfolio-result" id="portfolio-demo-result">
+        <span class="landing-ticker-loading">Analyzing geopolitical exposure...</span>
+      </div>
+    </section>
+
     <section class="landing-brief-preview">
       <div class="landing-brief-header">
         <h2>Today's NexusWatch Brief</h2>
@@ -448,6 +465,75 @@ export function renderLanding(root: HTMLElement): void {
       })
       .catch(() => {
         tickerStrip.innerHTML = '<span class="landing-ticker-loading">Live data unavailable</span>';
+      });
+  }
+
+  // ── Portfolio demo ─────────────────────────────────────────────────────
+  const demoResult = document.getElementById('portfolio-demo-result');
+  if (demoResult) {
+    fetch('/api/public/exposure-demo')
+      .then((r) => r.json())
+      .then(
+        (data: {
+          overall_risk?: number;
+          risk_label?: string;
+          elevated_countries?: Array<{ country_code: string; exposure_pct: number; cii_score: number | null }>;
+          chokepoint_exposure?: Array<{ chokepoint_name: string; exposure_pct: number; status: string }>;
+        }) => {
+          if (!data.overall_risk && data.overall_risk !== 0) {
+            demoResult.innerHTML =
+              '<span class="landing-ticker-loading">Demo data loading — check back shortly.</span>';
+            return;
+          }
+          const riskColor =
+            (data.overall_risk ?? 0) >= 60 ? '#dc2626' : (data.overall_risk ?? 0) >= 40 ? '#ff6600' : '#22c55e';
+          const elevated = data.elevated_countries || [];
+          const chokepoints = data.chokepoint_exposure || [];
+
+          demoResult.innerHTML = `
+          <div class="landing-demo-grid">
+            <div class="landing-demo-risk">
+              <div class="landing-demo-risk-score" style="color:${riskColor}">${data.overall_risk}</div>
+              <div class="landing-demo-risk-label">${data.risk_label || 'N/A'}</div>
+              <div class="landing-demo-risk-note">Geopolitical Risk Score</div>
+            </div>
+            <div class="landing-demo-details">
+              ${
+                elevated.length > 0
+                  ? `<div class="landing-demo-section">
+                  <div class="landing-demo-section-title">ELEVATED-RISK COUNTRIES</div>
+                  ${elevated
+                    .slice(0, 4)
+                    .map(
+                      (c) =>
+                        `<div class="landing-demo-row"><span>${c.country_code}</span><span>CII ${c.cii_score ?? '?'}</span><span>${c.exposure_pct?.toFixed(1) ?? '?'}% exposed</span></div>`,
+                    )
+                    .join('')}
+                </div>`
+                  : ''
+              }
+              ${
+                chokepoints.length > 0
+                  ? `<div class="landing-demo-section">
+                  <div class="landing-demo-section-title">CHOKEPOINT DEPENDENCIES</div>
+                  ${chokepoints
+                    .slice(0, 3)
+                    .map(
+                      (c) =>
+                        `<div class="landing-demo-row"><span>${c.chokepoint_name}</span><span>${c.status}</span><span>${c.exposure_pct?.toFixed(1) ?? '?'}%</span></div>`,
+                    )
+                    .join('')}
+                </div>`
+                  : ''
+              }
+            </div>
+          </div>
+          <a href="#/portfolio" class="landing-demo-cta">Run your own portfolio →</a>
+        `;
+        },
+      )
+      .catch(() => {
+        demoResult.innerHTML = '<span class="landing-ticker-loading">Portfolio analysis unavailable</span>';
       });
   }
 
