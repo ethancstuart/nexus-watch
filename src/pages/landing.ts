@@ -35,9 +35,10 @@ export function renderLanding(root: HTMLElement): void {
       </p>
 
       <div class="landing-cta-group">
-        <a href="#/intel" class="landing-cta-primary">LAUNCH PLATFORM</a>
+        <a href="#/intel" class="landing-cta-primary">EXPLORE FREE — NO SIGNUP</a>
         <a href="#/pricing" class="landing-cta-secondary">VIEW PRICING</a>
       </div>
+      <p class="landing-cta-subtext">Full 3D globe, 35 live layers, CII scores for 86 countries. No credit card, no account.</p>
 
       <div class="landing-stats">
         <div class="landing-stat"><span class="landing-stat-num">35+</span><span class="landing-stat-label">DATA LAYERS</span></div>
@@ -61,6 +62,17 @@ export function renderLanding(root: HTMLElement): void {
       <div class="landing-trust-logos">
         <span>USGS</span><span>NASA FIRMS</span><span>ACLED</span><span>WHO</span><span>GDACS</span><span>AIS</span><span>GDELT</span><span>Open-Meteo</span>
       </div>
+    </section>
+
+    <section class="landing-cii-ticker" id="cii-ticker">
+      <div class="landing-ticker-header">
+        <span class="landing-ticker-dot"></span>
+        <span class="landing-ticker-label">LIVE COUNTRY INSTABILITY INDEX</span>
+      </div>
+      <div class="landing-ticker-strip" id="cii-ticker-strip">
+        <span class="landing-ticker-loading">Loading live intelligence...</span>
+      </div>
+      <a href="#/intel" class="landing-ticker-cta">Open full map →</a>
     </section>
 
     <section class="landing-features">
@@ -156,19 +168,20 @@ export function renderLanding(root: HTMLElement): void {
       </div>
 
       <div class="landing-pricing-grid three-tier">
-        <div class="landing-price-card">
+        <div class="landing-price-card landing-price-free">
+          <div class="landing-price-badge-free">START HERE</div>
           <div class="landing-price-tier">FREE</div>
           <div class="landing-price-amount">$0</div>
           <ul class="landing-price-features">
-            <li>Full map with 30 live layers</li>
-            <li>Cinema Mode (watermarked)</li>
+            <li>Full 3D globe with 35 live layers</li>
+            <li>Country Instability Index (86 nations)</li>
             <li>Intelligence Brief (Mon/Wed/Fri)</li>
-            <li>Country Instability Index</li>
             <li>1 natural language alert</li>
             <li>48-hour timeline preview</li>
             <li>PDF export</li>
+            <li>Cinema Mode (watermarked)</li>
           </ul>
-          <a href="#/intel" class="landing-price-btn">GET STARTED</a>
+          <a href="#/intel" class="landing-price-btn landing-price-btn-free">OPEN THE MAP — FREE</a>
         </div>
         <div class="landing-price-card">
           <div class="landing-price-tier">ANALYST</div>
@@ -198,6 +211,7 @@ export function renderLanding(root: HTMLElement): void {
           <button type="button" class="landing-price-btn featured" data-tier="pro">UPGRADE TO PRO</button>
         </div>
       </div>
+      <p class="landing-pricing-note">No credit card required for Free. No account needed. Just intelligence.</p>
       <div class="landing-checkout-status" id="checkout-status" role="status" aria-live="polite"></div>
     </section>
 
@@ -391,6 +405,37 @@ export function renderLanding(root: HTMLElement): void {
       })
       .catch(() => {
         foundingBanner.setAttribute('hidden', '');
+      });
+  }
+
+  // ── Live CII ticker ────────────────────────────────────────────────────
+  const tickerStrip = document.getElementById('cii-ticker-strip');
+  if (tickerStrip) {
+    fetch('/api/cii')
+      .then((r) => r.json())
+      .then((data: { scores?: Array<{ countryCode: string; score: number; trend: string }> }) => {
+        const scores = data.scores || [];
+        if (scores.length === 0) {
+          tickerStrip.innerHTML = '<span class="landing-ticker-loading">Intelligence data loading — check back shortly.</span>';
+          return;
+        }
+        // Sort by score desc, take top 12
+        const top = scores.sort((a, b) => b.score - a.score).slice(0, 12);
+        tickerStrip.innerHTML = top
+          .map((s) => {
+            const color =
+              s.score >= 70 ? '#dc2626' : s.score >= 50 ? '#ff6600' : s.score >= 30 ? '#eab308' : '#22c55e';
+            const arrow = s.trend === 'rising' ? '↑' : s.trend === 'falling' ? '↓' : '→';
+            return `<a href="#/intel" class="landing-ticker-item" title="${s.countryCode}: CII ${s.score}">
+              <span class="landing-ticker-code">${s.countryCode}</span>
+              <span class="landing-ticker-score" style="color:${color}">${s.score}</span>
+              <span class="landing-ticker-arrow" style="color:${color}">${arrow}</span>
+            </a>`;
+          })
+          .join('');
+      })
+      .catch(() => {
+        tickerStrip.innerHTML = '<span class="landing-ticker-loading">Live data unavailable</span>';
       });
   }
 
