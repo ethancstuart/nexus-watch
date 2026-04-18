@@ -10,10 +10,12 @@
  * No risk-types step (let usage patterns reveal preferences).
  */
 
+import '../styles/welcome.css';
 import { createElement } from '../utils/dom.ts';
 import { addCiiWatch } from '../services/ciiWatchlist.ts';
 
 const DONE_KEY = 'nw:onboarded:v2';
+const OLD_KEY = 'nw:onboarded:v1';
 
 interface RegionDef {
   id: string;
@@ -76,8 +78,12 @@ const REGIONS: RegionDef[] = [
 ];
 
 export function renderWelcomePage(root: HTMLElement): void {
-  // Skip if already onboarded (v2) and not forced
+  // Skip if already onboarded (v1 or v2) and not forced
   const skipParam = new URLSearchParams(window.location.search).get('force');
+  // Migrate v1 → v2 so old users don't see the welcome screen again
+  if (localStorage.getItem(OLD_KEY) && !localStorage.getItem(DONE_KEY)) {
+    localStorage.setItem(DONE_KEY, localStorage.getItem(OLD_KEY)!);
+  }
   if (localStorage.getItem(DONE_KEY) && !skipParam) {
     window.location.hash = '#/watchlist';
     return;

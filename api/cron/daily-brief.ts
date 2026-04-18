@@ -287,18 +287,22 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       }
     }
 
-    // === Idempotency guard (P0 dedup fix, 2026-04-18) ===
-    // If a brief for today already exists, skip the entire run. This prevents
-    // Vercel cron retries from generating and sending duplicate emails.
-    const existingBrief = await sql`
-      SELECT brief_date FROM daily_briefs WHERE brief_date = ${today} LIMIT 1
+    // === Atomic idempotency guard (P0 dedup fix, 2026-04-18) ===
+    // Uses INSERT ON CONFLICT to atomically claim today's brief slot.
+    // If another invocation already inserted a row for today, the INSERT
+    // returns 0 rows and we skip. No race window.
+    const claimed = await sql`
+      INSERT INTO daily_briefs (brief_date, content, summary)
+      VALUES (${today}, '{"pending":true}', 'generating...')
+      ON CONFLICT (brief_date) DO NOTHING
+      RETURNING brief_date
     `;
-    if (existingBrief.length > 0) {
-      console.log(`[daily-brief] Brief for ${today} already exists — skipping (dedup guard).`);
+    if (claimed.length === 0) {
+      console.log(`[daily-brief] Brief for ${today} already claimed — skipping (atomic dedup).`);
       return res.status(200).json({
         success: true,
         skipped: true,
-        reason: `Brief for ${today} already generated and sent.`,
+        reason: `Brief for ${today} already generated or in progress.`,
         runId,
       });
     }
@@ -716,10 +720,13 @@ ${(() => {
     // channel — this row failing means the entire run is broken, so the outer
     // try/catch converts it to a 500. The logDelivery call below only fires
     // on success.
+    // Update the placeholder row inserted by the atomic dedup guard above.
     const archiveT0 = Date.now();
     await sql`
-      INSERT INTO daily_briefs (brief_date, content, summary)
-      VALUES (${today}, ${JSON.stringify({ ...briefData, briefText })}, ${briefHtml})
+      UPDATE daily_briefs
+      SET content = ${JSON.stringify({ ...briefData, briefText })},
+          summary = ${briefHtml}
+      WHERE brief_date = ${today}
     `;
     await logDelivery({
       channel: 'archive',
@@ -969,154 +976,17 @@ ${(() => {
       }
     }
 
-    // === Email delivery moved to deliver-briefs.ts (D-2, 2026-04-18) ===
-    // Resend batch sending was previously inline here. Now handled by the
-    // deliver-briefs hourly cron which dispatches timezone-aware emails at
-    // 7am local per subscriber. This cron only generates + archives.
-    // See api/cron/deliver-briefs.ts.
-    //
-    // LEGACY CODE BELOW: Kept commented for reference during migration period.
-    // Remove after 2026-05-18 if deliver-briefs is stable.
-    //
-    // [DISABLED] Fix 2026-04-11 (P0 privacy): previously used a single /emails POST with
-    // `to: [allSubscribers]` which CC'd every subscriber to every other
-    // subscriber — a GDPR/CAN-SPAM incident. Now uses /emails/batch with a
-    // single-recipient payload per email object. Max 100 per batch request;
-    // paced to stay under Resend's default 10 req/sec rate limit.
-    //
-    // Scale note: the sync loop is fine up to ~30K subscribers (~30s of work
-    // inside the 300s Vercel function limit). Above that, migrate this block
-    // to Vercel Workflow (WDK) for durable execution, pause/resume, and
-    // crash-safe retries across multiple cron ticks. See Track D.1 for the
-    // self-heal hooks that will trigger the migration signal.
-    const resendKey = process.env.RESEND_API_KEY;
-    // eslint-disable-next-line no-constant-condition -- D-2: delivery moved to deliver-briefs.ts
-    if (false && resendKey) {
-      const resendT0 = Date.now();
-      let resendRecipientCount = 0;
-      try {
-        const subscribers = await sql`SELECT email FROM email_subscribers WHERE unsubscribed = FALSE`;
-        const adminEmail = process.env.ADMIN_EMAILS;
-        const allEmails = new Set<string>();
-        if (adminEmail) (adminEmail as string).split(',').forEach((e: string) => allEmails.add(e.trim()));
-        subscribers.forEach((s) => allEmails.add(s.email as string));
-
-        resendRecipientCount = allEmails.size;
-        if (allEmails.size > 0) {
-          const recipients = Array.from(allEmails);
-          // Use the Light Intel Dossier standalone email shell rendered
-          // above. Plain-text fallback attached per email for the ~15% of
-          // intel readers on text-only clients + Resend deliverability.
-          const html = dossier.emailHtml;
-          const text = dossier.plainText;
-          const subject = `NexusWatch Intelligence Brief — ${today}`;
-          const from = 'NexusWatch Intelligence <brief@nexuswatch.dev>';
-          const BATCH_SIZE = 100;
-
-          let sent = 0;
-          let failed = 0;
-          const errors: string[] = [];
-
-          for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-            const chunk = recipients.slice(i, i + BATCH_SIZE);
-            // Per-recipient payload: each email object has its own single-item
-            // `to` array, so no subscriber's address is ever exposed to another.
-            const payload = chunk.map((email) => ({ from, to: [email], subject, html, text }));
-
-            try {
-              const resp = await fetch('https://api.resend.com/emails/batch', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${resendKey}`,
-                },
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(30000),
-              });
-
-              if (!resp.ok) {
-                const body = await resp.text().catch(() => '');
-                failed += chunk.length;
-                errors.push(`batch ${i}-${i + chunk.length - 1}: ${resp.status} ${body.slice(0, 200)}`);
-              } else {
-                sent += chunk.length;
-              }
-            } catch (err) {
-              failed += chunk.length;
-              errors.push(`batch ${i}-${i + chunk.length - 1}: ${err instanceof Error ? err.message : String(err)}`);
-            }
-
-            // Pace between batches to respect Resend's 10 req/sec default.
-            if (i + BATCH_SIZE < recipients.length) {
-              await new Promise((r) => setTimeout(r, 100));
-            }
-          }
-
-          // Surface failures to logs AND log to brief_delivery_log so the
-          // admin dashboard can see per-channel delivery state.
-          if (failed > 0 && sent === 0) {
-            console.error(
-              `[daily-brief] Resend batch total failure: failed=${failed}/${recipients.length}. First errors: ${errors.slice(0, 3).join(' | ')}`,
-            );
-            await logDelivery({
-              channel: 'resend',
-              status: 'failed',
-              recipientCount: recipients.length,
-              failedCount: failed,
-              error: errors.slice(0, 3).join(' | '),
-              latencyMs: Date.now() - resendT0,
-              metadata: { batches: Math.ceil(recipients.length / BATCH_SIZE) },
-            });
-          } else if (failed > 0) {
-            console.error(
-              `[daily-brief] Resend batch partial failure: sent=${sent}, failed=${failed}/${recipients.length}. First errors: ${errors.slice(0, 3).join(' | ')}`,
-            );
-            await logDelivery({
-              channel: 'resend',
-              status: 'partial',
-              recipientCount: sent,
-              failedCount: failed,
-              error: errors.slice(0, 3).join(' | '),
-              latencyMs: Date.now() - resendT0,
-              metadata: { batches: Math.ceil(recipients.length / BATCH_SIZE) },
-            });
-          } else {
-            console.log(`[daily-brief] Resend batch delivered to ${sent}/${recipients.length} recipients`);
-            await logDelivery({
-              channel: 'resend',
-              status: 'success',
-              recipientCount: sent,
-              failedCount: 0,
-              latencyMs: Date.now() - resendT0,
-              metadata: { batches: Math.ceil(recipients.length / BATCH_SIZE) },
-            });
-          }
-        } else {
-          // Zero subscribers — not a failure, but log so the dashboard shows
-          // "no recipients" rather than a missing row.
-          await logDelivery({
-            channel: 'resend',
-            status: 'success',
-            recipientCount: 0,
-            failedCount: 0,
-            latencyMs: Date.now() - resendT0,
-            metadata: { note: 'no subscribers' },
-          });
-        }
-      } catch (err) {
-        // Top-level failure (e.g. DB query). Brief is still stored in
-        // Postgres via the archive step above.
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error('[daily-brief] Resend email path failed:', msg);
-        await logDelivery({
-          channel: 'resend',
-          status: 'failed',
-          recipientCount: resendRecipientCount,
-          error: msg,
-          latencyMs: Date.now() - resendT0,
-        });
-      }
-    }
+    // === Email delivery delegated to deliver-briefs.ts (D-2, 2026-04-18) ===
+    // Resend batch sending removed. The deliver-briefs hourly cron handles
+    // timezone-aware delivery at 7am local per subscriber. This cron only
+    // generates content + archives to daily_briefs table.
+    await logDelivery({
+      channel: 'resend',
+      status: 'success',
+      recipientCount: 0,
+      latencyMs: 0,
+      metadata: { note: 'delivery delegated to deliver-briefs.ts cron' },
+    });
 
     // === Push to Notion (Substack-ready) ===
     const notionKey = process.env.NOTION_API_KEY;

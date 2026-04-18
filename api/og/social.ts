@@ -50,17 +50,27 @@ function ciiLabel(score: number): string {
   return 'LOW';
 }
 
+/** Escape HTML entities to prevent XSS in rendered cards. */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export default async function handler(req: VercelRequest) {
   const url = new URL(req.url!, 'https://nexuswatch.dev');
   const type = url.searchParams.get('type') || 'brand';
   const sizeParam = url.searchParams.get('size') || '1200x630';
   const [width, height] = sizeParam.split('x').map(Number);
 
-  const country = (url.searchParams.get('country') || 'UA').toUpperCase();
-  const countryName = COUNTRY_NAMES[country] || country;
-  const score = parseInt(url.searchParams.get('score') || '65', 10);
-  const delta = parseFloat(url.searchParams.get('delta') || '3');
-  const signals = url.searchParams.get('signals') || '';
+  const country = (url.searchParams.get('country') || 'UA').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  const countryName = escapeHtml(COUNTRY_NAMES[country] || country);
+  const score = Math.max(0, Math.min(100, parseInt(url.searchParams.get('score') || '65', 10) || 0));
+  const delta = Math.max(-100, Math.min(100, parseFloat(url.searchParams.get('delta') || '3') || 0));
+  const signals = escapeHtml(url.searchParams.get('signals') || '');
   const today = new Date().toISOString().split('T')[0];
 
   let html: string;

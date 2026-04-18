@@ -164,19 +164,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // 5. Record deliveries in dedup table (only for successful sends)
+  //    Uses parameterized queries — never sql.unsafe() with user-provided data.
   if (sent > 0) {
-    // Bulk insert — ON CONFLICT DO NOTHING handles any race conditions
     const deliveredEmails = recipients.slice(0, sent);
-    const values = deliveredEmails
-      .map((email) => `('${email.replace(/'/g, "''")}', '${today}', 'resend')`)
-      .join(',\n');
-
     try {
-      await sql`
-        INSERT INTO brief_subscriber_delivery (subscriber_email, brief_date, channel)
-        VALUES ${sql.unsafe(values)}
-        ON CONFLICT (subscriber_email, brief_date) DO NOTHING
-      `;
+      for (const email of deliveredEmails) {
+        await sql`
+          INSERT INTO brief_subscriber_delivery (subscriber_email, brief_date, channel)
+          VALUES (${email}, ${today}, 'resend')
+          ON CONFLICT (subscriber_email, brief_date) DO NOTHING
+        `;
+      }
     } catch (err) {
       console.error(
         '[deliver-briefs] Delivery log insert failed (non-fatal):',
