@@ -295,6 +295,141 @@ const CASCADE_RULES: CascadeRule[] = [
     delta: 3,
     mechanism: 'Cross-border infrastructure disruption',
   },
+  // ═══ New scenarios (2026-04-18) ═══
+  // Iran nuclear breakout
+  {
+    trigger: 'iran_nuclear_breakout',
+    targets: ['IR'],
+    component: 'conflict',
+    delta: 12,
+    mechanism: 'Military strike risk from US/Israel coalition',
+  },
+  {
+    trigger: 'iran_nuclear_breakout',
+    targets: ['IL', 'SA', 'AE'],
+    component: 'conflict',
+    delta: 8,
+    mechanism: 'Regional nuclear arms race + preemptive strike calculations',
+  },
+  {
+    trigger: 'iran_nuclear_breakout',
+    targets: ['JP', 'KR', 'IN', 'DE'],
+    component: 'marketExposure',
+    delta: 6,
+    mechanism: 'Oil price spike from Hormuz closure risk + sanctions escalation',
+  },
+  // OPEC+ collapse
+  {
+    trigger: 'opec_collapse',
+    targets: ['SA', 'RU', 'AE', 'IQ', 'KW'],
+    component: 'marketExposure',
+    delta: 10,
+    mechanism: 'Production war crashes oil price — petrostates lose fiscal stability',
+  },
+  {
+    trigger: 'opec_collapse',
+    targets: ['NG', 'DZ', 'LY', 'VE'],
+    component: 'governance',
+    delta: 6,
+    mechanism: 'Oil-dependent budgets collapse — social spending cuts + unrest',
+  },
+  // Sudan partition
+  {
+    trigger: 'sudan_partition',
+    targets: ['SD'],
+    component: 'conflict',
+    delta: 8,
+    mechanism: 'Formalized territorial split triggers border disputes + displacement',
+  },
+  {
+    trigger: 'sudan_partition',
+    targets: ['TD', 'SS', 'ET', 'EG'],
+    component: 'sentiment',
+    delta: 5,
+    mechanism: 'Refugee flows to neighboring states, humanitarian emergency',
+  },
+  // South China Sea confrontation
+  {
+    trigger: 'scs_confrontation',
+    targets: ['PH', 'VN'],
+    component: 'conflict',
+    delta: 8,
+    mechanism: 'Naval confrontation over Second Thomas Shoal / Spratly Islands',
+  },
+  {
+    trigger: 'scs_confrontation',
+    targets: ['CN'],
+    component: 'marketExposure',
+    delta: 6,
+    mechanism: 'Trade disruption + sanctions risk if shooting starts',
+  },
+  {
+    trigger: 'scs_confrontation',
+    targets: ['JP', 'KR', 'TW', 'AU'],
+    component: 'sentiment',
+    delta: 4,
+    mechanism: 'Regional security alliance activation + defense spending surge',
+  },
+  // India-Pakistan escalation
+  {
+    trigger: 'india_pakistan_escalation',
+    targets: ['IN', 'PK'],
+    component: 'conflict',
+    delta: 10,
+    mechanism: 'Kashmir trigger event — nuclear-capable adversaries',
+  },
+  {
+    trigger: 'india_pakistan_escalation',
+    targets: ['CN', 'US', 'GB'],
+    component: 'governance',
+    delta: 4,
+    mechanism: 'Diplomatic crisis — nuclear de-escalation pressure',
+  },
+  // Venezuela regime change
+  {
+    trigger: 'venezuela_transition',
+    targets: ['VE'],
+    component: 'governance',
+    delta: 8,
+    mechanism: 'Opposition transition — institutional uncertainty + sanctions relief',
+  },
+  {
+    trigger: 'venezuela_transition',
+    targets: ['CO', 'BR'],
+    component: 'sentiment',
+    delta: 3,
+    mechanism: 'Refugee return flows + regional diplomatic realignment',
+  },
+  // European energy crisis
+  {
+    trigger: 'europe_energy_crisis',
+    targets: ['DE', 'FR', 'IT', 'PL'],
+    component: 'infrastructure',
+    delta: 10,
+    mechanism: 'Complete cutoff of Russian pipeline gas + LNG supply disruption',
+  },
+  {
+    trigger: 'europe_energy_crisis',
+    targets: ['GB', 'ES', 'NL'],
+    component: 'marketExposure',
+    delta: 7,
+    mechanism: 'Industrial production halt + energy rationing',
+  },
+  // Cyber infrastructure attack
+  {
+    trigger: 'cyber_infrastructure_attack',
+    targets: ['US', 'GB', 'DE', 'FR'],
+    component: 'infrastructure',
+    delta: 12,
+    mechanism: 'Coordinated state-sponsored attack disables power grids',
+  },
+  {
+    trigger: 'cyber_infrastructure_attack',
+    targets: ['RU', 'CN', 'IR', 'KP'],
+    component: 'governance',
+    delta: 4,
+    mechanism: 'Attribution pressure + retaliatory sanctions',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -357,6 +492,63 @@ export const PRESET_SCENARIOS: PresetScenario[] = [
     name: 'Major Earthquake — Tehran',
     description: 'M7.0+ earthquake strikes Tehran',
     triggers: ['major_earthquake_tehran'],
+    chokepoints: [],
+  },
+  // ═══ New scenarios (2026-04-18) ═══
+  {
+    id: 'iran-nuclear',
+    name: 'Iran Nuclear Breakout',
+    description: 'Iran enriches uranium to weapons-grade and tests a nuclear device',
+    triggers: ['iran_nuclear_breakout'],
+    chokepoints: ['hormuz'],
+  },
+  {
+    id: 'opec-collapse',
+    name: 'OPEC+ Production Collapse',
+    description: 'OPEC+ quota discipline breaks down, Saudi Arabia floods market',
+    triggers: ['opec_collapse'],
+    chokepoints: ['hormuz'],
+  },
+  {
+    id: 'sudan-partition',
+    name: 'Sudan Partition',
+    description: 'Sudan splits along RSF/SAF territorial lines into two states',
+    triggers: ['sudan_partition'],
+    chokepoints: [],
+  },
+  {
+    id: 'south-china-sea',
+    name: 'South China Sea Confrontation',
+    description: 'Military clash between China and Philippines over Second Thomas Shoal',
+    triggers: ['scs_confrontation'],
+    chokepoints: ['malacca', 'taiwan'],
+  },
+  {
+    id: 'india-pakistan',
+    name: 'India-Pakistan Escalation',
+    description: 'Military escalation over Kashmir with nuclear signaling',
+    triggers: ['india_pakistan_escalation'],
+    chokepoints: [],
+  },
+  {
+    id: 'venezuela-transition',
+    name: 'Venezuela Regime Change',
+    description: 'Opposition transition — institutional uncertainty + sanctions relief potential',
+    triggers: ['venezuela_transition'],
+    chokepoints: [],
+  },
+  {
+    id: 'europe-energy',
+    name: 'European Energy Crisis',
+    description: 'Complete cutoff of Russian pipeline gas plus LNG supply disruption',
+    triggers: ['europe_energy_crisis'],
+    chokepoints: [],
+  },
+  {
+    id: 'cyber-attack',
+    name: 'Critical Infrastructure Cyber Attack',
+    description: 'Coordinated state-sponsored cyber attack disables power grids in multiple NATO countries',
+    triggers: ['cyber_infrastructure_attack'],
     chokepoints: [],
   },
 ];

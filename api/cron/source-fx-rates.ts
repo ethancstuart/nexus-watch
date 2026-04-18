@@ -105,9 +105,8 @@ const CURRENCY_MAP: Record<string, string> = {
   XAF_CF: 'CF',
 };
 
-const CURRENCIES = Object.keys(CURRENCY_MAP).filter(
-  (c) => !c.includes('_'), // Skip duplicate zone entries
-);
+// CURRENCIES list no longer needed — open.er-api returns all currencies.
+// We filter by CURRENCY_MAP keys when processing the response.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
@@ -121,11 +120,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    // Fetch latest rates
-    const latestRes = await fetch(`https://api.exchangerate.host/latest?base=USD&symbols=${CURRENCIES.join(',')}`, {
+    // Fetch latest rates from open.er-api.com (free, no auth, reliable)
+    // Switched from exchangerate.host which now requires API key
+    const latestRes = await fetch('https://open.er-api.com/v6/latest/USD', {
       signal: AbortSignal.timeout(15000),
     });
-    if (!latestRes.ok) throw new Error(`exchangerate.host ${latestRes.status}`);
+    if (!latestRes.ok) throw new Error(`open.er-api ${latestRes.status}`);
     const latestData = (await latestRes.json()) as { rates?: Record<string, number> };
     const rates = latestData.rates || {};
 
