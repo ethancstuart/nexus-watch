@@ -107,5 +107,53 @@ export function detectCompoundSignals(dbData: DbData): CompoundSignal[] {
     }
   }
 
+  // ═══ Signal D: Humanitarian Convergence ═══
+  // Multiple distress indicators for the same country
+  for (const [cc, blocked] of dbData.ooni) {
+    const fxVol = dbData.fxVolatility.get(cc) || 0;
+    const wikiZ = dbData.wikiSpikes.get(cc) || 0;
+
+    // Country with ALL THREE: censorship + currency crisis + public attention
+    if (blocked > 5 && fxVol > 2 && wikiZ > 2) {
+      signals.push({
+        id: `convergence-${cc}`,
+        name: 'Multi-Signal Convergence',
+        countryCode: cc,
+        severity: 'critical',
+        confidence: Math.min(95, 70 + blocked / 10 + fxVol * 3 + wikiZ * 5),
+        components: [
+          `OONI: ${blocked} blocks`,
+          `FX: ${fxVol.toFixed(1)}% volatility`,
+          `Wikipedia: z=${wikiZ.toFixed(1)}`,
+        ],
+        description: `Three independent signals converging for ${cc}: internet censorship (${blocked} blocks), currency stress (${fxVol.toFixed(1)}% volatility), and public attention surge (Wikipedia z=${wikiZ.toFixed(1)}). Triple convergence is the strongest predictor of imminent crisis.`,
+        ciiBoost: 10,
+        detectedAt: now,
+      });
+    }
+  }
+
+  // ═══ Signal E: WMD Proximity Alert ═══
+  // Seismic + censorship near nuclear-capable states
+  const nuclearStates = new Set(['KP', 'IR', 'PK', 'IN', 'RU', 'CN', 'IL']);
+  for (const cc of nuclearStates) {
+    const ooni = dbData.ooni.get(cc) || 0;
+    const wiki = dbData.wikiSpikes.get(cc) || 0;
+    // High censorship + attention spike for a nuclear state = elevated WMD concern
+    if (ooni > 20 && wiki > 3) {
+      signals.push({
+        id: `wmd-proximity-${cc}`,
+        name: 'WMD Proximity Alert',
+        countryCode: cc,
+        severity: 'critical',
+        confidence: Math.min(80, 40 + ooni / 5 + wiki * 8),
+        components: [`Nuclear-capable state`, `OONI: ${ooni} blocks`, `Wikipedia: z=${wiki.toFixed(1)}`],
+        description: `Nuclear-capable state ${cc} showing internet censorship (${ooni} blocks) combined with Wikipedia attention surge (z=${wiki.toFixed(1)}). In nuclear-capable states, this combination warrants elevated monitoring for weapons program activity.`,
+        ciiBoost: 7,
+        detectedAt: now,
+      });
+    }
+  }
+
   return signals;
 }
