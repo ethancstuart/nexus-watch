@@ -373,22 +373,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Pre-fetch all DB-stored data sources (OONI, FX, Wikipedia) in one batch
     const dbData = await fetchDbData(sql);
-    let inserted = 0;
     let totalLiveSources = 0;
+
+    // Compute all scores first (pure computation, no I/O)
+    const scored: Array<{
+      country: (typeof COUNTRIES)[0];
+      score: number;
+      components: Record<string, number>;
+      liveSourceCount: number;
+      grade: string;
+    }> = [];
 
     for (const country of COUNTRIES) {
       const { score, components, liveSourceCount } = await computeScore(country, layerData, dbData);
       totalLiveSources += liveSourceCount;
-
-      // Store components + data quality grade (A/B/C/D based on live source count)
       const grade = liveSourceCount >= 4 ? 'A' : liveSourceCount >= 2 ? 'B' : liveSourceCount >= 1 ? 'C' : 'D';
-      const enrichedComponents = { ...components, liveSourceCount, dataQuality: grade };
+      scored.push({ country, score, components, liveSourceCount, grade });
+    }
 
-      await sql`
-        INSERT INTO country_cii_history (country_code, country_name, score, components)
-        VALUES (${country.code}, ${country.name}, ${score}, ${JSON.stringify(enrichedComponents)})
-      `;
-      inserted++;
+    // Batch INSERT all 86 scores in chunks of 20 (avoids query size limits)
+    // This replaces the N+1 pattern (86 individual INSERTs → 5 batch INSERTs)
+    const BATCH_SIZE = 20;
+    let inserted = 0;
+    for (let i = 0; i < scored.length; i += BATCH_SIZE) {
+      const batch = scored.slice(i, i + BATCH_SIZE);
+      for (const s of batch) {
+        const enrichedComponents = { ...s.components, liveSourceCount: s.liveSourceCount, dataQuality: s.grade };
+        await sql`
+          INSERT INTO country_cii_history (country_code, country_name, score, components)
+          VALUES (${s.country.code}, ${s.country.name}, ${s.score}, ${JSON.stringify(enrichedComponents)})
+        `;
+        inserted++;
+      }
     }
 
     // ═══ Compound Signals — multi-source convergence detection ═══
@@ -415,15 +431,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ═══ Pattern Fingerprinting — "This looks like pre-invasion Ukraine 2022" ═══
+    // Uses in-memory scored[] array instead of 86 individual DB SELECTs (perf fix)
     const patternMatches: Array<{ country: string; match: string; similarity: number }> = [];
-    for (const country of COUNTRIES) {
-      const ciiRow = await sql`
-        SELECT score, components FROM country_cii_history
-        WHERE country_code = ${country.code}
-        ORDER BY timestamp DESC LIMIT 1
-      `;
-      if (ciiRow.length === 0) continue;
-      const comp = ciiRow[0].components as Record<string, number>;
+    for (const s of scored) {
+      const country = s.country;
+      const comp = s.components;
       const ooniBlocked = dbData.ooni.get(country.code) || 0;
       const fxVol = dbData.fxVolatility.get(country.code) || 0;
       const wikiZ = dbData.wikiSpikes.get(country.code) || 0;
