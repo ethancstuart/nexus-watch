@@ -8,6 +8,7 @@
  * "We publish our track record. They don't."
  */
 
+import '../styles/dossier-public.css';
 import { createElement } from '../utils/dom.ts';
 
 // ---------------------------------------------------------------------------
@@ -75,15 +76,18 @@ interface AccuracyData {
 // Color helpers
 // ---------------------------------------------------------------------------
 
-const ORANGE = '#ff6b00';
-const GREEN = '#22c55e';
-const YELLOW = '#eab308';
-const RED = '#dc2626';
-const DIM = '#666';
-const TEXT = '#e0e0e0';
-const SURFACE = '#1a1a1a';
-const CARD = '#111';
-const BORDER = '#2a2a2a';
+// Dossier palette
+const ORANGE = '#ff6600';
+const GREEN = '#1f7a4c';
+const YELLOW = '#c9a86b';
+const RED = '#b8341c';
+const DIM = '#9ca3af';
+const TEXT = '#12161c';
+const SURFACE = '#f8f7f4';
+const CARD = '#ffffff';
+const BORDER = '#e5e0d4';
+const NAVY = '#1b2a4a';
+const GOLD_SOFT = '#e5d8b6';
 
 function maeColor(mae: number | null): string {
   if (mae == null) return DIM;
@@ -106,7 +110,7 @@ function accColor(pct: number | null): string {
 
 export async function renderAccuracyPage(container: HTMLElement): Promise<void> {
   container.innerHTML = '';
-  container.className = 'nw-accuracy-page';
+  container.className = 'nw-accuracy-page nw-dossier';
 
   // Inject scoped styles
   injectStyles();
@@ -116,7 +120,7 @@ export async function renderAccuracyPage(container: HTMLElement): Promise<void> 
   header.innerHTML = `
     <div class="acc-header-left">
       <a href="#/intel" class="acc-back">← INTEL MAP</a>
-      <h1 class="acc-title">PREDICTION ACCURACY LEDGER</h1>
+      <h1 class="acc-title" style="font-family: 'Instrument Serif', Georgia, serif;">Prediction Accuracy Ledger</h1>
       <p class="acc-subtitle">Radical transparency — every prediction we made, including the ones we got wrong.</p>
     </div>
     <div class="acc-header-badge">
@@ -481,7 +485,7 @@ function injectStyles(): void {
     .nw-accuracy-page {
       background: ${SURFACE};
       color: ${TEXT};
-      font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       min-height: 100vh;
       padding: 0;
     }
@@ -501,7 +505,7 @@ function injectStyles(): void {
       text-transform: uppercase;
       letter-spacing: 0.1em;
     }
-    .acc-back:hover { color: ${ORANGE}; }
+    .acc-back:hover { color: ${NAVY}; }
     .acc-title {
       font-size: 1.5rem;
       font-weight: 700;
@@ -521,8 +525,8 @@ function injectStyles(): void {
       gap: 0.25rem;
     }
     .acc-badge-label {
-      background: ${ORANGE};
-      color: #000;
+      background: ${NAVY};
+      color: ${SURFACE};
       padding: 0.15rem 0.5rem;
       font-size: 0.65rem;
       font-weight: 700;
@@ -542,7 +546,7 @@ function injectStyles(): void {
       display: inline-block;
       width: 16px; height: 16px;
       border: 2px solid ${BORDER};
-      border-top-color: ${ORANGE};
+      border-top-color: ${NAVY};
       border-radius: 50%;
       animation: acc-spin 0.8s linear infinite;
     }
@@ -553,7 +557,7 @@ function injectStyles(): void {
     .acc-section-title {
       font-size: 0.8rem;
       letter-spacing: 0.15em;
-      color: ${ORANGE};
+      color: ${NAVY};
       margin: 0 0 0.5rem;
       font-weight: 600;
     }
@@ -578,7 +582,7 @@ function injectStyles(): void {
     }
     .acc-stat-hero {
       grid-column: span 1;
-      border-color: ${ORANGE}33;
+      border-color: ${GOLD_SOFT};
     }
     .acc-stat-value {
       font-size: 1.8rem;
@@ -720,7 +724,7 @@ function injectStyles(): void {
     }
     .acc-empty-icon {
       font-size: 3rem;
-      color: ${ORANGE};
+      color: ${NAVY};
       margin-bottom: 1rem;
     }
     .acc-empty h2 {
@@ -755,7 +759,7 @@ function injectStyles(): void {
     }
     .acc-step-active {
       border-color: ${ORANGE}66;
-      color: ${ORANGE};
+      color: ${NAVY};
     }
     .acc-step-num {
       background: ${BORDER};
@@ -769,8 +773,8 @@ function injectStyles(): void {
       font-weight: 700;
     }
     .acc-step-active .acc-step-num {
-      background: ${ORANGE};
-      color: #000;
+      background: ${NAVY};
+      color: ${SURFACE};
     }
     .acc-timeline-arrow { color: ${BORDER}; font-size: 1.2rem; }
     .acc-empty-note { font-style: italic; color: #555; }
@@ -790,7 +794,7 @@ function injectStyles(): void {
     .acc-footer strong { color: ${TEXT}; }
     .acc-footer-links { margin-top: 1rem !important; }
     .acc-footer-links a {
-      color: ${ORANGE};
+      color: ${NAVY};
       text-decoration: none;
       font-size: 0.7rem;
       letter-spacing: 0.05em;

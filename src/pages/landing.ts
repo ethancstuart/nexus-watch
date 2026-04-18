@@ -1,264 +1,224 @@
+import '../styles/dossier-public.css';
 import '../styles/landing.css';
 import { createElement } from '../utils/dom.ts';
 
 export function renderLanding(root: HTMLElement): void {
   root.textContent = '';
 
-  const page = createElement('div', { className: 'nw-landing' });
+  const page = createElement('div', { className: 'nw-landing nw-dossier' });
   page.innerHTML = `
-    <div class="landing-newsletter-bar" id="newsletter-bar">
-      <div class="landing-newsletter-bar-inner">
-        <span class="landing-newsletter-bar-text">Get <strong>The NexusWatch Brief</strong> — geopolitical intelligence in 3 minutes, free every morning</span>
-        <form class="landing-newsletter-bar-form" id="bar-subscribe">
-          <input type="email" placeholder="your@email.com" required class="landing-newsletter-bar-input">
-          <button type="submit" class="landing-newsletter-bar-btn">SUBSCRIBE</button>
-        </form>
-        <button class="landing-newsletter-bar-close" id="bar-close" title="Dismiss">✕</button>
-      </div>
-    </div>
-
-    <nav class="landing-nav">
-      <span class="landing-logo">NexusWatch</span>
-      <div class="landing-nav-links">
-        <a href="#/intel" class="landing-nav-link">OPEN PLATFORM</a>
-        <a href="#/about" class="landing-nav-link">ABOUT</a>
-        <a href="https://brief.nexuswatch.dev" target="_blank" class="landing-nav-link landing-nav-brief">THE BRIEF</a>
+    <nav class="ld-nav d-container">
+      <a href="#/" class="ld-nav-logo">NexusWatch</a>
+      <div class="ld-nav-links">
+        <a href="#/intel" class="ld-nav-link d-link">Platform</a>
+        <a href="#/accuracy" class="ld-nav-link d-link">Accuracy</a>
+        <a href="#/pricing" class="ld-nav-link d-link">Pricing</a>
+        <a href="https://brief.nexuswatch.dev" target="_blank" class="ld-nav-link d-link">The Brief</a>
       </div>
     </nav>
 
-    <section class="landing-hero anim-fade-up">
-      <div class="landing-hero-badge">VERIFIED GEOPOLITICAL INTELLIGENCE</div>
-      <h1 class="landing-hero-title">Intelligence<br>you can audit.</h1>
-      <p class="landing-hero-subtitle">
-        Every number traced to its source. Every AI claim cited. Every prediction tracked against reality.<br>
+    <section class="ld-hero d-container">
+      <span class="d-kicker">Verified Geopolitical Intelligence</span>
+      <h1 class="ld-hero-title d-display">Intelligence<br>you can audit.</h1>
+      <p class="ld-hero-sub d-body">
+        Every number traced to its source. Every AI claim cited. Every prediction tracked against reality.
         We're the only geopolitical intelligence platform that tells you what we <em>don't</em> know.
       </p>
-
-      <div class="landing-cta-group">
-        <a href="#/intel" class="landing-cta-primary">EXPLORE FREE — NO SIGNUP</a>
-        <a href="#/pricing" class="landing-cta-secondary">VIEW PRICING</a>
+      <div class="ld-hero-ctas">
+        <a href="#/intel" class="d-btn-primary">Explore Free</a>
+        <a href="#/pricing" class="d-btn-secondary">View Pricing</a>
       </div>
-      <p class="landing-cta-subtext">Full 3D globe, 35 live layers, CII scores for 86 countries. No credit card, no account.</p>
+      <p class="ld-hero-note">Full 3D globe, 35 live layers, CII scores for 86 countries. No credit card, no account.</p>
+    </section>
 
-      <div class="landing-stats">
-        <div class="landing-stat"><span class="landing-stat-num">35+</span><span class="landing-stat-label">DATA LAYERS</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">86</span><span class="landing-stat-label">COUNTRIES</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">12</span><span class="landing-stat-label">VERIFIED SOURCES</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">100%</span><span class="landing-stat-label">AUDITABLE</span></div>
+    <hr class="d-rule-thick">
+
+    <section class="ld-ticker-section d-container" id="cii-ticker">
+      <div class="ld-ticker-header">
+        <span class="ld-ticker-dot"></span>
+        <span class="d-kicker" style="color: var(--d-text-tertiary)">Live Country Instability Index</span>
       </div>
-
-      <div class="landing-brief-signup">
-        <div class="landing-brief-label">Get <strong>The NexusWatch Brief</strong> — 3-minute intelligence scan, free every morning</div>
-        <form class="landing-subscribe-form" id="landing-subscribe">
-          <input type="email" placeholder="your@email.com" required class="landing-email-input">
-          <button type="submit" class="landing-subscribe-btn">SUBSCRIBE FREE</button>
-        </form>
-        <div class="landing-subscribe-status" id="landing-sub-status"></div>
+      <div class="ld-ticker-strip" id="cii-ticker-strip">
+        <span class="ld-ticker-placeholder">Loading live intelligence...</span>
       </div>
     </section>
 
-    <section class="landing-trust">
-      <span class="landing-trust-label">DATA SOURCES</span>
-      <div class="landing-trust-logos">
-        <span>USGS</span><span>NASA FIRMS</span><span>ACLED</span><span>WHO</span><span>GDACS</span><span>AIS</span><span>GDELT</span><span>Open-Meteo</span>
+    <hr class="d-rule">
+
+    <section class="ld-stats d-container">
+      <div class="ld-stats-grid">
+        <div class="ld-stat"><span class="ld-stat-num d-data">45+</span><span class="d-label">Data Layers</span></div>
+        <div class="ld-stat"><span class="ld-stat-num d-data">86</span><span class="d-label">Countries</span></div>
+        <div class="ld-stat"><span class="ld-stat-num d-data">12</span><span class="d-label">Verified Sources</span></div>
+        <div class="ld-stat"><span class="ld-stat-num d-data">100%</span><span class="d-label">Auditable</span></div>
       </div>
     </section>
 
-    <section class="landing-cii-ticker" id="cii-ticker">
-      <div class="landing-ticker-header">
-        <span class="landing-ticker-dot"></span>
-        <span class="landing-ticker-label">LIVE COUNTRY INSTABILITY INDEX</span>
-      </div>
-      <div class="landing-ticker-strip" id="cii-ticker-strip">
-        <span class="landing-ticker-loading">Loading live intelligence...</span>
-      </div>
-      <a href="#/intel" class="landing-ticker-cta">Open full map →</a>
-    </section>
+    <hr class="d-rule">
 
-    <section class="landing-features">
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[◆◆◆]</div>
-        <h3>Intelligence Confidence System</h3>
-        <p>Every CII score decomposes to its source data. Click 72 → see the 14 ACLED events, 2 USGS quakes, and 23 GDELT articles. With confidence badges.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[🛡🛡]</div>
-        <h3>Multi-Source Verification</h3>
-        <p>Events tagged CONFIRMED (3+ sources), CORROBORATED (2 sources), or UNVERIFIED (single source) — how actual intel agencies work.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[?!?]</div>
-        <h3>Scenario Simulation</h3>
-        <p>"What happens if Iran closes the Strait of Hormuz?" Forward-looking what-if analysis with CII deltas, cascade chains, historical precedents.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[📊]</div>
-        <h3>Portfolio Geopolitical Exposure</h3>
-        <p>Map your holdings to country-level risk. "Your portfolio has 23% exposure to countries with CII > 60." For hedge funds and family offices.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[◷◷◷]</div>
-        <h3>Time-Travel Intelligence</h3>
-        <p>Scrub through history. See what the Middle East looked like 6 months ago. Track Sudan's trajectory week by week. 90 days of CII history.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[✓✗]</div>
-        <h3>Prediction Ledger</h3>
-        <p>We publish our accuracy. "Learning in public." Every assessment tracked against outcome. We'll never hide a wrong call.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[!⚠!]</div>
-        <h3>Crisis Playbooks</h3>
-        <p>Auto-activates when major events fire. Historical precedent, monitoring priorities, at-risk infrastructure — all in one modal.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[<=>]</div>
-        <h3>Risk Cascade Engine</h3>
-        <p>56 cross-border dependency rules. Sudan → Chad refugees. Iran → Japan oil. Taiwan → US semiconductors. See how crises propagate.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[!?!]</div>
-        <h3>Natural Language Alerts</h3>
-        <p>"Alert me when Sudan CII > 60 AND oil moves > 3%." Composite multi-condition alerts with AND/OR logic.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[<->]</div>
-        <h3>Entity Graph</h3>
-        <p>Palantir-inspired investigation. Click any country to see proxy networks, alliances, chokepoint dependencies, and conflict actors.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[---]</div>
-        <h3>Dark Vessel Detection</h3>
-        <p>Ships that stop broadcasting AIS near sensitive waters get flagged. Hormuz. Bab el-Mandeb. Taiwan Strait. Automatic.</p>
+    <section class="ld-trust d-container">
+      <span class="d-kicker" style="color: var(--d-text-dim)">Data Sources</span>
+      <div class="ld-trust-logos">
+        <span>USGS</span><span>NASA FIRMS</span><span>ACLED</span><span>WHO</span><span>GDACS</span><span>AIS</span><span>GDELT</span><span>Open-Meteo</span><span>OFAC</span><span>V-Dem</span>
       </div>
     </section>
 
-    <section class="landing-portfolio-demo anim-fade-up">
-      <div class="landing-portfolio-header">
-        <h2>Portfolio Geopolitical Exposure</h2>
-        <span class="landing-brief-badge">LIVE DEMO</span>
-      </div>
-      <p class="landing-portfolio-desc">See how geopolitical risk maps to real holdings. This is a sample portfolio — <a href="#/portfolio">run your own</a> with Pro.</p>
-      <div class="landing-portfolio-holdings">
-        <span class="landing-holding-chip">TSM 25%</span>
-        <span class="landing-holding-chip">XOM 20%</span>
-        <span class="landing-holding-chip">AAPL 30%</span>
-        <span class="landing-holding-chip">VWO 25%</span>
-      </div>
-      <div class="landing-portfolio-result" id="portfolio-demo-result">
-        <span class="landing-ticker-loading">Analyzing geopolitical exposure...</span>
+    <section class="ld-features d-container d-section">
+      <span class="d-kicker">What You Get</span>
+      <h2 class="ld-features-title d-display" style="font-size: 32px; margin: 12px 0 40px;">Every intelligence product shows you their best guesses.<br>None of them show you which guesses were wrong.</h2>
+
+      <div class="ld-features-grid">
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Intelligence Confidence System</h3>
+          <p>Every CII score decomposes to its source data. Click 72 — see the 14 ACLED events, 2 USGS quakes, and 23 GDELT articles. With confidence badges.</p>
+        </div>
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Multi-Source Verification</h3>
+          <p>Events tagged CONFIRMED (3+ sources), CORROBORATED (2 sources), or UNVERIFIED (single source) — how actual intel agencies work.</p>
+        </div>
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Scenario Simulation</h3>
+          <p>"What happens if Iran closes the Strait of Hormuz?" Forward-looking what-if analysis with CII deltas, cascade chains, and historical precedents.</p>
+        </div>
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Portfolio Geopolitical Exposure</h3>
+          <p>Map your holdings to country-level risk. "Your portfolio has 23% exposure to countries with CII &gt; 60." For hedge funds and family offices.</p>
+        </div>
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Time-Travel Intelligence</h3>
+          <p>Scrub through history. See what the Middle East looked like 6 months ago. Track Sudan's trajectory week by week.</p>
+        </div>
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Prediction Ledger</h3>
+          <p>We publish our accuracy. Every assessment tracked against outcome. We'll never hide a wrong call. <a href="#/accuracy" class="d-link">See our track record.</a></p>
+        </div>
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Crisis Playbooks</h3>
+          <p>Auto-activates when major events fire. Historical precedent, monitoring priorities, at-risk infrastructure — all in one modal.</p>
+        </div>
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Risk Cascade Engine</h3>
+          <p>56 cross-border dependency rules. Sudan → Chad refugees. Iran → Japan oil. Taiwan → US semiconductors. See how crises propagate.</p>
+        </div>
+        <div class="ld-feature d-fade-in">
+          <h3 class="ld-feature-title">Natural Language Alerts</h3>
+          <p>"Alert me when Sudan CII &gt; 60 AND oil moves &gt; 3%." Composite multi-condition alerts with AND/OR logic. Delivered via email, Telegram, or Slack.</p>
+        </div>
       </div>
     </section>
 
-    <section class="landing-brief-preview">
-      <div class="landing-brief-header">
-        <h2>Today's NexusWatch Brief</h2>
-        <span class="landing-brief-badge">SAMPLE</span>
+    <section class="ld-portfolio-demo d-container d-section d-fade-in">
+      <span class="d-kicker">Live Demo</span>
+      <h2 class="d-display" style="font-size: 28px; margin: 12px 0 8px;">Portfolio Geopolitical Exposure</h2>
+      <p class="d-body" style="margin-bottom: 20px;">See how geopolitical risk maps to real holdings. <a href="#/portfolio" class="d-link">Run your own portfolio</a> with Pro.</p>
+      <div class="ld-demo-holdings">
+        <span class="ld-demo-chip">TSM 25%</span>
+        <span class="ld-demo-chip">XOM 20%</span>
+        <span class="ld-demo-chip">AAPL 30%</span>
+        <span class="ld-demo-chip">VWO 25%</span>
       </div>
-      <div class="landing-brief-content" id="landing-brief-preview">Loading today's brief...</div>
-      <div class="landing-brief-fade"></div>
-      <div class="landing-brief-cta">
-        <p>Get the full brief delivered free every morning</p>
-        <form class="landing-subscribe-form" id="brief-subscribe">
-          <input type="email" placeholder="your@email.com" required class="landing-email-input">
-          <button type="submit" class="landing-subscribe-btn">SUBSCRIBE TO THE BRIEF</button>
-        </form>
-        <div class="landing-subscribe-status" id="brief-sub-status"></div>
+      <div class="ld-demo-result" id="portfolio-demo-result">
+        <span class="ld-ticker-placeholder">Analyzing geopolitical exposure...</span>
       </div>
     </section>
 
-    <section class="landing-pricing">
-      <h2>Pricing</h2>
+    <section class="ld-brief-section d-container d-section d-fade-in">
+      <span class="d-kicker">The NexusWatch Brief</span>
+      <h2 class="d-display" style="font-size: 28px; margin: 12px 0 8px;">Geopolitical intelligence in 3 minutes</h2>
+      <p class="d-body" style="margin-bottom: 24px;">Free every morning. CII scores, risk signals, and analyst assessments — delivered before your first meeting.</p>
+      <div class="ld-brief-content" id="landing-brief-preview">Loading today's brief...</div>
+      <div class="ld-brief-fade"></div>
+      <form class="ld-subscribe-form" id="landing-subscribe">
+        <input type="email" placeholder="your@email.com" required class="ld-subscribe-input">
+        <button type="submit" class="d-btn-primary" style="padding: 10px 24px;">Subscribe Free</button>
+      </form>
+      <div class="ld-subscribe-status" id="landing-sub-status"></div>
+    </section>
 
-      <div class="landing-founding-banner" id="founding-banner" hidden>
-        <div class="landing-founding-inner">
-          <div class="landing-founding-text">
-            <strong>FOUNDING MEMBERS</strong> — First 100 subscribers get
-            <span class="landing-founding-price">$19/mo lifetime</span>
-            on the Analyst tier.
-            <span class="landing-founding-remaining" id="founding-remaining"></span>
-          </div>
-          <button type="button" class="landing-founding-btn" id="founding-btn" data-tier="founding">
-            CLAIM FOUNDING SEAT
-          </button>
+    <section class="ld-pricing d-container d-section">
+      <span class="d-kicker">Pricing</span>
+      <h2 class="d-display" style="font-size: 32px; margin: 12px 0 8px;">Trust is free. Depth is paid.</h2>
+      <p class="d-body" style="margin-bottom: 40px;">Every tier includes confidence badges, verification shields, and source attribution — because that's the product.</p>
+
+      <div class="ld-founding-banner" id="founding-banner" hidden>
+        <div class="ld-founding-inner">
+          <span class="d-badge">Founding Members</span>
+          <span class="ld-founding-text">First 100 subscribers get <strong>$19/mo lifetime</strong> on the Analyst tier. <span id="founding-remaining"></span></span>
+          <button type="button" class="d-btn-primary" id="founding-btn" data-tier="founding" style="padding: 8px 20px; font-size: 12px;">Claim Seat</button>
         </div>
       </div>
 
-      <div class="landing-pricing-grid three-tier">
-        <div class="landing-price-card landing-price-free">
-          <div class="landing-price-badge-free">START HERE</div>
-          <div class="landing-price-tier">FREE</div>
-          <div class="landing-price-amount">$0</div>
-          <ul class="landing-price-features">
-            <li>Full 3D globe with 35 live layers</li>
+      <div class="ld-pricing-grid">
+        <div class="ld-price-card ld-price-free">
+          <span class="d-badge">Open Access</span>
+          <div class="ld-price-name">Explorer</div>
+          <div class="ld-price-amount">$0</div>
+          <ul class="ld-price-features">
+            <li>Full 3D globe with 45 live layers</li>
             <li>Country Instability Index (86 nations)</li>
             <li>Intelligence Brief (Mon/Wed/Fri)</li>
             <li>1 natural language alert</li>
             <li>48-hour timeline preview</li>
-            <li>PDF export</li>
-            <li>Cinema Mode (watermarked)</li>
           </ul>
-          <a href="#/intel" class="landing-price-btn landing-price-btn-free">OPEN THE MAP — FREE</a>
+          <a href="#/intel" class="d-btn-secondary" style="width: 100%; text-align: center;">Open the Map</a>
         </div>
-        <div class="landing-price-card">
-          <div class="landing-price-tier">ANALYST</div>
-          <div class="landing-price-amount" id="analyst-price">$29<span>/mo</span></div>
-          <ul class="landing-price-features">
-            <li>Everything in Free, plus:</li>
+        <div class="ld-price-card ld-price-analyst">
+          <span class="d-badge-navy d-badge">Analyst Clearance</span>
+          <div class="ld-price-name">Analyst</div>
+          <div class="ld-price-amount" id="analyst-price">$29<span>/mo</span></div>
+          <ul class="ld-price-features">
+            <li>Everything in Explorer, plus:</li>
             <li>Daily intelligence brief</li>
             <li>5 natural language alerts</li>
             <li>7-day timeline playback</li>
-            <li>Email alert delivery</li>
-            <li>Pro Insight sections in briefs</li>
+            <li>Email + Telegram + Slack alerts</li>
           </ul>
-          <button type="button" class="landing-price-btn" data-tier="analyst">START ANALYST</button>
+          <button type="button" class="d-btn-primary" data-tier="analyst" style="width: 100%;">Start Analyst</button>
         </div>
-        <div class="landing-price-card featured">
-          <div class="landing-price-tier">PRO</div>
-          <div class="landing-price-amount">$99<span>/mo</span></div>
-          <ul class="landing-price-features">
+        <div class="ld-price-card ld-price-pro">
+          <span class="d-badge" style="background: var(--d-navy); color: var(--d-bg); border-color: var(--d-navy);">Full Clearance</span>
+          <div class="ld-price-name" style="color: var(--d-bg);">Pro</div>
+          <div class="ld-price-amount" style="color: var(--d-bg);">$99<span>/mo</span></div>
+          <ul class="ld-price-features" style="color: rgba(248,247,244,0.7);">
             <li>Everything in Analyst, plus:</li>
             <li>Unlimited alerts</li>
             <li>90-day timeline playback</li>
-            <li>Cinema Mode (no watermark)</li>
             <li>API access (10K calls/mo)</li>
+            <li>Portfolio exposure analysis</li>
             <li>Personalized brief sections</li>
-            <li>Priority support</li>
           </ul>
-          <button type="button" class="landing-price-btn featured" data-tier="pro">UPGRADE TO PRO</button>
+          <button type="button" class="d-btn-primary" data-tier="pro" style="width: 100%; background: var(--d-gold); color: var(--d-text);">Upgrade to Pro</button>
         </div>
       </div>
-      <p class="landing-pricing-note">No credit card required for Free. No account needed. Just intelligence.</p>
-      <div class="landing-checkout-status" id="checkout-status" role="status" aria-live="polite"></div>
+      <p class="ld-pricing-note">No credit card required for Free. No account needed. Just intelligence.</p>
+      <div class="ld-checkout-status" id="checkout-status" role="status" aria-live="polite"></div>
     </section>
 
-    <footer class="landing-footer">
-      <div class="landing-footer-brand">NexusWatch Intelligence Platform</div>
-      <div class="landing-footer-links">
-        <a href="#/pricing">Pricing</a>
-        <a href="#/methodology">Methodology</a>
-        <a href="#/accuracy">Accuracy Ledger</a>
-        <a href="#/audit">Audit Trail</a>
-        <a href="#/status">System Status</a>
-        <a href="#/api">API Docs</a>
-        <a href="#/briefs">Brief Archive</a>
-        <a href="#/whats-new">What's New</a>
-        <a href="#/about">About</a>
-        <a href="#/roadmap">Roadmap</a>
+    <footer class="ld-footer d-container">
+      <hr class="d-rule" style="margin-bottom: 32px;">
+      <div class="ld-footer-brand">NexusWatch</div>
+      <div class="ld-footer-links">
+        <a href="#/pricing" class="d-link">Pricing</a>
+        <a href="#/methodology" class="d-link">Methodology</a>
+        <a href="#/accuracy" class="d-link">Accuracy Ledger</a>
+        <a href="#/status" class="d-link">System Status</a>
+        <a href="#/apidocs" class="d-link">API Docs</a>
+        <a href="#/briefs" class="d-link">Brief Archive</a>
+        <a href="#/roadmap" class="d-link">Roadmap</a>
       </div>
-      <div class="landing-footer-copy">Built with Claude Code. Deployed on Vercel.</div>
+      <div class="ld-footer-copy">Built with Claude Code. Deployed on Vercel.</div>
     </footer>
   `;
 
   root.appendChild(page);
 
-  // Entrance animations via IntersectionObserver
-  const animElements = page.querySelectorAll('.anim-fade-up');
+  // ── Entrance animations ──
+  const animElements = page.querySelectorAll('.d-fade-in');
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry, index) => {
         if (entry.isIntersecting) {
-          setTimeout(() => entry.target.classList.add('visible'), index * 100);
+          setTimeout(() => entry.target.classList.add('visible'), index * 80);
           observer.unobserve(entry.target);
         }
       });
@@ -267,7 +227,7 @@ export function renderLanding(root: HTMLElement): void {
   );
   animElements.forEach((el) => observer.observe(el));
 
-  // Subscribe form handler (shared across all forms)
+  // ── Subscribe form handler ──
   function setupSubscribeForm(formId: string, statusId: string) {
     const form = document.getElementById(formId) as HTMLFormElement;
     const statusEl = document.getElementById(statusId);
@@ -276,7 +236,7 @@ export function renderLanding(root: HTMLElement): void {
       const email = (form.querySelector('input') as HTMLInputElement).value;
       if (statusEl) {
         statusEl.textContent = 'Subscribing...';
-        statusEl.style.color = '#888';
+        statusEl.style.color = 'var(--d-text-dim)';
       }
       try {
         const res = await fetch('/api/subscribe', {
@@ -287,49 +247,30 @@ export function renderLanding(root: HTMLElement): void {
         const data = await res.json();
         if (statusEl) {
           statusEl.textContent = data.success
-            ? "✓ You're in! First brief arrives tomorrow morning."
+            ? "You're in. First brief arrives tomorrow morning."
             : data.error || 'Failed';
-          statusEl.style.color = data.success ? '#22c55e' : '#ef4444';
+          statusEl.style.color = data.success ? 'var(--d-green)' : 'var(--d-red)';
         }
       } catch {
         if (statusEl) {
           statusEl.textContent = 'Network error — try again';
-          statusEl.style.color = '#ef4444';
+          statusEl.style.color = 'var(--d-red)';
         }
       }
     });
   }
 
   setupSubscribeForm('landing-subscribe', 'landing-sub-status');
-  setupSubscribeForm('bar-subscribe', 'landing-sub-status');
-  setupSubscribeForm('brief-subscribe', 'brief-sub-status');
 
-  // Newsletter bar dismiss
-  const barClose = document.getElementById('bar-close');
-  const bar = document.getElementById('newsletter-bar');
-  barClose?.addEventListener('click', () => {
-    bar?.remove();
-    localStorage.setItem('nw:bar-dismissed', '1');
-  });
-  if (localStorage.getItem('nw:bar-dismissed') === '1') {
-    bar?.remove();
-  }
-
-  // ── Analyst pricing A/B test ─────────────────────────────────────────────
-  // Variant A = $29/mo (control), Variant B = $19/mo (test).
-  // Assignment is sticky via localStorage.
+  // ── Analyst pricing A/B test ──
   const abVariant = localStorage.getItem('nw:ab-analyst') || (Math.random() < 0.5 ? 'a' : 'b');
   localStorage.setItem('nw:ab-analyst', abVariant);
-
   if (abVariant === 'b') {
     const priceEl = document.getElementById('analyst-price');
     if (priceEl) priceEl.innerHTML = '$19<span>/mo</span>';
   }
 
-  // ── Pricing checkout wiring ──────────────────────────────────────────────
-  // Replaces the old dead hrefs that navigated to #/intel. Now each paid
-  // tier button POSTs to /api/stripe/checkout with the tier query parameter
-  // and redirects to the returned Stripe session URL.
+  // ── Pricing checkout wiring ──
   const checkoutStatus = document.getElementById('checkout-status');
   const setStatus = (message: string, color: string) => {
     if (!checkoutStatus) return;
@@ -343,7 +284,7 @@ export function renderLanding(root: HTMLElement): void {
   async function startCheckout(tier: 'analyst' | 'pro' | 'founding', button: HTMLButtonElement) {
     const originalText = button.textContent || '';
     button.disabled = true;
-    button.textContent = '…';
+    button.textContent = '...';
     clearStatus();
     try {
       const variantParam = tier === 'analyst' ? `&variant=${abVariant}` : '';
@@ -358,22 +299,15 @@ export function renderLanding(root: HTMLElement): void {
       };
 
       if (res.status === 401) {
-        // Not logged in — bounce to OAuth, then bounce back to resume checkout.
-        // We store the pending tier in sessionStorage so the post-OAuth handler
-        // can pick it back up and re-initiate the checkout.
         sessionStorage.setItem('nw:pending-checkout', tier);
-        setStatus('Redirecting to sign in…', '#888');
+        setStatus('Redirecting to sign in...', 'var(--d-text-dim)');
         window.location.href = `/api/auth/google?return=${encodeURIComponent('/#/?resume-checkout=' + tier)}`;
         return;
       }
 
       if (res.status === 403 && tier === 'founding') {
         button.textContent = 'SOLD OUT';
-        setStatus(
-          `Founding tier is fully subscribed (${data.maxSeats || 100} seats filled). Analyst tier is still open at $29/mo.`,
-          '#ef4444',
-        );
-        // Also hide the founding banner since it's now confirmed sold out
+        setStatus('Founding tier is fully subscribed.', 'var(--d-red)');
         document.getElementById('founding-banner')?.setAttribute('hidden', '');
         return;
       }
@@ -382,17 +316,15 @@ export function renderLanding(root: HTMLElement): void {
         throw new Error(data.error || `Checkout failed (${res.status})`);
       }
 
-      setStatus('Redirecting to Stripe…', '#888');
+      setStatus('Redirecting to Stripe...', 'var(--d-text-dim)');
       window.location.href = data.url;
     } catch (err) {
-      console.error('[landing] Checkout failed:', err);
       button.disabled = false;
       button.textContent = originalText;
-      setStatus(err instanceof Error ? err.message : 'Checkout failed — try again', '#ef4444');
+      setStatus(err instanceof Error ? err.message : 'Checkout failed', 'var(--d-red)');
     }
   }
 
-  // Wire all buttons that declare a data-tier attribute.
   page.querySelectorAll<HTMLButtonElement>('button[data-tier]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tier = btn.dataset.tier as 'analyst' | 'pro' | 'founding' | undefined;
@@ -402,21 +334,15 @@ export function renderLanding(root: HTMLElement): void {
     });
   });
 
-  // Resume a checkout that was interrupted by an OAuth bounce.
+  // Resume checkout after OAuth
   const resumeTier = sessionStorage.getItem('nw:pending-checkout');
   if (resumeTier === 'analyst' || resumeTier === 'pro' || resumeTier === 'founding') {
     sessionStorage.removeItem('nw:pending-checkout');
     const resumeBtn = page.querySelector<HTMLButtonElement>(`button[data-tier="${resumeTier}"]`);
-    if (resumeBtn) {
-      void startCheckout(resumeTier, resumeBtn);
-    }
+    if (resumeBtn) void startCheckout(resumeTier, resumeBtn);
   }
 
-  // ── Founding stock fetch ─────────────────────────────────────────────────
-  // The banner is hidden by default and only shown when seats remain. The
-  // endpoint is short-cached (10s) so the badge stays fresh as users claim
-  // seats. If the fetch fails the banner stays hidden — we'd rather
-  // undersell gracefully than show a broken badge.
+  // ── Founding stock ──
   const foundingBanner = document.getElementById('founding-banner');
   const foundingRemainingEl = document.getElementById('founding-remaining');
   if (foundingBanner) {
@@ -432,12 +358,10 @@ export function renderLanding(root: HTMLElement): void {
           foundingRemainingEl.textContent = `(${data.remaining} of ${data.max || 100} seats left)`;
         }
       })
-      .catch(() => {
-        foundingBanner.setAttribute('hidden', '');
-      });
+      .catch(() => foundingBanner.setAttribute('hidden', ''));
   }
 
-  // ── Live CII ticker ────────────────────────────────────────────────────
+  // ── Live CII ticker ──
   const tickerStrip = document.getElementById('cii-ticker-strip');
   if (tickerStrip) {
     fetch('/api/cii')
@@ -445,30 +369,35 @@ export function renderLanding(root: HTMLElement): void {
       .then((data: { scores?: Array<{ countryCode: string; score: number; trend: string }> }) => {
         const scores = data.scores || [];
         if (scores.length === 0) {
-          tickerStrip.innerHTML =
-            '<span class="landing-ticker-loading">Intelligence data loading — check back shortly.</span>';
+          tickerStrip.innerHTML = '<span class="ld-ticker-placeholder">Intelligence data loading.</span>';
           return;
         }
-        // Sort by score desc, take top 12
         const top = scores.sort((a, b) => b.score - a.score).slice(0, 12);
         tickerStrip.innerHTML = top
           .map((s) => {
-            const color = s.score >= 70 ? '#dc2626' : s.score >= 50 ? '#ff6600' : s.score >= 30 ? '#eab308' : '#22c55e';
-            const arrow = s.trend === 'rising' ? '↑' : s.trend === 'falling' ? '↓' : '→';
-            return `<a href="#/intel" class="landing-ticker-item" title="${s.countryCode}: CII ${s.score}">
-              <span class="landing-ticker-code">${s.countryCode}</span>
-              <span class="landing-ticker-score" style="color:${color}">${s.score}</span>
-              <span class="landing-ticker-arrow" style="color:${color}">${arrow}</span>
+            const color =
+              s.score >= 70
+                ? 'var(--d-oxblood)'
+                : s.score >= 50
+                  ? 'var(--d-orange)'
+                  : s.score >= 30
+                    ? 'var(--d-gold)'
+                    : 'var(--d-green)';
+            const arrow = s.trend === 'rising' ? '\u2191' : s.trend === 'falling' ? '\u2193' : '\u2192';
+            return `<a href="#/intel" class="ld-ticker-item" title="${s.countryCode}: CII ${s.score}">
+              <span class="ld-ticker-code">${s.countryCode}</span>
+              <span class="ld-ticker-score" style="color:${color}">${s.score}</span>
+              <span class="ld-ticker-arrow" style="color:${color}">${arrow}</span>
             </a>`;
           })
           .join('');
       })
       .catch(() => {
-        tickerStrip.innerHTML = '<span class="landing-ticker-loading">Live data unavailable</span>';
+        tickerStrip.innerHTML = '<span class="ld-ticker-placeholder">Live data unavailable</span>';
       });
   }
 
-  // ── Portfolio demo ─────────────────────────────────────────────────────
+  // ── Portfolio demo ──
   const demoResult = document.getElementById('portfolio-demo-result');
   if (demoResult) {
     fetch('/api/public/exposure-demo')
@@ -481,32 +410,35 @@ export function renderLanding(root: HTMLElement): void {
           chokepoint_exposure?: Array<{ chokepoint_name: string; exposure_pct: number; status: string }>;
         }) => {
           if (!data.overall_risk && data.overall_risk !== 0) {
-            demoResult.innerHTML =
-              '<span class="landing-ticker-loading">Demo data loading — check back shortly.</span>';
+            demoResult.innerHTML = '<span class="ld-ticker-placeholder">Demo loading.</span>';
             return;
           }
           const riskColor =
-            (data.overall_risk ?? 0) >= 60 ? '#dc2626' : (data.overall_risk ?? 0) >= 40 ? '#ff6600' : '#22c55e';
+            (data.overall_risk ?? 0) >= 60
+              ? 'var(--d-oxblood)'
+              : (data.overall_risk ?? 0) >= 40
+                ? 'var(--d-orange)'
+                : 'var(--d-green)';
           const elevated = data.elevated_countries || [];
           const chokepoints = data.chokepoint_exposure || [];
 
           demoResult.innerHTML = `
-          <div class="landing-demo-grid">
-            <div class="landing-demo-risk">
-              <div class="landing-demo-risk-score" style="color:${riskColor}">${data.overall_risk}</div>
-              <div class="landing-demo-risk-label">${data.risk_label || 'N/A'}</div>
-              <div class="landing-demo-risk-note">Geopolitical Risk Score</div>
+          <div class="ld-demo-grid">
+            <div class="ld-demo-risk">
+              <div class="ld-demo-risk-score" style="color:${riskColor}">${data.overall_risk}</div>
+              <div class="ld-demo-risk-label d-label">${data.risk_label || 'N/A'}</div>
+              <div class="ld-demo-risk-note">Geopolitical Risk Score</div>
             </div>
-            <div class="landing-demo-details">
+            <div class="ld-demo-details">
               ${
                 elevated.length > 0
-                  ? `<div class="landing-demo-section">
-                  <div class="landing-demo-section-title">ELEVATED-RISK COUNTRIES</div>
+                  ? `<div class="ld-demo-section">
+                  <div class="d-label" style="margin-bottom: 8px;">Elevated-Risk Countries</div>
                   ${elevated
                     .slice(0, 4)
                     .map(
                       (c) =>
-                        `<div class="landing-demo-row"><span>${c.country_code}</span><span>CII ${c.cii_score ?? '?'}</span><span>${c.exposure_pct?.toFixed(1) ?? '?'}% exposed</span></div>`,
+                        `<div class="ld-demo-row"><span>${c.country_code}</span><span class="d-data">CII ${c.cii_score ?? '?'}</span><span class="d-data">${c.exposure_pct?.toFixed(1) ?? '?'}%</span></div>`,
                     )
                     .join('')}
                 </div>`
@@ -514,13 +446,13 @@ export function renderLanding(root: HTMLElement): void {
               }
               ${
                 chokepoints.length > 0
-                  ? `<div class="landing-demo-section">
-                  <div class="landing-demo-section-title">CHOKEPOINT DEPENDENCIES</div>
+                  ? `<div class="ld-demo-section">
+                  <div class="d-label" style="margin-bottom: 8px;">Chokepoint Dependencies</div>
                   ${chokepoints
                     .slice(0, 3)
                     .map(
                       (c) =>
-                        `<div class="landing-demo-row"><span>${c.chokepoint_name}</span><span>${c.status}</span><span>${c.exposure_pct?.toFixed(1) ?? '?'}%</span></div>`,
+                        `<div class="ld-demo-row"><span>${c.chokepoint_name}</span><span class="d-data">${c.status}</span><span class="d-data">${c.exposure_pct?.toFixed(1) ?? '?'}%</span></div>`,
                     )
                     .join('')}
                 </div>`
@@ -528,46 +460,42 @@ export function renderLanding(root: HTMLElement): void {
               }
             </div>
           </div>
-          <a href="#/portfolio" class="landing-demo-cta">Run your own portfolio →</a>
+          <a href="#/portfolio" class="d-link" style="font-size: 13px; margin-top: 16px; display: inline-block;">Run your own portfolio \u2192</a>
         `;
         },
       )
       .catch(() => {
-        demoResult.innerHTML = '<span class="landing-ticker-loading">Portfolio analysis unavailable</span>';
+        demoResult.innerHTML = '<span class="ld-ticker-placeholder">Portfolio analysis unavailable</span>';
       });
   }
 
-  // Load today's brief preview
+  // ── Brief preview ──
   const briefEl = document.getElementById('landing-brief-preview');
   if (briefEl) {
     fetch('/api/v1/brief')
       .then((r) => r.json())
       .then((data) => {
         if (data.summary) {
-          // Show the brief with proper markdown rendering
           let preview = data.summary as string;
-          // If it's HTML (old format), show as-is truncated
-          // If it's markdown (new format), convert basics
           if (!preview.startsWith('<')) {
             preview = preview
               .replace(
                 /## (.*)/g,
-                '<h3 style="color:#ff6600;font-size:13px;letter-spacing:1px;margin:16px 0 8px;">$1</h3>',
+                '<h3 style="font-family:var(--d-serif);font-size:18px;color:var(--d-text);margin:20px 0 8px;">$1</h3>',
               )
               .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
               .replace(/\n\n/g, '<br><br>')
               .replace(/\n/g, '<br>');
           }
-          // Show first ~800 chars (the fade overlay handles the cutoff)
-          briefEl.innerHTML = `<div class="brief-preview-text">${preview.slice(0, 1200)}</div>`;
+          briefEl.innerHTML = `<div class="ld-brief-text">${preview.slice(0, 1200)}</div>`;
         } else {
           briefEl.innerHTML =
-            '<p style="color:#666;text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.<br>Subscribe to get it in your inbox.</p>';
+            '<p style="color:var(--d-text-tertiary);text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.</p>';
         }
       })
       .catch(() => {
         briefEl.innerHTML =
-          '<p style="color:#666;text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.</p>';
+          '<p style="color:var(--d-text-tertiary);text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.</p>';
       });
   }
 }
