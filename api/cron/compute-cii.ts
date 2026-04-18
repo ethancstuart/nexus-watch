@@ -1,11 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { cronJitter } from '../_cron-utils.js';
-import {
-  BASELINE_CONFLICT,
-  BASELINE_GOVERNANCE,
-  MARKET_RISK,
-} from '../_lib/cii-baselines.js';
+import { BASELINE_CONFLICT, BASELINE_GOVERNANCE, MARKET_RISK } from '../_lib/cii-baselines.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 

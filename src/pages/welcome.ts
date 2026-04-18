@@ -201,4 +201,3 @@ export function renderWelcomePage(root: HTMLElement): void {
     window.location.hash = '#/intel';
   });
 }
-

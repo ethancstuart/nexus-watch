@@ -16,10 +16,46 @@ export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 // Top 40 countries most likely to censor — prioritized for API budget
 const PROBE_COUNTRIES = [
-  'IR', 'CN', 'RU', 'MM', 'SD', 'ET', 'SY', 'VE', 'CU', 'KP',
-  'BY', 'TR', 'EG', 'SA', 'PK', 'BD', 'TH', 'VN', 'IN', 'IQ',
-  'AF', 'YE', 'LY', 'SS', 'CD', 'UG', 'TZ', 'KE', 'NG', 'ML',
-  'BF', 'NE', 'TD', 'CF', 'SO', 'HT', 'AZ', 'KZ', 'UZ', 'LB',
+  'IR',
+  'CN',
+  'RU',
+  'MM',
+  'SD',
+  'ET',
+  'SY',
+  'VE',
+  'CU',
+  'KP',
+  'BY',
+  'TR',
+  'EG',
+  'SA',
+  'PK',
+  'BD',
+  'TH',
+  'VN',
+  'IN',
+  'IQ',
+  'AF',
+  'YE',
+  'LY',
+  'SS',
+  'CD',
+  'UG',
+  'TZ',
+  'KE',
+  'NG',
+  'ML',
+  'BF',
+  'NE',
+  'TD',
+  'CF',
+  'SO',
+  'HT',
+  'AZ',
+  'KZ',
+  'UZ',
+  'LB',
 ];
 
 const OONI_API = 'https://api.ooni.io/api/v1';
@@ -77,9 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (item.confirmed_count > 10) {
           result.censorship_detected++;
-          console.log(
-            `[ooni] CENSORSHIP: ${cc} — ${item.confirmed_count} confirmed blocks on ${measurementDate}`,
-          );
+          console.log(`[ooni] CENSORSHIP: ${cc} — ${item.confirmed_count} confirmed blocks on ${measurementDate}`);
         }
       }
 
