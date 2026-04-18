@@ -21,7 +21,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res);
   const apiKey = process.env.FINNHUB_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'Market data service unavailable' });
+    // Free fallback: return major indices via Yahoo Finance (no auth needed)
+    try {
+      const symbols = ['SPY', 'QQQ', 'EWJ', 'FXI', 'EWZ', 'GLD'];
+      const yfRes = await fetch(
+        `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,shortName`,
+        { signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'NexusWatch/1.0' } },
+      );
+      if (yfRes.ok) {
+        const yfData = (await yfRes.json()) as {
+          quoteResponse?: {
+            result?: Array<{
+              symbol: string;
+              shortName?: string;
+              regularMarketPrice?: number;
+              regularMarketChange?: number;
+              regularMarketChangePercent?: number;
+            }>;
+          };
+        };
+        const quotes = (yfData.quoteResponse?.result || []).map((q) => ({
+          symbol: q.symbol,
+          name: q.shortName || q.symbol,
+          price: q.regularMarketPrice || 0,
+          change: q.regularMarketChange || 0,
+          changePercent: q.regularMarketChangePercent || 0,
+          source: 'yahoo',
+        }));
+        return res
+          .setHeader('Cache-Control', 'public, s-maxage=300, max-age=300')
+          .json({ quotes, source: 'yahoo-fallback' });
+      }
+    } catch {
+      // Yahoo also failed
+    }
+    return res.json({ quotes: [], error: 'Market data requires FINNHUB_API_KEY configuration', source: 'none' });
   }
 
   const action = req.query.action as string | undefined;
