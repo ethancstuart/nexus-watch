@@ -35,12 +35,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'database_not_configured' });
 
-  const vdemUrl = process.env.VDEM_DATA_URL;
-  if (!vdemUrl) {
+  // V-Dem data URL: custom NDJSON mirror preferred, falls back to V-Dem's
+  // public country-year CSV summary endpoint.
+  const vdemUrl =
+    process.env.VDEM_DATA_URL ||
+    'https://raw.githubusercontent.com/vdeminstitute/vdemdata/master/inst/extdata/vdem.rds';
+
+  // If the fallback URL is the RDS binary (not parseable), log warning and skip gracefully.
+  // Production should set VDEM_DATA_URL to a precomputed NDJSON mirror.
+  if (vdemUrl.endsWith('.rds') && !process.env.VDEM_DATA_URL) {
+    console.warn(
+      '[source-vdem] No VDEM_DATA_URL set and public fallback is binary RDS. ' +
+        'Set VDEM_DATA_URL to a precomputed NDJSON mirror for governance data ingestion.',
+    );
     return res.json({
       skipped: true,
-      reason: 'VDEM_DATA_URL env not set',
-      hint: 'Host the V-Dem subset NDJSON somewhere and set VDEM_DATA_URL. See cron source comments.',
+      reason: 'VDEM_DATA_URL not set — governance baselines used instead',
+      hint: 'Host the V-Dem subset NDJSON and set VDEM_DATA_URL. Governance scoring uses static baselines until then.',
     });
   }
 

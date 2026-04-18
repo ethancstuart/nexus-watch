@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { cronJitter } from '../_cron-utils.js';
+import {
+  BASELINE_CONFLICT,
+  BASELINE_GOVERNANCE,
+  MARKET_RISK,
+} from '../_lib/cii-baselines.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
@@ -58,114 +63,8 @@ const COUNTRIES: { code: string; name: string; lat: number; lon: number; radius:
   { code: 'FR', name: 'France', lat: 48.9, lon: 2.3, radius: 4 },
 ];
 
-// Baseline conflict risk (0-15) — ensures countries at war don't show 0 when ACLED is down
-const BASELINE_CONFLICT: Record<string, number> = {
-  UA: 18,
-  RU: 10,
-  SD: 18,
-  SS: 16,
-  YE: 17,
-  SY: 17,
-  MM: 15,
-  AF: 14,
-  SO: 15,
-  CD: 14,
-  IQ: 10,
-  LY: 12,
-  ML: 12,
-  BF: 13,
-  CF: 13,
-  NE: 10,
-  HT: 11,
-  PS: 18,
-  IL: 8,
-  NG: 9,
-  MZ: 8,
-  ET: 10,
-  TD: 9,
-  PK: 7,
-  CO: 6,
-  KP: 5,
-};
-
-// Baseline governance risk (0-15) — sanctions, authoritarianism, election instability
-const BASELINE_GOVERNANCE: Record<string, number> = {
-  KP: 15,
-  IR: 13,
-  SY: 13,
-  RU: 10,
-  CN: 8,
-  CU: 10,
-  VE: 12,
-  MM: 12,
-  AF: 11,
-  SD: 10,
-  SS: 10,
-  YE: 10,
-  LY: 9,
-  CD: 8,
-  CF: 9,
-  ML: 8,
-  BF: 9,
-  NE: 7,
-  HT: 10,
-  PS: 7,
-  IQ: 6,
-};
-
-// Static market risk weights (0-20)
-const MARKET_RISK: Record<string, number> = {
-  UA: 15,
-  RU: 14,
-  CN: 10,
-  TW: 16,
-  IR: 18,
-  SA: 12,
-  VE: 17,
-  NG: 11,
-  TR: 9,
-  EG: 8,
-  PK: 10,
-  BD: 7,
-  LB: 14,
-  SD: 16,
-  SS: 17,
-  YE: 18,
-  AF: 19,
-  MM: 14,
-  KP: 20,
-  HT: 16,
-  CD: 15,
-  CF: 16,
-  SO: 17,
-  LY: 13,
-  SY: 18,
-  IQ: 12,
-  ML: 13,
-  BF: 14,
-  NE: 13,
-  TD: 14,
-  MZ: 11,
-  CU: 12,
-  US: 2,
-  JP: 3,
-  DE: 2,
-  GB: 2,
-  FR: 3,
-  KR: 4,
-  IN: 5,
-  BR: 6,
-  MX: 5,
-  PH: 6,
-  ID: 5,
-  ZA: 6,
-  CO: 7,
-  UG: 9,
-  KE: 7,
-  IL: 5,
-  PS: 15,
-  ET: 12,
-};
+// Baselines imported from api/_lib/cii-baselines.ts (single source of truth, v2.2.0)
+// DO NOT declare local baselines here — they WILL drift. All changes go through cii-baselines.ts.
 
 function isNear(lat1: number, lon1: number, lat2: number, lon2: number, radius: number): boolean {
   return Math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2) < radius;

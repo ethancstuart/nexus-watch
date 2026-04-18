@@ -209,7 +209,10 @@ export function computeAllCII(layerData: Map<string, unknown>): CIIScore[] {
   return scores;
 }
 
-// Conflict baselines — ensures countries at war don't show 0 when ACLED is unavailable
+// Conflict baselines — ensures countries at war don't show 0 when ACLED is unavailable.
+// IMPORTANT: These must stay in sync with api/_lib/cii-baselines.ts (v2.2.0).
+// The server cron (compute-cii.ts) imports from cii-baselines.ts directly.
+// These client-side copies are used only as fallback during initial page load.
 const BASELINE_CONFLICT: Record<string, number> = {
   // Active war zones
   UA: 19,
