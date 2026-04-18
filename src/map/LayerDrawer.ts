@@ -3,6 +3,7 @@ import { createElement } from '../utils/dom.ts';
 import type { MapLayerManager } from './MapLayerManager.ts';
 import type { MapLayerCategory } from '../types/index.ts';
 import { exportLayerAsCSV, exportLayerAsGeoJSON } from './DataExport.ts';
+import { getProvenance, computeFreshness, freshnessColor, relativeTime } from '../services/dataProvenance.ts';
 
 const CATEGORY_INFO: Record<MapLayerCategory, { label: string; color: string }> = {
   natural: { label: 'NATURAL HAZARDS', color: '#ff6b6b' },
@@ -125,7 +126,23 @@ export function createLayerDrawer(
           setLayerOpacity(layer.id, opacity);
         });
 
+        // Freshness badge — shows data age from provenance tracking
+        const freshDot = createElement('span', { className: 'nw-drawer-freshness' });
+        const prov = getProvenance(layer.id);
+        if (prov) {
+          const f = computeFreshness(prov);
+          freshDot.style.background = freshnessColor(f);
+          freshDot.title = `${relativeTime(prov.fetchedAt)} — ${f}`;
+          if (f === 'stale' || f === 'offline') freshDot.classList.add('nw-drawer-freshness-warn');
+        } else {
+          // Static/reference layers or layers that haven't loaded yet
+          const isReference = layer.name.includes('Reference') || layer.name.includes('Curated');
+          freshDot.style.background = isReference ? '#6b8aff' : '#666';
+          freshDot.title = isReference ? 'Reference data (manually curated)' : 'No data yet';
+        }
+
         row.appendChild(toggle);
+        row.appendChild(freshDot);
         row.appendChild(nameWrap);
         row.appendChild(count);
         row.appendChild(opacitySlider);

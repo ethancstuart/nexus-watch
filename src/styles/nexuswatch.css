@@ -3984,6 +3984,28 @@ body.nw-historical-mode .nw-map-container::after {
   margin-top: 2px;
 }
 
+.nw-drawer-freshness {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  margin-right: 6px;
+  margin-top: 6px;
+}
+.nw-drawer-freshness-warn {
+  animation: freshness-pulse 2s ease-in-out infinite;
+}
+@keyframes freshness-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
 .nw-drawer-opacity {
   width: 48px;
   height: 4px;
