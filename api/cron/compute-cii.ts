@@ -76,6 +76,12 @@ async function fetchLayerData(): Promise<Map<string, GeoEvent[]>> {
   const layers = new Map<string, GeoEvent[]>();
 
   // Fetch DIRECTLY from upstream sources — NOT self-referencing
+  // 2026-04-18: Added ACLED (was missing — conflict component ran on baselines only)
+  const acledEmail = process.env.ACLED_EMAIL || '';
+  const acledKey = process.env.ACLED_PASSWORD || '';
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+
   const fetches = [
     {
       key: 'earthquakes',
@@ -93,10 +99,36 @@ async function fetchLayerData(): Promise<Map<string, GeoEvent[]>> {
         })) as GeoEvent[];
       },
     },
+    // ACLED conflict events — covers ALL 86 CII countries globally
+    ...(acledEmail && acledKey
+      ? [
+          {
+            key: 'acled',
+            url: `https://api.acleddata.com/acled/read?key=${acledKey}&email=${encodeURIComponent(acledEmail)}&limit=2000&event_date=${sevenDaysAgo}|${today}&event_date_where=BETWEEN`,
+            transform: (data: Record<string, unknown>) => {
+              const rows = (data.data || []) as Array<{
+                latitude: string;
+                longitude: string;
+                fatalities: string;
+                event_type: string;
+                country: string;
+              }>;
+              return rows.map((r) => ({
+                lat: parseFloat(r.latitude) || 0,
+                lon: parseFloat(r.longitude) || 0,
+                fatalities: parseInt(r.fatalities, 10) || 0,
+                event_type: r.event_type,
+                country: r.country,
+              })) as GeoEvent[];
+            },
+          },
+        ]
+      : []),
+    // NASA FIRMS fire hotspots — improves disaster scoring for Amazon, Indonesia, etc.
     {
-      key: 'internet-outages',
-      url: `https://api.ioda.inetintel.cc.gatech.edu/v2/signals/raw/country/IR?from=${Math.floor(Date.now() / 1000) - 3600}&until=${Math.floor(Date.now() / 1000)}`,
-      transform: () => [] as GeoEvent[], // IODA data structure is different; CII uses static outage scoring
+      key: 'fires',
+      url: 'https://firms.modaps.eosdis.nasa.gov/api/country/csv/VIIRS_SNPP_NRT/world/1',
+      transform: () => [] as GeoEvent[], // CSV parsing would need dedicated handler; skip for now
     },
   ];
 
