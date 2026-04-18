@@ -5,6 +5,7 @@
  * trends, and alerts. The "my home" page for returning users.
  */
 
+import '../styles/watchlist.css';
 import { createElement } from '../utils/dom.ts';
 import { getCiiWatchlist, addCiiWatch, removeCiiWatch, updateCiiWatch } from '../services/ciiWatchlist.ts';
 import { getCachedCII, getMonitoredCountries } from '../services/countryInstabilityIndex.ts';

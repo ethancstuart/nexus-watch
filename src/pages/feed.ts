@@ -7,6 +7,7 @@
  * briefs, not just waiting for the 6am email.
  */
 
+import '../styles/feed.css';
 import { createElement } from '../utils/dom.ts';
 import { getCachedCII, getMonitoredCountries } from '../services/countryInstabilityIndex.ts';
 import { getVerifiedSignals } from '../services/verificationEngine.ts';

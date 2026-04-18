@@ -1,0 +1,140 @@
+/* Shared styles for secondary pages — applies design tokens without
+   layout changes. Import this in pages that don't have their own CSS. */
+
+/* Generic page headers (used by compare, accuracy, status, roadmap, etc.) */
+.nw-compare-page,
+.nw-accuracy-page,
+.nw-status-page,
+.nw-roadmap-page,
+.nw-api-docs-page,
+.nw-methodology-page,
+.nw-entities-page,
+.nw-audit-page,
+.nw-settings-page,
+.nw-release-notes-page {
+  max-width: var(--nw-page-max);
+  margin: 0 auto;
+  padding: var(--nw-page-padding) 24px;
+  min-height: 100vh;
+  animation: nw-fade-in 0.3s ease;
+}
+
+/* Common header patterns */
+[class$="-page"] > header h1,
+[class$="-page"] h1:first-of-type {
+  font-family: var(--nw-font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--nw-text);
+  margin-bottom: 8px;
+}
+
+[class$="-page"] > header p,
+[class$="-subtitle"] {
+  font-family: var(--nw-font-body);
+  font-size: 14px;
+  color: var(--nw-text-secondary);
+  line-height: 1.5;
+}
+
+/* Back links */
+[class$="-back"] {
+  font-family: var(--nw-font-body);
+  font-size: 13px;
+  color: var(--nw-text-muted);
+  text-decoration: none;
+  transition: color var(--nw-transition);
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+[class$="-back"]:hover {
+  color: var(--nw-accent);
+}
+
+/* Compare page — side-by-side cards */
+.nw-compare-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.nw-compare-card {
+  background: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
+  padding: 20px;
+}
+
+.nw-compare-card h3 {
+  font-family: var(--nw-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--nw-text);
+}
+
+/* Accuracy page */
+.nw-accuracy-stat {
+  background: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
+  padding: 16px 20px;
+  text-align: center;
+}
+
+/* Settings forms */
+.nw-settings-page label {
+  font-family: var(--nw-font-body);
+  font-size: 13px;
+  color: var(--nw-text-secondary);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.nw-settings-page input,
+.nw-settings-page select,
+.nw-settings-page textarea {
+  padding: 8px 12px;
+  background: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius-sm);
+  color: var(--nw-text);
+  font-family: var(--nw-font-body);
+  font-size: 13px;
+  outline: none;
+}
+
+.nw-settings-page input:focus,
+.nw-settings-page select:focus,
+.nw-settings-page textarea:focus {
+  border-color: var(--nw-accent);
+}
+
+/* Country brief page */
+.nw-country-brief-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--nw-page-padding) 24px;
+}
+
+.nw-country-brief-page h1 {
+  font-family: var(--nw-font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--nw-text);
+}
+
+.nw-country-brief-page h2 {
+  font-family: var(--nw-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--nw-accent);
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+
+.nw-country-brief-page p {
+  font-family: var(--nw-font-body);
+  font-size: 15px;
+  color: var(--nw-text-secondary);
+  line-height: 1.7;
+}

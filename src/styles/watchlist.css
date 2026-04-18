@@ -1,0 +1,317 @@
+/* Watchlist Page — Modern Dark SaaS (D-1, D-6) */
+
+.nw-watchlist-page {
+  max-width: var(--nw-page-max);
+  margin: 0 auto;
+  padding: var(--nw-page-padding) 24px;
+  min-height: 100vh;
+  animation: nw-fade-in 0.3s ease;
+}
+
+.nw-watchlist-header {
+  margin-bottom: 32px;
+}
+
+.nw-watchlist-back {
+  font-family: var(--nw-font-body);
+  font-size: 13px;
+  color: var(--nw-text-muted);
+  text-decoration: none;
+  transition: color var(--nw-transition);
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.nw-watchlist-back:hover {
+  color: var(--nw-accent);
+}
+
+.nw-watchlist-header h1 {
+  font-family: var(--nw-font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--nw-text);
+  margin-bottom: 8px;
+}
+
+.nw-watchlist-subtitle {
+  font-family: var(--nw-font-body);
+  font-size: 14px;
+  color: var(--nw-text-secondary);
+  line-height: 1.5;
+}
+
+/* Adder */
+.nw-watchlist-adder {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.nw-watchlist-select {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
+  color: var(--nw-text);
+  font-family: var(--nw-font-body);
+  font-size: 13px;
+  outline: none;
+}
+
+.nw-watchlist-select:focus {
+  border-color: var(--nw-accent);
+}
+
+.nw-watchlist-add-btn {
+  padding: 10px 20px;
+  background: var(--nw-accent);
+  color: #000;
+  border: none;
+  border-radius: var(--nw-radius);
+  font-family: var(--nw-font-body);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--nw-transition);
+  white-space: nowrap;
+}
+
+.nw-watchlist-add-btn:hover {
+  background: var(--nw-accent-hover);
+}
+
+/* Stats bar */
+.nw-watchlist-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.nw-watchlist-stat {
+  background: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
+  padding: 16px;
+  text-align: center;
+}
+
+.nw-watchlist-stat-num {
+  font-family: var(--nw-font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--nw-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.nw-watchlist-stat-label {
+  font-family: var(--nw-font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--nw-text-muted);
+  margin-top: 4px;
+}
+
+/* Card grid */
+.nw-watchlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.nw-watchlist-card {
+  background: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
+  padding: 20px;
+  transition: border-color var(--nw-transition);
+}
+
+.nw-watchlist-card:hover {
+  border-color: rgba(255, 102, 0, 0.3);
+}
+
+.nw-watchlist-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.nw-watchlist-card-title {
+  font-family: var(--nw-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--nw-text);
+}
+
+.nw-watchlist-remove {
+  background: none;
+  border: none;
+  color: var(--nw-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  transition: color var(--nw-transition);
+}
+
+.nw-watchlist-remove:hover {
+  color: var(--nw-error);
+}
+
+.nw-watchlist-card-score {
+  font-family: var(--nw-font-mono);
+  font-size: 36px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+.nw-watchlist-card-trend {
+  font-family: var(--nw-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.nw-watchlist-card-conf {
+  font-family: var(--nw-font-body);
+  font-size: 11px;
+  color: var(--nw-text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.nw-watchlist-card-signals {
+  font-family: var(--nw-font-body);
+  font-size: 12px;
+  color: var(--nw-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--nw-radius-sm);
+}
+
+.nw-watchlist-card-threshold {
+  margin-bottom: 8px;
+}
+
+.nw-watchlist-card-threshold label {
+  font-family: var(--nw-font-body);
+  font-size: 11px;
+  color: var(--nw-text-muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.nw-watchlist-threshold-input {
+  width: 60px;
+  padding: 6px 8px;
+  background: var(--nw-bg);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius-sm);
+  color: var(--nw-text);
+  font-family: var(--nw-font-mono);
+  font-size: 13px;
+  outline: none;
+}
+
+.nw-watchlist-threshold-input:focus {
+  border-color: var(--nw-accent);
+}
+
+.nw-watchlist-card-notes label {
+  font-family: var(--nw-font-body);
+  font-size: 11px;
+  color: var(--nw-text-muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.nw-watchlist-notes-input {
+  width: 100%;
+  padding: 8px;
+  background: var(--nw-bg);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius-sm);
+  color: var(--nw-text);
+  font-family: var(--nw-font-body);
+  font-size: 12px;
+  resize: vertical;
+  outline: none;
+}
+
+.nw-watchlist-notes-input:focus {
+  border-color: var(--nw-accent);
+}
+
+.nw-watchlist-card-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--nw-border-subtle);
+}
+
+.nw-watchlist-link {
+  font-family: var(--nw-font-body);
+  font-size: 12px;
+  color: var(--nw-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.nw-watchlist-link:hover {
+  text-decoration: underline;
+}
+
+/* Empty state */
+.nw-watchlist-empty {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.nw-watchlist-empty h3 {
+  font-family: var(--nw-font-display);
+  font-size: 18px;
+  color: var(--nw-text-secondary);
+  margin-bottom: 8px;
+}
+
+.nw-watchlist-empty p {
+  font-family: var(--nw-font-body);
+  font-size: 14px;
+  color: var(--nw-text-muted);
+}
+
+.nw-wl-quick {
+  background: var(--nw-surface);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius-sm);
+  color: var(--nw-text-secondary);
+  font-family: var(--nw-font-body);
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  margin: 4px;
+  transition: all var(--nw-transition);
+}
+
+.nw-wl-quick:hover {
+  border-color: var(--nw-accent);
+  color: var(--nw-accent);
+}
+
+@media (max-width: 768px) {
+  .nw-watchlist-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .nw-watchlist-adder {
+    flex-direction: column;
+  }
+}
