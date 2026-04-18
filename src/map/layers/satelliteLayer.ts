@@ -3,6 +3,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { renderPopupCard } from '../PopupCard.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
+import * as satellite from 'satellite.js';
 
 interface SatelliteData {
   name: string;
@@ -18,6 +19,11 @@ interface SatelliteData {
   meanMotion: number;
   epoch: string;
   altitude: number;
+  /** TLE lines for SGP4 propagation (if available from CelesTrak). */
+  tle1?: string;
+  tle2?: string;
+  /** Parsed satellite record for SGP4. Cached after first computation. */
+  satrec?: satellite.SatRec;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -83,53 +89,72 @@ export class SatelliteLayer implements MapDataLayer {
   }
 
   private computePositions(): GeoJSON.FeatureCollection {
-    const now = Date.now();
-    const toRad = Math.PI / 180;
+    const now = new Date();
 
     return {
       type: 'FeatureCollection',
-      features: this.data.map((sat) => {
-        // Time since epoch in minutes
-        const epochMs = new Date(sat.epoch).getTime();
-        const elapsedMin = (now - epochMs) / 60000;
+      features: this.data
+        .map((sat) => {
+          let lat: number;
+          let lon: number;
+          let altKm: number = sat.altitude;
 
-        // Mean anomaly propagation
-        const meanMotionDegPerMin = (sat.meanMotion * 360) / 1440;
-        const currentMA = ((sat.meanAnomaly + meanMotionDegPerMin * elapsedMin) % 360) * toRad;
+          // Use SGP4 propagation if TLE lines are available (±1km accuracy)
+          if (sat.tle1 && sat.tle2) {
+            try {
+              if (!sat.satrec) {
+                sat.satrec = satellite.twoline2satrec(sat.tle1, sat.tle2);
+              }
+              const posVel = satellite.propagate(sat.satrec, now);
+              if (posVel.position && typeof posVel.position !== 'boolean') {
+                const gmst = satellite.gstime(now);
+                const geo = satellite.eciToGeodetic(posVel.position, gmst);
+                lat = satellite.degreesLat(geo.latitude);
+                lon = satellite.degreesLong(geo.longitude);
+                altKm = geo.height;
+              } else {
+                // SGP4 propagation failed — skip this satellite
+                return null;
+              }
+            } catch {
+              // Invalid TLE or propagation error — skip
+              return null;
+            }
+          } else {
+            // Fallback to simplified Keplerian (legacy, ±10km accuracy)
+            const toRad = Math.PI / 180;
+            const epochMs = new Date(sat.epoch).getTime();
+            const elapsedMin = (now.getTime() - epochMs) / 60000;
+            const meanMotionDegPerMin = (sat.meanMotion * 360) / 1440;
+            const currentMA = ((sat.meanAnomaly + meanMotionDegPerMin * elapsedMin) % 360) * toRad;
+            const earthRotation = ((now.getTime() / 86164000) * 360) % 360;
+            const raanRate = -1.5 * 0.00108263 * Math.cos(sat.inclination * toRad) * sat.meanMotion;
+            const raan = (sat.raan + raanRate * (elapsedMin / 1440) - earthRotation) * toRad;
+            const argLat = currentMA + sat.argPericenter * toRad;
+            lat = Math.asin(Math.sin(sat.inclination * toRad) * Math.sin(argLat)) / toRad;
+            lon =
+              ((Math.atan2(Math.cos(sat.inclination * toRad) * Math.sin(argLat), Math.cos(argLat)) / toRad +
+                raan / toRad +
+                180) %
+                360) -
+              180;
+          }
 
-        // Earth rotation: ~360 deg / 86164s (sidereal day)
-        const earthRotation = ((now / 86164000) * 360) % 360;
-
-        // RAAN precession (J2)
-        const raanRate = -1.5 * 0.00108263 * Math.cos(sat.inclination * toRad) * sat.meanMotion;
-        const raan = (sat.raan + raanRate * (elapsedMin / 1440) - earthRotation) * toRad;
-
-        // Argument of latitude
-        const argLat = currentMA + sat.argPericenter * toRad;
-
-        // Latitude from inclination and argument of latitude
-        const lat = Math.asin(Math.sin(sat.inclination * toRad) * Math.sin(argLat)) / toRad;
-        // Longitude from RAAN and position in orbit
-        const lon =
-          ((Math.atan2(Math.cos(sat.inclination * toRad) * Math.sin(argLat), Math.cos(argLat)) / toRad +
-            raan / toRad +
-            180) %
-            360) -
-          180;
-
-        return {
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: [lon, lat] },
-          properties: {
-            name: sat.name,
-            type: sat.type,
-            country: sat.country,
-            altitude: sat.altitude,
-            noradId: sat.noradId,
-            color: TYPE_COLORS[sat.type] || '#6b7280',
-          },
-        };
-      }),
+          return {
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [lon, lat] },
+            properties: {
+              name: sat.name,
+              type: sat.type,
+              country: sat.country,
+              altitude: Math.round(altKm),
+              noradId: sat.noradId,
+              color: TYPE_COLORS[sat.type] || '#6b7280',
+              propagation: sat.tle1 ? 'SGP4' : 'Keplerian',
+            },
+          };
+        })
+        .filter(Boolean) as GeoJSON.Feature[],
     };
   }
 

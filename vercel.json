@@ -24,6 +24,7 @@
     { "path": "/api/cron/source-ooni", "schedule": "0 */6 * * *" },
     { "path": "/api/cron/source-promed", "schedule": "0 */6 * * *" },
     { "path": "/api/cron/source-unhcr", "schedule": "0 3 15 * *" },
+    { "path": "/api/cron/source-reliefweb", "schedule": "0 4 * * *" },
     { "path": "/api/cron/alert-x", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/dark-vessels", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/data-lake", "schedule": "*/5 * * * *" },

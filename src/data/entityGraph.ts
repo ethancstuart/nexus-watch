@@ -332,3 +332,41 @@ export function getSubgraph(nodeIds: string[]): { nodes: GraphNode[]; edges: Gra
   const edges = EDGES.filter((e) => idSet.has(e.source) && idSet.has(e.target));
   return { nodes, edges };
 }
+
+/**
+ * Enrich graph data with live CII scores for dynamic visualization.
+ *
+ * - Country nodes get a `ciiScore` metadata field
+ * - Conflict edges get boosted weights when CII is high
+ * - Returns enriched copies (does not mutate originals)
+ */
+export function enrichGraphWithCII(ciiScores: Map<string, number>): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const enrichedNodes = GRAPH_DATA.nodes.map((n) => {
+    if (n.type === 'country') {
+      const cii = ciiScores.get(n.id) || 0;
+      return {
+        ...n,
+        metadata: {
+          ...n.metadata,
+          ciiScore: cii,
+          ciiLabel: cii >= 70 ? 'CRITICAL' : cii >= 50 ? 'HIGH' : cii >= 30 ? 'ELEVATED' : 'LOW',
+        },
+      };
+    }
+    return n;
+  });
+
+  const enrichedEdges = EDGES.map((e) => {
+    if (e.type === 'conflicts' || e.type === 'threatens') {
+      const sourceCII = ciiScores.get(e.source) || 0;
+      const targetCII = ciiScores.get(e.target) || 0;
+      const maxCII = Math.max(sourceCII, targetCII);
+      // Boost conflict edge weight when CII is high (adds 0-3 based on instability)
+      const boost = Math.round(maxCII / 30);
+      return { ...e, weight: Math.min(10, (e.weight || 5) + boost) };
+    }
+    return e;
+  });
+
+  return { nodes: enrichedNodes, edges: enrichedEdges };
+}
