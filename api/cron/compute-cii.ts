@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { cronJitter } from '../_cron-utils.js';
 import { BASELINE_CONFLICT, BASELINE_GOVERNANCE, MARKET_RISK } from '../_lib/cii-baselines.js';
+import { detectCompoundSignals } from '../_lib/compound-signals.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
@@ -389,6 +390,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       inserted++;
     }
 
+    // ═══ Compound Signals — multi-source convergence detection ═══
+    const compoundSignals = detectCompoundSignals(dbData);
+    if (compoundSignals.length > 0) {
+      console.log(`[compute-cii] ${compoundSignals.length} compound signals detected:`);
+      for (const sig of compoundSignals) {
+        console.log(
+          `  ${sig.severity.toUpperCase()}: ${sig.name} — ${sig.countryCode} (confidence: ${sig.confidence}%, boost: +${sig.ciiBoost})`,
+        );
+        // Store compound signals in crisis_triggers for the alert system
+        try {
+          await sql`
+            INSERT INTO crisis_triggers (country_code, playbook_key, trigger_type, cii_score, magnitude, dedup_key, notes)
+            VALUES (${sig.countryCode}, ${sig.id}, ${'compound-signal'}, ${sig.confidence}, ${sig.ciiBoost},
+                    ${`compound-${sig.id}-${new Date().toISOString().split('T')[0]}`},
+                    ${sig.description.slice(0, 500)})
+            ON CONFLICT (dedup_key) DO NOTHING
+          `;
+        } catch {
+          /* dedup insert is best-effort */
+        }
+      }
+    }
+
     // Also cache GDELT conflict + news data (GDELT blocks Vercel IPs on direct calls)
     let gdeltCached = 0;
     try {
@@ -455,6 +479,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         wikiSpikeCountries: dbData.wikiSpikes.size,
       },
       avgLiveSourcesPerCountry: avgLiveSources,
+      compoundSignals: compoundSignals.length,
+      compoundSignalDetails: compoundSignals.map((s) => ({
+        name: s.name,
+        country: s.countryCode,
+        severity: s.severity,
+        confidence: s.confidence,
+      })),
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
