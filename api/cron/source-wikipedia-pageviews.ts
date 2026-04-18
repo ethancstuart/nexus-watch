@@ -68,11 +68,32 @@ const ARTICLES: Array<{ countryCode: string; article: string }> = [
   { countryCode: 'ML', article: 'Mali' },
   { countryCode: 'BF', article: 'Burkina_Faso' },
   { countryCode: 'NE', article: 'Niger' },
+  // Central Asia + Caucasus
+  { countryCode: 'KZ', article: 'Kazakhstan' },
+  { countryCode: 'UZ', article: 'Uzbekistan' },
+  { countryCode: 'GE', article: 'Georgia_(country)' },
+  { countryCode: 'AZ', article: 'Azerbaijan' },
+  { countryCode: 'AM', article: 'Armenia' },
+  // Southeast Asia
+  { countryCode: 'TH', article: 'Thailand' },
+  { countryCode: 'VN', article: 'Vietnam' },
+  { countryCode: 'ID', article: 'Indonesia' },
+  { countryCode: 'PH', article: 'Philippines' },
+  // South America
+  { countryCode: 'CO', article: 'Colombia' },
+  { countryCode: 'AR', article: 'Argentina' },
+  { countryCode: 'MX', article: 'Mexico' },
+  { countryCode: 'CL', article: 'Chile' },
+  { countryCode: 'PE', article: 'Peru' },
+  // Africa extended
+  { countryCode: 'ZA', article: 'South_Africa' },
+  { countryCode: 'KE', article: 'Kenya' },
   // Chokepoints & infrastructure
   { countryCode: 'IR', article: 'Strait_of_Hormuz' },
   { countryCode: 'YE', article: 'Bab-el-Mandeb' },
   { countryCode: 'EG', article: 'Suez_Canal' },
   { countryCode: 'TW', article: 'Taiwan_Strait' },
+  { countryCode: 'MY', article: 'Strait_of_Malacca' },
 ];
 
 const WIKI_API = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents';

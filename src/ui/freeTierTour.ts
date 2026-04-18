@@ -47,8 +47,44 @@ export function showFreeTierTour(container: HTMLElement): void {
     return;
   }
 
-  // Wait for map to render
-  setTimeout(() => renderTour(container), 2500);
+  // Wait for map to actually render before showing tour
+  waitForMapReady(container).then(() => renderTour(container));
+}
+
+function waitForMapReady(container: HTMLElement): Promise<void> {
+  return new Promise((resolve) => {
+    // Check if map canvas already exists
+    if (container.querySelector('.maplibregl-canvas-container')) {
+      // Small delay for layers to populate
+      requestAnimationFrame(() => setTimeout(resolve, 500));
+      return;
+    }
+
+    // Use MutationObserver to wait for map canvas to appear
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node instanceof HTMLElement) {
+            if (
+              node.classList?.contains('maplibregl-canvas-container') ||
+              node.querySelector?.('.maplibregl-canvas-container')
+            ) {
+              observer.disconnect();
+              requestAnimationFrame(() => setTimeout(resolve, 500));
+              return;
+            }
+          }
+        }
+      }
+    });
+    observer.observe(container, { childList: true, subtree: true });
+
+    // Safety timeout — if map never loads, show tour anyway after 10s
+    setTimeout(() => {
+      observer.disconnect();
+      resolve();
+    }, 10_000);
+  });
 }
 
 function renderTour(container: HTMLElement): void {
