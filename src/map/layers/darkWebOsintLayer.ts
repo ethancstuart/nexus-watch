@@ -207,7 +207,8 @@ export class DarkWebOsintLayer implements MapDataLayer {
   readonly name = 'Cyber Threat Reference';
   readonly category = 'intelligence' as const;
   readonly icon = '🔒';
-  readonly description = 'Reference: Known threat infrastructure from CISA, abuse.ch, CERT-UA. Curated quarterly, not live detection.';
+  readonly description =
+    'Reference: Known threat infrastructure from CISA, abuse.ch, CERT-UA. Curated quarterly, not live detection.';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

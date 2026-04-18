@@ -120,7 +120,8 @@ export class CyberAttackCampaignsLayer implements MapDataLayer {
   readonly name = 'APT Campaigns (MITRE + Live Signal)';
   readonly category = 'intelligence' as const;
   readonly icon = '🔓';
-  readonly description = 'Reference: Known APT group regions (MITRE ATT&CK) with activity scores derived from live Cloudflare Radar internet outage correlation.';
+  readonly description =
+    'Reference: Known APT group regions (MITRE ATT&CK) with activity scores derived from live Cloudflare Radar internet outage correlation.';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

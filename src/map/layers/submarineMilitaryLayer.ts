@@ -334,7 +334,8 @@ export class SubmarineMilitaryLayer implements MapDataLayer {
   readonly name = 'Naval Installations (Reference)';
   readonly category = 'conflict' as const;
   readonly icon = '🚢';
-  readonly description = 'Reference: Major naval bases with submarine tenants. IISS Military Balance + OSINT, reviewed annually.';
+  readonly description =
+    'Reference: Major naval bases with submarine tenants. IISS Military Balance + OSINT, reviewed annually.';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

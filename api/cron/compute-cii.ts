@@ -150,11 +150,18 @@ async function fetchLayerData(): Promise<Map<string, GeoEvent[]>> {
   return layers;
 }
 
-function computeScore(
+async function computeScore(
   country: { code: string; lat: number; lon: number; radius: number },
   layerData: Map<string, GeoEvent[]>,
-): { score: number; components: Record<string, number> } {
-  // Conflict (0-20) — live data + baseline for countries at war
+  dbData: {
+    ooni: Map<string, number>;
+    fxVolatility: Map<string, number>;
+    wikiSpikes: Map<string, number>;
+  },
+): Promise<{ score: number; components: Record<string, number>; liveSourceCount: number }> {
+  let liveSourceCount = 0;
+
+  // ═══ Conflict (0-20) — ACLED live + baseline ═══
   const acled = layerData.get('acled') || [];
   const nearbyConflicts = acled.filter(
     (e) => e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius),
@@ -163,34 +170,72 @@ function computeScore(
   const liveConflict = (nearbyConflicts.length / 5) * 8 + (fatalities / 50) * 12;
   const baselineConflict = BASELINE_CONFLICT[country.code] ?? 0;
   const conflict = Math.min(20, Math.max(liveConflict, baselineConflict));
+  if (nearbyConflicts.length > 0) liveSourceCount++;
 
-  // Disasters (0-15)
+  // ═══ Disasters (0-15) — earthquakes + fires (live) ═══
   const quakes = layerData.get('earthquakes') || [];
   const nearbyQuakes = quakes.filter(
     (e) => e.lat && e.lon && isNear(e.lat, e.lon, country.lat, country.lon, country.radius),
   );
   const maxMag = Math.max(0, ...nearbyQuakes.map((e) => Number(e.magnitude) || 0));
   const disasters = Math.min(15, nearbyQuakes.length * 1.5 + (maxMag > 5 ? (maxMag - 5) * 4 : 0));
+  if (nearbyQuakes.length > 0) liveSourceCount++;
 
-  // Sentiment (0-15) — approximate from conflict intensity
-  const sentiment = Math.min(15, conflict * 0.5 + disasters * 0.3);
+  // ═══ Sentiment (0-15) — Wikipedia pageview spikes + conflict-derived ═══
+  // Use Wikipedia z-score spike data if available, otherwise fall back to derivative
+  const wikiZScore = dbData.wikiSpikes.get(country.code) || 0;
+  let sentiment: number;
+  if (wikiZScore > 1) {
+    // Wikipedia attention surge detected — use as real sentiment signal
+    const wikiContrib = Math.min(8, wikiZScore * 2);
+    sentiment = Math.min(15, wikiContrib + conflict * 0.3);
+    liveSourceCount++;
+  } else {
+    // Fallback to conflict-derived proxy
+    sentiment = Math.min(15, conflict * 0.5 + disasters * 0.3);
+  }
 
-  // Infrastructure (0-15)
+  // ═══ Infrastructure (0-15) — OONI censorship data from DB ═══
   let infrastructure = 0;
+  const ooniBlocked = dbData.ooni.get(country.code) || 0;
+  if (ooniBlocked > 50) {
+    infrastructure = 12;
+    liveSourceCount++;
+  } else if (ooniBlocked > 10) {
+    infrastructure = 7;
+    liveSourceCount++;
+  } else if (ooniBlocked > 0) {
+    infrastructure = 3;
+    liveSourceCount++;
+  }
+  // Also check layerData outages (legacy path)
   const outages = layerData.get('internet-outages') || [];
   const outageMatch = outages.find((o) => (o as Record<string, unknown>).code === country.code);
   if (outageMatch) {
     const severity = (outageMatch as Record<string, unknown>).severity as string;
-    infrastructure = severity === 'critical' ? 15 : severity === 'high' ? 10 : severity === 'moderate' ? 5 : 1;
+    const outageScore = severity === 'critical' ? 15 : severity === 'high' ? 10 : severity === 'moderate' ? 5 : 1;
+    infrastructure = Math.max(infrastructure, outageScore);
   }
 
-  // Governance (0-15) — baseline + conflict-driven
+  // ═══ Governance (0-15) — baseline + conflict-driven + OONI censorship signal ═══
   const baselineGov = BASELINE_GOVERNANCE[country.code] ?? 0;
   const conflictGov = conflict > 10 ? 12 : conflict > 5 ? 8 : conflict > 2 ? 4 : 1;
-  const governance = Math.min(15, Math.max(baselineGov, conflictGov));
+  // OONI censorship adds to governance instability (censorship = regime fear)
+  const censorshipGov = ooniBlocked > 50 ? 4 : ooniBlocked > 10 ? 2 : 0;
+  const governance = Math.min(15, Math.max(baselineGov, conflictGov) + censorshipGov);
 
-  // Market Exposure (0-20)
-  const marketExposure = MARKET_RISK[country.code] ?? 8;
+  // ═══ Market Exposure (0-20) — FX volatility (live) + baseline ═══
+  let marketExposure = MARKET_RISK[country.code] ?? 8;
+  const fxVol = dbData.fxVolatility.get(country.code) || 0;
+  if (fxVol > 5) {
+    marketExposure = Math.min(20, marketExposure + 6); // Currency crisis signal
+    liveSourceCount++;
+  } else if (fxVol > 3) {
+    marketExposure = Math.min(20, marketExposure + 3); // Elevated volatility
+    liveSourceCount++;
+  } else if (fxVol > 1) {
+    liveSourceCount++; // Data exists, normal vol
+  }
 
   const score = Math.round(
     Math.min(100, conflict + disasters + sentiment + infrastructure + governance + marketExposure),
@@ -206,7 +251,62 @@ function computeScore(
       governance: Math.round(governance * 10) / 10,
       marketExposure: Math.round(marketExposure * 10) / 10,
     },
+    liveSourceCount,
   };
+}
+
+/** Pre-fetch all DB-stored data sources into Maps for fast per-country lookup. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchDbData(sql: any): Promise<{
+  ooni: Map<string, number>;
+  fxVolatility: Map<string, number>;
+  wikiSpikes: Map<string, number>;
+}> {
+  const ooni = new Map<string, number>();
+  const fxVolatility = new Map<string, number>();
+  const wikiSpikes = new Map<string, number>();
+
+  // OONI censorship — confirmed blocks in last 3 days
+  try {
+    const rows = await sql`
+      SELECT country_code, SUM(confirmed_blocked) as total_blocked
+      FROM ooni_measurements
+      WHERE measurement_date > CURRENT_DATE - INTERVAL '3 days'
+      GROUP BY country_code
+    `;
+    for (const r of rows) ooni.set(String(r.country_code), Number(r.total_blocked) || 0);
+  } catch {
+    /* table may not exist yet */
+  }
+
+  // FX volatility — latest 7-day vol per country
+  try {
+    const rows = await sql`
+      SELECT DISTINCT ON (country_code) country_code, volatility_7d
+      FROM fx_rates
+      WHERE volatility_7d IS NOT NULL
+      ORDER BY country_code, date DESC
+    `;
+    for (const r of rows) fxVolatility.set(String(r.country_code), Number(r.volatility_7d) || 0);
+  } catch {
+    /* table may not exist yet */
+  }
+
+  // Wikipedia pageview spikes — max z-score per country in last 2 days
+  try {
+    const rows = await sql`
+      SELECT country_code, MAX(z_score) as max_z
+      FROM wikipedia_pageviews
+      WHERE date > CURRENT_DATE - INTERVAL '2 days'
+        AND z_score > 1
+      GROUP BY country_code
+    `;
+    for (const r of rows) wikiSpikes.set(String(r.country_code), Number(r.max_z) || 0);
+  } catch {
+    /* table may not exist yet */
+  }
+
+  return { ooni, fxVolatility, wikiSpikes };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -230,10 +330,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Compute CII for all countries
     const sql = neon(dbUrl);
+
+    // Pre-fetch all DB-stored data sources (OONI, FX, Wikipedia) in one batch
+    const dbData = await fetchDbData(sql);
     let inserted = 0;
+    let totalLiveSources = 0;
 
     for (const country of COUNTRIES) {
-      const { score, components } = computeScore(country, layerData);
+      const { score, components, liveSourceCount } = await computeScore(country, layerData, dbData);
+      totalLiveSources += liveSourceCount;
 
       await sql`
         INSERT INTO country_cii_history (country_code, country_name, score, components)
@@ -289,10 +394,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       /* GDELT unavailable */
     }
 
+    const avgLiveSources = inserted > 0 ? Math.round((totalLiveSources / inserted) * 10) / 10 : 0;
+    console.log(
+      `[compute-cii] scored=${inserted}, avgLiveSources=${avgLiveSources}, ` +
+        `ooni=${dbData.ooni.size}, fx=${dbData.fxVolatility.size}, wiki=${dbData.wikiSpikes.size}, ` +
+        `gdelt=${gdeltCached}`,
+    );
+
     return res.json({
       success: true,
       countriesScored: inserted,
       gdeltCached,
+      liveDataSources: {
+        acledEvents: (layerData.get('acled') || []).length,
+        earthquakes: (layerData.get('earthquakes') || []).length,
+        ooniCountries: dbData.ooni.size,
+        fxCountries: dbData.fxVolatility.size,
+        wikiSpikeCountries: dbData.wikiSpikes.size,
+      },
+      avgLiveSourcesPerCountry: avgLiveSources,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
