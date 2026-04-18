@@ -18,22 +18,29 @@ import { type AdapterPostResult, type PlatformAdapter, shadowResult, stubResult 
 
 const META_API = 'https://graph.threads.net/v1.0';
 
-async function postToThreads(content: string): Promise<AdapterPostResult> {
+async function postToThreads(content: string, imageUrl?: string): Promise<AdapterPostResult> {
   const token = process.env.THREADS_ACCESS_TOKEN;
   const userId = process.env.THREADS_USER_ID;
   if (!token || !userId) {
     return { ok: false, error: 'THREADS_ACCESS_TOKEN or THREADS_USER_ID not set' };
   }
   try {
-    // Step 1: create container.
+    // Step 1: create container. Use IMAGE media type if image_url provided (D-5).
+    const containerBody: Record<string, string> = {
+      text: content,
+      access_token: token,
+    };
+    if (imageUrl) {
+      containerBody.media_type = 'IMAGE';
+      containerBody.image_url = imageUrl;
+    } else {
+      containerBody.media_type = 'TEXT';
+    }
+
     const containerRes = await fetch(`${META_API}/${encodeURIComponent(userId)}/threads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        media_type: 'TEXT',
-        text: content,
-        access_token: token,
-      }),
+      body: JSON.stringify(containerBody),
       signal: AbortSignal.timeout(15000),
     });
     if (!containerRes.ok) {
@@ -72,6 +79,6 @@ export const threadsAdapter: PlatformAdapter = {
     if (!process.env.THREADS_ACCESS_TOKEN || !process.env.THREADS_USER_ID) {
       return stubResult('threads', input.content);
     }
-    return postToThreads(input.content);
+    return postToThreads(input.content, input.image_url);
   },
 };

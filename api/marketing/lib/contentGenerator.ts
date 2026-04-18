@@ -28,6 +28,7 @@ const MODEL_FOR_PLATFORM: Record<Platform, string> = {
   substack: 'claude-sonnet-4-5',
   medium: 'claude-sonnet-4-5',
   beehiiv: 'claude-haiku-4-5',
+  instagram: 'claude-haiku-4-5',
 };
 
 const MAX_TOKENS_FOR_PLATFORM: Record<Platform, number> = {
@@ -38,6 +39,7 @@ const MAX_TOKENS_FOR_PLATFORM: Record<Platform, number> = {
   substack: 4000,
   medium: 4000,
   beehiiv: 1500,
+  instagram: 800, // caption for image post
 };
 
 export interface GenerationRequest {

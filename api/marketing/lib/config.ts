@@ -67,6 +67,7 @@ export const DEFAULT_CONFIG: MarketingConfig = {
     threads: 1,
     bluesky: 2,
     beehiiv: 1,
+    instagram: 2,
   },
   pillarMix: {
     signal: 0.4,

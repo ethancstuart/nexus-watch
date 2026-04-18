@@ -30,6 +30,7 @@ import { substackAdapter } from '../adapters/substackAdapter.js';
 import { mediumAdapter } from '../adapters/mediumAdapter.js';
 import { threadsAdapter } from '../adapters/threadsAdapter.js';
 import { blueskyAdapter } from '../adapters/blueskyAdapter.js';
+import { instagramAdapter } from '../adapters/instagramAdapter.js';
 
 const ADAPTERS: Partial<Record<Platform, PlatformAdapter>> = {
   x: xAdapter,
@@ -38,6 +39,7 @@ const ADAPTERS: Partial<Record<Platform, PlatformAdapter>> = {
   medium: mediumAdapter,
   threads: threadsAdapter,
   bluesky: blueskyAdapter,
+  instagram: instagramAdapter,
 };
 
 const VOICE_HOLD_THRESHOLD = 70;

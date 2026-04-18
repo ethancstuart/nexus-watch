@@ -24,7 +24,11 @@ import {
 const TYPEFULLY_DRAFT_URL = 'https://api.typefully.com/v1/drafts/';
 const X_API_TWEETS_URL = 'https://api.x.com/2/tweets';
 
-async function postViaTypefully(content: string, format: AdapterPostInput['format']): Promise<AdapterPostResult> {
+async function postViaTypefully(
+  content: string,
+  format: AdapterPostInput['format'],
+  imageUrl?: string,
+): Promise<AdapterPostResult> {
   const apiKey = process.env.TYPEFULLY_API_KEY;
   if (!apiKey) return { ok: false, error: 'TYPEFULLY_API_KEY not set' };
 
@@ -37,6 +41,11 @@ async function postViaTypefully(content: string, format: AdapterPostInput['forma
     auto_plug_enabled: false,
     schedule_date: 'next-free-slot',
   };
+
+  // Pass image URL to Typefully if available (D-5 visual posts)
+  if (imageUrl) {
+    body.media_urls = [imageUrl];
+  }
 
   try {
     const res = await fetch(TYPEFULLY_DRAFT_URL, {
@@ -96,7 +105,7 @@ export const xAdapter: PlatformAdapter = {
   async post(input, shadow) {
     if (shadow) return shadowResult('x', input.content);
     if (process.env.TYPEFULLY_API_KEY) {
-      return postViaTypefully(input.content, input.format);
+      return postViaTypefully(input.content, input.format, input.image_url);
     }
     if (process.env.X_BEARER_TOKEN) {
       return postViaXAPI(input.content);

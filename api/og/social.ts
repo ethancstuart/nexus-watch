@@ -1,0 +1,153 @@
+import { ImageResponse } from '@vercel/og';
+import type { VercelRequest } from '@vercel/node';
+
+export const config = { runtime: 'edge' };
+
+/**
+ * Programmatic social card generator (D-5, 2026-04-18).
+ *
+ * Renders branded NexusWatch cards as PNG via @vercel/og (Satori engine).
+ * Uses HTML string API (no JSX) since the project has no React dependency.
+ *
+ * Usage:
+ *   GET /api/og/social?type=cii-card&country=UA&score=68&delta=3
+ *   GET /api/og/social?type=crisis&country=SD&score=78&delta=8&signals=RSF+advances|Displacement
+ *   GET /api/og/social?type=cii-card&country=TW&size=1080x1080  (Instagram)
+ *   GET /api/og/social  (brand card, default)
+ *
+ * Sizes: 1200x630 (default), 1080x1080 (Instagram square)
+ */
+
+const COUNTRY_NAMES: Record<string, string> = {
+  AF: 'Afghanistan', AR: 'Argentina', AU: 'Australia', BD: 'Bangladesh',
+  BF: 'Burkina Faso', BR: 'Brazil', CA: 'Canada', CD: 'DR Congo',
+  CN: 'China', CO: 'Colombia', DE: 'Germany', EG: 'Egypt', ET: 'Ethiopia',
+  FR: 'France', GB: 'United Kingdom', HT: 'Haiti', IL: 'Israel', IN: 'India',
+  IQ: 'Iraq', IR: 'Iran', IT: 'Italy', JP: 'Japan', KP: 'North Korea',
+  KR: 'South Korea', LB: 'Lebanon', LY: 'Libya', ML: 'Mali', MM: 'Myanmar',
+  MX: 'Mexico', NG: 'Nigeria', PK: 'Pakistan', PL: 'Poland', PS: 'Palestine',
+  RO: 'Romania', RU: 'Russia', SA: 'Saudi Arabia', SD: 'Sudan', SO: 'Somalia',
+  SS: 'South Sudan', SY: 'Syria', TD: 'Chad', TR: 'Turkey', TW: 'Taiwan',
+  UA: 'Ukraine', US: 'United States', VE: 'Venezuela', YE: 'Yemen',
+  ZA: 'South Africa',
+};
+
+function flag(code: string): string {
+  return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join('');
+}
+
+function ciiColor(score: number): string {
+  if (score >= 70) return '#dc2626';
+  if (score >= 50) return '#ff6600';
+  if (score >= 30) return '#e5a913';
+  return '#00d4aa';
+}
+
+function ciiLabel(score: number): string {
+  if (score >= 70) return 'CRITICAL';
+  if (score >= 50) return 'HIGH';
+  if (score >= 30) return 'ELEVATED';
+  return 'LOW';
+}
+
+export default async function handler(req: VercelRequest) {
+  const url = new URL(req.url!, 'https://nexuswatch.dev');
+  const type = url.searchParams.get('type') || 'brand';
+  const sizeParam = url.searchParams.get('size') || '1200x630';
+  const [width, height] = sizeParam.split('x').map(Number);
+
+  const country = (url.searchParams.get('country') || 'UA').toUpperCase();
+  const countryName = COUNTRY_NAMES[country] || country;
+  const score = parseInt(url.searchParams.get('score') || '65', 10);
+  const delta = parseFloat(url.searchParams.get('delta') || '3');
+  const signals = url.searchParams.get('signals') || '';
+  const today = new Date().toISOString().split('T')[0];
+
+  let html: string;
+
+  if (type === 'cii-card') {
+    html = renderCiiCard(country, countryName, score, delta, today);
+  } else if (type === 'crisis') {
+    html = renderCrisisCard(country, countryName, score, delta, signals, today);
+  } else {
+    html = renderBrandCard();
+  }
+
+  // @vercel/og accepts HTML strings on Edge runtime — cast to satisfy TS
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return new ImageResponse(html as any, { width, height });
+}
+
+function renderCiiCard(country: string, countryName: string, score: number, delta: number, date: string): string {
+  const color = ciiColor(score);
+  const label = ciiLabel(score);
+  const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
+  const arrow = delta >= 0 ? '▲' : '▼';
+  const emoji = flag(country);
+
+  return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:#0a0a0a;padding:48px 64px;font-family:Inter,system-ui,sans-serif;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="color:#ff6600;font-size:18px;font-weight:700;letter-spacing:0.05em;">NEXUSWATCH</span>
+      <span style="color:${color};font-size:12px;font-weight:700;letter-spacing:0.12em;padding:4px 12px;border:1px solid ${color};border-radius:4px;">${label}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+        <span style="font-size:40px;">${emoji}</span>
+        <span style="color:#ededed;font-size:28px;font-weight:700;">${countryName}</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:12px;">
+        <span style="color:${color};font-size:72px;font-weight:700;font-family:monospace;line-height:1;">${score}</span>
+        <span style="color:${delta >= 0 ? '#dc2626' : '#00d4aa'};font-size:24px;font-weight:600;font-family:monospace;">${arrow} ${deltaStr}</span>
+      </div>
+      <span style="color:#666;font-size:14px;margin-top:8px;letter-spacing:0.08em;">COUNTRY INSTABILITY INDEX</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="color:#666;font-size:12px;">nexuswatch.dev</span>
+      <span style="color:#666;font-size:12px;">${date}</span>
+    </div>
+  </div>`;
+}
+
+function renderCrisisCard(country: string, countryName: string, score: number, delta: number, signals: string, date: string): string {
+  const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
+  const signalList = signals ? signals.split('|').slice(0, 3) : [];
+  const emoji = flag(country);
+
+  const signalHtml = signalList.map(s =>
+    `<div style="display:flex;align-items:center;gap:8px;">
+      <span style="color:#dc2626;font-size:14px;">●</span>
+      <span style="color:#999;font-size:14px;">${s.trim()}</span>
+    </div>`
+  ).join('');
+
+  return `<div style="display:flex;flex-direction:column;width:100%;height:100%;background:#0a0a0a;font-family:Inter,system-ui,sans-serif;">
+    <div style="display:flex;align-items:center;gap:12px;background:#dc2626;padding:16px 48px;">
+      <span style="color:#fff;font-size:14px;font-weight:700;letter-spacing:0.12em;">🔴 NEXUSWATCH CRITICAL ALERT</span>
+    </div>
+    <div style="display:flex;flex-direction:column;flex:1;padding:32px 48px;justify-content:space-between;">
+      <div style="display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+          <span style="font-size:40px;">${emoji}</span>
+          <div style="display:flex;flex-direction:column;">
+            <span style="color:#ededed;font-size:28px;font-weight:700;">${countryName}</span>
+            <span style="color:#dc2626;font-size:18px;font-weight:700;font-family:monospace;">CII ${score} (${deltaStr} 24h)</span>
+          </div>
+        </div>
+        ${signalHtml ? `<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">${signalHtml}</div>` : ''}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:#ff6600;font-size:14px;font-weight:700;">NEXUSWATCH</span>
+        <span style="color:#666;font-size:12px;">${date}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderBrandCard(): string {
+  return `<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;width:100%;height:100%;background:#0a0a0a;padding:48px;font-family:Inter,system-ui,sans-serif;">
+    <span style="color:#ff6600;font-size:32px;font-weight:700;letter-spacing:0.08em;margin-bottom:16px;">NEXUSWATCH</span>
+    <span style="color:#ededed;font-size:24px;font-weight:600;text-align:center;">Real-Time Geopolitical Intelligence</span>
+    <span style="color:#666;font-size:14px;margin-top:16px;letter-spacing:0.05em;">45+ data layers · 86 countries · AI-powered daily briefs</span>
+    <span style="color:#666;font-size:12px;margin-top:24px;">nexuswatch.dev</span>
+  </div>`;
+}

@@ -16,9 +16,9 @@
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 
-export type Platform = 'x' | 'linkedin' | 'substack' | 'medium' | 'threads' | 'bluesky' | 'beehiiv';
+export type Platform = 'x' | 'linkedin' | 'substack' | 'medium' | 'threads' | 'bluesky' | 'beehiiv' | 'instagram';
 
-const ALL_PLATFORMS: Platform[] = ['x', 'linkedin', 'substack', 'medium', 'threads', 'bluesky', 'beehiiv'];
+const ALL_PLATFORMS: Platform[] = ['x', 'linkedin', 'substack', 'medium', 'threads', 'bluesky', 'beehiiv', 'instagram'];
 
 const DAILY_ANTHROPIC_CAP = 200;
 
