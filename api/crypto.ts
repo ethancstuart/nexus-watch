@@ -31,14 +31,70 @@ const TOP_COINS = [
   'polygon',
 ];
 
+// Module-level cache to avoid CoinGecko rate limits (10-30 req/min free tier)
+let cachedCoins: unknown[] = [];
+let lastCryptoFetch = 0;
+const CRYPTO_CACHE_TTL = 120_000; // 2 minutes
+
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
+  // Return cached data if fresh enough
+  if (Date.now() - lastCryptoFetch < CRYPTO_CACHE_TTL && cachedCoins.length > 0) {
+    return res.setHeader('Cache-Control', 'public, s-maxage=120, max-age=120').json({
+      coins: cachedCoins,
+      fetchedAt: lastCryptoFetch,
+      cached: true,
+    });
+  }
+
   try {
     const ids = TOP_COINS.join(',');
     const response = await fetch(
       `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&sparkline=true&price_change_percentage=24h`,
+      { signal: AbortSignal.timeout(10000) },
     );
     if (!response.ok) {
-      return res.status(response.status).json({ error: 'Crypto data service error' });
+      // Try CoinCap as fallback
+      if (cachedCoins.length > 0) {
+        return res.json({ coins: cachedCoins, fetchedAt: lastCryptoFetch, cached: true, source: 'cache-fallback' });
+      }
+      try {
+        const capRes = await fetch('https://api.coincap.io/v2/assets?limit=10', {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (capRes.ok) {
+          const capData = (await capRes.json()) as {
+            data?: Array<{
+              id: string;
+              symbol: string;
+              name: string;
+              priceUsd: string;
+              changePercent24Hr: string;
+              marketCapUsd: string;
+            }>;
+          };
+          const fallbackCoins = (capData.data || []).map((c) => ({
+            id: c.id,
+            symbol: c.symbol,
+            name: c.name,
+            price: parseFloat(c.priceUsd) || 0,
+            change24h: parseFloat(c.changePercent24Hr) || 0,
+            marketCap: parseFloat(c.marketCapUsd) || 0,
+            volume: 0,
+            sparkline: [],
+            rank: 0,
+            high24h: 0,
+            low24h: 0,
+            ath: 0,
+            athChange: 0,
+          }));
+          cachedCoins = fallbackCoins;
+          lastCryptoFetch = Date.now();
+          return res.json({ coins: fallbackCoins, fetchedAt: lastCryptoFetch, source: 'coincap' });
+        }
+      } catch {
+        /* CoinCap also failed */
+      }
+      return res.json({ coins: [], error: 'Crypto data temporarily unavailable' });
     }
 
     const data = (await response.json()) as CoinGeckoMarket[];
@@ -59,10 +115,20 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       athChange: coin.ath_change_percentage,
     }));
 
-    return res.setHeader('Cache-Control', 'max-age=120').json({ coins, fetchedAt: Date.now() });
+    // Cache successful response
+    cachedCoins = coins;
+    lastCryptoFetch = Date.now();
+
+    return res
+      .setHeader('Cache-Control', 'public, s-maxage=120, max-age=120')
+      .json({ coins, fetchedAt: lastCryptoFetch });
   } catch (err) {
     console.error('Crypto API error:', err instanceof Error ? err.message : err);
-    return res.status(502).json({ error: 'Crypto data service error' });
+    // Return cached data on error instead of 502
+    if (cachedCoins.length > 0) {
+      return res.json({ coins: cachedCoins, fetchedAt: lastCryptoFetch, cached: true, source: 'error-fallback' });
+    }
+    return res.json({ coins: [], error: 'Crypto data temporarily unavailable' });
   }
 }
 

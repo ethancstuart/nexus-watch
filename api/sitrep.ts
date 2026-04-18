@@ -33,7 +33,14 @@ export default async function handler(req: Request) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'AI not configured' }), { status: 503, headers: CORS_HEADERS });
+    return new Response(
+      JSON.stringify({
+        available: false,
+        error: 'AI analyst is being configured',
+        hint: 'The AI intelligence analyst will be available shortly. In the meantime, explore the 45+ data layers on the map.',
+      }),
+      { status: 200, headers: CORS_HEADERS },
+    );
   }
 
   const body = (await req.json()) as SitrepBody;

@@ -10,7 +10,7 @@ export const config = { runtime: 'nodejs' };
 // Module-level cache — LL2 allows 15 req/hr, so cache aggressively
 let cachedLaunches: Launch[] = [];
 let lastFetch = 0;
-const CACHE_TTL = 300_000; // 5 minutes
+const CACHE_TTL = 3_600_000; // 1 hour — LL2 allows 15 req/hr, aggressive caching needed
 
 interface Launch {
   name: string;

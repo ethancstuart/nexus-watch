@@ -14,7 +14,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+    return res.json({
+      available: false,
+      narration: 'Cinema narration is being configured. Explore the globe manually while AI narration is set up.',
+    });
   }
 
   const { region, eventLabel, profileFocus, tensionIndex } = req.body as {

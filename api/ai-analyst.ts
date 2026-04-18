@@ -153,7 +153,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+  if (!apiKey) {
+    return res.json({
+      available: false,
+      response:
+        'The AI intelligence analyst is being configured. Use the map layers, CII scores, and data tools while AI analysis is being set up.',
+      sources: [],
+    });
+  }
 
   const { query, context } = req.body as { query?: string; context?: string };
   if (!query) return res.status(400).json({ error: 'query required' });

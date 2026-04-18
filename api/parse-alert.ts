@@ -23,7 +23,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+  if (!apiKey) {
+    return res.json({
+      available: false,
+      error: 'AI alert parsing is being configured',
+      hint: 'Set ANTHROPIC_API_KEY in Vercel environment variables to enable natural language alerts.',
+    });
+  }
 
   const { text } = req.body as { text: string };
   if (!text || text.length < 5) return res.status(400).json({ error: 'Alert text required (min 5 chars)' });
