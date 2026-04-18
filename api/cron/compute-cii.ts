@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless';
 import { cronJitter } from '../_cron-utils.js';
 import { BASELINE_CONFLICT, BASELINE_GOVERNANCE, MARKET_RISK } from '../_lib/cii-baselines.js';
 import { detectCompoundSignals } from '../_lib/compound-signals.js';
+import { buildFingerprint, findPatternMatches } from '../_lib/pattern-fingerprint.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
@@ -413,6 +414,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // ═══ Pattern Fingerprinting — "This looks like pre-invasion Ukraine 2022" ═══
+    const patternMatches: Array<{ country: string; match: string; similarity: number }> = [];
+    for (const country of COUNTRIES) {
+      const ciiRow = await sql`
+        SELECT score, components FROM country_cii_history
+        WHERE country_code = ${country.code}
+        ORDER BY timestamp DESC LIMIT 1
+      `;
+      if (ciiRow.length === 0) continue;
+      const comp = ciiRow[0].components as Record<string, number>;
+      const ooniBlocked = dbData.ooni.get(country.code) || 0;
+      const fxVol = dbData.fxVolatility.get(country.code) || 0;
+      const wikiZ = dbData.wikiSpikes.get(country.code) || 0;
+      const acledNearby = (layerData.get('acled') || []).filter(
+        (e) => e.lat && e.lon && Math.sqrt((e.lat - country.lat) ** 2 + (e.lon - country.lon) ** 2) < country.radius,
+      ).length;
+
+      const vector = buildFingerprint(
+        {
+          conflict: comp.conflict || 0,
+          disasters: comp.disasters || 0,
+          sentiment: comp.sentiment || 0,
+          infrastructure: comp.infrastructure || 0,
+          governance: comp.governance || 0,
+          marketExposure: comp.marketExposure || 0,
+        },
+        { fxVolatility: fxVol, ooniBlocked, wikiZScore: wikiZ, acledEventCount: acledNearby },
+      );
+
+      const matches = findPatternMatches(vector, country.code, 0.82);
+      for (const m of matches) {
+        patternMatches.push({ country: country.code, match: m.crisis.name, similarity: m.similarity });
+        // Store high-confidence matches as crisis triggers for the alert system
+        if (m.similarity >= 0.88) {
+          try {
+            await sql`
+              INSERT INTO crisis_triggers (country_code, playbook_key, trigger_type, cii_score, magnitude, dedup_key, notes)
+              VALUES (${country.code}, ${m.crisis.id}, ${'pattern-match'}, ${Math.round(m.similarity * 100)}, ${m.similarity},
+                      ${`pattern-${country.code}-${m.crisis.id}-${new Date().toISOString().split('T')[0]}`},
+                      ${`${country.code} signature ${Math.round(m.similarity * 100)}% similar to ${m.crisis.name}. ${m.crisis.outcome.slice(0, 200)}`})
+              ON CONFLICT (dedup_key) DO NOTHING
+            `;
+          } catch {
+            /* dedup insert best-effort */
+          }
+        }
+      }
+    }
+    if (patternMatches.length > 0) {
+      console.log(`[compute-cii] ${patternMatches.length} pattern matches detected:`);
+      for (const pm of patternMatches.slice(0, 5)) {
+        console.log(`  ${pm.country}: ${Math.round(pm.similarity * 100)}% similar to "${pm.match}"`);
+      }
+    }
+
     // Also cache GDELT conflict + news data (GDELT blocks Vercel IPs on direct calls)
     let gdeltCached = 0;
     try {
@@ -486,6 +542,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         severity: s.severity,
         confidence: s.confidence,
       })),
+      patternMatches: patternMatches.length,
+      patternMatchDetails: patternMatches.slice(0, 10),
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
