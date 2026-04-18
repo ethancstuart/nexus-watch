@@ -28,15 +28,16 @@ export class MapLayerManager {
       layer.init(this.map);
       if (enabledIds.includes(id)) {
         layer.enable();
-        // Stagger API calls to avoid thundering herd on page load
-        // Heavy layers (flights, ships) get extra delay
+        // Stagger API calls to avoid thundering herd on page load.
+        // Increased from 300ms to 800ms spacing (2026-04-18 perf fix).
+        // Heavy layers (flights, ships, satellites) get extra 3s delay.
         const heavyLayers = new Set(['flights', 'ships', 'satellites']);
-        const layerDelay = heavyLayers.has(id) ? delay + 1500 : delay;
+        const layerDelay = heavyLayers.has(id) ? delay + 3000 : delay;
         setTimeout(() => {
           void layer.refresh();
           this.startRefreshCycle(layer);
         }, layerDelay);
-        delay += 300;
+        delay += 800;
       }
     }
   }

@@ -461,9 +461,30 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     layerManager.initAll();
     initCascadeOverlay(map);
     initScenarioOverlay(map);
-    // Remove loading overlay
-    loadingOverlay.classList.add('fade-out');
-    setTimeout(() => loadingOverlay.remove(), 600);
+
+    // Wait for priority layers to load before removing overlay.
+    // Minimum 3 seconds so the user can read the loading message.
+    // Then fade out over 600ms.
+    const minLoadTime = new Promise((r) => setTimeout(r, 3000));
+    const priorityLayersLoaded = new Promise<void>((resolve) => {
+      let loaded = 0;
+      const needed = 3;
+      const onData = () => {
+        loaded++;
+        if (loaded >= needed) {
+          document.removeEventListener('dashview:layer-data', onData);
+          resolve();
+        }
+      };
+      document.addEventListener('dashview:layer-data', onData);
+      // Safety timeout — don't block forever if layers fail
+      setTimeout(resolve, 12000);
+    });
+
+    Promise.all([minLoadTime, priorityLayersLoaded]).then(() => {
+      loadingOverlay.classList.add('fade-out');
+      setTimeout(() => loadingOverlay.remove(), 600);
+    });
   });
 
   // ── Timeline Scrubber (time-travel intelligence) ──
