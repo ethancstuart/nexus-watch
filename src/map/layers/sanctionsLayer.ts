@@ -113,7 +113,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export class SanctionsLayer implements MapDataLayer {
   readonly id = 'sanctions';
-  readonly name = 'OFAC Sanctions';
+  readonly name = 'OFAC Sanctions (Reference)';
   readonly category = 'intelligence' as const;
   readonly icon = '🚫';
   readonly description = 'US/EU sanctioned countries and programs (curated 2026-04)';

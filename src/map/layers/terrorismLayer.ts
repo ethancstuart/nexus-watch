@@ -18,7 +18,7 @@ interface TerrorEvent {
 
 export class TerrorismLayer implements MapDataLayer {
   readonly id = 'terrorism';
-  readonly name = 'Terrorism Events';
+  readonly name = 'Terrorism Events (Reference)';
   readonly category = 'conflict' as const;
   readonly icon = '⚠️';
   readonly description = 'Terrorism and extremist activity (filtered from ACLED)';

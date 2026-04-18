@@ -74,7 +74,7 @@ const INTENSITY_COLORS: Record<string, string> = {
 
 export class ConflictZonesLayer implements MapDataLayer {
   readonly id = 'conflicts';
-  readonly name = 'Conflict Zones';
+  readonly name = 'Conflict Zones (Curated)';
   readonly category = 'conflict' as const;
   readonly icon = '💥';
   readonly description = 'Active armed conflicts and insurgencies (curated 2026-04)';

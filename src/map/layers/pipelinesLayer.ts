@@ -388,7 +388,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export class PipelinesLayer implements MapDataLayer {
   readonly id = 'pipelines';
-  readonly name = 'Oil & Gas Pipelines';
+  readonly name = 'Oil & Gas Pipelines (Reference)';
   readonly category = 'infrastructure' as const;
   readonly icon = '🛢';
   readonly description = 'Major oil and gas pipelines (curated 2026-04)';

@@ -244,7 +244,7 @@ function colorForValue(v: number): string {
 
 export class DefenseContractsLayer implements MapDataLayer {
   readonly id = 'defense-contracts';
-  readonly name = 'Defense Contracts';
+  readonly name = 'Defense Contracts (Reference)';
   readonly category = 'intelligence' as const;
   readonly icon = '🎯';
   readonly description = 'Major defense contracts and arms deliveries by location';

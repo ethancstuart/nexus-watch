@@ -204,10 +204,10 @@ function labelForType(t: SignalType): string {
 
 export class DarkWebOsintLayer implements MapDataLayer {
   readonly id = 'dark-web-osint';
-  readonly name = 'Dark Web / OSINT';
+  readonly name = 'Cyber Threat Reference';
   readonly category = 'intelligence' as const;
   readonly icon = '🔒';
-  readonly description = 'Curated dark web + Telegram signal markers (analytical, indicative — not real-time)';
+  readonly description = 'Reference: Known threat infrastructure from CISA, abuse.ch, CERT-UA. Curated quarterly, not live detection.';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

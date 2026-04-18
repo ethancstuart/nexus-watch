@@ -104,7 +104,7 @@ const ALLIANCE_COLORS: Record<string, string> = {
 
 export class MilitaryBasesLayer implements MapDataLayer {
   readonly id = 'military';
-  readonly name = 'Military Bases';
+  readonly name = 'Military Bases (Reference)';
   readonly category = 'conflict' as const;
   readonly icon = '⚔';
   readonly description = 'Major military installations worldwide (curated 2026-04)';

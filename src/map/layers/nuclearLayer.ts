@@ -49,7 +49,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 export class NuclearLayer implements MapDataLayer {
   readonly id = 'nuclear';
-  readonly name = 'Nuclear Facilities';
+  readonly name = 'Nuclear Facilities (Reference)';
   readonly category = 'infrastructure' as const;
   readonly icon = '☢';
   readonly description = 'Nuclear power, enrichment, and weapons facilities (curated 2026-04)';

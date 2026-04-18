@@ -170,7 +170,7 @@ const TRACES: FrontlineTrace[] = [
 
 export class FrontlinesLayer implements MapDataLayer {
   readonly id = 'frontlines';
-  readonly name = 'Conflict Frontlines';
+  readonly name = 'Frontlines (Curated)';
   readonly category = 'conflict' as const;
   readonly icon = '⚔';
   readonly description = 'Active conflict zones and frontline traces (curated 2026-04, ISW/DeepState)';

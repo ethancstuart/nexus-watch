@@ -35,7 +35,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export class GpsJammingLayer implements MapDataLayer {
   readonly id = 'gps-jamming';
-  readonly name = 'GPS Jamming';
+  readonly name = 'GPS Jamming Zones (Reference)';
   readonly category = 'intelligence' as const;
   readonly icon = '📡';
   readonly description = 'Known GPS/GNSS jamming and spoofing zones (curated 2026-04)';

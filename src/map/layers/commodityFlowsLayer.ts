@@ -294,7 +294,7 @@ function colorForCommodity(c: Commodity): string {
 
 export class CommodityFlowsLayer implements MapDataLayer {
   readonly id = 'commodity-flows';
-  readonly name = 'Commodity Flows';
+  readonly name = 'Commodity Flows (Reference)';
   readonly category = 'infrastructure' as const;
   readonly icon = '⛽';
   readonly description = 'Global oil, gas, LNG, grain, and coal flow routes';

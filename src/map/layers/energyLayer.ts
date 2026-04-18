@@ -536,7 +536,7 @@ const FACILITIES: EnergyFacility[] = [
 
 export class EnergyLayer implements MapDataLayer {
   readonly id = 'energy';
-  readonly name = 'Energy Infrastructure';
+  readonly name = 'Energy Infrastructure (Reference)';
   readonly category = 'infrastructure' as const;
   readonly icon = '⛽';
   readonly description = 'Oil rigs, refineries, LNG terminals, and major fields (curated 2026-04)';

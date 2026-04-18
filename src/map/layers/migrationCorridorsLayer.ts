@@ -177,7 +177,7 @@ const CORRIDORS: MigrationCorridor[] = [
 
 export class MigrationCorridorsLayer implements MapDataLayer {
   readonly id = 'migration-corridors';
-  readonly name = 'Migration Corridors';
+  readonly name = 'Migration Corridors (Reference)';
   readonly category = 'intelligence' as const;
   readonly icon = '🚶';
   readonly description = 'Major global migration corridors with approximate flow volumes';

@@ -117,10 +117,10 @@ function distanceDegrees(lat1: number, lon1: number, lat2: number, lon2: number)
 
 export class CyberAttackCampaignsLayer implements MapDataLayer {
   readonly id = 'cyber-attack-campaigns';
-  readonly name = 'Cyber Attack Campaigns';
+  readonly name = 'APT Campaigns (MITRE + Live Signal)';
   readonly category = 'intelligence' as const;
   readonly icon = '🔓';
-  readonly description = 'Known APT group origin regions, boosted by live internet outage correlation';
+  readonly description = 'Reference: Known APT group regions (MITRE ATT&CK) with activity scores derived from live Cloudflare Radar internet outage correlation.';
 
   private map: MaplibreMap | null = null;
   private enabled = false;

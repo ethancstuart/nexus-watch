@@ -141,7 +141,7 @@ const ROUTES: TradeRoute[] = [
 
 export class TradeRoutesLayer implements MapDataLayer {
   readonly id = 'trade-routes';
-  readonly name = 'Trade Routes';
+  readonly name = 'Trade Routes (Reference)';
   readonly category = 'infrastructure' as const;
   readonly icon = '📦';
   readonly description = 'Major global shipping and trade lanes (curated 2026-04)';

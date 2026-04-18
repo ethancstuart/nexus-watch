@@ -44,7 +44,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 export class PortsLayer implements MapDataLayer {
   readonly id = 'ports';
-  readonly name = 'Strategic Ports';
+  readonly name = 'Strategic Ports (Reference)';
   readonly category = 'infrastructure' as const;
   readonly icon = '⚓';
   readonly description = 'Major ports and maritime chokepoints (curated 2026-04)';

@@ -180,7 +180,7 @@ function labelForIpc(ipc: 3 | 4 | 5): string {
 
 export class FoodSecurityLayer implements MapDataLayer {
   readonly id = 'food-security';
-  readonly name = 'Food Security';
+  readonly name = 'Food Security (Reference)';
   readonly category = 'intelligence' as const;
   readonly icon = '🌾';
   readonly description = 'Countries at IPC Phase 3+ (Crisis, Emergency, Famine)';

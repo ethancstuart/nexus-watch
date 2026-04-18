@@ -666,7 +666,7 @@ const CABLES: SubseaCable[] = [
 
 export class CablesLayer implements MapDataLayer {
   readonly id = 'cables';
-  readonly name = 'Undersea Cables';
+  readonly name = 'Undersea Cables (Reference)';
   readonly category = 'infrastructure' as const;
   readonly icon = '🔌';
   readonly description =
