@@ -379,11 +379,21 @@ export class FrontlinesLayer implements MapDataLayer {
   private startPulse(): void {
     this.stopPulse();
     let phase = 0;
-    this.pulseTimer = setInterval(() => {
-      if (!this.map || !this.enabled) return;
+    let lastFrame = 0;
+    const animate = (timestamp: number) => {
+      if (!this.map || !this.enabled) {
+        this.pulseTimer = requestAnimationFrame(animate) as unknown as ReturnType<typeof setInterval>;
+        return;
+      }
+      // Throttle to ~20fps (50ms interval equivalent, but synced to vsync)
+      if (timestamp - lastFrame < 50) {
+        this.pulseTimer = requestAnimationFrame(animate) as unknown as ReturnType<typeof setInterval>;
+        return;
+      }
+      lastFrame = timestamp;
       phase = (phase + 0.05) % (Math.PI * 2);
-      const opacity = 0.06 + Math.sin(phase) * 0.04; // oscillates 0.02 - 0.10
-      const borderOpacity = 0.3 + Math.sin(phase) * 0.2; // oscillates 0.1 - 0.5
+      const opacity = 0.06 + Math.sin(phase) * 0.04;
+      const borderOpacity = 0.3 + Math.sin(phase) * 0.2;
       try {
         if (this.map.getLayer('frontline-zones-fill')) {
           this.map.setPaintProperty('frontline-zones-fill', 'fill-opacity', opacity);
@@ -394,11 +404,13 @@ export class FrontlinesLayer implements MapDataLayer {
       } catch {
         // Layer may not exist yet
       }
-    }, 50);
+      this.pulseTimer = requestAnimationFrame(animate) as unknown as ReturnType<typeof setInterval>;
+    };
+    this.pulseTimer = requestAnimationFrame(animate) as unknown as ReturnType<typeof setInterval>;
   }
 
   private stopPulse(): void {
-    if (this.pulseTimer) clearInterval(this.pulseTimer);
+    if (this.pulseTimer) cancelAnimationFrame(this.pulseTimer as unknown as number);
     this.pulseTimer = null;
   }
 

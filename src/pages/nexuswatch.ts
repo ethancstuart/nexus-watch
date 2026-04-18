@@ -2,51 +2,21 @@ import '../styles/nexuswatch.css';
 import { createElement } from '../utils/dom.ts';
 import { MapView } from '../map/MapView.ts';
 import { MapLayerManager } from '../map/MapLayerManager.ts';
+// Core layers (always enabled by default) — eagerly loaded
 import { EarthquakeLayer } from '../map/layers/earthquakeLayer.ts';
+import { AcledLayer } from '../map/layers/acledLayer.ts';
 import { NewsLayer } from '../map/layers/newsLayer.ts';
 import { FireLayer } from '../map/layers/fireLayer.ts';
-import { WeatherAlertLayer } from '../map/layers/weatherLayer.ts';
-import { PredictionLayer } from '../map/layers/predictionLayer.ts';
-import { PolymarketDivergenceLayer } from '../map/layers/polymarketDivergenceLayer.ts';
 import { FlightLayer } from '../map/layers/flightLayer.ts';
-import { CyberLayer } from '../map/layers/cyberLayer.ts';
-import { MilitaryBasesLayer } from '../map/layers/militaryBasesLayer.ts';
-import { NuclearLayer } from '../map/layers/nuclearLayer.ts';
-import { PortsLayer } from '../map/layers/portsLayer.ts';
-import { ConflictZonesLayer } from '../map/layers/conflictZonesLayer.ts';
-import { CablesLayer } from '../map/layers/cablesLayer.ts';
-import { PipelinesLayer } from '../map/layers/pipelinesLayer.ts';
-import { GpsJammingLayer } from '../map/layers/gpsJammingLayer.ts';
-import { SatelliteLayer } from '../map/layers/satelliteLayer.ts';
 import { ShipLayer } from '../map/layers/shipLayer.ts';
-import { AcledLayer } from '../map/layers/acledLayer.ts';
-import { GdacsLayer } from '../map/layers/gdacsLayer.ts';
-import { ChokepointStatusLayer } from '../map/layers/chokepointStatusLayer.ts';
-import { AirQualityLayer } from '../map/layers/airQualityLayer.ts';
-import { DiseaseLayer } from '../map/layers/diseaseLayer.ts';
-import { DisplacementLayer } from '../map/layers/displacementLayer.ts';
-import { InternetOutagesLayer } from '../map/layers/internetOutagesLayer.ts';
-import { SanctionsLayer } from '../map/layers/sanctionsLayer.ts';
-import { ElectionLayer } from '../map/layers/electionLayer.ts';
-import { TradeRoutesLayer } from '../map/layers/tradeRoutesLayer.ts';
-import { LaunchLayer } from '../map/layers/launchLayer.ts';
+import { CyberLayer } from '../map/layers/cyberLayer.ts';
+import { WeatherAlertLayer } from '../map/layers/weatherLayer.ts';
+import { MilitaryBasesLayer } from '../map/layers/militaryBasesLayer.ts';
+import { CablesLayer } from '../map/layers/cablesLayer.ts';
+import { ConflictZonesLayer } from '../map/layers/conflictZonesLayer.ts';
 import { FrontlinesLayer } from '../map/layers/frontlinesLayer.ts';
-import { EnergyLayer } from '../map/layers/energyLayer.ts';
-import { SentimentLayer } from '../map/layers/sentimentLayer.ts';
-import { RefugeeLayer } from '../map/layers/refugeeLayer.ts';
-import { NuclearThreatLayer } from '../map/layers/nuclearThreatLayer.ts';
-import { CyberThreatLayer } from '../map/layers/cyberThreatLayer.ts';
-import { ProtestLayer } from '../map/layers/protestLayer.ts';
-import { ChokepointThreatLayer } from '../map/layers/chokepointThreatLayer.ts';
-import { TerrorismLayer } from '../map/layers/terrorismLayer.ts';
-import { FoodSecurityLayer } from '../map/layers/foodSecurityLayer.ts';
-import { MigrationCorridorsLayer } from '../map/layers/migrationCorridorsLayer.ts';
-import { SpaceLaunchDetailLayer } from '../map/layers/spaceLaunchDetailLayer.ts';
-import { DefenseContractsLayer } from '../map/layers/defenseContractsLayer.ts';
-import { CommodityFlowsLayer } from '../map/layers/commodityFlowsLayer.ts';
-import { CyberAttackCampaignsLayer } from '../map/layers/cyberAttackCampaignsLayer.ts';
-import { DarkWebOsintLayer } from '../map/layers/darkWebOsintLayer.ts';
-import { SubmarineMilitaryLayer } from '../map/layers/submarineMilitaryLayer.ts';
+// Non-core layers — lazy-loaded via dynamic import (code-split by Vite)
+import { LAZY_LAYERS } from '../map/layerRegistry.ts';
 import {
   initGeoIntelligence,
   destroyGeoIntelligence,
@@ -405,57 +375,43 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const layerManager = new MapLayerManager();
   layerManager.setMap(map);
 
-  const allLayers = [
+  // Core layers — loaded eagerly (always enabled, in main bundle)
+  const coreLayers = [
     new EarthquakeLayer(),
+    new AcledLayer(),
     new NewsLayer(),
     new FireLayer(),
-    new WeatherAlertLayer(),
-    new PredictionLayer(),
-    new PolymarketDivergenceLayer(),
     new FlightLayer(),
-    new CyberLayer(),
-    new MilitaryBasesLayer(),
-    new NuclearLayer(),
-    new PortsLayer(),
-    new ConflictZonesLayer(),
-    new CablesLayer(),
-    new PipelinesLayer(),
-    new GpsJammingLayer(),
-    new SatelliteLayer(),
     new ShipLayer(),
-    new AcledLayer(),
-    new GdacsLayer(),
-    new ChokepointStatusLayer(),
-    new AirQualityLayer(),
-    new DiseaseLayer(),
-    new DisplacementLayer(),
-    new InternetOutagesLayer(),
-    new SanctionsLayer(),
-    new ElectionLayer(),
-    new TradeRoutesLayer(),
-    new LaunchLayer(),
+    new CyberLayer(),
+    new WeatherAlertLayer(),
+    new MilitaryBasesLayer(),
+    new CablesLayer(),
+    new ConflictZonesLayer(),
     new FrontlinesLayer(),
-    new EnergyLayer(),
-    new SentimentLayer(),
-    new RefugeeLayer(),
-    new NuclearThreatLayer(),
-    new CyberThreatLayer(),
-    new ProtestLayer(),
-    new ChokepointThreatLayer(),
-    new TerrorismLayer(),
-    new FoodSecurityLayer(),
-    new MigrationCorridorsLayer(),
-    new SpaceLaunchDetailLayer(),
-    new DefenseContractsLayer(),
-    new CommodityFlowsLayer(),
-    new CyberAttackCampaignsLayer(),
-    new DarkWebOsintLayer(),
-    new SubmarineMilitaryLayer(),
   ];
 
-  for (const layer of allLayers) {
+  for (const layer of coreLayers) {
     layerManager.register(layer);
   }
+
+  // Non-core layers — lazy-loaded via dynamic import (code-split by Vite).
+  // These are loaded in the background after core layers are registered.
+  // Users who never enable these layers never download their code.
+  void (async () => {
+    const lazyEntries = Object.entries(LAZY_LAYERS);
+    for (let i = 0; i < lazyEntries.length; i++) {
+      const [, factory] = lazyEntries[i];
+      try {
+        const layer = await factory();
+        layerManager.register(layer);
+      } catch (err) {
+        console.error('[nexuswatch] Failed to load lazy layer:', err);
+      }
+      // Small delay between lazy loads to avoid flooding network
+      if (i % 5 === 4) await new Promise((r) => setTimeout(r, 100));
+    }
+  })();
 
   map.on('load', () => {
     layerManager.initAll();
