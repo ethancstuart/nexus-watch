@@ -348,30 +348,33 @@
   padding: 60px 32px;
 }
 .landing-brief-preview h2 {
+  font-family: var(--nw-font-display);
   font-size: 14px;
-  letter-spacing: 3px;
-  color: #ff6600;
+  letter-spacing: 0.12em;
+  color: var(--nw-accent);
   text-align: center;
   margin-bottom: 24px;
+  text-transform: uppercase;
 }
 .landing-brief-content {
-  background: #0a0a0a;
-  border: 1px solid #1a1a1a;
-  border-left: 3px solid #ff6600;
+  background: var(--nw-bg);
+  border: 1px solid var(--nw-border-subtle);
+  border-left: 3px solid var(--nw-accent);
   padding: 20px 24px;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--nw-radius-sm);
+  font-family: var(--nw-font-body);
+  font-size: 13px;
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--nw-text-secondary);
 }
 .brief-preview-text {
   margin-bottom: 16px;
 }
 .brief-preview-link {
-  color: #ff6600;
+  color: var(--nw-accent);
   text-decoration: none;
   font-size: 11px;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 /* Pricing */
@@ -460,7 +463,7 @@
   font-family: var(--nw-font-mono);
   font-size: 36px;
   font-weight: 700;
-  color: #fff;
+  color: var(--nw-text);
   margin-bottom: 4px;
 }
 .landing-price-amount span {
@@ -516,12 +519,12 @@
   color: var(--nw-accent);
 }
 .landing-price-btn.featured {
-  background: #ff6600;
-  color: #000;
-  border-color: #ff6600;
+  background: var(--nw-accent);
+  color: var(--nw-accent-text);
+  border-color: var(--nw-accent);
 }
 .landing-price-btn.featured:hover {
-  background: #ff8533;
+  background: var(--nw-accent-hover);
 }
 /* Normalize <button> element to match the anchor-based .landing-price-btn look */
 button.landing-price-btn {
@@ -531,7 +534,7 @@ button.landing-price-btn {
   background: transparent;
 }
 button.landing-price-btn.featured {
-  background: #ff6600;
+  background: var(--nw-accent);
 }
 button.landing-price-btn:disabled {
   opacity: 0.5;
@@ -562,7 +565,7 @@ button.landing-price-btn:disabled {
   font-family: var(--nw-font-mono);
   font-size: 20px;
   font-weight: 700;
-  color: #fff;
+  color: var(--nw-text);
 }
 .landing-founding-price span {
   font-family: var(--nw-font-body);
@@ -583,7 +586,7 @@ button.landing-price-btn:disabled {
   font-size: 12px;
 }
 .landing-price-btn.founding:hover {
-  background: #d4991a;
+  background: color-mix(in srgb, var(--nw-amber) 85%, black);
 }
 /* Analyst card gets gold border when founding is active */
 .landing-price-analyst:has(.landing-founding-overlay:not([hidden])) {
@@ -594,12 +597,13 @@ button.landing-price-btn:disabled {
   cursor: wait;
 }
 
-/* Checkout status line under the pricing grid (errors, redirects, etc.) */
+/* Checkout status line under the pricing grid */
 .landing-checkout-status {
   max-width: 900px;
   margin: 16px auto 0;
   padding: 0 32px;
-  font-size: 12px;
+  font-family: var(--nw-font-body);
+  font-size: 13px;
   text-align: center;
   min-height: 18px;
 }
@@ -642,8 +646,8 @@ button.landing-price-btn:disabled {
 
 /* ── Newsletter Bar ── */
 .landing-newsletter-bar {
-  background: var(--color-surface);
-  border-bottom: 1px solid #ff660030;
+  background: var(--nw-surface);
+  border-bottom: 1px solid var(--nw-accent-dim);
   padding: 8px 16px;
   position: sticky;
   top: 0;
@@ -659,78 +663,67 @@ button.landing-price-btn:disabled {
   margin: 0 auto;
 }
 .landing-newsletter-bar-text {
-  font-size: 11px;
-  color: #aaa;
+  font-family: var(--nw-font-body);
+  font-size: 12px;
+  color: var(--nw-text-secondary);
   white-space: nowrap;
 }
 .landing-newsletter-bar-text strong {
-  color: #ff6600;
+  color: var(--nw-accent);
 }
 .landing-newsletter-bar-form {
   display: flex;
   gap: 6px;
 }
 .landing-newsletter-bar-input {
-  background: #0a0a0a;
-  border: 1px solid #333;
-  color: #e0e0e0;
-  font-size: 11px;
-  font-family: inherit;
-  padding: 5px 10px;
-  border-radius: 3px;
+  background: var(--nw-bg);
+  border: 1px solid var(--nw-border);
+  color: var(--nw-text);
+  font-size: 12px;
+  font-family: var(--nw-font-body);
+  padding: 6px 10px;
+  border-radius: var(--nw-radius-sm);
   width: 180px;
   outline: none;
 }
 .landing-newsletter-bar-input:focus {
-  border-color: #ff6600;
+  border-color: var(--nw-accent);
 }
 .landing-newsletter-bar-btn {
-  background: #ff6600;
-  color: #000;
-  font-size: 9px;
+  background: var(--nw-accent);
+  color: var(--nw-accent-text);
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 1px;
-  font-family: inherit;
-  padding: 5px 12px;
+  letter-spacing: 0.05em;
+  font-family: var(--nw-font-body);
+  padding: 6px 12px;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--nw-radius-sm);
   cursor: pointer;
   white-space: nowrap;
 }
 .landing-newsletter-bar-btn:hover {
-  background: #ff7722;
+  background: var(--nw-accent-hover);
 }
 .landing-newsletter-bar-close {
   background: none;
   border: none;
-  color: #555;
+  color: var(--nw-text-muted);
   font-size: 14px;
   cursor: pointer;
   padding: 0 4px;
   font-family: inherit;
 }
 .landing-newsletter-bar-close:hover {
-  color: #fff;
+  color: var(--nw-text);
 }
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .landing-newsletter-bar-text {
     display: none;
   }
   .landing-newsletter-bar-input {
     flex: 1;
   }
-}
-
-/* ── Nav Brief Link ── */
-.landing-nav-brief {
-  color: #ff6600 !important;
-  border: 1px solid #ff660040;
-  padding: 3px 10px;
-  border-radius: 3px;
-  font-size: 9px;
-}
-.landing-nav-brief:hover {
-  background: #ff660015;
 }
 
 /* ── Brief Preview Section ── */
@@ -742,13 +735,15 @@ button.landing-price-btn:disabled {
   margin-bottom: 16px;
 }
 .landing-brief-badge {
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: #ff6600;
-  background: #ff660015;
-  border: 1px solid #ff660030;
-  padding: 2px 8px;
-  border-radius: 3px;
+  font-family: var(--nw-font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--nw-accent);
+  background: var(--nw-accent-dim);
+  border: 1px solid rgba(255, 102, 0, 0.2);
+  padding: 3px 10px;
+  border-radius: var(--nw-radius-sm);
 }
 .landing-brief-preview {
   position: relative;
@@ -759,12 +754,14 @@ button.landing-price-btn:disabled {
   padding: 0 24px;
 }
 .brief-preview-text {
-  font-size: 13px;
+  font-family: var(--nw-font-body);
+  font-size: 14px;
   line-height: 1.8;
-  color: #ccc;
+  color: var(--nw-text-secondary);
 }
 .brief-preview-text h3 {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--nw-font-mono);
+  color: var(--nw-accent);
 }
 .landing-brief-fade {
   position: absolute;
@@ -772,7 +769,7 @@ button.landing-price-btn:disabled {
   left: 0;
   right: 0;
   height: 120px;
-  background: linear-gradient(transparent, #000);
+  background: linear-gradient(transparent, var(--nw-bg));
   pointer-events: none;
 }
 .landing-brief-cta {
@@ -782,8 +779,9 @@ button.landing-price-btn:disabled {
   padding: 24px 0 8px;
 }
 .landing-brief-cta p {
+  font-family: var(--nw-font-body);
   font-size: 13px;
-  color: #888;
+  color: var(--nw-text-muted);
   margin-bottom: 12px;
 }
 .landing-brief-cta .landing-subscribe-form {
@@ -794,34 +792,24 @@ button.landing-price-btn:disabled {
   padding: 8px 20px;
 }
 
-/* ── Stats Bar ── */
+/* ── Legacy Stats Bar (overridden by .landing-stats-bar when present) ── */
 .landing-stats {
   display: flex;
   justify-content: center;
   gap: 32px;
   margin-bottom: 40px;
   padding: 20px 0;
-  border-top: 1px solid #111;
-  border-bottom: 1px solid var(--color-surface-elevated);
-}
-.landing-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  border-top: 1px solid var(--nw-border-subtle);
+  border-bottom: 1px solid var(--nw-border-subtle);
 }
 .landing-stat-num {
+  font-family: var(--nw-font-mono);
   font-size: 22px;
   font-weight: 700;
-  color: #ff6600;
-  letter-spacing: 1px;
+  color: var(--nw-accent);
+  letter-spacing: 0.03em;
 }
-.landing-stat-label {
-  font-size: 8px;
-  letter-spacing: 2px;
-  color: rgba(255, 255, 255, 0.3);
-}
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .landing-stats {
     gap: 16px;
     flex-wrap: wrap;
@@ -831,30 +819,12 @@ button.landing-price-btn:disabled {
   }
 }
 
-/* ── Trust / Data Sources ── */
-.landing-trust {
-  text-align: center;
-  padding: 24px 32px;
-  border-bottom: 1px solid #0a0a0a;
-}
-.landing-trust-label {
-  font-size: 8px;
-  letter-spacing: 3px;
-  color: rgba(255, 255, 255, 0.15);
-  display: block;
-  margin-bottom: 12px;
-}
-.landing-trust-logos {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-.landing-trust-logos span {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.2);
+/* ── Legacy Trust / Data Sources (kept for pages still using old class names) ── */
+.landing-trust-logos span:not(.landing-trust-badge) {
+  font-family: var(--nw-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--nw-text-muted);
 }
 
 /* ── Pricing Card Hover ── */
@@ -866,14 +836,14 @@ button.landing-price-btn:disabled {
 }
 .landing-price-card:hover {
   transform: translateY(-4px);
-  border-color: #ff660040;
+  border-color: rgba(255, 102, 0, 0.25);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 .landing-price-card.featured {
-  border-color: #ff660060;
+  border-color: rgba(255, 102, 0, 0.4);
 }
 .landing-price-card.featured:hover {
-  border-color: #ff6600;
+  border-color: var(--nw-accent);
   box-shadow: 0 8px 32px rgba(255, 102, 0, 0.15);
 }
 
@@ -909,24 +879,25 @@ button.landing-price-btn:disabled {
   font-size: 11px;
 }
 
-/* ── CTA subtext ── */
-.landing-cta-subtext {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  margin: 12px 0 0;
-  text-align: center;
-}
+/* ── CTA subtext (legacy — overridden by .landing-cta-subtext in hero section) ── */
 
 /* ── Live CII Ticker ── */
-.landing-cii-ticker {
-  border-top: 1px solid #1a1a1a;
-  border-bottom: 1px solid #1a1a1a;
+.landing-cii-ticker,
+.landing-cii-ticker-hero {
+  border-top: 1px solid var(--nw-border-subtle);
+  border-bottom: 1px solid var(--nw-border-subtle);
   padding: 16px 32px;
   display: flex;
   align-items: center;
   gap: 16px;
   overflow-x: auto;
+}
+.landing-cii-ticker-hero {
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
+  background: var(--nw-surface);
+  padding: 16px;
+  margin-bottom: 32px;
 }
 .landing-ticker-header {
   display: flex;
@@ -938,7 +909,7 @@ button.landing-price-btn:disabled {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--nw-success);
   animation: ticker-pulse 2s ease-in-out infinite;
 }
 @keyframes ticker-pulse {
@@ -951,9 +922,10 @@ button.landing-price-btn:disabled {
   }
 }
 .landing-ticker-label {
+  font-family: var(--nw-font-mono);
   font-size: 10px;
   letter-spacing: 0.15em;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--nw-text-muted);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -969,16 +941,17 @@ button.landing-price-btn:disabled {
   display: none;
 }
 .landing-ticker-loading {
-  color: rgba(255, 255, 255, 0.25);
-  font-size: 11px;
+  color: var(--nw-text-muted);
+  font-family: var(--nw-font-body);
+  font-size: 12px;
 }
 .landing-ticker-item {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  border: 1px solid #1a1a1a;
-  border-radius: 3px;
+  border: 1px solid var(--nw-border-subtle);
+  border-radius: var(--nw-radius-sm);
   text-decoration: none;
   flex-shrink: 0;
   transition:
@@ -986,16 +959,18 @@ button.landing-price-btn:disabled {
     background 0.2s;
 }
 .landing-ticker-item:hover {
-  border-color: #ff6600;
-  background: rgba(255, 102, 0, 0.05);
+  border-color: var(--nw-accent);
+  background: var(--nw-accent-dim);
 }
 .landing-ticker-code {
+  font-family: var(--nw-font-mono);
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--nw-text-secondary);
   letter-spacing: 0.05em;
 }
 .landing-ticker-score {
+  font-family: var(--nw-font-mono);
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -1004,9 +979,10 @@ button.landing-price-btn:disabled {
   font-size: 11px;
 }
 .landing-ticker-cta {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: #ff6600;
+  font-family: var(--nw-font-body);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--nw-accent);
   text-decoration: none;
   flex-shrink: 0;
   white-space: nowrap;
@@ -1015,9 +991,9 @@ button.landing-price-btn:disabled {
   text-decoration: underline;
 }
 
-/* ── Free tier highlight ── */
+/* ── Free tier highlight (legacy — may not be in use with new 3-col layout) ── */
 .landing-price-free {
-  border-color: #ff6600 !important;
+  border-color: var(--nw-accent) !important;
   position: relative;
 }
 .landing-price-badge-free {
@@ -1025,26 +1001,35 @@ button.landing-price-btn:disabled {
   top: -10px;
   left: 50%;
   transform: translateX(-50%);
-  background: #ff6600;
-  color: #000;
+  background: var(--nw-accent);
+  color: var(--nw-accent-text);
+  font-family: var(--nw-font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
   padding: 3px 12px;
-  border-radius: 2px;
+  border-radius: var(--nw-radius-sm);
   white-space: nowrap;
 }
 .landing-price-btn-free {
-  background: #ff6600 !important;
-  color: #000 !important;
+  background: var(--nw-accent) !important;
+  color: var(--nw-accent-text) !important;
   font-weight: 700 !important;
 }
 .landing-pricing-note {
   text-align: center;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 11px;
-  letter-spacing: 0.05em;
+  font-family: var(--nw-font-body);
+  color: var(--nw-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
   margin-top: 20px;
+}
+.landing-pricing-note a {
+  color: var(--nw-accent);
+  text-decoration: none;
+}
+.landing-pricing-note a:hover {
+  text-decoration: underline;
 }
 
 /* ── Ticker responsive ── */
@@ -1066,7 +1051,7 @@ button.landing-price-btn:disabled {
 /* ── Portfolio Demo ── */
 .landing-portfolio-demo {
   padding: 40px 32px;
-  border-top: 1px solid #1a1a1a;
+  border-top: 1px solid var(--nw-border-subtle);
 }
 .landing-portfolio-header {
   display: flex;
@@ -1075,17 +1060,20 @@ button.landing-price-btn:disabled {
   margin-bottom: 8px;
 }
 .landing-portfolio-header h2 {
+  font-family: var(--nw-font-display);
   font-size: 16px;
+  font-weight: 600;
   margin: 0;
-  color: #fff;
+  color: var(--nw-text);
 }
 .landing-portfolio-desc {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 12px;
+  font-family: var(--nw-font-body);
+  color: var(--nw-text-muted);
+  font-size: 13px;
   margin: 0 0 16px;
 }
 .landing-portfolio-desc a {
-  color: #ff6600;
+  color: var(--nw-accent);
   text-decoration: none;
 }
 .landing-portfolio-holdings {
@@ -1095,12 +1083,13 @@ button.landing-price-btn:disabled {
   margin-bottom: 20px;
 }
 .landing-holding-chip {
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--nw-surface-hover);
+  border: 1px solid var(--nw-border);
   padding: 4px 12px;
-  border-radius: 3px;
+  border-radius: var(--nw-radius-sm);
+  font-family: var(--nw-font-mono);
   font-size: 11px;
-  color: #ccc;
+  color: var(--nw-text-secondary);
   letter-spacing: 0.05em;
   font-weight: 600;
 }
@@ -1116,28 +1105,31 @@ button.landing-price-btn:disabled {
 .landing-demo-risk {
   text-align: center;
   padding: 16px;
-  background: #0a0a0a;
-  border: 1px solid #222;
-  border-radius: 4px;
+  background: var(--nw-bg);
+  border: 1px solid var(--nw-border);
+  border-radius: var(--nw-radius);
 }
 .landing-demo-risk-score {
+  font-family: var(--nw-font-mono);
   font-size: 48px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .landing-demo-risk-label {
+  font-family: var(--nw-font-body);
   font-size: 11px;
   letter-spacing: 0.12em;
   font-weight: 600;
   margin-top: 4px;
-  color: #ccc;
+  color: var(--nw-text-secondary);
 }
 .landing-demo-risk-note {
-  font-size: 9px;
-  color: #555;
+  font-family: var(--nw-font-body);
+  font-size: 10px;
+  color: var(--nw-text-muted);
   margin-top: 4px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
 }
 .landing-demo-details {
   flex: 1;
@@ -1147,19 +1139,22 @@ button.landing-price-btn:disabled {
   margin-bottom: 16px;
 }
 .landing-demo-section-title {
+  font-family: var(--nw-font-body);
   font-size: 10px;
-  letter-spacing: 0.15em;
-  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.12em;
+  color: var(--nw-text-muted);
   margin-bottom: 6px;
-  font-weight: 600;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 .landing-demo-row {
   display: flex;
   justify-content: space-between;
   padding: 4px 0;
+  font-family: var(--nw-font-mono);
   font-size: 12px;
-  color: #ccc;
-  border-bottom: 1px solid #1a1a1a;
+  color: var(--nw-text-secondary);
+  border-bottom: 1px solid var(--nw-border-subtle);
 }
 .landing-demo-row span:first-child {
   font-weight: 600;
@@ -1167,9 +1162,10 @@ button.landing-price-btn:disabled {
 .landing-demo-cta {
   display: inline-block;
   margin-top: 16px;
-  color: #ff6600;
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  color: var(--nw-accent);
+  font-family: var(--nw-font-body);
+  font-size: 12px;
+  letter-spacing: 0.05em;
   text-decoration: none;
 }
 .landing-demo-cta:hover {

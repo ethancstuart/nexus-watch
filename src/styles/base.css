@@ -21,12 +21,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Legacy variable compatibility — maps old tokens to new design system */
+/* Legacy variable compatibility — maps old tokens to new design system.
+   Used by nexuswatch.css, roadmap.css, auth.css, help.css, timeline.css,
+   briefs.css, brief.css, user-menu.css, tier-gating.css, and others that
+   haven't been migrated to --nw-* tokens yet. */
 :root {
   --font-mono: var(--nw-font-mono);
   --color-bg: var(--nw-bg);
   --color-text: var(--nw-text);
   --color-accent: var(--nw-accent);
+  --color-surface: var(--nw-surface);
+  --color-surface-elevated: var(--nw-surface-hover);
+  --color-border: var(--nw-border);
 }
 
 /* Skip link */

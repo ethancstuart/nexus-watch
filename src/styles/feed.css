@@ -192,3 +192,47 @@
   color: var(--nw-accent);
   text-decoration: none;
 }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .nw-feed-page {
+    padding: 24px 16px;
+  }
+
+  .nw-feed-filters {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nw-feed-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nw-feed-card-header {
+    flex-wrap: wrap;
+  }
+
+  .nw-feed-watch-btn {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .nw-feed-header h1 {
+    font-size: 22px;
+  }
+
+  .nw-feed-card {
+    padding: 16px;
+  }
+
+  .nw-feed-card-title {
+    font-size: 14px;
+  }
+
+  .nw-feed-card-body {
+    font-size: 12px;
+  }
+}

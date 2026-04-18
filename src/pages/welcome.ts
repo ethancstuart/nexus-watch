@@ -202,10 +202,3 @@ export function renderWelcomePage(root: HTMLElement): void {
   });
 }
 
-/**
- * Check if onboarding is complete (for use by other pages like nexuswatch.ts
- * to decide whether to show the delayed tooltip).
- */
-export function isOnboarded(): boolean {
-  return localStorage.getItem(DONE_KEY) !== null;
-}

@@ -278,7 +278,7 @@
   transition: all 0.2s ease;
 }
 .cinema-mute-btn:hover {
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -340,7 +340,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .cinema-ticker-pill[data-severity='info'] {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.5);
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.05);
   font-style: italic;
@@ -366,7 +366,7 @@
 }
 
 .cinema-ticker-pill .pill-time {
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 9px;
 }
 
@@ -503,7 +503,7 @@
 
 .cinema-log-count {
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .cinema-log-actions {
@@ -516,7 +516,7 @@
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-size: 8px;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 2px;
@@ -541,7 +541,7 @@
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-size: 8px;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 2px;
@@ -590,7 +590,7 @@
 
 .cinema-log-time {
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.5);
   flex-shrink: 0;
   min-width: 55px;
   letter-spacing: 0.5px;
@@ -629,7 +629,7 @@
   color: #fdba74;
 }
 .cinema-log-entry.info .cinema-log-text {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.5);
   font-style: italic;
 }
 
@@ -670,7 +670,7 @@
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-size: 9px;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.5);
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 2px;
@@ -680,7 +680,7 @@
 }
 .cinema-exit-btn:hover {
   color: rgba(255, 255, 255, 0.7);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 /* ── Staggered HUD entry ── */
