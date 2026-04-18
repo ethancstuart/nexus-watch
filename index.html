@@ -43,6 +43,63 @@
       name="description"
       content="NexusWatch is a real-time geopolitical intelligence platform. 45+ data layers, 86-country instability scoring, AI daily briefs, dark vessel detection, and cinema mode on a 3D globe."
     />
+    <!-- Critical CSS: loading overlay renders before main CSS downloads -->
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0a0a0a;
+        color: #ededed;
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+      .nw-loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #0a0a0a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        transition: opacity 0.6s;
+      }
+      .nw-loading-overlay.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .nw-loading-logo {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18px;
+        font-weight: 700;
+        color: #ff6600;
+        letter-spacing: 0.05em;
+        margin-bottom: 24px;
+      }
+      .nw-loading-text {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 16px;
+      }
+      .nw-loading-bar {
+        width: 200px;
+        height: 2px;
+        background: #1a1a1a;
+        border-radius: 1px;
+        overflow: hidden;
+      }
+      .nw-loading-bar-fill {
+        height: 100%;
+        background: #ff6600;
+        transition: width 0.4s;
+        width: 0;
+      }
+      #app {
+        min-height: 100vh;
+      }
+    </style>
   </head>
   <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>

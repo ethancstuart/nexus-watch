@@ -87,13 +87,35 @@ async function networkFirstWithCache(request, cacheName) {
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+      // Clone with timestamp header for freshness checks
+      const cloned = response.clone();
+      const headers = new Headers(cloned.headers);
+      headers.set('x-sw-cached-at', String(Date.now()));
+      const timestamped = new Response(await cloned.blob(), {
+        status: cloned.status,
+        statusText: cloned.statusText,
+        headers,
+      });
+      cache.put(request, timestamped);
     }
     return response;
   } catch (e) {
+    // Network failed — serve cached with staleness check
     const cached = await caches.match(request);
-    if (cached) return cached;
-    return new Response(JSON.stringify({ error: 'Offline' }), {
+    if (cached) {
+      const cachedAt = parseInt(cached.headers.get('x-sw-cached-at') || '0');
+      const ageMs = Date.now() - cachedAt;
+      const MAX_STALE = 30 * 60 * 1000; // 30 minutes max stale for API data
+      if (cachedAt > 0 && ageMs > MAX_STALE) {
+        // Too stale — return with warning header
+        const headers = new Headers(cached.headers);
+        headers.set('x-sw-stale', 'true');
+        headers.set('x-sw-age-seconds', String(Math.round(ageMs / 1000)));
+        return new Response(cached.body, { status: cached.status, headers });
+      }
+      return cached;
+    }
+    return new Response(JSON.stringify({ error: 'Offline', stale: true }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     });

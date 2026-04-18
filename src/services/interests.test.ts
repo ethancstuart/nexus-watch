@@ -32,6 +32,7 @@ const fakeLocalStorage = {
 };
 vi.stubGlobal('localStorage', fakeLocalStorage);
 
+import { clearCache } from './storage.ts';
 import {
   loadInterests,
   saveInterests,
@@ -50,6 +51,7 @@ const STORAGE_KEY = 'dashview:interests';
 
 function resetStorage() {
   store.clear();
+  clearCache(); // Clear in-memory storage cache between tests
 }
 
 describe('interests — load / save defensive parsing', () => {
