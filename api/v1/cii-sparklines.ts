@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       list.push([day, r.score]);
     }
 
-    res.setHeader('Cache-Control', 'public, max-age=600');
+    res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600');
     return res.json({ days, series });
   } catch (err) {
     console.error('[api/v1/cii-sparklines] error:', err instanceof Error ? err.message : err);

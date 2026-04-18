@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       FROM daily_briefs ORDER BY brief_date DESC LIMIT 1
     `;
     if (rows.length === 0) return res.status(404).json({ error: 'No briefs generated yet' });
-    return res.setHeader('Cache-Control', 'public, max-age=3600').json(rows[0]);
+    return res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600').json(rows[0]);
   } catch (err) {
     console.error('API v1 brief error:', err instanceof Error ? err.message : err);
     return res.status(500).json({ error: 'Internal error' });

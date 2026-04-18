@@ -5,7 +5,7 @@ import { BASELINE_CONFLICT, BASELINE_GOVERNANCE, MARKET_RISK } from '../_lib/cii
 import { detectCompoundSignals } from '../_lib/compound-signals.js';
 import { buildFingerprint, findPatternMatches } from '../_lib/pattern-fingerprint.js';
 
-export const config = { runtime: 'nodejs', maxDuration: 60 };
+export const config = { runtime: 'nodejs', maxDuration: 90 };
 
 // ALL 86 CII countries — synced with client-side MONITORED_COUNTRIES (2026-04-18)
 const COUNTRIES: { code: string; name: string; lat: number; lon: number; radius: number }[] = [

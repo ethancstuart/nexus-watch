@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       SELECT DISTINCT ON (layer_id) layer_id, feature_count, fetched_at
       FROM data_lake ORDER BY layer_id, fetched_at DESC
     `;
-    return res.setHeader('Cache-Control', 'public, max-age=60').json({
+    return res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60').json({
       layers: rows.map((r) => ({
         id: r.layer_id,
         count: r.feature_count,
@@ -52,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `;
 
     if (rows.length === 0) {
-      return res.setHeader('Cache-Control', 'public, max-age=30').json({
+      return res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=30').json({
         layer,
         data: [],
         count: 0,
@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const latest = rows[0];
-    return res.setHeader('Cache-Control', 'public, max-age=60').json({
+    return res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60').json({
       layer,
       data: latest.data,
       count: latest.feature_count,

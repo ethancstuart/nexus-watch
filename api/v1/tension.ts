@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  return res.setHeader('Cache-Control', 'public, max-age=60').json({
+  return res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60').json({
     tension: cachedTension || { global: 0, trend: 'stable', components: {} },
     timestamp: Date.now(),
   });

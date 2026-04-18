@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
       if (rows.length === 0) return res.status(404).json({ error: 'Country not found' });
       const latest = rows[0];
-      return res.setHeader('Cache-Control', 'public, max-age=300').json({
+      return res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300').json({
         countryCode: latest.country_code,
         countryName: latest.country_name,
         score: latest.score,
@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ORDER BY country_code, timestamp DESC
     `;
 
-    return res.setHeader('Cache-Control', 'public, max-age=300').json({
+    return res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300').json({
       scores: rows.map((r) => ({
         countryCode: r.country_code,
         countryName: r.country_name,

@@ -150,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       dateRange.push(d.toISOString().split('T')[0]);
     }
 
-    return res.setHeader('Cache-Control', 'public, max-age=300').json({
+    return res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300').json({
       days,
       dateRange,
       snapshots,
