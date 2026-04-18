@@ -174,6 +174,60 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         stale: true,
       });
     }
-    return res.status(500).json({ flows: [], count: 0, error: 'UNHCR API unavailable' });
+    // DB fallback — query refugee_populations table from source-unhcr.ts cron
+    try {
+      const { neon } = await import('@neondatabase/serverless');
+      const dbUrl = process.env.DATABASE_URL;
+      if (dbUrl) {
+        const sql = neon(dbUrl);
+        const rows = await sql`
+          SELECT country_origin, country_asylum, refugees, asylum_seekers, year
+          FROM refugee_populations
+          WHERE (refugees + asylum_seekers) > 50000
+            AND country_origin != country_asylum
+          ORDER BY (refugees + asylum_seekers) DESC
+          LIMIT 30
+        `;
+        if (rows.length > 0) {
+          const dbFlows = rows
+            .map((r) => {
+              const originCode = String(r.country_origin);
+              const destCode = String(r.country_asylum);
+              const coords1 = COUNTRY_COORDS[originCode];
+              const coords2 = COUNTRY_COORDS[destCode];
+              if (!coords1 || !coords2) return null;
+              return {
+                origin: originCode,
+                originCode,
+                destination: destCode,
+                destinationCode: destCode,
+                population: (Number(r.refugees) || 0) + (Number(r.asylum_seekers) || 0),
+                year: Number(r.year),
+                lat1: coords1[0],
+                lon1: coords1[1],
+                lat2: coords2[0],
+                lon2: coords2[1],
+              };
+            })
+            .filter(Boolean) as typeof cachedFlows;
+
+          if (dbFlows.length > 0) {
+            cachedFlows = dbFlows;
+            lastFetch = Date.now();
+            return res.json({ flows: dbFlows, count: dbFlows.length, source: 'unhcr-db' });
+          }
+        }
+      }
+    } catch {
+      // DB also failed
+    }
+
+    // Never return 500
+    return res.json({
+      flows: [],
+      count: 0,
+      source: 'none',
+      message: 'Displacement data temporarily unavailable. UNHCR API and database both unreachable.',
+    });
   }
 }

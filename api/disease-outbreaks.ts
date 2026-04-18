@@ -230,8 +230,64 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         stale: true,
       });
     }
-    return res.status(500).json({ outbreaks: [], count: 0, error: 'WHO API unavailable' });
+
+    // Third fallback: GDACS epidemic events
+    try {
+      const gdacsRes = await fetch(
+        'https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=EP&limit=20',
+        { signal: AbortSignal.timeout(5000) },
+      );
+      if (gdacsRes.ok) {
+        const gdacsXml = await gdacsRes.text();
+        const gdacsOutbreaks = parseGdacsEpidemics(gdacsXml);
+        if (gdacsOutbreaks.length > 0) {
+          cachedOutbreaks = gdacsOutbreaks;
+          lastFetch = Date.now();
+          return res.json({ outbreaks: gdacsOutbreaks, count: gdacsOutbreaks.length, source: 'gdacs' });
+        }
+      }
+    } catch {
+      // GDACS also failed
+    }
+
+    // Never return 500 — return empty with explanation
+    return res.json({
+      outbreaks: [],
+      count: 0,
+      source: 'none',
+      message: 'Disease outbreak data temporarily unavailable. Sources: WHO DON, WHO RSS, GDACS all unreachable.',
+    });
   }
+}
+
+function parseGdacsEpidemics(xml: string): Outbreak[] {
+  const outbreaks: Outbreak[] = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null && outbreaks.length < 20) {
+    const item = match[1];
+    const titleMatch = /<title[^>]*>([\s\S]*?)<\/title>/.exec(item);
+    const latMatch = /<geo:lat>([\s\S]*?)<\/geo:lat>/.exec(item);
+    const lonMatch = /<geo:long>([\s\S]*?)<\/geo:long>/.exec(item);
+    const dateMatch = /<pubDate>([\s\S]*?)<\/pubDate>/.exec(item);
+
+    const title = titleMatch?.[1]?.replace(/<!\[CDATA\[|\]\]>/g, '').trim() || '';
+    const lat = parseFloat(latMatch?.[1] || '');
+    const lon = parseFloat(lonMatch?.[1] || '');
+    if (!title || isNaN(lat) || isNaN(lon)) continue;
+
+    outbreaks.push({
+      disease: title.split(' - ')[0] || title,
+      country: title.split(' - ').pop()?.trim() || 'Unknown',
+      lat,
+      lon,
+      severity: 'moderate',
+      date: dateMatch?.[1] ? new Date(dateMatch[1]).toISOString().split('T')[0] : '',
+      summary: title,
+      donId: `gdacs-${Date.now()}-${outbreaks.length}`,
+    });
+  }
+  return outbreaks;
 }
 
 function parseWhoRss(xml: string): Outbreak[] {

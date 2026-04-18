@@ -196,6 +196,52 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         stale: true,
       });
     }
-    return res.status(500).json({ outages: [], count: 0, error: 'IODA API unavailable' });
+    // OONI DB fallback — query stored censorship measurements
+    try {
+      const { neon } = await import('@neondatabase/serverless');
+      const dbUrl = process.env.DATABASE_URL;
+      if (dbUrl) {
+        const sql = neon(dbUrl);
+        const rows = await sql`
+          SELECT country_code, anomaly_count, confirmed_blocked, total_measurements, measurement_date
+          FROM ooni_measurements
+          WHERE measurement_date > CURRENT_DATE - INTERVAL '3 days'
+            AND (anomaly_count > 5 OR confirmed_blocked > 0)
+          ORDER BY confirmed_blocked DESC, anomaly_count DESC
+          LIMIT 30
+        `;
+        if (rows.length > 0) {
+          const ooniOutages: InternetOutage[] = rows.map((r) => {
+            const mc = MONITORED_COUNTRIES.find((c) => c.code === r.country_code);
+            const blocked = Number(r.confirmed_blocked) || 0;
+            const anomalies = Number(r.anomaly_count) || 0;
+            const sev = blocked > 50 ? 'critical' : blocked > 10 ? 'high' : anomalies > 20 ? 'moderate' : 'low';
+            return {
+              country: mc?.name || String(r.country_code),
+              code: String(r.country_code),
+              lat: mc?.lat || 0,
+              lon: mc?.lon || 0,
+              severity: sev,
+              type: blocked > 0 ? 'censorship' : 'anomaly',
+              description: `${blocked} confirmed blocks, ${anomalies} anomalies detected (OONI)`,
+              score: blocked > 50 ? 1.0 : blocked > 10 ? 0.75 : anomalies > 20 ? 0.5 : 0.25,
+            };
+          });
+          cachedOutages = ooniOutages;
+          lastFetch = Date.now();
+          return res.json({ outages: ooniOutages, count: ooniOutages.length, source: 'ooni-db' });
+        }
+      }
+    } catch {
+      // OONI DB also failed
+    }
+
+    // Never return 500
+    return res.json({
+      outages: [],
+      count: 0,
+      source: 'none',
+      message: 'Internet outage data temporarily unavailable. IODA and OONI sources unreachable.',
+    });
   }
 }
