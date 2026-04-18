@@ -4,9 +4,11 @@ import { applyDensity } from './config/density.ts';
 import { Router } from './router.ts';
 import { registerCommandPalette } from './ui/commandPalette.ts';
 import { registerPwaInstall } from './ui/pwaInstall.ts';
+import { initDataToasts } from './ui/dataToast.ts';
 
 applyTheme();
 applyDensity();
+initDataToasts();
 // Cmd+K / Ctrl+K opens the command palette from anywhere
 registerCommandPalette();
 // PWA install banner (shows on supported browsers after 15s)
