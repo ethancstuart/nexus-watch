@@ -171,10 +171,7 @@ export function renderWelcomePage(root: HTMLElement): void {
     const countries = getCountries();
     for (const code of countries) addCiiWatch(code);
 
-    localStorage.setItem(
-      DONE_KEY,
-      JSON.stringify({ completedAt: Date.now(), regions: [...selectedRegions] }),
-    );
+    localStorage.setItem(DONE_KEY, JSON.stringify({ completedAt: Date.now(), regions: [...selectedRegions] }));
 
     // Subscribe to email if provided
     if (email && countries.length > 0) {

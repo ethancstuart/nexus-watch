@@ -20,8 +20,8 @@
 }
 
 /* Common header patterns */
-[class$="-page"] > header h1,
-[class$="-page"] h1:first-of-type {
+[class$='-page'] > header h1,
+[class$='-page'] h1:first-of-type {
   font-family: var(--nw-font-display);
   font-size: 28px;
   font-weight: 700;
@@ -29,8 +29,8 @@
   margin-bottom: 8px;
 }
 
-[class$="-page"] > header p,
-[class$="-subtitle"] {
+[class$='-page'] > header p,
+[class$='-subtitle'] {
   font-family: var(--nw-font-body);
   font-size: 14px;
   color: var(--nw-text-secondary);
@@ -38,7 +38,7 @@
 }
 
 /* Back links */
-[class$="-back"] {
+[class$='-back'] {
   font-family: var(--nw-font-body);
   font-size: 13px;
   color: var(--nw-text-muted);
@@ -48,7 +48,7 @@
   margin-bottom: 16px;
 }
 
-[class$="-back"]:hover {
+[class$='-back']:hover {
   color: var(--nw-accent);
 }
 

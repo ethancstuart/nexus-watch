@@ -13,8 +13,14 @@
 }
 
 @keyframes nw-fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* === Navigation === */
@@ -125,9 +131,15 @@
   margin-top: 4px;
 }
 
-.nw-stat-trend.up { color: var(--nw-error); }
-.nw-stat-trend.down { color: var(--nw-cyan); }
-.nw-stat-trend.stable { color: var(--nw-text-muted); }
+.nw-stat-trend.up {
+  color: var(--nw-error);
+}
+.nw-stat-trend.down {
+  color: var(--nw-cyan);
+}
+.nw-stat-trend.stable {
+  color: var(--nw-text-muted);
+}
 
 /* === Buttons === */
 
@@ -146,7 +158,9 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background var(--nw-transition), transform var(--nw-transition);
+  transition:
+    background var(--nw-transition),
+    transform var(--nw-transition);
   text-decoration: none;
 }
 
@@ -381,7 +395,9 @@
 }
 
 @keyframes nw-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* === Empty States === */

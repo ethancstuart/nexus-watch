@@ -19,21 +19,62 @@ export const config = { runtime: 'edge' };
  */
 
 const COUNTRY_NAMES: Record<string, string> = {
-  AF: 'Afghanistan', AR: 'Argentina', AU: 'Australia', BD: 'Bangladesh',
-  BF: 'Burkina Faso', BR: 'Brazil', CA: 'Canada', CD: 'DR Congo',
-  CN: 'China', CO: 'Colombia', DE: 'Germany', EG: 'Egypt', ET: 'Ethiopia',
-  FR: 'France', GB: 'United Kingdom', HT: 'Haiti', IL: 'Israel', IN: 'India',
-  IQ: 'Iraq', IR: 'Iran', IT: 'Italy', JP: 'Japan', KP: 'North Korea',
-  KR: 'South Korea', LB: 'Lebanon', LY: 'Libya', ML: 'Mali', MM: 'Myanmar',
-  MX: 'Mexico', NG: 'Nigeria', PK: 'Pakistan', PL: 'Poland', PS: 'Palestine',
-  RO: 'Romania', RU: 'Russia', SA: 'Saudi Arabia', SD: 'Sudan', SO: 'Somalia',
-  SS: 'South Sudan', SY: 'Syria', TD: 'Chad', TR: 'Turkey', TW: 'Taiwan',
-  UA: 'Ukraine', US: 'United States', VE: 'Venezuela', YE: 'Yemen',
+  AF: 'Afghanistan',
+  AR: 'Argentina',
+  AU: 'Australia',
+  BD: 'Bangladesh',
+  BF: 'Burkina Faso',
+  BR: 'Brazil',
+  CA: 'Canada',
+  CD: 'DR Congo',
+  CN: 'China',
+  CO: 'Colombia',
+  DE: 'Germany',
+  EG: 'Egypt',
+  ET: 'Ethiopia',
+  FR: 'France',
+  GB: 'United Kingdom',
+  HT: 'Haiti',
+  IL: 'Israel',
+  IN: 'India',
+  IQ: 'Iraq',
+  IR: 'Iran',
+  IT: 'Italy',
+  JP: 'Japan',
+  KP: 'North Korea',
+  KR: 'South Korea',
+  LB: 'Lebanon',
+  LY: 'Libya',
+  ML: 'Mali',
+  MM: 'Myanmar',
+  MX: 'Mexico',
+  NG: 'Nigeria',
+  PK: 'Pakistan',
+  PL: 'Poland',
+  PS: 'Palestine',
+  RO: 'Romania',
+  RU: 'Russia',
+  SA: 'Saudi Arabia',
+  SD: 'Sudan',
+  SO: 'Somalia',
+  SS: 'South Sudan',
+  SY: 'Syria',
+  TD: 'Chad',
+  TR: 'Turkey',
+  TW: 'Taiwan',
+  UA: 'Ukraine',
+  US: 'United States',
+  VE: 'Venezuela',
+  YE: 'Yemen',
   ZA: 'South Africa',
 };
 
 function flag(code: string): string {
-  return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join('');
+  return code
+    .toUpperCase()
+    .split('')
+    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .join('');
 }
 
 function ciiColor(score: number): string {
@@ -66,7 +107,10 @@ export default async function handler(req: VercelRequest) {
   const sizeParam = url.searchParams.get('size') || '1200x630';
   const [width, height] = sizeParam.split('x').map(Number);
 
-  const country = (url.searchParams.get('country') || 'UA').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  const country = (url.searchParams.get('country') || 'UA')
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+    .slice(0, 2);
   const countryName = escapeHtml(COUNTRY_NAMES[country] || country);
   const score = Math.max(0, Math.min(100, parseInt(url.searchParams.get('score') || '65', 10) || 0));
   const delta = Math.max(-100, Math.min(100, parseFloat(url.searchParams.get('delta') || '3') || 0));
@@ -118,17 +162,27 @@ function renderCiiCard(country: string, countryName: string, score: number, delt
   </div>`;
 }
 
-function renderCrisisCard(country: string, countryName: string, score: number, delta: number, signals: string, date: string): string {
+function renderCrisisCard(
+  country: string,
+  countryName: string,
+  score: number,
+  delta: number,
+  signals: string,
+  date: string,
+): string {
   const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
   const signalList = signals ? signals.split('|').slice(0, 3) : [];
   const emoji = flag(country);
 
-  const signalHtml = signalList.map(s =>
-    `<div style="display:flex;align-items:center;gap:8px;">
+  const signalHtml = signalList
+    .map(
+      (s) =>
+        `<div style="display:flex;align-items:center;gap:8px;">
       <span style="color:#dc2626;font-size:14px;">●</span>
       <span style="color:#999;font-size:14px;">${s.trim()}</span>
-    </div>`
-  ).join('');
+    </div>`,
+    )
+    .join('');
 
   return `<div style="display:flex;flex-direction:column;width:100%;height:100%;background:#0a0a0a;font-family:Inter,system-ui,sans-serif;">
     <div style="display:flex;align-items:center;gap:12px;background:#dc2626;padding:16px 48px;">

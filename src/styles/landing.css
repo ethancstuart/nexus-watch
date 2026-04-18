@@ -94,7 +94,9 @@
   letter-spacing: 0.02em;
   text-decoration: none;
   border-radius: var(--nw-radius);
-  transition: background var(--nw-transition), transform var(--nw-transition);
+  transition:
+    background var(--nw-transition),
+    transform var(--nw-transition);
   margin-bottom: 12px;
 }
 .landing-cta-primary:hover {
@@ -308,7 +310,9 @@
   border: 1px solid var(--nw-border);
   border-radius: var(--nw-radius);
   background: var(--nw-surface);
-  transition: transform 0.2s, border-color 0.2s;
+  transition:
+    transform 0.2s,
+    border-color 0.2s;
 }
 .landing-feature:hover {
   transform: translateY(-2px);
@@ -1134,6 +1138,10 @@ button.landing-price-btn:disabled {
   color: #555;
   margin-top: 4px;
   letter-spacing: 0.1em;
+}
+.landing-demo-details {
+  flex: 1;
+  min-width: 0;
 }
 .landing-demo-section {
   margin-bottom: 16px;

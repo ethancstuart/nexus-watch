@@ -150,10 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         failed += chunk.length;
       }
     } catch (err) {
-      console.error(
-        `[deliver-briefs] Resend batch exception:`,
-        err instanceof Error ? err.message : err,
-      );
+      console.error(`[deliver-briefs] Resend batch exception:`, err instanceof Error ? err.message : err);
       failed += chunk.length;
     }
 
