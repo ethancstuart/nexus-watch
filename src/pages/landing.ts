@@ -5,12 +5,15 @@ export function renderLanding(root: HTMLElement): void {
   root.textContent = '';
 
   const page = createElement('div', { className: 'nw-landing' });
+  page.setAttribute('role', 'main');
+  page.id = 'main-content';
   page.innerHTML = `
     <div class="landing-newsletter-bar" id="newsletter-bar">
       <div class="landing-newsletter-bar-inner">
         <span class="landing-newsletter-bar-text">Get <strong>The NexusWatch Brief</strong> — geopolitical intelligence in 3 minutes, free every morning</span>
         <form class="landing-newsletter-bar-form" id="bar-subscribe">
-          <input type="email" placeholder="your@email.com" required class="landing-newsletter-bar-input">
+          <label for="bar-email" class="sr-only">Email address</label>
+          <input type="email" id="bar-email" placeholder="your@email.com" required class="landing-newsletter-bar-input">
           <button type="submit" class="landing-newsletter-bar-btn">SUBSCRIBE</button>
         </form>
         <button class="landing-newsletter-bar-close" id="bar-close" title="Dismiss">✕</button>
@@ -20,59 +23,74 @@ export function renderLanding(root: HTMLElement): void {
     <nav class="landing-nav">
       <span class="landing-logo">NexusWatch</span>
       <div class="landing-nav-links">
-        <a href="#/intel" class="landing-nav-link">OPEN PLATFORM</a>
-        <a href="#/about" class="landing-nav-link">ABOUT</a>
-        <a href="https://brief.nexuswatch.dev" target="_blank" class="landing-nav-link landing-nav-brief">THE BRIEF</a>
+        <a href="#/intel" class="landing-nav-link">Intel Map</a>
+        <a href="#/briefs" class="landing-nav-link">Briefs</a>
+        <a href="#/pricing" class="landing-nav-link">Pricing</a>
+        <a href="#/methodology" class="landing-nav-link">About</a>
       </div>
     </nav>
 
-    <section class="landing-hero anim-fade-up">
+    <section class="landing-hero">
       <div class="landing-hero-badge">VERIFIED GEOPOLITICAL INTELLIGENCE</div>
-      <h1 class="landing-hero-title">Intelligence<br>you can audit.</h1>
-      <p class="landing-hero-subtitle">
-        Every number traced to its source. Every AI claim cited. Every prediction tracked against reality.<br>
-        We're the only geopolitical intelligence platform that tells you what we <em>don't</em> know.
-      </p>
+      <h1 class="landing-hero-title">Intelligence you can audit.</h1>
 
-      <div class="landing-cta-group">
-        <a href="#/intel" class="landing-cta-primary">EXPLORE FREE — NO SIGNUP</a>
-        <a href="#/pricing" class="landing-cta-secondary">VIEW PRICING</a>
+      <div class="landing-cii-ticker-hero" id="cii-ticker">
+        <div class="landing-ticker-header">
+          <span class="landing-ticker-dot"></span>
+          <span class="landing-ticker-label">LIVE CII</span>
+        </div>
+        <div class="landing-ticker-strip" id="cii-ticker-strip">
+          <span class="landing-ticker-loading">Loading live scores...</span>
+        </div>
       </div>
-      <p class="landing-cta-subtext">Full 3D globe, 35 live layers, CII scores for 86 countries. No credit card, no account.</p>
 
-      <div class="landing-stats">
-        <div class="landing-stat"><span class="landing-stat-num">35+</span><span class="landing-stat-label">DATA LAYERS</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">86</span><span class="landing-stat-label">COUNTRIES</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">12</span><span class="landing-stat-label">VERIFIED SOURCES</span></div>
-        <div class="landing-stat"><span class="landing-stat-num">100%</span><span class="landing-stat-label">AUDITABLE</span></div>
-      </div>
+      <a href="#/intel" class="landing-cta-primary">EXPLORE THE MAP — FREE</a>
+      <p class="landing-cta-subtext">No account. No credit card. 86 countries scored live.</p>
 
       <div class="landing-brief-signup">
-        <div class="landing-brief-label">Get <strong>The NexusWatch Brief</strong> — 3-minute intelligence scan, free every morning</div>
+        <label for="hero-email" class="sr-only">Email address</label>
         <form class="landing-subscribe-form" id="landing-subscribe">
-          <input type="email" placeholder="your@email.com" required class="landing-email-input">
-          <button type="submit" class="landing-subscribe-btn">SUBSCRIBE FREE</button>
+          <input type="email" id="hero-email" placeholder="your@email.com" required class="landing-email-input">
+          <button type="submit" class="landing-subscribe-btn">GET THE DAILY BRIEF — FREE</button>
         </form>
         <div class="landing-subscribe-status" id="landing-sub-status"></div>
       </div>
     </section>
 
+    <section class="landing-stats-bar">
+      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">45+</span><span class="landing-stat-label">Data Layers</span></div>
+      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">86</span><span class="landing-stat-label">Countries</span></div>
+      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">12</span><span class="landing-stat-label">Verified Sources</span></div>
+      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">100%</span><span class="landing-stat-label">Auditable</span></div>
+    </section>
+
     <section class="landing-trust">
-      <span class="landing-trust-label">DATA SOURCES</span>
+      <span class="landing-trust-label">TRUSTED DATA SOURCES</span>
       <div class="landing-trust-logos">
-        <span>USGS</span><span>NASA FIRMS</span><span>ACLED</span><span>WHO</span><span>GDACS</span><span>AIS</span><span>GDELT</span><span>Open-Meteo</span>
+        <span class="landing-trust-badge">USGS</span>
+        <span class="landing-trust-badge">NASA FIRMS</span>
+        <span class="landing-trust-badge">ACLED</span>
+        <span class="landing-trust-badge">WHO</span>
+        <span class="landing-trust-badge">GDACS</span>
+        <span class="landing-trust-badge">AIS</span>
+        <span class="landing-trust-badge">GDELT</span>
+        <span class="landing-trust-badge">OpenSky</span>
+        <span class="landing-trust-badge">Polymarket</span>
+        <span class="landing-trust-badge">V-Dem</span>
+      </div>
+      <div class="landing-trust-proof">
+        <span class="landing-ticker-dot"></span>
+        <span class="landing-trust-proof-text">Last signal processed: <span id="last-signal-time">moments ago</span></span>
       </div>
     </section>
 
-    <section class="landing-cii-ticker" id="cii-ticker">
-      <div class="landing-ticker-header">
-        <span class="landing-ticker-dot"></span>
-        <span class="landing-ticker-label">LIVE COUNTRY INSTABILITY INDEX</span>
+    <section class="landing-methodology-cta">
+      <h2>How we score countries</h2>
+      <p>The Country Instability Index (CII) decomposes every score into 6 weighted components across 12+ verified data sources. Every number links to its evidence chain.</p>
+      <div class="landing-methodology-links">
+        <a href="#/methodology" class="nw-button-ghost nw-button-sm">Read full methodology</a>
+        <a href="#/accuracy" class="nw-button-ghost nw-button-sm">View prediction accuracy</a>
       </div>
-      <div class="landing-ticker-strip" id="cii-ticker-strip">
-        <span class="landing-ticker-loading">Loading live intelligence...</span>
-      </div>
-      <a href="#/intel" class="landing-ticker-cta">Open full map →</a>
     </section>
 
     <section class="landing-features">
@@ -168,68 +186,67 @@ export function renderLanding(root: HTMLElement): void {
     </section>
 
     <section class="landing-pricing">
-      <h2>Pricing</h2>
-
-      <div class="landing-founding-banner" id="founding-banner" hidden>
-        <div class="landing-founding-inner">
-          <div class="landing-founding-text">
-            <strong>FOUNDING MEMBERS</strong> — First 100 subscribers get
-            <span class="landing-founding-price">$19/mo lifetime</span>
-            on the Analyst tier.
-            <span class="landing-founding-remaining" id="founding-remaining"></span>
-          </div>
-          <button type="button" class="landing-founding-btn" id="founding-btn" data-tier="founding">
-            CLAIM FOUNDING SEAT
-          </button>
-        </div>
-      </div>
+      <h2>Choose your level of intelligence</h2>
+      <p class="landing-pricing-subtitle">Trust is free. Depth is paid.</p>
 
       <div class="landing-pricing-grid three-tier">
-        <div class="landing-price-card landing-price-free">
-          <div class="landing-price-badge-free">START HERE</div>
-          <div class="landing-price-tier">FREE</div>
-          <div class="landing-price-amount">$0</div>
-          <ul class="landing-price-features">
-            <li>Full 3D globe with 35 live layers</li>
-            <li>Country Instability Index (86 nations)</li>
-            <li>Intelligence Brief (Mon/Wed/Fri)</li>
-            <li>1 natural language alert</li>
-            <li>48-hour timeline preview</li>
-            <li>PDF export</li>
-            <li>Cinema Mode (watermarked)</li>
-          </ul>
-          <a href="#/intel" class="landing-price-btn landing-price-btn-free">OPEN THE MAP — FREE</a>
-        </div>
         <div class="landing-price-card">
-          <div class="landing-price-tier">ANALYST</div>
-          <div class="landing-price-amount" id="analyst-price">$29<span>/mo</span></div>
+          <div class="landing-price-tier">Explorer</div>
+          <div class="landing-price-amount">$0</div>
+          <div class="landing-price-desc">Everything you need to start</div>
           <ul class="landing-price-features">
-            <li>Everything in Free, plus:</li>
-            <li>Daily intelligence brief</li>
-            <li>5 natural language alerts</li>
-            <li>7-day timeline playback</li>
-            <li>Email alert delivery</li>
-            <li>Pro Insight sections in briefs</li>
+            <li>Full 3D globe with 45+ live layers</li>
+            <li>CII scores for 86 countries</li>
+            <li>Intelligence Brief (3x/week)</li>
+            <li>2 alert rules</li>
+            <li>48-hour timeline</li>
+            <li>3 AI analyst queries/day</li>
           </ul>
-          <button type="button" class="landing-price-btn" data-tier="analyst">START ANALYST</button>
+          <a href="#/intel" class="landing-price-btn landing-price-btn-free">Open the Map</a>
+        </div>
+        <div class="landing-price-card landing-price-analyst" id="analyst-card">
+          <div class="landing-founding-overlay" id="founding-banner" hidden>
+            <div class="landing-founding-badge">FOUNDING RATE</div>
+            <div class="landing-founding-price">$19/mo <span>locked for life</span></div>
+            <div class="landing-founding-remaining" id="founding-remaining"></div>
+            <button type="button" class="landing-price-btn founding" data-tier="founding">Claim Founding Seat</button>
+          </div>
+          <div class="landing-price-tier">Analyst</div>
+          <div class="landing-price-amount" id="analyst-price">$29<span>/mo</span></div>
+          <div class="landing-price-desc">Full evidence chains + daily briefs</div>
+          <ul class="landing-price-features">
+            <li>Everything in Explorer, plus:</li>
+            <li>Daily intelligence brief</li>
+            <li>Full evidence chains</li>
+            <li>Unlimited AI queries</li>
+            <li>5 alert rules</li>
+            <li>30-day timeline</li>
+          </ul>
+          <button type="button" class="landing-price-btn" data-tier="analyst">Start 14-Day Trial</button>
         </div>
         <div class="landing-price-card featured">
-          <div class="landing-price-tier">PRO</div>
+          <div class="landing-price-badge">RECOMMENDED</div>
+          <div class="landing-price-tier">Pro</div>
           <div class="landing-price-amount">$99<span>/mo</span></div>
+          <div class="landing-price-desc">Portfolio exposure + unlimited everything</div>
           <ul class="landing-price-features">
             <li>Everything in Analyst, plus:</li>
-            <li>Unlimited alerts</li>
-            <li>90-day timeline playback</li>
-            <li>Cinema Mode (no watermark)</li>
-            <li>API access (10K calls/mo)</li>
-            <li>Personalized brief sections</li>
-            <li>Priority support</li>
+            <li>Portfolio geopolitical exposure</li>
+            <li>Unlimited scenarios</li>
+            <li>90-day full history</li>
+            <li>CSV/JSON export</li>
+            <li>Crisis playbooks</li>
+            <li>Priority briefings</li>
           </ul>
-          <button type="button" class="landing-price-btn featured" data-tier="pro">UPGRADE TO PRO</button>
+          <button type="button" class="landing-price-btn featured" data-tier="pro">Start 14-Day Trial</button>
         </div>
       </div>
-      <p class="landing-pricing-note">No credit card required for Free. No account needed. Just intelligence.</p>
+      <p class="landing-pricing-note">Enterprise API from $299/mo — <a href="mailto:hello@nexuswatch.dev">Talk to us</a></p>
       <div class="landing-checkout-status" id="checkout-status" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="landing-personas">
+      <p class="landing-personas-text">Built for fund managers, policy analysts, journalists, and security teams.</p>
     </section>
 
     <footer class="landing-footer">
@@ -243,10 +260,9 @@ export function renderLanding(root: HTMLElement): void {
         <a href="#/api">API Docs</a>
         <a href="#/briefs">Brief Archive</a>
         <a href="#/whats-new">What's New</a>
-        <a href="#/about">About</a>
         <a href="#/roadmap">Roadmap</a>
       </div>
-      <div class="landing-footer-copy">Built with Claude Code. Deployed on Vercel.</div>
+      <div class="landing-footer-copy">© ${new Date().getFullYear()} NexusWatch. Intelligence you can audit.</div>
     </footer>
   `;
 

@@ -1,3 +1,6 @@
+@import './design-tokens.css';
+@import './components.css';
+
 *,
 *::before,
 *::after {
@@ -7,13 +10,22 @@
 }
 
 body {
-  font-family: var(--font-mono, 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace);
-  background: var(--color-bg, #000000);
-  color: var(--color-text, #cccccc);
-  font-size: 12px;
+  font-family: var(--nw-font-body, 'Inter', system-ui, sans-serif);
+  background: var(--nw-bg, #0a0a0a);
+  color: var(--nw-text, #ededed);
+  font-size: 16px;
+  line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Legacy variable compatibility — maps old tokens to new design system */
+:root {
+  --font-mono: var(--nw-font-mono);
+  --color-bg: var(--nw-bg);
+  --color-text: var(--nw-text);
+  --color-accent: var(--nw-accent);
 }
 
 /* Skip link */

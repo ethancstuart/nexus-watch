@@ -279,7 +279,21 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       }
     }
 
-    await sql`DELETE FROM daily_briefs WHERE brief_date = ${today}`;
+    // === Idempotency guard (P0 dedup fix, 2026-04-18) ===
+    // If a brief for today already exists, skip the entire run. This prevents
+    // Vercel cron retries from generating and sending duplicate emails.
+    const existingBrief = await sql`
+      SELECT brief_date FROM daily_briefs WHERE brief_date = ${today} LIMIT 1
+    `;
+    if (existingBrief.length > 0) {
+      console.log(`[daily-brief] Brief for ${today} already exists — skipping (dedup guard).`);
+      return res.status(200).json({
+        success: true,
+        skipped: true,
+        reason: `Brief for ${today} already generated and sent.`,
+        runId,
+      });
+    }
 
     // === Parallel data fetch ===
     const [
@@ -947,8 +961,16 @@ ${(() => {
       }
     }
 
-    // === Send transactional email via Resend (per-recipient, batch API) ===
-    // Fix 2026-04-11 (P0 privacy): previously used a single /emails POST with
+    // === Email delivery moved to deliver-briefs.ts (D-2, 2026-04-18) ===
+    // Resend batch sending was previously inline here. Now handled by the
+    // deliver-briefs hourly cron which dispatches timezone-aware emails at
+    // 7am local per subscriber. This cron only generates + archives.
+    // See api/cron/deliver-briefs.ts.
+    //
+    // LEGACY CODE BELOW: Kept commented for reference during migration period.
+    // Remove after 2026-05-18 if deliver-briefs is stable.
+    //
+    // [DISABLED] Fix 2026-04-11 (P0 privacy): previously used a single /emails POST with
     // `to: [allSubscribers]` which CC'd every subscriber to every other
     // subscriber — a GDPR/CAN-SPAM incident. Now uses /emails/batch with a
     // single-recipient payload per email object. Max 100 per batch request;
@@ -960,14 +982,15 @@ ${(() => {
     // crash-safe retries across multiple cron ticks. See Track D.1 for the
     // self-heal hooks that will trigger the migration signal.
     const resendKey = process.env.RESEND_API_KEY;
-    if (resendKey) {
+    // eslint-disable-next-line no-constant-condition -- D-2: delivery moved to deliver-briefs.ts
+    if (false && resendKey) {
       const resendT0 = Date.now();
       let resendRecipientCount = 0;
       try {
         const subscribers = await sql`SELECT email FROM email_subscribers WHERE unsubscribed = FALSE`;
         const adminEmail = process.env.ADMIN_EMAILS;
         const allEmails = new Set<string>();
-        if (adminEmail) adminEmail.split(',').forEach((e: string) => allEmails.add(e.trim()));
+        if (adminEmail) (adminEmail as string).split(',').forEach((e: string) => allEmails.add(e.trim()));
         subscribers.forEach((s) => allEmails.add(s.email as string));
 
         resendRecipientCount = allEmails.size;

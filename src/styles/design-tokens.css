@@ -1,0 +1,214 @@
+/* NexusWatch Design Tokens — Modern Dark SaaS
+   Decision: D-1 (Modern dark SaaS), D-6 (Approachable audience), D-11 (Secondary palette)
+   Inter for headers/body, JetBrains Mono for data only.
+   Approved 2026-04-18. */
+
+:root {
+  /* === Backgrounds === */
+  --nw-bg: #0a0a0a;
+  --nw-surface: #111111;
+  --nw-surface-hover: #181818;
+  --nw-surface-active: #1a1a1a;
+  --nw-border: #222222;
+  --nw-border-subtle: #1a1a1a;
+
+  /* === Text === */
+  --nw-text: #ededed;
+  --nw-text-secondary: #999999;
+  --nw-text-muted: #666666;
+
+  /* === Primary Accent === */
+  --nw-accent: #ff6600;
+  --nw-accent-hover: #ff7722;
+  --nw-accent-dim: rgba(255, 102, 0, 0.12);
+  --nw-accent-text: #000000;
+
+  /* === Secondary Palette (D-11) === */
+  --nw-cyan: #00d4aa;
+  --nw-cyan-dim: rgba(0, 212, 170, 0.15);
+  --nw-amber: #e5a913;
+  --nw-amber-dim: rgba(229, 169, 19, 0.15);
+  --nw-blue: #6b8aff;
+  --nw-blue-dim: rgba(107, 138, 255, 0.15);
+
+  /* === Semantic === */
+  --nw-error: #dc2626;
+  --nw-error-dim: rgba(220, 38, 38, 0.15);
+  --nw-success: #22c55e;
+  --nw-success-dim: rgba(34, 197, 94, 0.15);
+
+  /* === CII Severity Scale === */
+  --nw-cii-critical: #dc2626;
+  --nw-cii-high: #ff6600;
+  --nw-cii-elevated: #e5a913;
+  --nw-cii-low: #00d4aa;
+
+  /* === Layout === */
+  --nw-radius: 8px;
+  --nw-radius-sm: 4px;
+  --nw-radius-lg: 12px;
+  --nw-page-max: 1200px;
+  --nw-page-padding: 48px;
+
+  /* === Typography === */
+  --nw-font-display: 'Inter', system-ui, -apple-system, sans-serif;
+  --nw-font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --nw-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+  /* === Transitions === */
+  --nw-transition: 0.15s ease;
+  --nw-transition-slow: 0.3s ease;
+}
+
+/* === Typography Scale ===
+   Inter for all display/body, JetBrains Mono for data only */
+
+.nw-display {
+  font-family: var(--nw-font-display);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--nw-text);
+}
+
+.nw-h1 {
+  font-family: var(--nw-font-display);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--nw-text);
+}
+
+.nw-h2 {
+  font-family: var(--nw-font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--nw-text);
+}
+
+.nw-h3 {
+  font-family: var(--nw-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--nw-text);
+}
+
+.nw-h4 {
+  font-family: var(--nw-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--nw-text);
+}
+
+.nw-h5 {
+  font-family: var(--nw-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nw-text-secondary);
+}
+
+.nw-h6 {
+  font-family: var(--nw-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nw-text-muted);
+}
+
+.nw-body {
+  font-family: var(--nw-font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--nw-text);
+}
+
+.nw-body-sm {
+  font-family: var(--nw-font-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--nw-text);
+}
+
+.nw-small {
+  font-family: var(--nw-font-body);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  color: var(--nw-text-secondary);
+}
+
+.nw-caption {
+  font-family: var(--nw-font-body);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  color: var(--nw-text-muted);
+}
+
+/* Data values — monospace */
+.nw-data {
+  font-family: var(--nw-font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.nw-data-lg {
+  font-family: var(--nw-font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.nw-data-sm {
+  font-family: var(--nw-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* === Accessibility === */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
