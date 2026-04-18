@@ -1,6 +1,6 @@
 # NexusWatch — What's Left For You To Do Manually
 
-**Last updated:** 2026-04-16
+**Last updated:** 2026-04-18
 **Status:** All database, Stripe (live mode), env vars, deploy infrastructure, and the ANTHROPIC_API_KEY are DONE. What's below is everything that genuinely requires you clicking around in third-party UIs — nothing here can be automated from this machine.
 
 Order is suggested, but each item is independent. Do them in whatever order fits.
@@ -178,9 +178,55 @@ vercel env add MARKETING_AUTOMATION_ENABLED production --value "true" --yes
 
 ---
 
+## 8. New migrations from April 18 session (run in order)
+
+Three new migrations need to be applied to the live Neon database:
+
+```bash
+# Connect to Neon
+psql "$DATABASE_URL"
+
+# Run in this order:
+\i docs/migrations/2026-04-18-daily-briefs-unique.sql
+\i docs/migrations/2026-04-18-timezone-delivery.sql
+\i docs/migrations/2026-04-18-social-images.sql
+```
+
+**What each does:**
+1. `daily-briefs-unique.sql` — Adds UNIQUE index on `daily_briefs.brief_date` (required by atomic dedup guard)
+2. `timezone-delivery.sql` — Adds `timezone` column to `email_subscribers` + `email_alert_subscriptions`, creates `brief_subscriber_delivery` table for per-subscriber dedup
+3. `social-images.sql` — Adds `image_url` column to `marketing_posts` + `social_queue` for visual social content
+
+All use `IF NOT EXISTS` — safe to run multiple times.
+
+---
+
+## 9. New env vars from April 18 session
+
+**Instagram (D-7 — needed when IG Business Account is ready):**
+```bash
+vercel env add INSTAGRAM_ACCESS_TOKEN production
+vercel env add INSTAGRAM_USER_ID production
+```
+
+**Typefully (needed for X/LinkedIn/Threads posting):**
+```bash
+vercel env add TYPEFULLY_API_KEY production
+```
+
+**Telegram alerts (needed for Telegram bot alerts):**
+```bash
+vercel env add TELEGRAM_BOT_TOKEN production
+vercel env add TELEGRAM_WEBHOOK_SECRET production
+```
+
+All are optional — each adapter returns `stub` results when its keys are missing, so nothing crashes.
+
+---
+
 ## What's NOT in this doc (already done — do not redo)
 
-- All 17 database migrations (38 tables live)
+- All 20 database migrations (38+ tables live, 3 new pending above)
 - Core env vars: `CRON_SECRET`, `AUTH_SECRET`, `ADMIN_EMAILS`, `STRIPE_FOUNDING_STOCK`, `MARKETING_AUTOMATION_ENABLED` (set to `false`), `DISCORD_APPROVAL_ENABLED` (set to `false`), `API_V2_KEYS`
 - `ANTHROPIC_API_KEY` (local + Vercel prod)
 - Stripe **live mode** — 3 products, 3 prices ($29/$99/$19), webhook, signing secret, all Vercel env vars swapped to live keys
