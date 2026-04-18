@@ -22,6 +22,10 @@ export interface CIIScore {
   trend: 'rising' | 'falling' | 'stable';
   tier: CountryTier;
   confidence: ConfidenceLevel;
+  /** Data quality grade: A (4+ live sources), B (2-3), C (1), D (baselines only). */
+  dataQuality: 'A' | 'B' | 'C' | 'D';
+  /** Number of live data sources contributing to this score. */
+  liveSourceCount: number;
   components: {
     conflict: number; // 0-20
     disasters: number; // 0-15
@@ -650,6 +654,10 @@ function computeCountryCII(
   // ── Build evidence chain ──
   const evidence = eb.build(country.code);
 
+  // Count live sources contributing to this score
+  const liveCount = evidence.components.filter((c) => c.sources.length > 0 && !c.usesBaseline).length;
+  const grade: CIIScore['dataQuality'] = liveCount >= 4 ? 'A' : liveCount >= 2 ? 'B' : liveCount >= 1 ? 'C' : 'D';
+
   return {
     countryCode: country.code,
     countryName: country.name,
@@ -657,6 +665,8 @@ function computeCountryCII(
     trend: 'stable', // Overwritten by computeAllCII when previous scores exist
     tier: country.tier,
     confidence: evidence.overallConfidence,
+    dataQuality: grade,
+    liveSourceCount: liveCount,
     components: {
       conflict: Math.round(conflict * 10) / 10,
       disasters: Math.round(disasters * 10) / 10,

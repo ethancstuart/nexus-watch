@@ -340,9 +340,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { score, components, liveSourceCount } = await computeScore(country, layerData, dbData);
       totalLiveSources += liveSourceCount;
 
+      // Store components + data quality grade (A/B/C/D based on live source count)
+      const grade = liveSourceCount >= 4 ? 'A' : liveSourceCount >= 2 ? 'B' : liveSourceCount >= 1 ? 'C' : 'D';
+      const enrichedComponents = { ...components, liveSourceCount, dataQuality: grade };
+
       await sql`
         INSERT INTO country_cii_history (country_code, country_name, score, components)
-        VALUES (${country.code}, ${country.name}, ${score}, ${JSON.stringify(components)})
+        VALUES (${country.code}, ${country.name}, ${score}, ${JSON.stringify(enrichedComponents)})
       `;
       inserted++;
     }
