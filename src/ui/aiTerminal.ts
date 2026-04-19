@@ -149,8 +149,89 @@ export function createAiTerminal(config: TerminalConfig): HTMLElement {
   const output = createElement('div', { className: 'nw-terminal-output' });
   output.style.display = 'none';
 
+  // Typeahead suggestions dropdown
+  const suggestions = createElement('div', { className: 'nw-terminal-suggestions' });
+  suggestions.style.cssText =
+    'display:none;position:absolute;bottom:100%;left:0;right:0;background:var(--nw-bg,#0a0a0a);border:1px solid var(--nw-border,#222);border-bottom:none;border-radius:4px 4px 0 0;max-height:160px;overflow-y:auto;z-index:10';
+
+  const COMMANDS = [
+    { cmd: '/sitrep', desc: 'Generate situation report' },
+    { cmd: '/compare', desc: 'Compare countries (e.g., /compare UA,RU,TW)' },
+    { cmd: '/alert-me', desc: 'Set natural language alert' },
+    { cmd: '/scenario', desc: 'Run scenario simulation' },
+    { cmd: 'show', desc: 'Fly to a country or location' },
+    { cmd: 'enable', desc: 'Enable a data layer' },
+    { cmd: 'disable', desc: 'Disable a data layer' },
+    { cmd: 'help', desc: 'Show all commands' },
+  ];
+
+  let selectedSuggestion = -1;
+
+  function updateSuggestions(query: string) {
+    suggestions.innerHTML = '';
+    selectedSuggestion = -1;
+    if (query.length < 1) {
+      suggestions.style.display = 'none';
+      return;
+    }
+
+    const q = query.toLowerCase();
+    const matches: { label: string; desc: string }[] = [];
+
+    // Match commands
+    for (const c of COMMANDS) {
+      if (c.cmd.includes(q) || c.desc.toLowerCase().includes(q)) {
+        matches.push({ label: c.cmd, desc: c.desc });
+      }
+    }
+
+    // Match country names from LOCATIONS
+    const locationKeys = Object.keys(LOCATIONS);
+    for (const loc of locationKeys) {
+      if (loc.includes(q) && matches.length < 8) {
+        matches.push({ label: `show ${loc}`, desc: `Fly to ${loc}` });
+      }
+    }
+
+    if (matches.length === 0) {
+      suggestions.style.display = 'none';
+      return;
+    }
+
+    suggestions.style.display = '';
+    for (let i = 0; i < Math.min(matches.length, 6); i++) {
+      const row = createElement('div', {});
+      row.style.cssText =
+        'padding:4px 10px;font-size:11px;cursor:pointer;display:flex;justify-content:space-between;gap:8px';
+      row.innerHTML = `<span style="color:var(--nw-accent);font-family:var(--nw-font-mono)">${matches[i].label}</span><span style="color:var(--nw-text-muted);font-size:10px">${matches[i].desc}</span>`;
+      row.dataset.index = String(i);
+      row.addEventListener('click', () => {
+        input.value = matches[i].label + ' ';
+        suggestions.style.display = 'none';
+        input.focus();
+      });
+      row.addEventListener('mouseenter', () => {
+        highlightSuggestion(i);
+      });
+      suggestions.appendChild(row);
+    }
+  }
+
+  function highlightSuggestion(index: number) {
+    const rows = suggestions.children;
+    for (let i = 0; i < rows.length; i++) {
+      (rows[i] as HTMLElement).style.background = i === index ? 'var(--nw-surface,#111)' : '';
+    }
+    selectedSuggestion = index;
+  }
+
+  input.addEventListener('input', () => {
+    updateSuggestions(input.value.trim());
+  });
+
   wrapper.appendChild(prompt);
   wrapper.appendChild(input);
+  wrapper.appendChild(suggestions);
   wrapper.appendChild(output);
 
   // Show welcome help on first terminal focus
@@ -180,6 +261,29 @@ Type a command or ask about any country.</div>`;
   let historyIndex = -1;
 
   input.addEventListener('keydown', (e) => {
+    // Suggestion navigation
+    if (suggestions.style.display !== 'none' && suggestions.children.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightSuggestion(Math.min(selectedSuggestion + 1, suggestions.children.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (selectedSuggestion > 0) highlightSuggestion(selectedSuggestion - 1);
+        return;
+      }
+      if (e.key === 'Tab' && selectedSuggestion >= 0) {
+        e.preventDefault();
+        const row = suggestions.children[selectedSuggestion] as HTMLElement;
+        const label = row.querySelector('span')?.textContent || '';
+        input.value = label + ' ';
+        suggestions.style.display = 'none';
+        return;
+      }
+    }
+
+    // History navigation (only when suggestions are hidden)
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (history.length > 0 && historyIndex < history.length - 1) {
@@ -200,6 +304,7 @@ Type a command or ask about any country.</div>`;
       return;
     }
     if (e.key === 'Enter') {
+      suggestions.style.display = 'none';
       const cmd = input.value.trim();
       if (cmd) {
         // Add to history (max 50, dedup last entry)

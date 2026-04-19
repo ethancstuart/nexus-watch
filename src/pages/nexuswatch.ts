@@ -259,10 +259,94 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   const userMenuSlot = createElement('div', {});
 
+  // ── Notification Bell ──
+  const bellWrapper = createElement('div', { className: 'nw-bell-wrapper' });
+  bellWrapper.style.cssText = 'position:relative;display:inline-flex';
+  const bellBtn = createElement('button', { className: 'nw-sitrep-btn nw-essential nw-bell-btn' });
+  bellBtn.innerHTML = '\u{1F514}';
+  bellBtn.title = 'Alerts since last visit';
+  bellBtn.style.cssText = 'font-size:12px;padding:2px 6px';
+  const bellBadge = createElement('span', { className: 'nw-bell-badge' });
+  bellBadge.style.cssText =
+    'position:absolute;top:-4px;right:-4px;min-width:14px;height:14px;border-radius:7px;background:#dc2626;color:#fff;font-size:8px;font-weight:700;display:none;align-items:center;justify-content:center;font-family:var(--nw-font-mono);padding:0 3px';
+  bellWrapper.appendChild(bellBtn);
+  bellWrapper.appendChild(bellBadge);
+
+  const bellDropdown = createElement('div', { className: 'nw-bell-dropdown' });
+  bellDropdown.style.cssText =
+    'display:none;position:absolute;top:100%;right:0;width:280px;max-height:320px;overflow-y:auto;background:var(--nw-bg);border:1px solid var(--nw-border);border-radius:6px;z-index:200;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.5)';
+  bellWrapper.appendChild(bellDropdown);
+
+  let bellOpen = false;
+  bellBtn.addEventListener('click', () => {
+    bellOpen = !bellOpen;
+    bellDropdown.style.display = bellOpen ? 'block' : 'none';
+    if (bellOpen) {
+      renderBellDropdown();
+      // Mark as read
+      sessionStorage.setItem('nw:alerts-read-at', String(Date.now()));
+      bellBadge.style.display = 'none';
+    }
+  });
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!bellWrapper.contains(e.target as Node) && bellOpen) {
+      bellOpen = false;
+      bellDropdown.style.display = 'none';
+    }
+  });
+
+  function renderBellDropdown() {
+    bellDropdown.innerHTML = '';
+    const triggered = getTriggeredAlerts();
+    const readAt = parseInt(sessionStorage.getItem('nw:alerts-read-at') || '0', 10);
+
+    if (triggered.length === 0) {
+      bellDropdown.innerHTML =
+        '<div style="padding:16px;text-align:center;font-size:12px;color:var(--nw-text-muted)">No alerts triggered. Set rules with the ALERTS button.</div>';
+      return;
+    }
+
+    const header = createElement('div', {});
+    header.style.cssText =
+      'padding:8px 12px;font-family:var(--nw-font-mono);font-size:10px;letter-spacing:1px;color:var(--nw-text-muted);border-bottom:1px solid var(--nw-border)';
+    header.textContent = `TRIGGERED ALERTS (${triggered.length})`;
+    bellDropdown.appendChild(header);
+
+    for (const alert of triggered.slice(0, 15)) {
+      const row = createElement('div', {});
+      const isNew = alert.timestamp > readAt;
+      row.style.cssText = `padding:8px 12px;border-bottom:1px solid var(--nw-border-subtle);font-size:12px;cursor:pointer;${isNew ? 'background:rgba(255,102,0,0.05);' : ''}`;
+      const ago = Math.floor((Date.now() - alert.timestamp) / 60000);
+      const agoText =
+        ago < 1 ? 'now' : ago < 60 ? `${ago}m` : ago < 1440 ? `${Math.round(ago / 60)}h` : `${Math.round(ago / 1440)}d`;
+      row.innerHTML = `<div style="color:var(--nw-text-secondary);line-height:1.4">${alert.message}</div><div style="font-size:10px;color:var(--nw-text-muted);margin-top:2px">${agoText} ago${isNew ? ' · <span style="color:var(--nw-accent)">NEW</span>' : ''}</div>`;
+      bellDropdown.appendChild(row);
+    }
+  }
+
+  function updateBellBadge() {
+    const triggered = getTriggeredAlerts();
+    const readAt = parseInt(sessionStorage.getItem('nw:alerts-read-at') || '0', 10);
+    const unread = triggered.filter((a) => a.timestamp > readAt).length;
+    if (unread > 0) {
+      bellBadge.textContent = String(unread > 9 ? '9+' : unread);
+      bellBadge.style.display = 'flex';
+    } else {
+      bellBadge.style.display = 'none';
+    }
+  }
+
+  // Update bell on alert triggers
+  document.addEventListener('dashview:layer-data', updateBellBadge, { signal });
+  updateBellBadge();
+
   // Primary actions (always visible)
   topRight.appendChild(drawerToggleSlot);
   topRight.appendChild(sitrepBtn);
   topRight.appendChild(alertBtn);
+  topRight.appendChild(bellWrapper);
   topRight.appendChild(cinemaBtn);
   topRight.appendChild(mobileToggle);
 
