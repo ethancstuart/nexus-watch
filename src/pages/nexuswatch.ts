@@ -2125,6 +2125,38 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
     `;
     container.appendChild(upgradeCta);
   }
+
+  // ── Data Sources Status ──
+  const sourcesHeader = createElement('div', { className: 'nw-section-header nw-section-collapsible collapsed' });
+  sourcesHeader.textContent = 'DATA SOURCES';
+  const sourcesBody = createElement('div', {});
+  sourcesBody.style.display = 'none';
+  sourcesHeader.addEventListener('click', () => {
+    const expanded = sourcesBody.style.display !== 'none';
+    sourcesBody.style.display = expanded ? 'none' : '';
+    sourcesHeader.classList.toggle('collapsed', expanded);
+  });
+  container.appendChild(sourcesHeader);
+
+  const enabledLayers = layerMgr.getEnabledLayers();
+  const seenSources = new Set<string>();
+  for (const layer of enabledLayers) {
+    const prov = getProvenance(layer.id);
+    if (!prov || seenSources.has(prov.source)) continue;
+    seenSources.add(prov.source);
+    const freshness = computeFreshness(prov);
+    const color = freshnessColor(freshness);
+    const ago = relativeTime(prov.fetchedAt);
+    const row = createElement('div', {});
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:10px';
+    row.innerHTML = `<span style="display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0"></span><span style="color:var(--nw-text-secondary)">${prov.source}</span></span><span style="color:var(--nw-text-muted)">${ago} \u00b7 ${prov.dataPointCount} pts</span>`;
+    sourcesBody.appendChild(row);
+  }
+  if (seenSources.size === 0) {
+    sourcesBody.innerHTML =
+      '<div style="font-size:10px;color:var(--nw-text-muted);padding:4px 0">Loading data sources\u2026</div>';
+  }
+  container.appendChild(sourcesBody);
 }
 
 function createAlertRow(item: IntelItem, mapView: MapView): HTMLElement {

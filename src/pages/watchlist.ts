@@ -155,6 +155,52 @@ export function renderWatchlistPage(root: HTMLElement): void {
       return na.localeCompare(nb);
     });
 
+    // Batch actions bar (when 3+ countries)
+    if (sortedList.length >= 3) {
+      const batchBar = createElement('div', {});
+      batchBar.style.cssText = 'display:flex;gap:8px;align-items:center;margin:0 0 12px;font-size:11px';
+
+      const exportBtn = createElement('button', {});
+      exportBtn.style.cssText =
+        'background:none;border:1px solid var(--nw-border);color:var(--nw-text-secondary);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)';
+      exportBtn.textContent = 'Export watchlist CSV';
+      exportBtn.addEventListener('click', () => {
+        const rows = ['Country,Code,CII,Trend,Confidence,Alert Threshold'];
+        for (const item of sortedList) {
+          const s = scores.find((sc) => sc.countryCode === item.countryCode);
+          const n = monitored.find((c) => c.code === item.countryCode)?.name || item.countryCode;
+          rows.push(
+            `"${n}",${item.countryCode},${s?.score ?? ''},${s?.trend ?? ''},${s?.confidence ?? ''},${item.alertThreshold ?? ''}`,
+          );
+        }
+        const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `nexuswatch-watchlist-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+        exportBtn.textContent = 'Exported!';
+        setTimeout(() => {
+          exportBtn.textContent = 'Export watchlist CSV';
+        }, 2000);
+      });
+      batchBar.appendChild(exportBtn);
+
+      const removeAllBtn = createElement('button', {});
+      removeAllBtn.style.cssText =
+        'background:none;border:1px solid var(--nw-border);color:var(--nw-text-muted);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)';
+      removeAllBtn.textContent = 'Clear all';
+      removeAllBtn.addEventListener('click', () => {
+        if (!confirm(`Remove all ${sortedList.length} countries from your watchlist?`)) return;
+        for (const item of sortedList) removeCiiWatch(item.countryCode);
+        render();
+      });
+      batchBar.appendChild(removeAllBtn);
+
+      content.appendChild(batchBar);
+    }
+
     // Country cards
     const grid = createElement('div', { className: 'nw-watchlist-grid' });
     for (const item of sortedList) {

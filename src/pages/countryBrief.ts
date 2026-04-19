@@ -8,7 +8,7 @@
  */
 
 import { createElement } from '../utils/dom.ts';
-import { getCachedCII, getMonitoredCountries } from '../services/countryInstabilityIndex.ts';
+import { getCachedCII, getMonitoredCountries, getCIIDelta } from '../services/countryInstabilityIndex.ts';
 import { getEntitiesByCountry } from '../services/entityRegistry.ts';
 import { CII_RULE_VERSION } from '../services/ruleVersion.ts';
 
@@ -83,6 +83,24 @@ export function renderCountryBrief(root: HTMLElement, code: string): void {
     </div>
   `;
   doc.appendChild(summary);
+
+  // Quick actions (no-print)
+  const actions = createElement('div', { className: 'nw-brief-actions no-print' });
+  const delta = getCIIDelta(countryCode);
+  const deltaText =
+    delta !== null && Math.abs(delta) >= 0.5
+      ? `<span style="color:${delta > 0 ? '#dc2626' : '#22c55e'};font-family:monospace;font-weight:700">${delta > 0 ? '+' : ''}${delta} since last visit</span> · `
+      : '';
+  actions.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0;border-top:1px solid #ddd;border-bottom:1px solid #ddd;margin:16px 0;font-size:12px">
+      ${deltaText}
+      <a href="#/audit/${countryCode}" style="color:#9a1b1b;text-decoration:none">Evidence Chain \u2192</a>
+      <a href="#/compare?codes=${countryCode}" style="color:#9a1b1b;text-decoration:none">Compare \u2192</a>
+      <a href="#/watchlist" style="color:#9a1b1b;text-decoration:none">Watchlist \u2192</a>
+      <a href="#/intel?country=${countryCode}" style="color:#9a1b1b;text-decoration:none">View on Map \u2192</a>
+    </div>
+  `;
+  doc.appendChild(actions);
 
   // 6-component breakdown
   const components = createElement('div', { className: 'nw-brief-components' });
