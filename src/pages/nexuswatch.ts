@@ -754,6 +754,44 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const legend = createMapLegend(layerManager);
   mapContainer.appendChild(legend);
 
+  // ── First-visit Layer Key (shows once, dismissed forever) ──
+  if (!localStorage.getItem('nw:layer-key-dismissed')) {
+    const layerKey = createElement('div', { className: 'nw-layer-key' });
+    layerKey.style.cssText =
+      'position:absolute;bottom:40px;left:16px;z-index:50;background:rgba(0,0,0,0.85);border:1px solid var(--nw-border, #222);border-radius:8px;padding:12px 16px;font-size:12px;max-width:220px;backdrop-filter:blur(4px);animation:nw-modal-fade-in 0.3s ease';
+    layerKey.innerHTML = `
+      <div style="font-family:var(--nw-font-mono);font-size:10px;letter-spacing:1px;color:var(--nw-text-muted);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center">
+        <span>WHAT YOU'RE SEEING</span>
+        <button class="nw-layer-key-close" style="background:none;border:none;color:var(--nw-text-muted);cursor:pointer;font-size:14px;padding:0;line-height:1">\u2715</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#ff3c3c;flex-shrink:0"></span><span style="color:var(--nw-text-secondary)">Earthquakes (USGS, live)</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0"></span><span style="color:var(--nw-text-secondary)">Active Conflicts (ACLED)</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:rgba(239,68,68,0.3);flex-shrink:0"></span><span style="color:var(--nw-text-secondary)">Conflict Zones</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0"></span><span style="color:var(--nw-text-secondary)">Chokepoints (6 straits)</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#ff6b00;flex-shrink:0"></span><span style="color:var(--nw-text-secondary)">Wildfires (NASA, live)</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#eab308;flex-shrink:0"></span><span style="color:var(--nw-text-secondary)">News Events (GDELT)</span></div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--nw-text-muted)">Press <kbd style="background:var(--nw-surface);padding:1px 4px;border-radius:3px;font-family:var(--nw-font-mono);font-size:10px">L</kbd> to see all 45+ layers</div>
+    `;
+    mapContainer.appendChild(layerKey);
+    layerKey.querySelector('.nw-layer-key-close')!.addEventListener('click', () => {
+      layerKey.remove();
+      localStorage.setItem('nw:layer-key-dismissed', '1');
+    });
+    // Auto-dismiss after 20 seconds
+    setTimeout(() => {
+      if (layerKey.parentElement) {
+        layerKey.style.transition = 'opacity 0.5s ease';
+        layerKey.style.opacity = '0';
+        setTimeout(() => {
+          layerKey.remove();
+          localStorage.setItem('nw:layer-key-dismissed', '1');
+        }, 500);
+      }
+    }, 20000);
+  }
+
   // ── AI Terminal ──
   const terminal = createAiTerminal({ mapView, layerManager, getLayerData });
   mapContainer.appendChild(terminal);

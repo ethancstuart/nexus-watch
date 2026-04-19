@@ -175,7 +175,7 @@ export function renderWatchlistPage(root: HTMLElement): void {
         </div>
         <div class="nw-watchlist-card-score" style="color:${color}">${ciiScore}</div>
         <div class="nw-watchlist-card-trend" style="color:${trendColor}">${trendArrow} ${score?.trend ?? 'stable'}</div>
-        <div class="nw-watchlist-card-conf">${score?.confidence?.toUpperCase() ?? 'NO DATA'} confidence</div>
+        <div class="nw-watchlist-card-conf">${score?.confidence?.toUpperCase() ?? 'NO DATA'} confidence ${score?.confidence === 'high' ? '(3+ sources)' : score?.confidence === 'medium' ? '(2 sources)' : score?.confidence === 'low' ? '(1 source)' : ''}</div>
         ${
           score && score.topSignals.length > 0
             ? `<div class="nw-watchlist-card-signals">

@@ -1,5 +1,6 @@
 import '../styles/landing.css';
 import { createElement } from '../utils/dom.ts';
+import { trackEvent } from '../services/analytics.ts';
 
 export function renderLanding(root: HTMLElement): void {
   root.textContent = '';
@@ -196,9 +197,13 @@ export function renderLanding(root: HTMLElement): void {
         </div>
         <div class="landing-price-card landing-price-analyst" id="analyst-card">
           <div class="landing-founding-overlay" id="founding-banner" hidden>
-            <div class="landing-founding-badge">FOUNDING RATE</div>
-            <div class="landing-founding-price">$19/mo <span>locked for life</span></div>
+            <div class="landing-founding-badge">FOUNDING MEMBER</div>
+            <div class="landing-founding-price">$19/mo <span>locked forever</span></div>
             <div class="landing-founding-remaining" id="founding-remaining"></div>
+            <div class="landing-founding-includes" style="font-size:11px;color:rgba(255,255,255,0.6);margin:8px 0;line-height:1.5;text-align:left">
+              Founding members get everything in Analyst:<br>
+              Daily briefs &bull; Full evidence chains &bull; Unlimited AI queries &bull; 5 alert rules &bull; 30-day history
+            </div>
             <button type="button" class="landing-price-btn founding" data-tier="founding">Claim Founding Seat</button>
           </div>
           <div class="landing-price-tier">Analyst</div>
@@ -249,6 +254,7 @@ export function renderLanding(root: HTMLElement): void {
         <a href="#/status">System Status</a>
         <a href="#/api">API Docs</a>
         <a href="#/briefs">Brief Archive</a>
+        <a href="#/faq">FAQ</a>
         <a href="#/whats-new">What's New</a>
         <a href="#/roadmap">Roadmap</a>
       </div>
@@ -296,6 +302,9 @@ export function renderLanding(root: HTMLElement): void {
             ? "✓ You're in! First brief arrives tomorrow morning."
             : data.error || 'Failed';
           statusEl.style.color = data.success ? '#22c55e' : '#ef4444';
+        }
+        if (data.success) {
+          trackEvent('brief_signup', { source: formId });
         }
       } catch {
         if (statusEl) {
@@ -434,7 +443,11 @@ export function renderLanding(root: HTMLElement): void {
         }
         foundingBanner.removeAttribute('hidden');
         if (foundingRemainingEl) {
-          foundingRemainingEl.textContent = `${data.remaining} of ${data.max || 100} seats left`;
+          const taken = (data.max || 100) - (data.remaining || 0);
+          foundingRemainingEl.textContent =
+            data.remaining <= 20
+              ? `Only ${data.remaining} founding seats left \u2014 $19/mo locked forever`
+              : `${taken} claimed \u2014 ${data.remaining} founding seats remaining`;
         }
       })
       .catch(() => {

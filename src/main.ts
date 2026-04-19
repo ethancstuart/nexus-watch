@@ -324,6 +324,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/faq', () => {
+    import('./pages/faq.ts')
+      .then((m) => {
+        void transition(appRoot);
+        m.renderFaqPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/admin/social-queue', () => {
     import('./pages/socialQueue.ts')
       .then((m) => {
