@@ -69,8 +69,15 @@
   font-weight: 700;
   line-height: 1.1;
   color: #ffffff;
-  margin: 0 0 32px;
+  margin: 0 0 12px;
   letter-spacing: -0.02em;
+}
+.landing-hero-sub {
+  font-family: var(--nw-font-body);
+  font-size: 18px;
+  color: var(--nw-text-secondary);
+  margin: 0 0 32px;
+  line-height: 1.5;
 }
 
 /* CII ticker in hero */
@@ -867,6 +874,9 @@ button.landing-price-btn:disabled {
   }
   .landing-hero-subtitle {
     font-size: 13px;
+  }
+  .landing-hero-sub {
+    font-size: 14px;
   }
   .landing-cta-group {
     flex-direction: column;

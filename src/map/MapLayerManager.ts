@@ -139,29 +139,16 @@ export class MapLayerManager {
     } catch {
       // ignore
     }
-    // Default: enable high-impact layers for a rich first experience.
-    // These should make the map look alive and data-dense on first visit.
+    // Default: curated set for clean first impression (Chairman D-1, Apr 19).
+    // 6 layers that make the globe feel alive without overwhelming new users.
+    // Returning users get their saved preferences from localStorage instead.
     return [
-      // Core live data
-      'earthquakes',
-      'acled',
-      'fires',
-      'flights',
-      'ships',
-      'news',
-      'weather-alerts',
-      'cyber',
-      // Reference data that looks good on the globe
-      'conflict-zones',
-      'frontlines',
-      'military',
-      'cables',
-      // Intelligence layers
-      'chokepoint-status',
-      'internet-outages',
-      'gdacs',
-      'nuclear',
-      'ports',
+      'earthquakes', // USGS seismic — pulsing circles
+      'acled', // Active conflicts — red clusters
+      'conflict-zones', // Shaded regions — geopolitical context
+      'chokepoint-status', // 6 strategic straits — infrastructure
+      'fires', // NASA FIRMS — orange hotspots
+      'news', // GDELT events — blue markers
     ];
   }
 

@@ -5,10 +5,12 @@ import { Router } from './router.ts';
 import { registerCommandPalette } from './ui/commandPalette.ts';
 import { registerPwaInstall } from './ui/pwaInstall.ts';
 import { initDataToasts } from './ui/dataToast.ts';
+import { initSentry, captureError } from './services/sentry.ts';
 
 applyTheme();
 applyDensity();
 initDataToasts();
+void initSentry();
 // Cmd+K / Ctrl+K opens the command palette from anywhere
 registerCommandPalette();
 // PWA install banner (shows on supported browsers after 15s)
@@ -32,13 +34,109 @@ function transition(root: HTMLElement): Promise<void> {
   );
 }
 
-function showRouteError(root: HTMLElement, err: unknown) {
+function showRouteError(root: HTMLElement, err: unknown, retryFn?: (() => void) | null) {
+  // Default retry: reload the current route
+  if (retryFn === undefined) {
+    retryFn = () => {
+      const hash = window.location.hash || '#/';
+      window.location.hash = '';
+      requestAnimationFrame(() => {
+        window.location.hash = hash;
+      });
+    };
+  }
   root.textContent = '';
-  const msg = document.createElement('div');
-  msg.style.cssText = 'padding:2rem;text-align:center;color:#666;font-family:monospace';
-  msg.textContent = 'Failed to load. Please refresh.';
-  root.appendChild(msg);
+  const container = document.createElement('div');
+  container.style.cssText =
+    'padding:4rem 2rem;text-align:center;font-family:var(--nw-font-body, Inter, sans-serif);max-width:480px;margin:0 auto';
+
+  const title = document.createElement('h2');
+  title.textContent = 'Something went wrong';
+  title.style.cssText = 'color:var(--nw-text, #ededed);font-size:24px;margin:0 0 12px';
+
+  const desc = document.createElement('p');
+  desc.textContent = 'This page failed to load. This could be a network issue or a temporary problem on our end.';
+  desc.style.cssText = 'color:var(--nw-text-muted, #757575);font-size:14px;margin:0 0 24px;line-height:1.5';
+
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:12px;justify-content:center;flex-wrap:wrap';
+
+  if (retryFn) {
+    const retryBtn = document.createElement('button');
+    retryBtn.textContent = 'Try again';
+    retryBtn.style.cssText =
+      'padding:8px 20px;background:var(--nw-accent, #ff6600);color:#000;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:14px';
+    retryBtn.addEventListener('click', retryFn);
+    actions.appendChild(retryBtn);
+  }
+
+  const mapLink = document.createElement('a');
+  mapLink.href = '#/intel';
+  mapLink.textContent = 'Go to Intel Map';
+  mapLink.style.cssText =
+    'padding:8px 20px;border:1px solid var(--nw-border, #222);color:var(--nw-text, #ededed);border-radius:6px;text-decoration:none;font-size:14px';
+  actions.appendChild(mapLink);
+
+  const footer = document.createElement('p');
+  footer.style.cssText = 'color:var(--nw-text-muted, #757575);font-size:12px;margin:24px 0 0';
+  footer.innerHTML =
+    'If this keeps happening: <a href="#/status" style="color:var(--nw-accent, #ff6600)">Status page</a>';
+
+  container.append(title, desc, actions, footer);
+  root.appendChild(container);
   console.error('Route load error:', err);
+  captureError(err);
+}
+
+function show404(root: HTMLElement) {
+  root.textContent = '';
+  const container = document.createElement('div');
+  container.style.cssText =
+    'padding:4rem 2rem;text-align:center;font-family:var(--nw-font-body, Inter, sans-serif);max-width:480px;margin:0 auto';
+
+  const title = document.createElement('h2');
+  title.textContent = '404 — Page not found';
+  title.style.cssText = 'color:var(--nw-text, #ededed);font-size:24px;margin:0 0 12px';
+
+  const desc = document.createElement('p');
+  desc.textContent = "The page you're looking for doesn't exist or has been moved.";
+  desc.style.cssText = 'color:var(--nw-text-muted, #757575);font-size:14px;margin:0 0 24px;line-height:1.5';
+
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:0 0 32px';
+
+  const mapLink = document.createElement('a');
+  mapLink.href = '#/intel';
+  mapLink.textContent = 'Go to Intel Map';
+  mapLink.style.cssText =
+    'padding:8px 20px;background:var(--nw-accent, #ff6600);color:#000;border:none;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px';
+  actions.appendChild(mapLink);
+
+  const homeLink = document.createElement('a');
+  homeLink.href = '#/';
+  homeLink.textContent = 'Go Home';
+  homeLink.style.cssText =
+    'padding:8px 20px;border:1px solid var(--nw-border, #222);color:var(--nw-text, #ededed);border-radius:6px;text-decoration:none;font-size:14px';
+  actions.appendChild(homeLink);
+
+  const nav = document.createElement('div');
+  nav.style.cssText = 'color:var(--nw-text-muted, #757575);font-size:13px';
+  const links = [
+    ['Intel Map', '#/intel'],
+    ['Briefs', '#/briefs'],
+    ['Pricing', '#/pricing'],
+    ['Watchlist', '#/watchlist'],
+    ['Feed', '#/feed'],
+    ['Compare', '#/compare'],
+  ];
+  nav.innerHTML =
+    'Popular pages: ' +
+    links
+      .map(([label, href]) => `<a href="${href}" style="color:var(--nw-accent, #ff6600);margin:0 6px">${label}</a>`)
+      .join('');
+
+  container.append(title, desc, actions, nav);
+  root.appendChild(container);
 }
 
 router
@@ -258,5 +356,5 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
-  .otherwise(() => router.navigate('/'))
+  .otherwise(() => show404(appRoot))
   .start();

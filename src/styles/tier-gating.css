@@ -1,63 +1,164 @@
-/* ── Tier Gating Toast ── */
+/* ── Tier Gating — Upgrade Modal ── */
 
-.nw-upgrade-toast {
+.nw-upgrade-overlay {
   position: fixed;
-  bottom: 32px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 800;
+  inset: 0;
+  z-index: 700;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  background: #0a0a0a;
-  border: 1px solid rgba(255, 102, 0, 0.4);
-  border-radius: 6px;
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  animation: nw-toast-in 0.3s ease;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  animation: nw-modal-fade-in 0.2s ease;
 }
 
-@keyframes nw-toast-in {
+@keyframes nw-modal-fade-in {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(20px);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
   }
 }
 
-.nw-upgrade-toast-text {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-}
-.nw-upgrade-toast-text strong {
-  color: #ff6600;
+.nw-upgrade-modal {
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: var(--nw-bg, #0a0a0a);
+  border: 1px solid rgba(255, 102, 0, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+  animation: nw-modal-scale-in 0.2s ease;
 }
 
-.nw-upgrade-toast-btn {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
+@keyframes nw-modal-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.nw-upgrade-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--nw-border, #222);
+}
+
+.nw-upgrade-modal-tier {
+  font-family: var(--nw-font-mono, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 1px;
-  color: #000;
-  background: #ff6600;
-  border: none;
-  border-radius: 3px;
-  padding: 5px 12px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.nw-upgrade-toast-btn:hover {
-  background: #ff8533;
+  color: var(--nw-accent, #ff6600);
+  text-transform: uppercase;
 }
 
-.nw-upgrade-toast-close {
+.nw-upgrade-modal-close {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 14px;
+  color: var(--nw-text-muted, #757575);
+  font-size: 16px;
   cursor: pointer;
-  padding: 0 2px;
+  padding: 0;
+  line-height: 1;
+}
+.nw-upgrade-modal-close:hover {
+  color: var(--nw-text, #ededed);
+}
+
+.nw-upgrade-modal-body {
+  padding: 20px 18px;
+}
+
+.nw-upgrade-modal-feature {
+  font-family: var(--nw-font-mono, 'JetBrains Mono', monospace);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--nw-text, #ededed);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px;
+}
+
+.nw-upgrade-modal-desc {
+  font-family: var(--nw-font-body, Inter, sans-serif);
+  font-size: 14px;
+  color: var(--nw-text-secondary, #999);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.nw-upgrade-modal-price {
+  font-family: var(--nw-font-mono, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  color: var(--nw-text-muted, #757575);
+  margin: 0 0 4px;
+}
+
+.nw-upgrade-modal-trial {
+  font-family: var(--nw-font-body, Inter, sans-serif);
+  font-size: 11px;
+  color: var(--nw-text-muted, #757575);
+  margin: 0 0 20px;
+}
+
+.nw-upgrade-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.nw-upgrade-modal-cta {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--nw-accent, #ff6600);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-family: var(--nw-font-mono, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: center;
+}
+.nw-upgrade-modal-cta:hover {
+  background: var(--nw-accent-hover, #ff7722);
+}
+.nw-upgrade-modal-cta:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.nw-upgrade-modal-dismiss {
+  flex: 1;
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--nw-text-secondary, #999);
+  border: 1px solid var(--nw-border, #222);
+  border-radius: 6px;
+  font-family: var(--nw-font-body, Inter, sans-serif);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  text-align: center;
+}
+.nw-upgrade-modal-dismiss:hover {
+  border-color: var(--nw-text-muted, #757575);
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .nw-upgrade-modal {
+    width: calc(100vw - 32px);
+  }
+  .nw-upgrade-modal-actions {
+    flex-direction: column;
+  }
 }

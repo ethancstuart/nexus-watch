@@ -7,6 +7,7 @@
  */
 
 import { getUser } from './auth.ts';
+import { trackEvent } from './analytics.ts';
 
 export type Feature =
   | 'cinema-mode' // Free (watermarked)
@@ -106,26 +107,110 @@ export function requiredTier(feature: Feature): TierLevel {
   return 'pro';
 }
 
+/** Feature descriptions for the upgrade modal. */
+const FEATURE_DESCRIPTIONS: Record<string, string> = {
+  'Portfolio Exposure':
+    "Map your holdings to geopolitical risk scores. See which countries drive your portfolio's exposure.",
+  'Scenario Simulation': 'Run "what if" scenarios. What happens to CII scores if the Strait of Hormuz closes?',
+  'Daily Brief': 'Get intelligence delivered every morning at 7am local time, filtered to your interests.',
+  'Extended Timeline': 'See 30\u201390 days of CII history. Scrub through time to watch crises unfold.',
+  'Data Export': 'Download CII data, evidence chains, and portfolio exposure as CSV or JSON.',
+  'Crisis Playbooks':
+    "Auto-triggered analysis when a country's CII spikes. Historical precedents and monitoring priorities.",
+  'Advanced Alerts': 'Up to unlimited composite alert rules with email, Slack, Discord, and Telegram delivery.',
+  'Cinema (No Watermark)': 'Full-screen auto-rotating globe without the NexusWatch watermark.',
+  'AI Analyst': 'Unlimited AI-powered queries with full source citations from evidence chains.',
+  'Personalized Brief': 'Daily brief tailored to your watchlist, interests, and sector focus.',
+  'API Access': 'REST API for CII scores, signals, scenarios, and evidence chains.',
+};
+
 export function showUpgradePrompt(featureName: string, targetTier: 'analyst' | 'pro' = 'analyst'): void {
-  const existing = document.querySelector('.nw-upgrade-toast');
+  // Remove any existing modal
+  const existing = document.querySelector('.nw-upgrade-overlay');
   if (existing) existing.remove();
 
   const price = targetTier === 'pro' ? '$99/mo' : '$29/mo';
-  const tierName = targetTier === 'pro' ? 'Pro' : 'Analyst';
+  const tierLabel = targetTier === 'pro' ? 'Pro Feature' : 'Analyst Feature';
+  const description =
+    FEATURE_DESCRIPTIONS[featureName] ||
+    `This feature requires NexusWatch ${targetTier === 'pro' ? 'Pro' : 'Analyst'}.`;
 
-  const toast = document.createElement('div');
-  toast.className = 'nw-upgrade-toast';
-  toast.innerHTML = `
-    <span class="nw-upgrade-toast-text">
-      <strong>${featureName}</strong> requires NexusWatch ${tierName} — ${price}
-    </span>
-    <button class="nw-upgrade-toast-btn" onclick="fetch('/api/stripe/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json()).then(d=>{if(d.url)window.location.href=d.url})">
-      UPGRADE
-    </button>
-    <button class="nw-upgrade-toast-close" onclick="this.parentElement.remove()">✕</button>
+  const overlay = document.createElement('div');
+  overlay.className = 'nw-upgrade-overlay';
+  overlay.innerHTML = `
+    <div class="nw-upgrade-modal" role="dialog" aria-modal="true" aria-label="Upgrade to unlock ${featureName}">
+      <div class="nw-upgrade-modal-header">
+        <span class="nw-upgrade-modal-tier">${tierLabel}</span>
+        <button class="nw-upgrade-modal-close" aria-label="Close">\u2715</button>
+      </div>
+      <div class="nw-upgrade-modal-body">
+        <div class="nw-upgrade-modal-feature">${featureName}</div>
+        <p class="nw-upgrade-modal-desc">${description}</p>
+        <p class="nw-upgrade-modal-price">Requires NexusWatch ${targetTier === 'pro' ? 'Pro' : 'Analyst'} \u2014 ${price}</p>
+        <p class="nw-upgrade-modal-trial">14-day free trial, cancel anytime.</p>
+        <div class="nw-upgrade-modal-actions">
+          <button class="nw-upgrade-modal-cta">UPGRADE</button>
+          <button class="nw-upgrade-modal-dismiss">Not now</button>
+        </div>
+      </div>
+    </div>
   `;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 8000);
+  document.body.appendChild(overlay);
+  trackEvent('upgrade_modal_shown', { feature: featureName, tier: targetTier });
+
+  const close = () => {
+    overlay.remove();
+    trackEvent('upgrade_modal_dismiss', { feature: featureName, tier: targetTier });
+  };
+
+  // Close on backdrop click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
+
+  // Close on X button
+  overlay.querySelector('.nw-upgrade-modal-close')!.addEventListener('click', close);
+
+  // Close on "Not now"
+  overlay.querySelector('.nw-upgrade-modal-dismiss')!.addEventListener('click', close);
+
+  // Close on Escape
+  const onKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      close();
+      document.removeEventListener('keydown', onKeydown);
+    }
+  };
+  document.addEventListener('keydown', onKeydown);
+
+  // UPGRADE button — proper Stripe checkout
+  const ctaBtn = overlay.querySelector('.nw-upgrade-modal-cta') as HTMLButtonElement;
+  ctaBtn.addEventListener('click', async () => {
+    ctaBtn.disabled = true;
+    ctaBtn.textContent = 'LOADING...';
+    trackEvent('upgrade_modal_click', { feature: featureName, tier: targetTier });
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier: targetTier }),
+      });
+      const data = (await res.json()) as { url?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        ctaBtn.textContent = 'ERROR — TRY AGAIN';
+        ctaBtn.disabled = false;
+      }
+    } catch {
+      ctaBtn.textContent = 'ERROR — TRY AGAIN';
+      ctaBtn.disabled = false;
+    }
+  });
+
+  // Focus trap — focus the modal on open
+  const modal = overlay.querySelector('.nw-upgrade-modal') as HTMLElement;
+  modal.focus();
 }
 
 /** Check alert count limit for current tier */

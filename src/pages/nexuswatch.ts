@@ -569,10 +569,27 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   helpBtn.addEventListener('click', () => showShortcutsHelp(mapContainer));
   mapContainer.appendChild(helpBtn);
 
-  // ── Mobile Sidebar Toggle ──
+  // ── Mobile Sidebar Toggle + Backdrop ──
+  const backdrop = createElement('div', { className: 'nw-sidebar-backdrop' });
+  mapContainer.appendChild(backdrop);
+
+  const closeSidebar = () => {
+    sidebar.classList.remove('mobile-open');
+    backdrop.classList.remove('visible');
+  };
+  const openSidebar = () => {
+    sidebar.classList.add('mobile-open');
+    backdrop.classList.add('visible');
+  };
+
   mobileToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('mobile-open');
+    if (sidebar.classList.contains('mobile-open')) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
   });
+  backdrop.addEventListener('click', closeSidebar);
 
   // ── Restore shared view state from URL ──
   const sharedView = getViewStateFromUrl();

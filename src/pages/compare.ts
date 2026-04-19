@@ -91,6 +91,29 @@ const COUNTRY_NAMES: Record<string, string> = {
   TN: 'Tunisia',
 };
 
+/** Reverse lookup: country name → code */
+const NAME_TO_CODE: Record<string, string> = {};
+for (const [code, name] of Object.entries(COUNTRY_NAMES)) {
+  NAME_TO_CODE[name.toLowerCase()] = code;
+}
+
+/** Resolve a user input token to a country code. Accepts codes or names. */
+function resolveCountryInput(input: string): string | null {
+  const trimmed = input.trim();
+  const upper = trimmed.toUpperCase();
+  // Direct code match
+  if (COUNTRY_NAMES[upper]) return upper;
+  // Name match (case-insensitive)
+  const fromName = NAME_TO_CODE[trimmed.toLowerCase()];
+  if (fromName) return fromName;
+  // Partial name match (starts with)
+  const lower = trimmed.toLowerCase();
+  for (const [name, code] of Object.entries(NAME_TO_CODE)) {
+    if (name.startsWith(lower)) return code;
+  }
+  return null;
+}
+
 function scoreColor(score: number): string {
   if (score >= 75) return '#dc2626';
   if (score >= 50) return '#f97316';
@@ -122,15 +145,24 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
   `;
   root.appendChild(header);
 
-  // Picker
+  // Picker with datalist autocomplete
+  const datalistOptions = Object.entries(COUNTRY_NAMES)
+    .map(([code, name]) => `<option value="${name} (${code})">`)
+    .join('');
+
   const picker = createElement('div', { className: 'nw-compare-picker' });
   picker.innerHTML = `
-    <input type="text" class="nw-compare-input" placeholder="Comma-separated codes (e.g., UA,RU,TW,IR)"
-           value="${codes.join(',')}">
-    <button class="nw-compare-submit">Compare</button>
+    <div class="nw-compare-input-row">
+      <input type="text" class="nw-compare-input" list="nw-compare-countries"
+             placeholder="Type a country name or code..."
+             value="${codes.map((c) => (COUNTRY_NAMES[c] ? `${COUNTRY_NAMES[c]} (${c})` : c)).join(', ')}">
+      <datalist id="nw-compare-countries">${datalistOptions}</datalist>
+      <button class="nw-compare-submit">Compare</button>
+    </div>
+    <div class="nw-compare-validation" style="font-size:11px;color:var(--nw-text-muted);margin:6px 0 0;min-height:16px"></div>
     <div class="nw-compare-presets">
       <span class="nw-compare-preset-label">Presets:</span>
-      <button class="nw-compare-preset" data-codes="UA,RU,PL,DE">Russia–NATO</button>
+      <button class="nw-compare-preset" data-codes="UA,RU,PL,DE">Russia\u2013NATO</button>
       <button class="nw-compare-preset" data-codes="IR,IL,LB,SA">Middle East</button>
       <button class="nw-compare-preset" data-codes="TW,CN,US,JP,KR">Taiwan Strait</button>
       <button class="nw-compare-preset" data-codes="SD,SS,TD,ET,CF">Horn of Africa</button>
@@ -192,13 +224,46 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
     }
   };
 
-  submit.addEventListener('click', () => {
-    const parsed = input.value
+  const validation = picker.querySelector('.nw-compare-validation') as HTMLElement;
+
+  const parseInput = (): { codes: string[]; errors: string[] } => {
+    const tokens = input.value
       .split(',')
-      .map((c) => c.trim().toUpperCase())
-      .filter(Boolean)
-      .slice(0, 6);
-    void load(parsed);
+      .map((t) => t.replace(/\s*\([A-Z]{2}\)\s*$/, '').trim()) // strip "(UA)" suffix from datalist
+      .filter(Boolean);
+    const codes: string[] = [];
+    const errors: string[] = [];
+    for (const token of tokens) {
+      const code = resolveCountryInput(token);
+      if (code && !codes.includes(code)) {
+        codes.push(code);
+      } else if (!code) {
+        errors.push(token);
+      }
+    }
+    return { codes: codes.slice(0, 6), errors };
+  };
+
+  submit.addEventListener('click', () => {
+    const { codes: parsed, errors } = parseInput();
+    if (errors.length > 0) {
+      validation.style.color = 'var(--nw-amber, #e5a913)';
+      validation.textContent = `Unknown: ${errors.join(', ')}. Use country names or ISO codes.`;
+    } else if (parsed.length === 0) {
+      validation.style.color = 'var(--nw-text-muted)';
+      validation.textContent = 'Enter at least one country name or code.';
+      return;
+    } else {
+      const originalTokens = input.value.split(',').filter((t) => t.trim());
+      if (originalTokens.length > 6) {
+        validation.style.color = 'var(--nw-amber, #e5a913)';
+        validation.textContent = '6 country maximum \u2014 showing first 6.';
+      } else {
+        validation.textContent = parsed.map((c) => `${COUNTRY_NAMES[c] || c} (${c}) \u2713`).join('  ');
+        validation.style.color = 'var(--nw-cyan, #00d4aa)';
+      }
+    }
+    if (parsed.length > 0) void load(parsed);
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submit.click();

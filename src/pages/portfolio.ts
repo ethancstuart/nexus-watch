@@ -98,6 +98,7 @@ export function renderPortfolioPage(container: HTMLElement): void {
         holdings.splice(i, 1);
         persist();
         renderHoldings();
+        updateWeightSummary();
         recompute();
       });
       holdingsContainer.appendChild(row);
@@ -133,12 +134,59 @@ export function renderPortfolioPage(container: HTMLElement): void {
     symbolInput.value = '';
     weightInput.value = '';
     renderHoldings();
+    updateWeightSummary();
     recompute();
   };
   addBtn.addEventListener('click', doAdd);
   weightInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') doAdd();
   });
+
+  // Weight summary + normalize button
+  const weightSummary = createElement('div', { className: 'nw-weight-summary' });
+  weightSummary.style.cssText =
+    'display:flex;align-items:center;gap:12px;padding:8px 0;font-family:var(--nw-font-mono);font-size:12px;min-height:28px';
+  formPanel.appendChild(weightSummary);
+
+  const updateWeightSummary = () => {
+    const total = holdings.reduce((sum, h) => sum + h.weight, 0);
+    if (holdings.length === 0) {
+      weightSummary.innerHTML = '';
+      return;
+    }
+    const rounded = Math.round(total * 10) / 10;
+    let color = 'var(--nw-cyan, #00d4aa)'; // green at 100%
+    let icon = '\u2713';
+    if (Math.abs(total - 100) > 0.5) {
+      color = 'var(--nw-amber, #e5a913)'; // orange when != 100%
+      icon = '\u26a0';
+    }
+    if (total > 150) {
+      color = '#dc2626'; // red when > 150%
+      icon = '\u26a0';
+    }
+    const normalizeBtn =
+      Math.abs(total - 100) > 0.5
+        ? `<button class="nw-normalize-btn" style="font-size:11px;padding:3px 10px;background:transparent;border:1px solid var(--nw-border);color:var(--nw-text-secondary);border-radius:4px;cursor:pointer;font-family:var(--nw-font-mono)">Normalize to 100%</button>`
+        : '';
+    weightSummary.innerHTML = `<span style="color:${color}">${icon} Total allocation: ${rounded}%</span>${normalizeBtn}`;
+
+    const normBtn = weightSummary.querySelector('.nw-normalize-btn');
+    if (normBtn) {
+      normBtn.addEventListener('click', () => {
+        if (total === 0) return;
+        const factor = 100 / total;
+        for (const h of holdings) {
+          h.weight = Math.round(h.weight * factor * 10) / 10;
+        }
+        persist();
+        renderHoldings();
+        updateWeightSummary();
+        recompute();
+      });
+    }
+  };
+  updateWeightSummary();
 
   // Preset button
   const presetSection = createElement('div', { className: 'nw-portfolio-presets' });
@@ -202,6 +250,7 @@ export function renderPortfolioPage(container: HTMLElement): void {
       holdings.push(...PRESETS[preset]);
       persist();
       renderHoldings();
+      updateWeightSummary();
       recompute();
     });
   });

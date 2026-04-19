@@ -21,7 +21,8 @@ export function renderLanding(root: HTMLElement): void {
 
     <section class="landing-hero">
       <div class="landing-hero-badge">VERIFIED GEOPOLITICAL INTELLIGENCE</div>
-      <h1 class="landing-hero-title">Intelligence you can audit.</h1>
+      <h1 class="landing-hero-title">See the world's risk in real time.</h1>
+      <p class="landing-hero-sub">Every score backed by evidence you can trace. Free.</p>
 
       <div class="landing-cii-ticker-hero" id="cii-ticker">
         <div class="landing-ticker-header">
