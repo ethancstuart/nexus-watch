@@ -1733,6 +1733,89 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
     }
   }
 
+  // ── Regional Risk Aggregates ──
+  const REGIONS: { name: string; codes: string[] }[] = [
+    {
+      name: 'Middle East',
+      codes: ['IR', 'IQ', 'SY', 'YE', 'IL', 'PS', 'LB', 'JO', 'SA', 'AE', 'QA', 'KW', 'BH', 'OM'],
+    },
+    {
+      name: 'Sahel & West Africa',
+      codes: ['ML', 'BF', 'NE', 'NG', 'TD', 'CF', 'CM', 'GH', 'SN', 'CI', 'GN', 'SL', 'LR', 'TG', 'BJ', 'MR', 'GM'],
+    },
+    { name: 'Horn & East Africa', codes: ['SD', 'SS', 'ET', 'SO', 'KE', 'UG', 'ER', 'DJ', 'TZ', 'RW', 'BI'] },
+    { name: 'Eastern Europe', codes: ['UA', 'RU', 'BY', 'MD', 'PL', 'RO', 'BG', 'HU', 'CZ', 'SK', 'GE', 'AM', 'AZ'] },
+    { name: 'Balkans', codes: ['RS', 'BA', 'XK', 'ME', 'MK', 'AL', 'HR', 'GR'] },
+    {
+      name: 'East & SE Asia',
+      codes: ['CN', 'TW', 'KP', 'KR', 'JP', 'PH', 'MM', 'TH', 'VN', 'KH', 'LA', 'MY', 'ID', 'SG', 'HK'],
+    },
+    { name: 'South Asia', codes: ['IN', 'PK', 'AF', 'BD', 'LK', 'NP', 'BT', 'MV'] },
+    { name: 'Central Asia', codes: ['KZ', 'UZ', 'TM', 'KG', 'TJ', 'MN'] },
+    {
+      name: 'Americas',
+      codes: ['MX', 'VE', 'CO', 'BR', 'AR', 'CL', 'PE', 'EC', 'BO', 'HT', 'CU', 'GT', 'HN', 'SV', 'NI', 'PA', 'CR'],
+    },
+  ];
+
+  const allCiiScores = getCachedCII();
+  if (allCiiScores.length > 0) {
+    const regionHeader = createElement('div', { className: 'nw-section-header nw-section-collapsible' });
+    regionHeader.textContent = 'REGIONAL RISK';
+    let regionExpanded = false;
+    const regionBody = createElement('div', {});
+    regionBody.style.display = 'none';
+    regionHeader.classList.add('collapsed');
+    regionHeader.addEventListener('click', () => {
+      regionExpanded = !regionExpanded;
+      regionBody.style.display = regionExpanded ? '' : 'none';
+      regionHeader.classList.toggle('collapsed', !regionExpanded);
+    });
+    container.appendChild(regionHeader);
+
+    for (const region of REGIONS) {
+      const regionScores = allCiiScores.filter((s) => region.codes.includes(s.countryCode));
+      if (regionScores.length === 0) continue;
+      const avg = Math.round(regionScores.reduce((sum, s) => sum + s.score, 0) / regionScores.length);
+      const max = Math.max(...regionScores.map((s) => s.score));
+      const rising = regionScores.filter((s) => s.trend === 'rising').length;
+      const avgColor = avg >= 60 ? '#dc2626' : avg >= 40 ? '#f97316' : avg >= 20 ? '#eab308' : '#22c55e';
+
+      const row = createElement('div', {});
+      row.style.cssText =
+        'display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:11px;cursor:pointer;border-bottom:1px solid var(--nw-border-subtle, #1a1a1a)';
+      row.innerHTML = `<span style="color:var(--nw-text-secondary);flex:1">${region.name}</span><span style="display:flex;gap:10px;align-items:center;font-family:var(--nw-font-mono);font-size:10px"><span style="color:var(--nw-text-muted)">${regionScores.length}</span><span style="color:${avgColor};font-weight:700">avg ${avg}</span><span style="color:${ciiColor(max)}">max ${max}</span>${rising > 0 ? `<span style="color:#dc2626">${rising}\u2191</span>` : ''}</span>`;
+
+      row.addEventListener('click', () => {
+        const existing = regionBody.querySelector(`[data-region="${region.name}"]`);
+        if (existing) {
+          existing.remove();
+          return;
+        }
+        const subList = createElement('div', {});
+        subList.dataset.region = region.name;
+        subList.style.cssText = 'padding:4px 0 8px 12px';
+        for (const s of regionScores.sort((a, b) => b.score - a.score)) {
+          const subRow = createElement('div', {});
+          subRow.style.cssText =
+            'display:flex;justify-content:space-between;padding:2px 0;font-size:10px;cursor:pointer';
+          const ta = s.trend === 'rising' ? ' \u2191' : s.trend === 'falling' ? ' \u2193' : '';
+          subRow.innerHTML = `<span style="color:var(--nw-text-secondary)">${countryFlag(s.countryCode)} ${s.countryName}</span><span style="color:${ciiColor(s.score)};font-family:var(--nw-font-mono);font-weight:700">${s.score}${ta}</span>`;
+          subRow.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const c = getMonitoredCountries().find((mc) => mc.code === s.countryCode);
+            if (c) mapView.flyTo(c.lon, c.lat, 5);
+            showCountryDetail(document.querySelector('.nw-sidebar') || document.body, s);
+          });
+          subList.appendChild(subRow);
+        }
+        row.after(subList);
+      });
+      regionBody.appendChild(row);
+    }
+    container.appendChild(regionBody);
+  }
+
   const countryHeader = createElement('div', { className: 'nw-section-header' });
   countryHeader.textContent = `COUNTRY INSTABILITY INDEX (${COUNTRY_COUNT})`;
   container.appendChild(countryHeader);

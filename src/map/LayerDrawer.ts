@@ -4,6 +4,7 @@ import type { MapLayerManager } from './MapLayerManager.ts';
 import type { MapLayerCategory } from '../types/index.ts';
 import { exportLayerAsCSV, exportLayerAsGeoJSON } from './DataExport.ts';
 import { getProvenance, computeFreshness, freshnessColor, relativeTime } from '../services/dataProvenance.ts';
+import { getSavedViews, saveView, deleteSavedView } from '../services/savedViews.ts';
 
 const CATEGORY_INFO: Record<MapLayerCategory, { label: string; color: string }> = {
   natural: { label: 'NATURAL HAZARDS', color: '#ff6b6b' },
@@ -129,6 +130,93 @@ export function createLayerDrawer(
 
   function renderDrawerContent() {
     drawerBody.textContent = '';
+
+    // ── Saved Views ──
+    const savedViews = getSavedViews();
+    const savedSection = createElement('div', { className: 'nw-drawer-saved-views' });
+    savedSection.style.cssText = 'padding:0 0 10px;border-bottom:1px solid var(--nw-border, #222);margin:0 0 8px';
+
+    const savedHeader = createElement('div', {});
+    savedHeader.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin:0 0 6px';
+
+    const savedLabel = createElement('span', {});
+    savedLabel.style.cssText =
+      'font-family:var(--nw-font-mono);font-size:9px;letter-spacing:1px;color:var(--nw-text-muted)';
+    savedLabel.textContent = `SAVED VIEWS (${savedViews.length}/10)`;
+
+    const saveBtn = createElement('button', {});
+    saveBtn.style.cssText =
+      'font-family:var(--nw-font-mono);font-size:9px;padding:2px 8px;border:1px solid var(--nw-border);background:transparent;color:var(--nw-accent);border-radius:3px;cursor:pointer';
+    saveBtn.textContent = '+ SAVE';
+    saveBtn.addEventListener('click', () => {
+      const map = getMap?.();
+      if (!map) return;
+      const center = map.getCenter();
+      const name = prompt('Name this view:');
+      if (!name) return;
+      saveView({
+        name,
+        center: [center.lng, center.lat],
+        zoom: Math.round(map.getZoom() * 10) / 10,
+        pitch: Math.round(map.getPitch()),
+        bearing: Math.round(map.getBearing()),
+        layers: layerManager.getEnabledLayers().map((l) => l.id),
+      });
+      renderDrawerContent();
+    });
+
+    savedHeader.appendChild(savedLabel);
+    savedHeader.appendChild(saveBtn);
+    savedSection.appendChild(savedHeader);
+
+    if (savedViews.length > 0) {
+      for (const view of savedViews) {
+        const row = createElement('div', {});
+        row.style.cssText =
+          'display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px;cursor:pointer';
+
+        const nameEl = createElement('span', {});
+        nameEl.style.cssText = 'color:var(--nw-text-secondary);flex:1';
+        nameEl.textContent = `${view.name} (${view.layers.length} layers)`;
+        nameEl.addEventListener('click', () => {
+          const map = getMap?.();
+          if (!map) return;
+          map.flyTo({
+            center: view.center,
+            zoom: view.zoom,
+            pitch: view.pitch,
+            bearing: view.bearing,
+            duration: 2000,
+          });
+          // Set layers
+          for (const layer of layerManager.getAllLayers()) {
+            if (view.layers.includes(layer.id)) {
+              if (!layer.isEnabled()) layerManager.enable(layer.id);
+            } else {
+              if (layer.isEnabled()) layerManager.disable(layer.id);
+            }
+          }
+          activePresetId = null;
+          renderDrawerContent();
+        });
+
+        const delBtn = createElement('button', {});
+        delBtn.style.cssText =
+          'background:none;border:none;color:var(--nw-text-muted);cursor:pointer;font-size:12px;padding:0 4px';
+        delBtn.textContent = '\u2715';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteSavedView(view.id);
+          renderDrawerContent();
+        });
+
+        row.appendChild(nameEl);
+        row.appendChild(delBtn);
+        savedSection.appendChild(row);
+      }
+    }
+
+    drawerBody.appendChild(savedSection);
 
     // Preset bar
     const presetBar = createElement('div', { className: 'nw-drawer-presets' });
