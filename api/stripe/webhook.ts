@@ -140,7 +140,7 @@ export default async function handler(req: Request): Promise<Response> {
           customerId,
           subscriptionId,
           status: 'active',
-          paidTier: tierMeta || 'pro',
+          paidTier: tierMeta || 'insider',
         });
 
         // Write reverse index so subsequent webhook events are O(1).

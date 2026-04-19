@@ -18,8 +18,13 @@ export function showLoginModal(tier: string, returnUrl: string): void {
   overlay.style.cssText =
     'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;animation:nw-fade-in 0.2s ease;';
 
-  const tierLabel =
-    tier === 'founding' ? 'Founding Member ($19/mo lifetime)' : tier === 'pro' ? 'Pro ($99/mo)' : 'Analyst ($29/mo)';
+  const tierLabels: Record<string, string> = {
+    insider: 'Insider ($19/mo)',
+    analyst: 'Analyst ($29/mo)',
+    pro: 'Pro ($99/mo)',
+    founding: 'Insider ($19/mo)',
+  };
+  const tierLabel = tierLabels[tier] || 'Insider ($19/mo)';
 
   const modal = createElement('div', { className: 'nw-login-modal' });
   modal.style.cssText =

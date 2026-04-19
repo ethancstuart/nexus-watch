@@ -31,7 +31,7 @@ export const CII_RULE_CHANGELOG = [
     version: '2.0.0',
     date: '2026-04-13',
     changes: [
-      'Expanded from 23 to 86 monitored countries',
+      'Expanded from 23 to 158 monitored countries',
       '3-tier coverage system (core/extended/monitor)',
       'Evidence chain tracking per CII component',
       'Confidence scoring system',
