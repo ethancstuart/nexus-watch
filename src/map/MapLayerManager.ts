@@ -8,6 +8,7 @@ export class MapLayerManager {
   private layers = new Map<string, MapDataLayer>();
   private intervals = new Map<string, ReturnType<typeof setInterval>>();
   private map: MaplibreMap | null = null;
+  private initDone = false;
 
   setMap(map: MaplibreMap): void {
     this.map = map;
@@ -17,6 +18,21 @@ export class MapLayerManager {
     this.layers.set(layer.id, layer);
     if (this.map) {
       layer.init(this.map);
+
+      // If initAll() already ran (lazy layer arriving late), check if
+      // this layer should be auto-enabled based on saved/default list.
+      if (this.initDone) {
+        const enabledIds = this.loadEnabledLayers();
+        if (enabledIds.includes(layer.id)) {
+          layer.enable();
+          // Stagger: small delay so lazy layers don't all fire at once
+          const delay = Math.random() * 2000 + 500;
+          setTimeout(() => {
+            void layer.refresh();
+            this.startRefreshCycle(layer);
+          }, delay);
+        }
+      }
     }
   }
 
@@ -40,6 +56,8 @@ export class MapLayerManager {
         delay += 800;
       }
     }
+    // Mark init as done so late-registering lazy layers can auto-enable
+    this.initDone = true;
   }
 
   toggle(layerId: string): boolean {
@@ -121,20 +139,29 @@ export class MapLayerManager {
     } catch {
       // ignore
     }
-    // Default: enable high-impact layers
+    // Default: enable high-impact layers for a rich first experience.
+    // These should make the map look alive and data-dense on first visit.
     return [
+      // Core live data
       'earthquakes',
-      'news',
+      'acled',
       'fires',
-      'weather-alerts',
-      'conflicts',
-      'military',
-      'cables',
-      'cyber',
       'flights',
       'ships',
-      'acled',
+      'news',
+      'weather-alerts',
+      'cyber',
+      // Reference data that looks good on the globe
+      'conflict-zones',
       'frontlines',
+      'military',
+      'cables',
+      // Intelligence layers
+      'chokepoint-status',
+      'internet-outages',
+      'gdacs',
+      'nuclear',
+      'ports',
     ];
   }
 
