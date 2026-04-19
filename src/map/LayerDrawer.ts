@@ -51,8 +51,99 @@ export function createLayerDrawer(
     }
   });
 
+  // Layer preset definitions — thematic modes, no camera movement
+  const LAYER_PRESETS: { id: string; label: string; layers: string[] }[] = [
+    {
+      id: 'default',
+      label: 'Default',
+      layers: ['earthquakes', 'acled', 'conflict-zones', 'chokepoint-status', 'fires', 'news'],
+    },
+    {
+      id: 'conflict',
+      label: 'Conflict',
+      layers: ['acled', 'conflict-zones', 'frontlines', 'military', 'gps-jamming', 'sanctions', 'cyber', 'terrorism'],
+    },
+    {
+      id: 'trade',
+      label: 'Trade',
+      layers: [
+        'ships',
+        'chokepoint-status',
+        'ports',
+        'pipelines',
+        'trade-routes',
+        'cables',
+        'energy',
+        'commodity-flows',
+      ],
+    },
+    {
+      id: 'hazards',
+      label: 'Hazards',
+      layers: ['earthquakes', 'fires', 'gdacs', 'disease', 'weather-alerts', 'food-security'],
+    },
+    {
+      id: 'intel',
+      label: 'Intelligence',
+      layers: [
+        'acled',
+        'news',
+        'sentiment',
+        'internet-outages',
+        'elections',
+        'prediction',
+        'displacement',
+        'dark-web-osint',
+      ],
+    },
+    {
+      id: 'all',
+      label: 'Everything',
+      layers: [], // special: enables all registered layers
+    },
+  ];
+
+  let activePresetId: string | null = null;
+
+  function applyPreset(preset: (typeof LAYER_PRESETS)[0]) {
+    const allLayers = layerManager.getAllLayers();
+    if (preset.id === 'all') {
+      for (const layer of allLayers) {
+        if (!layer.isEnabled()) layerManager.enable(layer.id);
+      }
+    } else {
+      for (const layer of allLayers) {
+        if (preset.layers.includes(layer.id)) {
+          if (!layer.isEnabled()) layerManager.enable(layer.id);
+        } else {
+          if (layer.isEnabled()) layerManager.disable(layer.id);
+        }
+      }
+    }
+    activePresetId = preset.id;
+    renderDrawerContent();
+    // Update toggle button count
+    const count = layerManager.getEnabledLayers().length;
+    toggleBtn.innerHTML = `<span class="nw-drawer-toggle-icon">\u25C9</span> LAYERS <span class="nw-drawer-count">${count}</span>`;
+  }
+
   function renderDrawerContent() {
     drawerBody.textContent = '';
+
+    // Preset bar
+    const presetBar = createElement('div', { className: 'nw-drawer-presets' });
+    presetBar.style.cssText =
+      'display:flex;flex-wrap:wrap;gap:6px;padding:0 0 12px;border-bottom:1px solid var(--nw-border, #222);margin:0 0 8px';
+
+    for (const preset of LAYER_PRESETS) {
+      const pill = createElement('button', { className: 'nw-drawer-preset-pill' });
+      const isActive = activePresetId === preset.id;
+      pill.textContent = preset.label;
+      pill.style.cssText = `font-family:var(--nw-font-mono);font-size:10px;letter-spacing:0.5px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid ${isActive ? 'var(--nw-accent, #ff6600)' : 'var(--nw-border, #222)'};background:${isActive ? 'rgba(255,102,0,0.15)' : 'transparent'};color:${isActive ? 'var(--nw-accent, #ff6600)' : 'var(--nw-text-secondary, #999)'};transition:all 0.15s ease`;
+      pill.addEventListener('click', () => applyPreset(preset));
+      presetBar.appendChild(pill);
+    }
+    drawerBody.appendChild(presetBar);
 
     for (const cat of CATEGORY_ORDER) {
       const layers = layerManager.getLayersByCategory(cat);
