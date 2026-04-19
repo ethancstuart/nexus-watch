@@ -103,7 +103,7 @@ import '../styles/mobile.css';
 import { openBriefPanel } from '../ui/briefPanel.ts';
 import { createUserMenu } from '../ui/userMenu.ts';
 import { copyShareUrl, getViewStateFromUrl, type ViewState } from '../services/shareView.ts';
-import { canAccess, showUpgradePrompt } from '../services/tierGating.ts';
+import { canAccess, showUpgradePrompt, getCurrentTier } from '../services/tierGating.ts';
 import '../styles/tier-gating.css';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, MapLayerCategory } from '../types/index.ts';
@@ -229,9 +229,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     if (canAccess('nl-alerts-1')) openAlertBuilder(mapContainer);
     else {
       // Feature-specific upgrade prompt with context about what alerts do
-      showUpgradePrompt(
-        'Natural Language Alerts — Set rules like "Alert when Sudan CII > 70" or "Alert when oil moves > 3%". Free: 2 rules, Analyst: 5, Pro: unlimited.',
-      );
+      showUpgradePrompt('Advanced Alerts', 'insider');
     }
   });
 
@@ -1932,6 +1930,28 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
     }
   }
   container.appendChild(layersBody);
+
+  // ── Upgrade CTA for non-Pro users ──
+  const currentTier = getCurrentTier();
+  if (currentTier !== 'pro') {
+    const upgradeCta = createElement('div', {});
+    upgradeCta.style.cssText =
+      'margin:16px 0 0;padding:12px;border:1px solid var(--nw-border);border-radius:6px;text-align:center;background:var(--nw-surface)';
+
+    const nextTier =
+      currentTier === 'free'
+        ? { name: 'Insider', feature: 'daily briefs & full evidence chains', price: '$19/mo' }
+        : currentTier === 'insider'
+          ? { name: 'Analyst', feature: 'unlimited AI & scenario simulation', price: '$29/mo' }
+          : { name: 'Pro', feature: 'portfolio exposure & API access', price: '$99/mo' };
+
+    upgradeCta.innerHTML = `
+      <div style="font-family:var(--nw-font-mono);font-size:10px;letter-spacing:1px;color:var(--nw-text-muted);margin:0 0 6px">UPGRADE</div>
+      <div style="font-size:13px;color:var(--nw-text-secondary);margin:0 0 8px">Get ${nextTier.feature}</div>
+      <a href="#/pricing" style="font-family:var(--nw-font-mono);font-size:11px;color:var(--nw-accent);text-decoration:none">${nextTier.name} \u2014 ${nextTier.price} \u2192</a>
+    `;
+    container.appendChild(upgradeCta);
+  }
 }
 
 function createAlertRow(item: IntelItem, mapView: MapView): HTMLElement {

@@ -3,6 +3,7 @@ import { fetchWithRetry } from '../utils/fetch.ts';
 import type { MapView } from '../map/MapView.ts';
 import type { MapLayerManager } from '../map/MapLayerManager.ts';
 import { simulateScenario, matchScenarioQuery, PRESET_SCENARIOS } from '../services/scenarioEngine.ts';
+import { getAiQueryLimit } from '../services/tierGating.ts';
 
 interface TerminalConfig {
   mapView: MapView;
@@ -135,6 +136,29 @@ const LAYER_KEYWORDS: Record<string, string[]> = {
   'air-quality': ['air quality', 'aqi', 'pollution', 'pm2.5'],
 };
 
+// ── AI Query Counter ──
+function getAiQueriesUsedToday(): number {
+  const key = 'nw:ai-queries';
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return 0;
+    const data = JSON.parse(raw) as { date: string; count: number };
+    const today = new Date().toISOString().slice(0, 10);
+    return data.date === today ? data.count : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function incrementAiQueryCount(): number {
+  const key = 'nw:ai-queries';
+  const today = new Date().toISOString().slice(0, 10);
+  const current = getAiQueriesUsedToday();
+  const next = current + 1;
+  localStorage.setItem(key, JSON.stringify({ date: today, count: next }));
+  return next;
+}
+
 export function createAiTerminal(config: TerminalConfig): HTMLElement {
   const wrapper = createElement('div', { className: 'nw-terminal' });
 
@@ -229,7 +253,29 @@ export function createAiTerminal(config: TerminalConfig): HTMLElement {
     updateSuggestions(input.value.trim());
   });
 
+  // Query counter badge
+  const queryBadge = createElement('span', { className: 'nw-terminal-query-badge' });
+  queryBadge.style.cssText =
+    'font-size:9px;font-family:var(--nw-font-mono);color:var(--nw-text-muted);margin-right:6px;white-space:nowrap';
+
+  function updateQueryBadge() {
+    const limit = getAiQueryLimit();
+    if (limit === Infinity) {
+      queryBadge.textContent = '';
+      return;
+    }
+    const used = getAiQueriesUsedToday();
+    const remaining = Math.max(0, limit - used);
+    queryBadge.textContent = `${remaining}/${limit}`;
+    queryBadge.style.color = remaining === 0 ? '#dc2626' : remaining <= 2 ? '#e5a913' : 'var(--nw-text-muted)';
+  }
+  updateQueryBadge();
+
+  // Update badge when a query is used
+  document.addEventListener('nw:ai-query-used', updateQueryBadge);
+
   wrapper.appendChild(prompt);
+  wrapper.appendChild(queryBadge);
   wrapper.appendChild(input);
   wrapper.appendChild(suggestions);
   wrapper.appendChild(output);
@@ -927,7 +973,23 @@ async function runScenarioCommand(query: string, output: HTMLElement): Promise<v
 
 // ── AI Analyst Query ──
 
-async function runAnalystQuery(query: string, config: TerminalConfig, output: HTMLElement): Promise<void> {
+async function runAnalystQuery(
+  query: string,
+  config: TerminalConfig,
+  output: HTMLElement,
+  onQueryUsed?: () => void,
+): Promise<void> {
+  // Check query limit before sending
+  const limit = getAiQueryLimit();
+  if (limit !== Infinity) {
+    const used = getAiQueriesUsedToday();
+    if (used >= limit) {
+      const { showUpgradePrompt } = await import('../services/tierGating.ts');
+      showUpgradePrompt('AI Analyst', limit <= 3 ? 'insider' : 'analyst');
+      return;
+    }
+  }
+
   showOutput(output, 'Consulting NexusWatch analyst...', 'info');
 
   // Build context from current layer data
@@ -981,6 +1043,9 @@ async function runAnalystQuery(query: string, config: TerminalConfig, output: HT
     }
 
     const data = (await res.json()) as { text: string; toolsUsed: string[] };
+    incrementAiQueryCount();
+    if (onQueryUsed) onQueryUsed();
+    document.dispatchEvent(new CustomEvent('nw:ai-query-used'));
     const toolNote = data.toolsUsed.length > 0 ? `[Tools used: ${data.toolsUsed.join(', ')}]\n\n` : '';
 
     // Parse per-sentence confidence tags and count them for display
