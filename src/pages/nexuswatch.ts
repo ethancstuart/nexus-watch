@@ -443,6 +443,68 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     initCascadeOverlay(map);
     initScenarioOverlay(map);
 
+    // ── Watchlist markers on globe — pulsing orange rings for watched countries ──
+    const watchlistSourceId = 'nw-watchlist-markers';
+    const watchlistLayerId = 'nw-watchlist-rings';
+
+    map.addSource(watchlistSourceId, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+
+    map.addLayer({
+      id: watchlistLayerId,
+      type: 'circle',
+      source: watchlistSourceId,
+      paint: {
+        'circle-radius': 12,
+        'circle-color': 'transparent',
+        'circle-stroke-color': '#ff6600',
+        'circle-stroke-width': 2,
+        'circle-stroke-opacity': 0.6,
+      },
+    });
+
+    const updateWatchlistMarkers = () => {
+      const watchlist = getCiiWatchlist();
+      const monitored = getMonitoredCountries();
+      const features = watchlist
+        .map((w) => {
+          const country = monitored.find((c) => c.code === w.countryCode);
+          if (!country) return null;
+          return {
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [country.lon, country.lat] },
+            properties: { code: country.code, name: country.name },
+          };
+        })
+        .filter(Boolean);
+
+      const source = map.getSource(watchlistSourceId);
+      if (source && 'setData' in source) {
+        (source as { setData: (data: unknown) => void }).setData({
+          type: 'FeatureCollection',
+          features,
+        });
+      }
+    };
+
+    updateWatchlistMarkers();
+    document.addEventListener('nw:cii-watchlist-changed', updateWatchlistMarkers, { signal });
+
+    // ── Country search → open detail panel ──
+    document.addEventListener(
+      'nw:country-search',
+      ((e: CustomEvent<{ countryCode: string }>) => {
+        const code = e.detail.countryCode;
+        const score = getCachedCII().find((s) => s.countryCode === code);
+        if (score) {
+          showCountryDetail(document.querySelector('.nw-sidebar') || document.body, score);
+        }
+      }) as EventListener,
+      { signal },
+    );
+
     // Wait for priority layers to load before removing overlay.
     // Minimum 3 seconds so the user can read the loading message.
     // Then fade out over 600ms.

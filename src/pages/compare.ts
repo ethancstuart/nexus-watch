@@ -99,12 +99,18 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
     <div class="nw-compare-presets">
       <span class="nw-compare-preset-label">Presets:</span>
       <button class="nw-compare-preset" data-codes="UA,RU,PL,DE">Russia\u2013NATO</button>
-      <button class="nw-compare-preset" data-codes="IR,IL,LB,SA">Middle East</button>
+      <button class="nw-compare-preset" data-codes="IR,IL,LB,SA,YE">Middle East</button>
       <button class="nw-compare-preset" data-codes="TW,CN,US,JP,KR">Taiwan Strait</button>
       <button class="nw-compare-preset" data-codes="SD,SS,TD,ET,CF">Horn of Africa</button>
-      <button class="nw-compare-preset" data-codes="ML,BF,NE,NG">Sahel</button>
-      <button class="nw-compare-preset" data-codes="VE,CO,HT,CU">Latin America</button>
+      <button class="nw-compare-preset" data-codes="ML,BF,NE,NG,TD">Sahel</button>
+      <button class="nw-compare-preset" data-codes="VE,CO,HT,CU,EC">Latin America</button>
       <button class="nw-compare-preset" data-codes="US,CN,RU,GB,FR,DE">G6</button>
+      <button class="nw-compare-preset" data-codes="RS,BA,XK,AL,MK,ME">Balkans</button>
+      <button class="nw-compare-preset" data-codes="SA,AE,QA,KW,BH,OM">Gulf States</button>
+      <button class="nw-compare-preset" data-codes="SE,FI,EE,LV,LT,PL">Nordic\u2013Baltic</button>
+      <button class="nw-compare-preset" data-codes="KZ,UZ,TM,KG,TJ">Central Asia</button>
+      <button class="nw-compare-preset" data-codes="GT,HN,SV,NI,PA,CR">Central America</button>
+      <button class="nw-compare-preset" data-codes="MM,KH,LA,PH,TH,VN">Southeast Asia</button>
     </div>
   `;
   root.appendChild(picker);
