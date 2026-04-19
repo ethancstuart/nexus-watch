@@ -38,7 +38,7 @@ export async function renderAuditPage(root: HTMLElement, country?: string): Prom
   const header = createElement('header', { className: 'nw-audit-header' });
   header.innerHTML = `
     <a href="#/intel" class="nw-audit-back">← Back to Intel Map</a>
-    <h1>CII Audit Trail</h1>
+    <h1>Evidence Chain</h1>
     <p class="nw-audit-subtitle">
       Every NexusWatch CII computation logged and traceable. Enter an ISO country code
       below to see the full history of how that country's instability score was produced.
@@ -50,7 +50,7 @@ export async function renderAuditPage(root: HTMLElement, country?: string): Prom
   const picker = createElement('div', { className: 'nw-audit-picker' });
   picker.innerHTML = `
     <input type="text" class="nw-audit-input" placeholder="Country code (e.g., UA, SD, IR)" value="${country || ''}">
-    <button class="nw-audit-submit">Load Audit Trail</button>
+    <button class="nw-audit-submit">View Evidence Chain</button>
     <span class="nw-audit-hint">Showing last 30 days, up to 100 entries</span>
   `;
   root.appendChild(picker);
@@ -66,7 +66,7 @@ export async function renderAuditPage(root: HTMLElement, country?: string): Prom
     if (!code) return;
 
     window.history.replaceState(null, '', `#/audit/${code}`);
-    content.innerHTML = '<div class="nw-audit-loading">Loading audit trail...</div>';
+    content.innerHTML = '<div class="nw-audit-loading">Loading evidence chain...</div>';
 
     try {
       const res = await fetch(`/api/v2/audit?country=${code}&days=30&limit=100`);
@@ -75,7 +75,7 @@ export async function renderAuditPage(root: HTMLElement, country?: string): Prom
       renderAuditContent(content, code, data.entries);
     } catch {
       content.innerHTML =
-        '<div class="nw-audit-empty">Audit trail unavailable. The audit log table may not be populated yet.</div>';
+        '<div class="nw-audit-empty">Evidence chain unavailable. The audit log table may not be populated yet.</div>';
     }
   };
 

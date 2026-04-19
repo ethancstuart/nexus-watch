@@ -55,7 +55,7 @@ function buildFeed(): FeedCard[] {
           : `${s.confidence.toUpperCase()} confidence, ${s.evidence.totalSourceCount} sources contributing.`,
       accentColor: color,
       icon: '▲',
-      cta: { label: 'View audit trail', href: `#/audit/${s.countryCode}` },
+      cta: { label: 'View evidence chain', href: `#/audit/${s.countryCode}` },
     });
   }
 

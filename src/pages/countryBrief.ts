@@ -157,7 +157,7 @@ export function renderCountryBrief(root: HTMLElement, code: string): void {
   const footer = createElement('div', { className: 'nw-brief-footer' });
   footer.innerHTML = `
     <p><strong>Methodology:</strong> 6-component CII (Conflict 20%, Disasters 15%, Sentiment 15%, Infrastructure 15%, Governance 15%, Market Exposure 20%). Rule version ${CII_RULE_VERSION}. See <a href="https://nexuswatch.dev/#/methodology">nexuswatch.dev/#/methodology</a> for full detail.</p>
-    <p><strong>Audit trail:</strong> Every computation logged and queryable at <a href="https://nexuswatch.dev/#/audit/${countryCode}">nexuswatch.dev/#/audit/${countryCode}</a></p>
+    <p><strong>Evidence chain:</strong> Every computation logged and queryable at <a href="https://nexuswatch.dev/#/audit/${countryCode}">nexuswatch.dev/#/audit/${countryCode}</a></p>
     <p class="nw-brief-disclaimer">This brief reflects the state of NexusWatch data at the timestamp shown. Not investment or policy advice. For analytical use only.</p>
   `;
   doc.appendChild(footer);

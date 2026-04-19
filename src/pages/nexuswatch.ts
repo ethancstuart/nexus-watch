@@ -1491,10 +1491,26 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
   panel.appendChild(header);
   panel.appendChild(scoreBadge);
 
-  // Meta line
-  const meta = createElement('div', { className: 'nw-detail-meta' });
-  meta.textContent = `${ev.totalSourceCount} sources · ${ev.totalDataPoints} data points · Tier: ${score.tier.toUpperCase()}`;
-  panel.appendChild(meta);
+  // Data quality + tier + freshness
+  const qualityLine = createElement('div', { className: 'nw-detail-meta' });
+  const grade = score.dataQuality || 'C';
+  const gradeColor = grade === 'A' ? '#22c55e' : grade === 'B' ? '#00d4aa' : grade === 'C' ? '#e5a913' : '#dc2626';
+  const tierLabel = score.tier === 'core' ? 'CORE' : score.tier === 'extended' ? 'EXTENDED' : 'MONITOR';
+  qualityLine.innerHTML = `<span style="color:${gradeColor};font-weight:700;">Grade ${grade}</span> · ${ev.totalSourceCount} sources · ${ev.totalDataPoints} data points · <span style="opacity:0.6;">${tierLabel}</span>`;
+  panel.appendChild(qualityLine);
+
+  // Updated timestamp
+  const freshness = createElement('div', { className: 'nw-detail-meta' });
+  freshness.style.opacity = '0.5';
+  freshness.style.fontSize = '10px';
+  const lastComputed = (score as unknown as { _computedAt?: number })._computedAt;
+  if (lastComputed) {
+    const ago = Math.round((Date.now() - lastComputed) / 60000);
+    freshness.textContent = `Updated ${ago < 1 ? 'just now' : ago < 60 ? `${ago}m ago` : `${Math.round(ago / 60)}h ago`}`;
+  } else {
+    freshness.textContent = 'Updated within last 5 minutes';
+  }
+  panel.appendChild(freshness);
 
   // Action buttons
   const actions = createElement('div', { className: 'nw-detail-actions' });

@@ -8,23 +8,12 @@ export function renderLanding(root: HTMLElement): void {
   page.setAttribute('role', 'main');
   page.id = 'main-content';
   page.innerHTML = `
-    <div class="landing-newsletter-bar" id="newsletter-bar">
-      <div class="landing-newsletter-bar-inner">
-        <span class="landing-newsletter-bar-text">Get <strong>The NexusWatch Brief</strong> — geopolitical intelligence in 3 minutes, free every morning</span>
-        <form class="landing-newsletter-bar-form" id="bar-subscribe">
-          <label for="bar-email" class="sr-only">Email address</label>
-          <input type="email" id="bar-email" placeholder="your@email.com" required class="landing-newsletter-bar-input">
-          <button type="submit" class="landing-newsletter-bar-btn">SUBSCRIBE</button>
-        </form>
-        <button class="landing-newsletter-bar-close" id="bar-close" title="Dismiss">✕</button>
-      </div>
-    </div>
-
     <nav class="landing-nav">
       <span class="landing-logo">NexusWatch</span>
       <div class="landing-nav-links">
         <a href="#/intel" class="landing-nav-link">Intel Map</a>
         <a href="#/briefs" class="landing-nav-link">Briefs</a>
+        <a href="#subscribe" class="landing-nav-link landing-nav-subscribe">Subscribe</a>
         <a href="#/pricing" class="landing-nav-link">Pricing</a>
         <a href="#/methodology" class="landing-nav-link">About</a>
       </div>
@@ -255,7 +244,7 @@ export function renderLanding(root: HTMLElement): void {
         <a href="#/pricing">Pricing</a>
         <a href="#/methodology">Methodology</a>
         <a href="#/accuracy">Accuracy Ledger</a>
-        <a href="#/audit">Audit Trail</a>
+        <a href="#/audit">Evidence Chain</a>
         <a href="#/status">System Status</a>
         <a href="#/api">API Docs</a>
         <a href="#/briefs">Brief Archive</a>
@@ -317,21 +306,13 @@ export function renderLanding(root: HTMLElement): void {
   }
 
   setupSubscribeForm('landing-subscribe', 'landing-sub-status');
-  setupSubscribeForm('bar-subscribe', 'landing-sub-status');
   setupSubscribeForm('brief-subscribe', 'brief-sub-status');
 
-  // Newsletter bar dismiss — hides for this session only.
-  // Reappears on next visit to encourage subscription conversion.
-  // Only permanently hides if user has actually subscribed.
-  const barClose = document.getElementById('bar-close');
-  const bar = document.getElementById('newsletter-bar');
-  barClose?.addEventListener('click', () => {
-    bar?.remove();
-    sessionStorage.setItem('nw:bar-dismissed', '1');
+  // Smooth scroll for nav "Subscribe" link
+  page.querySelector('.landing-nav-subscribe')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('landing-subscribe')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
-  if (sessionStorage.getItem('nw:bar-dismissed') === '1') {
-    bar?.remove();
-  }
 
   // ── Analyst pricing A/B test ─────────────────────────────────────────────
   // Variant A = $29/mo (control), Variant B = $19/mo (test).
@@ -439,20 +420,29 @@ export function renderLanding(root: HTMLElement): void {
   const foundingBanner = document.getElementById('founding-banner');
   const foundingRemainingEl = document.getElementById('founding-remaining');
   if (foundingBanner) {
-    fetch('/api/stripe/founding-stock')
+    // 3-second timeout — if endpoint is slow, show founding banner with "checking" text
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    fetch('/api/stripe/founding-stock', { signal: controller.signal })
       .then((r) => r.json())
       .then((data: { remaining?: number; max?: number; soldOut?: boolean }) => {
+        clearTimeout(timeout);
         if (data.soldOut || !data.remaining || data.remaining <= 0) {
           foundingBanner.setAttribute('hidden', '');
           return;
         }
         foundingBanner.removeAttribute('hidden');
         if (foundingRemainingEl) {
-          foundingRemainingEl.textContent = `(${data.remaining} of ${data.max || 100} seats left)`;
+          foundingRemainingEl.textContent = `${data.remaining} of ${data.max || 100} seats left`;
         }
       })
       .catch(() => {
-        foundingBanner.setAttribute('hidden', '');
+        clearTimeout(timeout);
+        // Timeout or error — show founding banner with "checking" text so user knows it exists
+        foundingBanner.removeAttribute('hidden');
+        if (foundingRemainingEl) {
+          foundingRemainingEl.textContent = 'checking availability...';
+        }
       });
   }
 
