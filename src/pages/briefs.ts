@@ -271,21 +271,36 @@ export function renderBrief(root: HTMLElement, date: string): void {
           Every claim is traced to its source. <a href="#/methodology" style="color:#9a1b1b;">Read our methodology →</a>
         </div>
         <div class="dossier-body">${body}</div>
-        <div class="dossier-share">
-          <button class="dossier-share-btn" id="share-brief" type="button">Copy share link</button>
+        <div class="dossier-share" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;color:#8b8478;font-family:var(--nw-font-mono);letter-spacing:0.5px">SHARE</span>
+          <button class="dossier-share-btn" id="share-copy" type="button" style="font-size:12px;padding:6px 14px;background:transparent;border:1px solid #ddd8ce;color:#3d3a35;border-radius:4px;cursor:pointer">Copy link</button>
+          <a class="dossier-share-btn" id="share-twitter" href="#" target="_blank" rel="noopener" style="font-size:12px;padding:6px 14px;background:transparent;border:1px solid #ddd8ce;color:#3d3a35;border-radius:4px;cursor:pointer;text-decoration:none">Twitter / X</a>
+          <a class="dossier-share-btn" id="share-linkedin" href="#" target="_blank" rel="noopener" style="font-size:12px;padding:6px 14px;background:transparent;border:1px solid #ddd8ce;color:#3d3a35;border-radius:4px;cursor:pointer;text-decoration:none">LinkedIn</a>
         </div>
       `;
 
-      const shareBtn = document.getElementById('share-brief');
-      shareBtn?.addEventListener('click', () => {
-        const url = `${window.location.origin}/brief/${briefDate}`;
-        void navigator.clipboard.writeText(url).then(() => {
-          shareBtn.textContent = 'Copied!';
+      const briefUrl = `${window.location.origin}/brief/${briefDate}`;
+      const shareText = `NexusWatch Situation Brief \u2014 ${briefDate}. Geopolitical intelligence you can audit.`;
+
+      const copyBtn = document.getElementById('share-copy');
+      copyBtn?.addEventListener('click', () => {
+        void navigator.clipboard.writeText(briefUrl).then(() => {
+          copyBtn.textContent = 'Copied!';
           setTimeout(() => {
-            shareBtn.textContent = 'Copy share link';
+            copyBtn.textContent = 'Copy link';
           }, 2000);
         });
       });
+
+      const twitterLink = document.getElementById('share-twitter') as HTMLAnchorElement | null;
+      if (twitterLink) {
+        twitterLink.href = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(briefUrl)}`;
+      }
+
+      const linkedinLink = document.getElementById('share-linkedin') as HTMLAnchorElement | null;
+      if (linkedinLink) {
+        linkedinLink.href = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(briefUrl)}`;
+      }
 
       // SEO — update <title> and <meta description> for this brief.
       document.title = `NexusWatch Situation Brief · ${briefDate}`;

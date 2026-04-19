@@ -792,6 +792,78 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     }, 20000);
   }
 
+  // ── First-visit Aha Moment — show nearest country CII card after fly-to ──
+  if (!localStorage.getItem('nw:aha-shown')) {
+    // Wait for CII data to populate (fires on dashview:layer-data)
+    const showAha = () => {
+      const scores = getCachedCII();
+      if (scores.length === 0) return; // CII not ready yet
+      document.removeEventListener('dashview:layer-data', showAha);
+
+      // Find the nearest interesting country (CII >= 40) to the user's viewport center
+      const mapInstance = mapView.getMap();
+      if (!mapInstance) return;
+      const center = mapInstance.getCenter();
+      const monitored = getMonitoredCountries();
+
+      let nearest: { code: string; dist: number } | null = null;
+      for (const c of monitored) {
+        const score = scores.find((s) => s.countryCode === c.code);
+        if (!score || score.score < 40) continue;
+        const dlat = c.lat - center.lat;
+        const dlng = c.lon - center.lng;
+        const dist = dlat * dlat + dlng * dlng;
+        if (!nearest || dist < nearest.dist) {
+          nearest = { code: c.code, dist };
+        }
+      }
+
+      if (!nearest) return;
+      const score = scores.find((s) => s.countryCode === nearest!.code);
+      if (!score) return;
+
+      const trendArrow = score.trend === 'rising' ? '\u2191' : score.trend === 'falling' ? '\u2193' : '\u2192';
+      const color = score.score >= 75 ? '#dc2626' : score.score >= 50 ? '#f97316' : '#eab308';
+      const topSignal = score.topSignals[0] || '';
+
+      const ahaCard = createElement('div', { className: 'nw-aha-card' });
+      ahaCard.style.cssText = `position:absolute;top:48px;right:16px;z-index:50;background:rgba(0,0,0,0.9);border:1px solid ${color}40;border-radius:8px;padding:14px 18px;max-width:280px;backdrop-filter:blur(4px);animation:nw-modal-fade-in 0.4s ease;font-family:var(--nw-font-body)`;
+      ahaCard.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:start;margin:0 0 8px">
+          <div>
+            <div style="font-family:var(--nw-font-mono);font-size:10px;letter-spacing:1px;color:var(--nw-text-muted)">NEAREST RISK</div>
+            <div style="font-size:16px;font-weight:700;color:var(--nw-text);margin:2px 0 0">${score.countryName}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:28px;font-weight:800;color:${color};line-height:1;font-family:var(--nw-font-mono)">${score.score}</div>
+            <div style="font-size:11px;color:${color}">${trendArrow} ${score.trend}</div>
+          </div>
+        </div>
+        ${topSignal ? `<div style="font-size:12px;color:var(--nw-text-secondary);line-height:1.4;margin:0 0 10px">${topSignal}</div>` : ''}
+        <div style="display:flex;gap:8px;align-items:center">
+          <a href="#/audit/${score.countryCode}" style="font-size:11px;color:var(--nw-accent);text-decoration:none">View evidence chain \u2192</a>
+          <button class="nw-aha-dismiss" style="margin-left:auto;background:none;border:none;color:var(--nw-text-muted);cursor:pointer;font-size:12px">\u2715</button>
+        </div>
+      `;
+      mapContainer.appendChild(ahaCard);
+      localStorage.setItem('nw:aha-shown', '1');
+
+      ahaCard.querySelector('.nw-aha-dismiss')!.addEventListener('click', () => ahaCard.remove());
+
+      // Auto-dismiss after 12 seconds
+      setTimeout(() => {
+        if (ahaCard.parentElement) {
+          ahaCard.style.transition = 'opacity 0.5s ease';
+          ahaCard.style.opacity = '0';
+          setTimeout(() => ahaCard.remove(), 500);
+        }
+      }, 12000);
+    };
+
+    // Listen for first CII computation — triggers after initial layer data loads
+    document.addEventListener('dashview:layer-data', showAha);
+  }
+
   // ── AI Terminal ──
   const terminal = createAiTerminal({ mapView, layerManager, getLayerData });
   mapContainer.appendChild(terminal);
