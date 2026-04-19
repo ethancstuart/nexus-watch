@@ -128,7 +128,7 @@ export default async function handler(req: Request): Promise<Response> {
         const subscriptionId = session.subscription as string;
         const metadata = (session.metadata as Record<string, string>) || {};
         const sessionIdMeta = metadata.sessionId;
-        const tierMeta = metadata.tier as 'analyst' | 'pro' | 'founding' | undefined;
+        const tierMeta = metadata.tier as 'insider' | 'analyst' | 'pro' | 'founding' | undefined;
 
         if (!userId) {
           console.error('[stripe/webhook] checkout.session.completed missing client_reference_id');
@@ -191,7 +191,7 @@ export default async function handler(req: Request): Promise<Response> {
 
         // Read existing record to preserve the paidTier across status transitions.
         const existing = await kvGetJson<{
-          paidTier?: 'analyst' | 'pro' | 'founding';
+          paidTier?: 'insider' | 'analyst' | 'pro' | 'founding';
         }>(kvUrl, kvToken, `stripe:${userId}`);
         const paidTier = existing?.paidTier;
 
@@ -217,7 +217,7 @@ export default async function handler(req: Request): Promise<Response> {
         }
 
         const existing = await kvGetJson<{
-          paidTier?: 'analyst' | 'pro' | 'founding';
+          paidTier?: 'insider' | 'analyst' | 'pro' | 'founding';
         }>(kvUrl, kvToken, `stripe:${userId}`);
         const wasFounding = existing?.paidTier === 'founding';
 
@@ -368,7 +368,7 @@ async function updateUserSessions(
   kvToken: string,
   userId: string,
   tier: string,
-  paidTier?: 'analyst' | 'pro' | 'founding',
+  paidTier?: 'insider' | 'analyst' | 'pro' | 'founding',
 ): Promise<void> {
   try {
     const res = await fetch(`${kvUrl}/get/user-sessions:${userId}`, {
@@ -394,7 +394,7 @@ async function updateSessionTier(
   kvToken: string,
   sessionId: string,
   tier: string,
-  paidTier?: 'analyst' | 'pro' | 'founding',
+  paidTier?: 'insider' | 'analyst' | 'pro' | 'founding',
 ): Promise<void> {
   try {
     const res = await fetch(`${kvUrl}/get/session:${sessionId}`, {
