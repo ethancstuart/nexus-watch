@@ -13,6 +13,52 @@
 import '../styles/welcome.css';
 import { createElement } from '../utils/dom.ts';
 import { addCiiWatch } from '../services/ciiWatchlist.ts';
+import { trackEvent } from '../services/analytics.ts';
+
+/** Persona definitions — each sets default layer preset + regions */
+interface PersonaDef {
+  id: string;
+  label: string;
+  desc: string;
+  emoji: string;
+  defaultLayers: string[];
+  suggestedRegions: string[];
+}
+
+const PERSONAS: PersonaDef[] = [
+  {
+    id: 'enthusiast',
+    label: 'Following global events',
+    desc: 'Geopolitics, conflicts, and world affairs',
+    emoji: '\u{1F30D}',
+    defaultLayers: ['earthquakes', 'acled', 'conflict-zones', 'chokepoint-status', 'fires', 'news'],
+    suggestedRegions: ['middle-east', 'eastern-europe', 'east-asia'],
+  },
+  {
+    id: 'investor',
+    label: 'Managing portfolio risk',
+    desc: 'Trade routes, energy, market exposure',
+    emoji: '\u{1F4C8}',
+    defaultLayers: ['ships', 'chokepoint-status', 'ports', 'pipelines', 'trade-routes', 'energy'],
+    suggestedRegions: ['middle-east', 'east-asia', 'g7'],
+  },
+  {
+    id: 'analyst',
+    label: 'Intelligence analysis',
+    desc: 'Conflicts, entities, evidence chains',
+    emoji: '\u{1F50D}',
+    defaultLayers: ['acled', 'conflict-zones', 'frontlines', 'military', 'news', 'sanctions'],
+    suggestedRegions: ['middle-east', 'eastern-europe', 'horn-africa'],
+  },
+  {
+    id: 'journalist',
+    label: 'Journalism & research',
+    desc: 'Stories, data sourcing, verification',
+    emoji: '\u{1F4DD}',
+    defaultLayers: ['acled', 'news', 'conflict-zones', 'fires', 'earthquakes', 'displacement'],
+    suggestedRegions: ['middle-east', 'horn-africa', 'latin-america'],
+  },
+];
 
 const DONE_KEY = 'nw:onboarded:v2';
 const OLD_KEY = 'nw:onboarded:v1';
@@ -93,6 +139,7 @@ export function renderWelcomePage(root: HTMLElement): void {
 
   const selectedRegions = new Set<string>();
   let email = '';
+  let selectedPersona: PersonaDef | null = null;
 
   const page = createElement('div', { className: 'nw-welcome-page nw-page' });
   page.setAttribute('role', 'main');
@@ -100,8 +147,13 @@ export function renderWelcomePage(root: HTMLElement): void {
 
   page.innerHTML = `
     <div class="welcome-container">
-      <h1 class="welcome-title">What are you watching?</h1>
-      <p class="welcome-subtitle">Pick the regions that matter to you. We'll set up your watchlist with the most important countries in each.</p>
+      <h1 class="welcome-title">What brings you here?</h1>
+      <p class="welcome-subtitle">We'll customize your default view based on how you use NexusWatch.</p>
+
+      <div class="welcome-persona-grid" id="persona-grid"></div>
+
+      <h2 class="welcome-title" style="font-size:24px;margin-top:32px">Which regions matter most?</h2>
+      <p class="welcome-subtitle">Pick the regions you want to watch. We'll set up your watchlist.</p>
 
       <div class="welcome-grid" id="welcome-grid"></div>
 
@@ -124,11 +176,42 @@ export function renderWelcomePage(root: HTMLElement): void {
 
   root.appendChild(page);
 
+  // Render persona cards
+  const personaGrid = document.getElementById('persona-grid');
+  if (personaGrid) {
+    personaGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px';
+    for (const p of PERSONAS) {
+      const card = createElement('button', { className: 'welcome-card' });
+      card.style.cssText += ';text-align:left;padding:16px';
+      card.innerHTML = `
+        <div style="font-size:24px;margin:0 0 6px">${p.emoji}</div>
+        <div class="welcome-card-title" style="font-size:14px">${p.label}</div>
+        <div class="welcome-card-desc" style="font-size:11px">${p.desc}</div>
+      `;
+      card.addEventListener('click', () => {
+        selectedPersona = p;
+        personaGrid.querySelectorAll('.welcome-card').forEach((c) => c.classList.remove('selected'));
+        card.classList.add('selected');
+        // Pre-select suggested regions
+        for (const regionId of p.suggestedRegions) {
+          if (!selectedRegions.has(regionId)) {
+            selectedRegions.add(regionId);
+            const regionCard = grid?.querySelector(`[data-region="${regionId}"]`);
+            regionCard?.classList.add('selected');
+          }
+        }
+        updateFinishBtn();
+      });
+      personaGrid.appendChild(card);
+    }
+  }
+
   // Render region cards
   const grid = document.getElementById('welcome-grid');
   if (grid) {
     for (const r of REGIONS) {
       const card = createElement('button', { className: 'welcome-card' });
+      card.dataset.region = r.id;
       card.innerHTML = `
         <div class="welcome-card-emoji">${r.emoji}</div>
         <div class="welcome-card-title">${r.label}</div>
@@ -171,7 +254,17 @@ export function renderWelcomePage(root: HTMLElement): void {
     const countries = getCountries();
     for (const code of countries) addCiiWatch(code);
 
-    localStorage.setItem(DONE_KEY, JSON.stringify({ completedAt: Date.now(), regions: [...selectedRegions] }));
+    // Save persona choice + set default layers for next map visit
+    if (selectedPersona) {
+      localStorage.setItem('nw:persona', selectedPersona.id);
+      localStorage.setItem('dashview:map-layers', JSON.stringify(selectedPersona.defaultLayers));
+      trackEvent('onboarding_persona', { persona: selectedPersona.id });
+    }
+
+    localStorage.setItem(
+      DONE_KEY,
+      JSON.stringify({ completedAt: Date.now(), regions: [...selectedRegions], persona: selectedPersona?.id }),
+    );
 
     // Subscribe to email if provided
     if (email && countries.length > 0) {

@@ -4,6 +4,8 @@ import type { MapLayerCategory } from '../types/index.ts';
 
 const STORAGE_KEY = 'dashview:map-layers';
 
+const MAX_CONCURRENT_REFRESHES = 12;
+
 export class MapLayerManager {
   private layers = new Map<string, MapDataLayer>();
   private intervals = new Map<string, ReturnType<typeof setInterval>>();
@@ -115,6 +117,14 @@ export class MapLayerManager {
 
   private startRefreshCycle(layer: MapDataLayer): void {
     this.stopRefreshCycle(layer.id);
+    // Guard: limit concurrent refresh intervals to prevent CPU/memory bloat
+    // when user enables all 45+ layers
+    if (this.intervals.size >= MAX_CONCURRENT_REFRESHES) {
+      // Layer is enabled and got its initial refresh, but won't auto-refresh.
+      // This is acceptable — it'll show data from its last fetch, and the
+      // layer will get a refresh cycle when another layer is disabled.
+      return;
+    }
     const interval = layer.getRefreshInterval();
     if (interval > 0) {
       this.intervals.set(
