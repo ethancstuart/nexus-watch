@@ -376,12 +376,13 @@ export function renderLanding(root: HTMLElement): void {
       };
 
       if (res.status === 401) {
-        // Not logged in — bounce to OAuth, then bounce back to resume checkout.
-        // We store the pending tier in sessionStorage so the post-OAuth handler
-        // can pick it back up and re-initiate the checkout.
+        // Not logged in — show branded login modal instead of raw redirect.
+        // Modal explains why they're signing in and offers Google + GitHub.
         sessionStorage.setItem('nw:pending-checkout', tier);
-        setStatus('Redirecting to sign in…', '#888');
-        window.location.href = `/api/auth/google?return=${encodeURIComponent('/#/?resume-checkout=' + tier)}`;
+        button.disabled = false;
+        button.textContent = originalText;
+        const { showLoginModal } = await import('../ui/loginModal.ts');
+        showLoginModal(tier, `/#/?resume-checkout=${tier}`);
         return;
       }
 

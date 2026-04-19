@@ -153,6 +153,28 @@ export function createAiTerminal(config: TerminalConfig): HTMLElement {
   wrapper.appendChild(input);
   wrapper.appendChild(output);
 
+  // Show welcome help on first terminal focus
+  input.addEventListener(
+    'focus',
+    () => {
+      if (localStorage.getItem('nw:terminal-intro-seen')) return;
+      localStorage.setItem('nw:terminal-intro-seen', '1');
+      output.style.display = '';
+      output.innerHTML = `<div style="color:var(--nw-text-muted,#666);font-size:11px;line-height:1.6;padding:8px 0;">
+<strong style="color:var(--nw-accent,#ff6600);">NexusWatch Terminal</strong>
+
+Commands:
+  <span style="color:var(--nw-text-secondary,#999);">show ukraine</span>       — Fly to country + enable layers
+  <span style="color:var(--nw-text-secondary,#999);">enable conflicts</span>   — Toggle conflict data layers
+  <span style="color:var(--nw-text-secondary,#999);">scenario hormuz</span>    — Simulate chokepoint closure
+  <span style="color:var(--nw-text-secondary,#999);">compare UA,RU,TW</span>   — Side-by-side CII comparison
+  <span style="color:var(--nw-text-secondary,#999);">help</span>               — Show all commands
+
+Type a command or ask about any country.</div>`;
+    },
+    { once: true },
+  );
+
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       const cmd = input.value.trim();

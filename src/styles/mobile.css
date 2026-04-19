@@ -1,7 +1,16 @@
 /* ── Mobile Responsive ── */
 
-/* Tablet (< 1024px): sidebar collapses to overlay */
+/* Tablet (< 1024px): sidebar collapses to overlay, theater bar emoji-only */
 @media (max-width: 1024px) {
+  /* Theater bar: show emoji only, hide text names */
+  .nw-theater-name {
+    display: none;
+  }
+  .nw-theater-pill {
+    min-width: 32px;
+    padding: 4px 8px;
+    text-align: center;
+  }
   .nw-sidebar {
     position: fixed;
     left: 0;

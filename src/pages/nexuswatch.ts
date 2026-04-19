@@ -168,7 +168,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // CENTER ZONE: tension index (wired after data loads)
   const tensionSlot = createElement('div', { className: 'nw-topbar-center' });
   tensionSlot.innerHTML =
-    '<span class="nw-tension-label">GLOBAL TENSION</span><span class="nw-tension-value">--</span>';
+    '<span class="nw-tension-label">GLOBAL TENSION</span><span class="nw-tension-value" style="opacity:0.4;animation:nw-pulse 1.5s infinite">···</span>';
 
   // RIGHT ZONE: layers toggle + controls dropdown + status
   const topRight = createElement('div', { className: 'nw-topbar-right' });
@@ -216,7 +216,12 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   alertBtn.title = 'Natural language alert builder (A)';
   alertBtn.addEventListener('click', () => {
     if (canAccess('nl-alerts-1')) openAlertBuilder(mapContainer);
-    else showUpgradePrompt('Natural Language Alerts');
+    else {
+      // Feature-specific upgrade prompt with context about what alerts do
+      showUpgradePrompt(
+        'Natural Language Alerts — Set rules like "Alert when Sudan CII > 70" or "Alert when oil moves > 3%". Free: 2 rules, Analyst: 5, Pro: unlimited.',
+      );
+    }
   });
 
   const shareBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SHARE' });
@@ -319,10 +324,8 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const theaterLabel = createElement('span', { className: 'nw-theater-label', textContent: 'THEATERS' });
   theaterBar.appendChild(theaterLabel);
   for (const preset of THEATER_PRESETS) {
-    const pill = createElement('button', {
-      className: 'nw-theater-pill',
-      textContent: `${preset.emoji} ${preset.name}`,
-    });
+    const pill = createElement('button', { className: 'nw-theater-pill' });
+    pill.innerHTML = `<span class="nw-theater-emoji">${preset.emoji}</span><span class="nw-theater-name"> ${preset.name}</span>`;
     pill.dataset.theater = preset.id;
     pill.title = preset.description;
     pill.addEventListener('click', () => {
@@ -362,9 +365,20 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   app.appendChild(statusBar);
   root.appendChild(app);
 
-  // ── Onboarding (first visit only) ──
-  // Logged-in users get the full wizard; anonymous visitors get the lightweight tour.
-  showOnboarding(root);
+  // ── Onboarding (delayed — don't block first map interaction) ──
+  // Track map visits: onboarding fires on 2nd visit OR after 45s idle on 1st.
+  // This lets users explore the map before being asked to set preferences.
+  const mapVisits = parseInt(localStorage.getItem('nw:map-visits') || '0', 10) + 1;
+  localStorage.setItem('nw:map-visits', String(mapVisits));
+
+  if (mapVisits >= 2) {
+    // Second+ visit — show onboarding immediately (they've seen the map)
+    showOnboarding(root);
+  } else {
+    // First visit — delay 45 seconds so they can explore first
+    setTimeout(() => showOnboarding(root), 45000);
+  }
+  // Free tier tour always fires on first intel map visit (it's lightweight)
   showFreeTierTour(root);
 
   // ── Initialize map ──

@@ -198,7 +198,7 @@ export function renderFeedPage(root: HTMLElement): void {
         <div class="nw-feed-card-header">
           <span class="nw-feed-card-icon" style="color:${card.accentColor};">${card.icon}</span>
           <div class="nw-feed-card-meta">
-            <span class="nw-feed-card-type">${card.type.replace(/-/g, ' ').toUpperCase()}</span>
+            <span class="nw-feed-card-type" title="${escapeHtml(typeTooltip(card.type))}">${card.type.replace(/-/g, ' ').toUpperCase()}</span>
             ${card.countryCode ? `<span class="nw-feed-card-country">${card.countryCode}</span>` : ''}
           </div>
           ${
@@ -239,6 +239,18 @@ export function renderFeedPage(root: HTMLElement): void {
   // Refresh every 5 minutes
   setInterval(render, 5 * 60 * 1000);
   document.addEventListener('nw:cii-watchlist-changed', render);
+}
+
+function typeTooltip(type: string): string {
+  const tooltips: Record<string, string> = {
+    'high-cii': 'Country instability score above critical threshold (70+)',
+    'rising-cii': 'CII trend changed from stable/falling to rising in last 7 days',
+    'verified-signal': 'Event confirmed by 3+ independent data sources',
+    contradiction: 'Two data sources report conflicting information — check both sides',
+    cascade: 'Risk spreading from one country to a connected neighbor',
+    'watchlist-alert': 'Alert triggered for a country on your watchlist',
+  };
+  return tooltips[type] || type;
 }
 
 function escapeHtml(s: string): string {
