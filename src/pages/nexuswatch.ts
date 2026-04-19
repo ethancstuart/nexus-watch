@@ -1,5 +1,6 @@
 import '../styles/nexuswatch.css';
 import { createElement } from '../utils/dom.ts';
+import { getCiiWatchlist, addCiiWatch } from '../services/ciiWatchlist.ts';
 import { MapView } from '../map/MapView.ts';
 import { MapLayerManager } from '../map/MapLayerManager.ts';
 // Core layers (always enabled by default) — eagerly loaded
@@ -30,6 +31,10 @@ import {
   ciiLabel,
   COUNTRY_COUNT,
   getMonitoredCountries,
+  saveCIISnapshot,
+  getPreviousSnapshot,
+  getLastVisitTimestamp,
+  getCIIDelta,
   type CIIScore,
 } from '../services/countryInstabilityIndex.ts';
 import { getProvenance, computeFreshness, freshnessColor, relativeTime } from '../services/dataProvenance.ts';
@@ -1178,8 +1183,20 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     { signal },
   );
 
+  // ── Save CII snapshot on page leave (for "since you left" on return) ──
+  const onLeave = () => saveCIISnapshot();
+  window.addEventListener('beforeunload', onLeave, { signal });
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.visibilityState === 'hidden') saveCIISnapshot();
+    },
+    { signal },
+  );
+
   // ── Cleanup ──
   signal.addEventListener('abort', () => {
+    saveCIISnapshot();
     clearInterval(clockInterval);
     cinema.destroy();
     timeline.destroy();
@@ -1204,6 +1221,74 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 // ── Intel Tab ──
 
 function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapLayerManager): void {
+  // ── "Since you left" welcome-back card ──
+  const lastVisit = getLastVisitTimestamp();
+  const snapshot = getPreviousSnapshot();
+  const currentScores = getCachedCII();
+  const awayMinutes = lastVisit > 0 ? (Date.now() - lastVisit) / 60000 : 0;
+
+  if (snapshot && currentScores.length > 0 && awayMinutes > 30 && !sessionStorage.getItem('nw:welcome-dismissed')) {
+    const awayText =
+      awayMinutes < 60
+        ? `${Math.round(awayMinutes)}m`
+        : awayMinutes < 1440
+          ? `${Math.round(awayMinutes / 60)}h`
+          : `${Math.round(awayMinutes / 1440)}d`;
+
+    // Find top movers (biggest absolute delta from snapshot)
+    const movers: { code: string; name: string; score: number; delta: number }[] = [];
+    for (const s of currentScores) {
+      const prev = snapshot.scores[s.countryCode];
+      if (prev !== undefined) {
+        const d = Math.round((s.score - prev) * 10) / 10;
+        if (Math.abs(d) >= 1) {
+          movers.push({ code: s.countryCode, name: s.countryName, score: s.score, delta: d });
+        }
+      }
+    }
+    movers.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+    const topMovers = movers.slice(0, 5);
+
+    if (topMovers.length > 0) {
+      const card = createElement('div', { className: 'nw-welcome-back' });
+      card.style.cssText =
+        'padding:12px;border:1px solid var(--nw-border);border-radius:6px;margin:0 0 12px;background:var(--nw-surface);position:relative';
+
+      const dismissBtn = createElement('button', {});
+      dismissBtn.textContent = '\u2715';
+      dismissBtn.style.cssText =
+        'position:absolute;top:8px;right:8px;background:none;border:none;color:var(--nw-text-muted);cursor:pointer;font-size:12px';
+      dismissBtn.addEventListener('click', () => {
+        card.remove();
+        sessionStorage.setItem('nw:welcome-dismissed', '1');
+      });
+      card.appendChild(dismissBtn);
+
+      const header = createElement('div', {});
+      header.style.cssText =
+        'font-family:var(--nw-font-mono);font-size:10px;letter-spacing:1px;color:var(--nw-text-muted);margin:0 0 8px';
+      header.textContent = `SINCE YOU LEFT (${awayText} AGO)`;
+      card.appendChild(header);
+
+      for (const m of topMovers) {
+        const row = createElement('div', {});
+        row.style.cssText =
+          'display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px';
+        const sign = m.delta > 0 ? '+' : '';
+        const dColor = m.delta > 0 ? '#dc2626' : '#22c55e';
+        row.innerHTML = `<span style="color:var(--nw-text-secondary)">${m.name}</span><span><span style="color:${ciiColor(m.score)};font-weight:700;font-family:var(--nw-font-mono)">${m.score}</span> <span style="color:${dColor};font-size:10px;font-family:var(--nw-font-mono)">${sign}${m.delta}</span></span>`;
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', () => {
+          const country = getMonitoredCountries().find((c) => c.code === m.code);
+          if (country) mapView.flyTo(country.lon, country.lat, 5);
+        });
+        card.appendChild(row);
+      }
+
+      container.appendChild(card);
+    }
+  }
+
   // Data summary strip
   const summary = createElement('div', { className: 'nw-data-summary' });
   const stats = [
@@ -1563,6 +1648,15 @@ function createCountryRow(score: CIIScore, mapView: MapView): HTMLElement {
   scoreEl.style.color = color;
   scoreEl.textContent = String(score.score);
 
+  // Delta badge — change since last visit
+  const delta = getCIIDelta(score.countryCode);
+  const deltaEl = createElement('span', { className: 'nw-country-delta' });
+  if (delta !== null && Math.abs(delta) >= 0.5) {
+    const sign = delta > 0 ? '+' : '';
+    deltaEl.textContent = `${sign}${delta}`;
+    deltaEl.style.cssText = `font-size:9px;font-family:var(--nw-font-mono);margin-left:3px;color:${delta > 0 ? '#dc2626' : '#22c55e'}`;
+  }
+
   // Confidence indicator — the trust signal
   const confEl = createElement('span', { className: 'nw-country-confidence' });
   confEl.textContent = confidenceIcon(score.confidence);
@@ -1584,6 +1678,7 @@ function createCountryRow(score: CIIScore, mapView: MapView): HTMLElement {
   row.appendChild(sparkPlaceholder);
   row.appendChild(labelEl);
   row.appendChild(scoreEl);
+  row.appendChild(deltaEl);
 
   // Click → fly to country AND show detail panel with evidence chain
   const countries = getMonitoredCountries();
@@ -1614,6 +1709,15 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
   const scoreBadge = createElement('div', { className: 'nw-detail-score' });
   scoreBadge.style.color = ciiColor(score.score);
   scoreBadge.textContent = `CII ${score.score}`;
+  // Delta from last visit
+  const detailDelta = getCIIDelta(score.countryCode);
+  if (detailDelta !== null && Math.abs(detailDelta) >= 0.5) {
+    const dSign = detailDelta > 0 ? '+' : '';
+    const dSpan = createElement('span', {});
+    dSpan.style.cssText = `font-size:14px;margin-left:6px;color:${detailDelta > 0 ? '#dc2626' : '#22c55e'}`;
+    dSpan.textContent = `${dSign}${detailDelta}`;
+    scoreBadge.appendChild(dSpan);
+  }
   const confBadge = createElement('span', { className: 'nw-detail-conf' });
   confBadge.style.color = confidenceColor(score.confidence);
   confBadge.textContent = ` ${confidenceIcon(score.confidence)} ${score.confidence.toUpperCase()} CONFIDENCE`;
@@ -1672,7 +1776,37 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
   });
   actions.appendChild(exportBtn);
 
+  // Second row: watchlist, audit, compare
+  const actions2 = createElement('div', { className: 'nw-detail-actions' });
+  actions2.style.marginTop = '4px';
+
+  const watchBtn = createElement('button', { className: 'nw-detail-action-btn' });
+  const isWatching = getCiiWatchlist().some((w) => w.countryCode === score.countryCode);
+  watchBtn.innerHTML = isWatching ? '\u2605 Watching' : '\u2606 Watch';
+  watchBtn.addEventListener('click', () => {
+    if (!isWatching) {
+      addCiiWatch(score.countryCode);
+      watchBtn.innerHTML = '\u2605 Watching';
+    }
+  });
+  actions2.appendChild(watchBtn);
+
+  const auditBtn = createElement('button', { className: 'nw-detail-action-btn' });
+  auditBtn.innerHTML = '\u26d3 Audit';
+  auditBtn.addEventListener('click', () => {
+    window.location.hash = `#/audit/${score.countryCode}`;
+  });
+  actions2.appendChild(auditBtn);
+
+  const compareBtn = createElement('button', { className: 'nw-detail-action-btn' });
+  compareBtn.innerHTML = '\u2194 Compare';
+  compareBtn.addEventListener('click', () => {
+    window.location.hash = `#/compare?codes=${score.countryCode}`;
+  });
+  actions2.appendChild(compareBtn);
+
   panel.appendChild(actions);
+  panel.appendChild(actions2);
 
   // Component breakdown
   const COMPONENT_LABELS: Record<string, string> = {

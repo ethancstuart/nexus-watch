@@ -174,6 +174,58 @@ export function getLastComputed(): number {
   return lastComputed;
 }
 
+// ── Session snapshot — stores CII scores for "since you left" and delta computation ──
+
+interface CIISnapshot {
+  timestamp: number;
+  scores: Record<string, number>; // countryCode → score
+}
+
+const SNAPSHOT_KEY = 'nw:cii-snapshot';
+const LAST_VISIT_KEY = 'nw:last-visit';
+
+/** Save current CII scores as a snapshot for delta computation on next visit. */
+export function saveCIISnapshot(): void {
+  if (cachedScores.length === 0) return;
+  const snapshot: CIISnapshot = {
+    timestamp: Date.now(),
+    scores: Object.fromEntries(cachedScores.map((s) => [s.countryCode, s.score])),
+  };
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
+    localStorage.setItem(LAST_VISIT_KEY, String(Date.now()));
+  } catch {
+    // quota exceeded — non-critical
+  }
+}
+
+/** Get the previous session's CII snapshot for delta computation. */
+export function getPreviousSnapshot(): CIISnapshot | null {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as CIISnapshot;
+  } catch {
+    return null;
+  }
+}
+
+/** Get the last visit timestamp. */
+export function getLastVisitTimestamp(): number {
+  return parseInt(localStorage.getItem(LAST_VISIT_KEY) || '0', 10);
+}
+
+/** Get the CII delta (current - previous snapshot) for a country. Returns null if no previous data. */
+export function getCIIDelta(countryCode: string): number | null {
+  const snapshot = getPreviousSnapshot();
+  if (!snapshot) return null;
+  const prevScore = snapshot.scores[countryCode];
+  if (prevScore === undefined) return null;
+  const current = cachedScores.find((s) => s.countryCode === countryCode);
+  if (!current) return null;
+  return Math.round((current.score - prevScore) * 10) / 10;
+}
+
 export function getCountryCII(code: string): CIIScore | undefined {
   return cachedScores.find((s) => s.countryCode === code);
 }
