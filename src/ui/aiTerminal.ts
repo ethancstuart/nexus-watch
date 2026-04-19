@@ -175,16 +175,47 @@ Type a command or ask about any country.</div>`;
     { once: true },
   );
 
+  // Command history (Up/Down arrows) — power user expectation
+  const history: string[] = JSON.parse(localStorage.getItem('nw:terminal-history') || '[]');
+  let historyIndex = -1;
+
   input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (history.length > 0 && historyIndex < history.length - 1) {
+        historyIndex++;
+        input.value = history[history.length - 1 - historyIndex];
+      }
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        historyIndex--;
+        input.value = history[history.length - 1 - historyIndex];
+      } else {
+        historyIndex = -1;
+        input.value = '';
+      }
+      return;
+    }
     if (e.key === 'Enter') {
       const cmd = input.value.trim();
       if (cmd) {
+        // Add to history (max 50, dedup last entry)
+        if (history[history.length - 1] !== cmd) {
+          history.push(cmd);
+          if (history.length > 50) history.shift();
+          localStorage.setItem('nw:terminal-history', JSON.stringify(history));
+        }
+        historyIndex = -1;
         processCommand(cmd, config, output);
         input.value = '';
       }
     }
     if (e.key === 'Escape') {
       input.value = '';
+      historyIndex = -1;
       input.blur();
       output.style.display = 'none';
     }

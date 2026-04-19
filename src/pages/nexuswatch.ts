@@ -160,7 +160,13 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   // LEFT ZONE: logo + search
   const topLeft = createElement('div', { className: 'nw-topbar-left' });
-  const logo = createElement('span', { className: 'nw-logo', textContent: 'NexusWatch' });
+  const logo = document.createElement('a');
+  logo.className = 'nw-logo';
+  logo.textContent = 'NexusWatch';
+  logo.href = '#/';
+  logo.title = 'Back to homepage';
+  logo.style.textDecoration = 'none';
+  logo.style.color = 'inherit';
   const searchSlot = createElement('div', {});
   topLeft.appendChild(logo);
   topLeft.appendChild(searchSlot);
@@ -212,7 +218,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
 
   const cinemaBtn = createElement('button', { className: 'nw-sitrep-btn nw-essential', textContent: 'CINEMA' });
   cinemaBtn.title = 'Immersive intelligence broadcast (C)';
-  const alertBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'ALERTS' });
+  const alertBtn = createElement('button', { className: 'nw-sitrep-btn nw-essential', textContent: 'ALERTS' });
   alertBtn.title = 'Natural language alert builder (A)';
   alertBtn.addEventListener('click', () => {
     if (canAccess('nl-alerts-1')) openAlertBuilder(mapContainer);
@@ -435,7 +441,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     // Wait for priority layers to load before removing overlay.
     // Minimum 3 seconds so the user can read the loading message.
     // Then fade out over 600ms.
-    const minLoadTime = new Promise((r) => setTimeout(r, 3000));
+    const minLoadTime = new Promise((r) => setTimeout(r, 1500));
     const priorityLayersLoaded = new Promise<void>((resolve) => {
       let loaded = 0;
       const needed = 3;
@@ -863,7 +869,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       }
       trendEl.textContent = tension.trend === 'rising' ? '▲' : tension.trend === 'falling' ? '▼' : '—';
       trendEl.style.color =
-        tension.trend === 'rising' ? '#ef4444' : tension.trend === 'falling' ? '#00ff00' : '#666666';
+        tension.trend === 'rising' ? '#dc2626' : tension.trend === 'falling' ? '#22c55e' : '#666666';
       // Update label
       let labelEl = tensionSlot.querySelector('.nw-tension-level') as HTMLElement;
       if (!labelEl) {

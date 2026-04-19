@@ -4091,6 +4091,17 @@ body.nw-historical-mode .nw-map-container::after {
 .nw-popup-card {
   min-width: 180px;
   max-width: 260px;
+  animation: nw-popup-in 0.15s ease-out;
+}
+@keyframes nw-popup-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .nw-popup-header {

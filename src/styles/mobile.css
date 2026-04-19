@@ -30,7 +30,14 @@
   .nw-map-container {
     width: 100% !important;
   }
+  /* Show tension index in compact form on tablet (was: display:none) */
   .nw-topbar-center {
+    flex: 0 0 auto;
+  }
+  .nw-topbar-center .nw-tension-label {
+    display: none; /* Hide "GLOBAL TENSION" label, keep just the number */
+  }
+  .nw-topbar-center .nw-tension-sparkline {
     display: none;
   }
 }

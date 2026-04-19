@@ -17,6 +17,21 @@ registerPwaInstall();
 const router = new Router();
 const appRoot = document.getElementById('app')!;
 
+/** Crossfade page transition — fade out, swap, fade in. */
+function transition(root: HTMLElement): Promise<void> {
+  if (!root.firstChild) return Promise.resolve();
+  root.style.transition = 'opacity 0.12s ease';
+  root.style.opacity = '0';
+  return new Promise((r) =>
+    setTimeout(() => {
+      root.textContent = '';
+      root.style.opacity = '1';
+      root.style.transition = 'opacity 0.2s ease';
+      r();
+    }, 120),
+  );
+}
+
 function showRouteError(root: HTMLElement, err: unknown) {
   root.textContent = '';
   const msg = document.createElement('div');
@@ -30,7 +45,7 @@ router
   .on('/', () => {
     import('./pages/landing.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderLanding(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -38,7 +53,7 @@ router
   .on('/intel', () => {
     import('./pages/nexuswatch.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderNexusWatch(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -46,7 +61,7 @@ router
   .on('/app', () => {
     import('./pages/nexuswatch.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderNexusWatch(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -54,7 +69,7 @@ router
   .on('/about', () => {
     import('./pages/casestudy.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderCaseStudy(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -62,7 +77,7 @@ router
   .on('/roadmap', () => {
     import('./pages/roadmap.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderRoadmap(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -70,7 +85,7 @@ router
   .on('/briefs', () => {
     import('./pages/briefs.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderBriefs(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -78,7 +93,7 @@ router
   .on('/methodology', () => {
     import('./pages/methodology.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderMethodology(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -86,7 +101,7 @@ router
   .on('/accuracy', () => {
     import('./pages/accuracy.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         void m.renderAccuracyPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -94,7 +109,7 @@ router
   .on('/portfolio', () => {
     import('./pages/portfolio.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderPortfolioPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -102,7 +117,7 @@ router
   .on('/pricing', () => {
     import('./pages/pricing.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderPricingPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -110,7 +125,7 @@ router
   .on('/api', () => {
     import('./pages/apidocs.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderApiDocsPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -118,7 +133,7 @@ router
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderReleaseNotes(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -126,7 +141,7 @@ router
   .on('/status', () => {
     import('./pages/status.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         void m.renderStatusPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -134,7 +149,7 @@ router
   .on('/audit', () => {
     import('./pages/audit.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         void m.renderAuditPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -142,7 +157,7 @@ router
   .on('/audit/:country', (params) => {
     import('./pages/audit.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         void m.renderAuditPage(appRoot, params?.country);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -150,7 +165,7 @@ router
   .on('/compare', () => {
     import('./pages/compare.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         void m.renderComparePage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -158,7 +173,7 @@ router
   .on('/entities', () => {
     import('./pages/entities.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderEntitiesPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -166,7 +181,7 @@ router
   .on('/entities/:id', (params) => {
     import('./pages/entities.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderEntitiesPage(appRoot, params?.id);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -174,7 +189,7 @@ router
   .on('/brief-country/:code', (params) => {
     import('./pages/countryBrief.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderCountryBrief(appRoot, params?.code || '');
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -182,7 +197,7 @@ router
   .on('/watchlist', () => {
     import('./pages/watchlist.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderWatchlistPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -190,7 +205,7 @@ router
   .on('/feed', () => {
     import('./pages/feed.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderFeedPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -198,7 +213,7 @@ router
   .on('/welcome', () => {
     import('./pages/welcome.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderWelcomePage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -206,7 +221,7 @@ router
   .on('/settings', () => {
     import('./pages/settings.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderSettings(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -214,7 +229,7 @@ router
   .on('/admin/social-queue', () => {
     import('./pages/socialQueue.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderSocialQueue(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -222,7 +237,7 @@ router
   .on('/admin/marketing', () => {
     import('./pages/adminMarketing.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderAdminMarketing(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -230,7 +245,7 @@ router
   .on('/admin/revenue', () => {
     import('./pages/adminRevenue.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         void m.renderAdminRevenue(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -238,7 +253,7 @@ router
   .on('/brief/:date', (params) => {
     import('./pages/briefs.ts')
       .then((m) => {
-        appRoot.textContent = '';
+        void transition(appRoot);
         m.renderBrief(appRoot, params?.date || '');
       })
       .catch((err) => showRouteError(appRoot, err));
