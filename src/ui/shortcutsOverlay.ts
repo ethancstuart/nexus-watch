@@ -15,12 +15,16 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: 'Map & View',
     shortcuts: [
-      { key: 'L', description: 'Toggle layer panel' },
-      { key: 'C', description: 'Toggle country index' },
+      { key: 'D', description: 'Toggle layer drawer (presets + saved views)' },
+      { key: '/', description: 'Focus country search' },
+      { key: 'N', description: 'Toggle notification bell' },
       { key: 'T', description: 'Toggle time-travel scrubber' },
       { key: 'S', description: 'Generate sitrep' },
-      { key: '1–7', description: 'Toggle data layers' },
-      { key: 'Esc', description: 'Close overlays' },
+      { key: 'A', description: 'Open alert builder' },
+      { key: 'C', description: 'Cinema mode' },
+      { key: 'F', description: 'Fullscreen' },
+      { key: '1\u20137', description: 'Toggle data layers' },
+      { key: 'Esc', description: 'Close overlays / exit cinema' },
     ],
   },
   {

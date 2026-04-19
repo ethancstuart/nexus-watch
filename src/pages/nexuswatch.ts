@@ -1319,6 +1319,20 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         case 'f':
           if (!e.ctrlKey && !e.metaKey) toggleFullscreen();
           break;
+        case 'n':
+          if (!e.ctrlKey && !e.metaKey) bellBtn.click();
+          break;
+        case '/':
+          e.preventDefault();
+          (searchSlot.querySelector('.nw-search-input') as HTMLInputElement | null)?.focus();
+          break;
+        case 'd': {
+          if (!e.ctrlKey && !e.metaKey) {
+            const drawerEl = mapContainer.querySelector('.nw-layer-drawer');
+            drawerEl?.classList.toggle('nw-drawer-closed');
+          }
+          break;
+        }
         case '?':
           showShortcutsHelp(mapContainer);
           break;
