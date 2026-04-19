@@ -136,7 +136,7 @@ export type UserTier = 'free' | 'premium';
  *
  * Locked 2026-04-11 — see project_nexuswatch_decisions_apr11.md.
  */
-export type PaidTier = 'analyst' | 'pro' | 'founding';
+export type PaidTier = 'insider' | 'analyst' | 'pro' | 'founding';
 
 export interface User {
   id: string;
