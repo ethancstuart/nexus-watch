@@ -360,6 +360,36 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   moreMenu.appendChild(multiBtn);
   moreMenu.appendChild(invBtn);
   moreMenu.appendChild(popoutSlot);
+  const screenshotBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'EXPORT' });
+  screenshotBtn.title = 'Export current map view as PNG';
+  screenshotBtn.addEventListener('click', () => {
+    const map = mapView.getMap();
+    if (!map) return;
+    const canvas = map.getCanvas();
+    // Create a new canvas with watermark
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width;
+    exportCanvas.height = canvas.height;
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(canvas, 0, 0);
+    // Watermark
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.font = `${Math.round(canvas.height * 0.018)}px monospace`;
+    const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+    ctx.fillText(`NexusWatch \u00b7 ${timestamp}`, 12, canvas.height - 12);
+    // Download
+    const link = document.createElement('a');
+    link.download = `nexuswatch-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = exportCanvas.toDataURL('image/png');
+    link.click();
+    screenshotBtn.textContent = 'SAVED!';
+    setTimeout(() => {
+      screenshotBtn.textContent = 'EXPORT';
+    }, 2000);
+  });
+  moreMenu.appendChild(screenshotBtn);
+
   const cctvBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'CCTV' });
   cctvBtn.title = 'Live cameras — ports, cities, launch sites';
   moreMenu.appendChild(cctvBtn);
@@ -839,6 +869,51 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         }, 2000);
       }
     });
+  }
+
+  // ── Country deep-link (/#/intel?country=UA) ──
+  const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+  const deepLinkCountry = hashParams.get('country');
+  if (deepLinkCountry && !sharedView) {
+    const code = deepLinkCountry.toUpperCase();
+    const country = getMonitoredCountries().find((c) => c.code === code);
+    if (country) {
+      map.on('load', () => {
+        setTimeout(() => {
+          mapView.flyTo(country.lon, country.lat, 5);
+          const score = getCachedCII().find((s) => s.countryCode === code);
+          if (score) {
+            showCountryDetail(document.querySelector('.nw-sidebar') || document.body, score);
+          }
+        }, 2500); // Wait for CII to compute
+      });
+    }
+  }
+
+  // ── Visit streak tracking ──
+  const streakKey = 'nw:visit-streak';
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const raw = localStorage.getItem(streakKey);
+    const data = raw ? (JSON.parse(raw) as { lastDate: string; count: number }) : null;
+    if (data) {
+      const lastDate = new Date(data.lastDate);
+      const todayDate = new Date(today);
+      const diffDays = Math.round((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) {
+        // Consecutive day — increment streak
+        localStorage.setItem(streakKey, JSON.stringify({ lastDate: today, count: data.count + 1 }));
+      } else if (diffDays === 0) {
+        // Same day — no change
+      } else {
+        // Streak broken — reset to 1
+        localStorage.setItem(streakKey, JSON.stringify({ lastDate: today, count: 1 }));
+      }
+    } else {
+      localStorage.setItem(streakKey, JSON.stringify({ lastDate: today, count: 1 }));
+    }
+  } catch {
+    // localStorage error — non-critical
   }
 
   // ── Command Center HUD ──
@@ -1499,7 +1574,17 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
       const header = createElement('div', {});
       header.style.cssText =
         'font-family:var(--nw-font-mono);font-size:10px;letter-spacing:1px;color:var(--nw-text-muted);margin:0 0 8px';
-      header.textContent = `SINCE YOU LEFT (${awayText} AGO)`;
+      // Include streak if > 1 day
+      let streakText = '';
+      try {
+        const streakData = JSON.parse(localStorage.getItem('nw:visit-streak') || '{}') as { count?: number };
+        if (streakData.count && streakData.count > 1) {
+          streakText = ` \u00b7 ${streakData.count}-day streak \u{1F525}`;
+        }
+      } catch {
+        /* ignore */
+      }
+      header.textContent = `SINCE YOU LEFT (${awayText} AGO)${streakText}`;
       card.appendChild(header);
 
       for (const m of topMovers) {

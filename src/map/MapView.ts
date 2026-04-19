@@ -38,6 +38,7 @@ export class MapView {
       attributionControl: false,
       maxZoom: 18,
       minZoom: 0.8,
+      ...({ preserveDrawingBuffer: true } as Record<string, unknown>), // Required for canvas.toDataURL() screenshot export
     });
 
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
