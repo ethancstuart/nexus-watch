@@ -262,11 +262,9 @@ function renderFooterActions(draft: DraftState, scrollContainer: HTMLElement): H
       updateSaveButton(draft);
       refreshSummary(wrap);
       if (statusEl) {
-        statusEl.textContent = '✓ Saved.';
+        const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        statusEl.textContent = `\u2713 Saved at ${now}`;
         statusEl.style.color = dossierColors.up;
-        setTimeout(() => {
-          if (statusEl.textContent === '✓ Saved.') statusEl.textContent = '';
-        }, 2400);
       }
       // Scroll to top so the confirmation is visible even if the user
       // was deep in the chip grid when they clicked save.

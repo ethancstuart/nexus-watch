@@ -91,7 +91,19 @@ export function renderEntitiesPage(root: HTMLElement, detailId?: string): void {
     });
 
     if (filtered.length === 0) {
-      listEl.innerHTML = '<div class="nw-entities-empty">No entities match.</div>';
+      listEl.innerHTML = `<div class="nw-entities-empty" style="padding:24px;text-align:center">
+        <p style="font-size:14px;color:var(--nw-text-secondary);margin:0 0 8px">No entities match your search.</p>
+        <p style="font-size:12px;color:var(--nw-text-muted)">Try a different name, alias, or <button class="nw-entities-clear-search" style="background:none;border:none;color:var(--nw-accent);cursor:pointer;font-size:12px;text-decoration:underline;padding:0">clear the search</button> to see all ${ENTITIES.length} entities.</p>
+      </div>`;
+      const clearBtn = listEl.querySelector('.nw-entities-clear-search');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          searchQuery = '';
+          const searchInput = listCol.querySelector('.nw-entities-search') as HTMLInputElement | null;
+          if (searchInput) searchInput.value = '';
+          renderList();
+        });
+      }
       return;
     }
 

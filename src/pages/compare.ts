@@ -281,13 +281,9 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
     void load(codes);
   } else {
     content.innerHTML = `
-      <div class="nw-compare-empty">
-        <p>Enter country codes above or pick a preset to start comparing.</p>
-        <p style="margin-top:12px;font-size:12px;">
-          Popular: <a href="?codes=UA,RU,TW,IR">UA,RU,TW,IR</a> ·
-          <a href="?codes=SD,SS,ET,TD">Horn of Africa</a> ·
-          <a href="?codes=IR,IL,LB,SA">Middle East</a>
-        </p>
+      <div class="nw-compare-empty" style="text-align:center;padding:32px 16px">
+        <p style="font-size:15px;color:var(--nw-text-secondary);margin:0 0 8px">Type a country name above or pick a preset to start comparing.</p>
+        <p style="font-size:12px;color:var(--nw-text-muted)">Compare 2\u20136 countries side by side \u2014 CII scores, 6-component breakdown, trend direction, and confidence levels.</p>
       </div>
     `;
   }

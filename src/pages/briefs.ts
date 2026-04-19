@@ -102,42 +102,85 @@ export function renderBriefs(root: HTMLElement): void {
 
   const listEl = document.getElementById('briefs-list');
   if (!listEl) return;
+  const PAGE_SIZE = 20;
+  let allBriefs: BriefListItem[] = [];
+  let visibleCount = PAGE_SIZE;
+
+  const renderBriefCard = (b: BriefListItem): string => {
+    const date = String(b.date || b.brief_date || '').split('T')[0];
+    const summary = String(b.preview || b.summary || '');
+    const previewText = summary
+      .replace(/<[^>]+>/g, '')
+      .replace(/^##\s*[^\n]*\n+/, '')
+      .trim()
+      .slice(0, 240);
+    const dayName = new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    return `
+      <a href="#/brief/${encodeURIComponent(date)}" class="dossier-card">
+        <div class="dossier-card-date">${escapeHtml(dayName)}</div>
+        <h2 class="dossier-card-headline">Situation Brief · ${escapeHtml(date)}</h2>
+        <p class="dossier-card-preview">${escapeHtml(previewText)}…</p>
+        <div class="dossier-card-read">Read full brief →</div>
+      </a>
+    `;
+  };
+
+  const renderBriefList = () => {
+    const visible = allBriefs.slice(0, visibleCount);
+    const remaining = allBriefs.length - visibleCount;
+
+    listEl.innerHTML = visible.map(renderBriefCard).join('');
+
+    if (remaining > 0) {
+      const loadMore = document.createElement('button');
+      loadMore.className = 'dossier-load-more';
+      loadMore.textContent = `Load ${Math.min(remaining, PAGE_SIZE)} more briefs`;
+      loadMore.style.cssText =
+        'display:block;margin:24px auto;padding:10px 24px;background:transparent;border:1px solid var(--nw-border, #222);color:var(--nw-text-secondary, #999);border-radius:6px;cursor:pointer;font-size:13px;font-family:var(--nw-font-body, Inter, sans-serif)';
+      loadMore.addEventListener('click', () => {
+        visibleCount += PAGE_SIZE;
+        renderBriefList();
+      });
+      listEl.appendChild(loadMore);
+    }
+  };
+
   void fetch('/api/briefs')
     .then((r) => r.json())
     .then((data: { briefs?: BriefListItem[] }) => {
-      const briefs: BriefListItem[] = data.briefs ?? [];
-      if (briefs.length === 0) {
+      allBriefs = data.briefs ?? [];
+      if (allBriefs.length === 0) {
         listEl.innerHTML = `<p class="dossier-empty">No briefs yet. The first one publishes tomorrow at 5 AM ET.</p>`;
         return;
       }
-      listEl.innerHTML = briefs
-        .map((b) => {
-          const date = String(b.date || b.brief_date || '').split('T')[0];
-          const summary = String(b.preview || b.summary || '');
-          const previewText = summary
-            .replace(/<[^>]+>/g, '')
-            .replace(/^##\s*[^\n]*\n+/, '')
-            .trim()
-            .slice(0, 240);
-          const dayName = new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          });
-          return `
-            <a href="#/brief/${encodeURIComponent(date)}" class="dossier-card">
-              <div class="dossier-card-date">${escapeHtml(dayName)}</div>
-              <h2 class="dossier-card-headline">Situation Brief · ${escapeHtml(date)}</h2>
-              <p class="dossier-card-preview">${escapeHtml(previewText)}…</p>
-              <div class="dossier-card-read">Read full brief →</div>
-            </a>
-          `;
-        })
-        .join('');
+      renderBriefList();
     })
     .catch(() => {
-      listEl.innerHTML = `<p class="dossier-empty">Failed to load briefs. Try refreshing.</p>`;
+      listEl.innerHTML = `<p class="dossier-empty">Failed to load briefs. <button class="dossier-retry" style="background:none;border:none;color:var(--nw-accent);cursor:pointer;text-decoration:underline;font-size:inherit">Try again</button></p>`;
+      const retryBtn = listEl.querySelector('.dossier-retry');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          listEl.innerHTML = '<div class="dossier-loading">Loading briefs\u2026</div>';
+          void fetch('/api/briefs')
+            .then((r) => r.json())
+            .then((data: { briefs?: BriefListItem[] }) => {
+              allBriefs = data.briefs ?? [];
+              if (allBriefs.length === 0) {
+                listEl.innerHTML = `<p class="dossier-empty">No briefs yet.</p>`;
+                return;
+              }
+              renderBriefList();
+            })
+            .catch(() => {
+              listEl.innerHTML = `<p class="dossier-empty">Still unable to load. Check <a href="#/status" style="color:var(--nw-accent)">status page</a>.</p>`;
+            });
+        });
+      }
     });
 }
 

@@ -55,6 +55,8 @@ export function renderWatchlistPage(root: HTMLElement): void {
     render();
   });
 
+  let currentSort: 'cii' | 'trend' | 'name' = 'cii';
+
   function render(): void {
     content.innerHTML = '';
     const list = getCiiWatchlist();
@@ -118,9 +120,44 @@ export function renderWatchlistPage(root: HTMLElement): void {
     `;
     content.appendChild(stats);
 
+    // Sort controls
+    const sortBar = createElement('div', { className: 'nw-watchlist-sort' });
+    sortBar.style.cssText =
+      'display:flex;gap:8px;align-items:center;margin:0 0 12px;font-size:11px;color:var(--nw-text-muted)';
+    sortBar.innerHTML = `
+      <span>Sort:</span>
+      <button class="nw-sort-btn${currentSort === 'cii' ? ' active' : ''}" data-sort="cii" style="background:none;border:1px solid ${currentSort === 'cii' ? 'var(--nw-accent)' : 'var(--nw-border)'};color:${currentSort === 'cii' ? 'var(--nw-accent)' : 'var(--nw-text-secondary)'};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)">CII Score</button>
+      <button class="nw-sort-btn${currentSort === 'trend' ? ' active' : ''}" data-sort="trend" style="background:none;border:1px solid ${currentSort === 'trend' ? 'var(--nw-accent)' : 'var(--nw-border)'};color:${currentSort === 'trend' ? 'var(--nw-accent)' : 'var(--nw-text-secondary)'};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)">Trend</button>
+      <button class="nw-sort-btn${currentSort === 'name' ? ' active' : ''}" data-sort="name" style="background:none;border:1px solid ${currentSort === 'name' ? 'var(--nw-accent)' : 'var(--nw-border)'};color:${currentSort === 'name' ? 'var(--nw-accent)' : 'var(--nw-text-secondary)'};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)">Name</button>
+    `;
+    content.appendChild(sortBar);
+    sortBar.querySelectorAll('.nw-sort-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentSort = (btn as HTMLElement).dataset.sort as typeof currentSort;
+        render();
+      });
+    });
+
+    // Sort list
+    const trendOrder = { rising: 0, stable: 1, falling: 2 };
+    const sortedList = [...list].sort((a, b) => {
+      const sa = scores.find((s) => s.countryCode === a.countryCode);
+      const sb = scores.find((s) => s.countryCode === b.countryCode);
+      if (currentSort === 'cii') {
+        return (sb?.score ?? 0) - (sa?.score ?? 0); // highest first
+      }
+      if (currentSort === 'trend') {
+        return (trendOrder[sa?.trend ?? 'stable'] ?? 1) - (trendOrder[sb?.trend ?? 'stable'] ?? 1); // rising first
+      }
+      // name
+      const na = monitored.find((c) => c.code === a.countryCode)?.name || a.countryCode;
+      const nb = monitored.find((c) => c.code === b.countryCode)?.name || b.countryCode;
+      return na.localeCompare(nb);
+    });
+
     // Country cards
     const grid = createElement('div', { className: 'nw-watchlist-grid' });
-    for (const item of list) {
+    for (const item of sortedList) {
       const score = scores.find((s) => s.countryCode === item.countryCode);
       const meta = monitored.find((c) => c.code === item.countryCode);
       const name = meta?.name || item.countryCode;

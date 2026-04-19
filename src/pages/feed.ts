@@ -180,12 +180,32 @@ export function renderFeedPage(root: HTMLElement): void {
 
     stream.innerHTML = '';
     if (filtered.length === 0) {
+      const emptyMessages: Record<string, string> = {
+        all: 'No intelligence cards available right now. Check back soon — feeds refresh every 5 minutes.',
+        'high-cii': 'No countries currently above CII 70. This is good news.',
+        rising: 'No countries with rising CII trends right now.',
+        verified: 'No multi-source verified signals at this moment.',
+        contradiction: 'No source contradictions detected. Data sources are in agreement.',
+        cascade: 'No cross-border cascade events detected.',
+        watchlist:
+          'No watchlist updates yet. <a href="#/watchlist" style="color:var(--nw-accent)">Add countries to your watchlist</a> to see personalized intelligence here.',
+      };
       stream.innerHTML = `
         <div class="nw-feed-empty">
-          <p>No cards match this filter right now.</p>
-          ${currentFilter === 'watchlist' ? '<p style="margin-top:10px;"><a href="#/watchlist">Build your watchlist →</a></p>' : ''}
+          <p style="font-size:14px;color:var(--nw-text-secondary);margin:0 0 8px">${emptyMessages[currentFilter] || emptyMessages.all}</p>
+          ${currentFilter !== 'all' ? '<p style="font-size:12px;color:var(--nw-text-muted)">Try <button class="nw-feed-reset-filter" style="background:none;border:none;color:var(--nw-accent);cursor:pointer;font-size:12px;text-decoration:underline;padding:0">showing all cards</button> for a broader view.</p>' : ''}
         </div>
       `;
+      const resetBtn = stream.querySelector('.nw-feed-reset-filter');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          currentFilter = 'all';
+          filters.querySelectorAll('.nw-feed-filter').forEach((f) => {
+            f.classList.toggle('active', (f as HTMLElement).dataset.filter === 'all');
+          });
+          render();
+        });
+      }
       return;
     }
 
