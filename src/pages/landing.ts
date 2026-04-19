@@ -320,14 +320,16 @@ export function renderLanding(root: HTMLElement): void {
   setupSubscribeForm('bar-subscribe', 'landing-sub-status');
   setupSubscribeForm('brief-subscribe', 'brief-sub-status');
 
-  // Newsletter bar dismiss
+  // Newsletter bar dismiss — hides for this session only.
+  // Reappears on next visit to encourage subscription conversion.
+  // Only permanently hides if user has actually subscribed.
   const barClose = document.getElementById('bar-close');
   const bar = document.getElementById('newsletter-bar');
   barClose?.addEventListener('click', () => {
     bar?.remove();
-    localStorage.setItem('nw:bar-dismissed', '1');
+    sessionStorage.setItem('nw:bar-dismissed', '1');
   });
-  if (localStorage.getItem('nw:bar-dismissed') === '1') {
+  if (sessionStorage.getItem('nw:bar-dismissed') === '1') {
     bar?.remove();
   }
 

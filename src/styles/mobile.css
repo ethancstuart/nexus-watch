@@ -47,6 +47,15 @@
   .nw-sitrep-btn:not(.nw-essential) {
     display: none;
   }
+  /* Always show LAYERS toggle on phone (essential for mobile UX) */
+  .nw-drawer-toggle {
+    display: flex !important;
+    font-size: 9px !important;
+    padding: 3px 6px !important;
+  }
+  .nw-drawer-toggle .nw-drawer-count {
+    display: none; /* Hide count badge on phone to save space */
+  }
   .nw-topbar-status {
     display: none;
   }
@@ -54,9 +63,11 @@
     font-size: 8px;
     padding: 0 8px;
   }
-  /* Sidebar full width on phone */
+  /* Sidebar 85% width on phone — lets user see map edge behind it */
   .nw-sidebar {
-    width: 100% !important;
+    width: 85% !important;
+    max-width: 360px !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
   }
   /* Cinema mode adjustments */
   .cinema-profile-bar {
