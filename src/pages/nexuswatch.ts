@@ -381,9 +381,81 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   healthSlot.innerHTML = '<span class="nw-health-label">DATA CONFIDENCE</span><span class="nw-health-value">--</span>';
   healthSlot.title = 'Aggregate data confidence across all sources and countries';
 
+  // Personal risk score — avg CII of watchlisted countries
+  const riskSlot = createElement('div', { className: 'nw-topbar-risk' });
+  riskSlot.style.cssText =
+    'display:none;align-items:center;gap:4px;font-family:var(--nw-font-mono);font-size:10px;letter-spacing:0.5px;cursor:pointer;padding:0 8px';
+  riskSlot.title = 'Average CII of your watchlisted countries';
+
+  function updatePersonalRisk() {
+    const watchlist = getCiiWatchlist();
+    const scores = getCachedCII();
+    if (watchlist.length === 0 || scores.length === 0) {
+      riskSlot.style.display = 'none';
+      return;
+    }
+    const watchedScores = watchlist
+      .map((w) => scores.find((s) => s.countryCode === w.countryCode))
+      .filter(Boolean) as typeof scores;
+    if (watchedScores.length === 0) {
+      riskSlot.style.display = 'none';
+      return;
+    }
+    const avg = Math.round(watchedScores.reduce((sum, s) => sum + s.score, 0) / watchedScores.length);
+    const rising = watchedScores.filter((s) => s.trend === 'rising').length;
+    const riskColor = avg >= 75 ? '#dc2626' : avg >= 60 ? '#f97316' : avg >= 40 ? '#eab308' : '#22c55e';
+    const trend = rising > watchedScores.length / 2 ? '\u2191' : '\u2192';
+    riskSlot.style.display = 'flex';
+    riskSlot.innerHTML = `<span style="color:var(--nw-text-muted)">YOUR RISK</span><span style="color:${riskColor};font-weight:700;font-size:13px">${avg}</span><span style="color:${riskColor};font-size:11px">${trend}</span>`;
+  }
+
+  riskSlot.addEventListener('click', () => {
+    window.location.hash = '#/watchlist';
+  });
+
+  // Breaking event indicator
+  const breakingSlot = createElement('div', { className: 'nw-topbar-breaking' });
+  breakingSlot.style.cssText = 'display:none;align-items:center;gap:4px;cursor:pointer;padding:0 8px';
+
+  let lastBreakingId = '';
+
+  function checkBreakingEvents() {
+    const scores = getCachedCII();
+    const snapshot = getPreviousSnapshot();
+    if (!snapshot || scores.length === 0) return;
+
+    // Find CII spikes > 8 points
+    for (const s of scores) {
+      const prev = snapshot.scores[s.countryCode];
+      if (prev === undefined) continue;
+      const delta = s.score - prev;
+      if (delta > 8 && s.countryCode !== lastBreakingId) {
+        lastBreakingId = s.countryCode;
+        breakingSlot.style.display = 'flex';
+        breakingSlot.innerHTML = `<span style="background:#dc2626;color:#fff;font-family:var(--nw-font-mono);font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:3px;animation:nw-pulse 1.5s infinite">BREAKING</span><span style="font-size:10px;color:var(--nw-text-secondary);font-family:var(--nw-font-mono)">${s.countryName} CII +${Math.round(delta)}</span>`;
+        breakingSlot.onclick = () => {
+          const country = getMonitoredCountries().find((c) => c.code === s.countryCode);
+          if (country) mapView.flyTo(country.lon, country.lat, 5);
+          showCountryDetail(document.querySelector('.nw-sidebar') || document.body, s);
+          breakingSlot.style.display = 'none';
+        };
+        // Auto-dismiss after 5 minutes
+        setTimeout(
+          () => {
+            breakingSlot.style.display = 'none';
+          },
+          5 * 60 * 1000,
+        );
+        return;
+      }
+    }
+  }
+
   topbar.appendChild(topLeft);
   topbar.appendChild(tensionSlot);
   topbar.appendChild(healthSlot);
+  topbar.appendChild(riskSlot);
+  topbar.appendChild(breakingSlot);
   topbar.appendChild(topRight);
 
   // Main area
@@ -1112,6 +1184,8 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
     ((e: CustomEvent) => {
       const ld = getLayerData();
       computeAllCII(ld);
+      updatePersonalRisk();
+      checkBreakingEvents();
       computeCorrelations(ld);
       evaluateAlerts(ld);
       runVerification(ld);
