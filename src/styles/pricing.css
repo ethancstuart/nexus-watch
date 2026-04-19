@@ -24,6 +24,36 @@
   color: var(--nw-text-muted);
 }
 
+/* === Billing Toggle === */
+
+.pricing-toggle {
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--nw-border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 16px;
+}
+.pricing-toggle-btn {
+  padding: 8px 20px;
+  background: transparent;
+  border: none;
+  color: var(--nw-text-muted);
+  font-family: var(--nw-font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pricing-toggle-btn.active {
+  background: var(--nw-accent);
+  color: #000;
+  font-weight: 700;
+}
+.pricing-toggle-save {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
 /* === Pricing Grid === */
 
 .pricing-grid {
@@ -33,9 +63,19 @@
   align-items: start;
   margin-bottom: 24px;
 }
+.pricing-grid-4 {
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+}
 
-@media (max-width: 768px) {
-  .pricing-grid {
+@media (max-width: 1024px) {
+  .pricing-grid-4 {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+@media (max-width: 640px) {
+  .pricing-grid,
+  .pricing-grid-4 {
     grid-template-columns: 1fr;
     gap: 16px;
   }

@@ -1,13 +1,15 @@
 /**
- * Pricing Page — 3-tier comparison (D-14, D-6).
+ * Pricing Page — 4-tier model with annual toggle.
  *
- * Explorer (Free) / Analyst ($29) / Pro ($99).
- * Founding ($19/mo lifetime) shown as overlay inside Analyst card.
- * Enterprise as text link below grid.
+ * Explorer (Free) / Insider ($19) / Analyst ($29) / Pro ($99)
+ * Annual: $199/yr, $299/yr, $999/yr
  */
 
 import '../styles/pricing.css';
 import { createElement } from '../utils/dom.ts';
+import { trackEvent } from '../services/analytics.ts';
+
+type PaidTier = 'insider' | 'analyst' | 'pro';
 
 export function renderPricingPage(container: HTMLElement): void {
   container.innerHTML = '';
@@ -22,72 +24,91 @@ export function renderPricingPage(container: HTMLElement): void {
 
     <header class="pricing-header">
       <h1>Choose your level of intelligence</h1>
-      <p>Trust is free. Depth is paid.</p>
+      <p>Trust is free. Depth is paid. Every tier includes a 14-day free trial.</p>
+      <div class="pricing-toggle" id="billing-toggle">
+        <button class="pricing-toggle-btn active" data-interval="month">Monthly</button>
+        <button class="pricing-toggle-btn" data-interval="year">Annual <span class="pricing-toggle-save">save up to 16%</span></button>
+      </div>
     </header>
 
-    <section class="pricing-grid">
+    <section class="pricing-grid pricing-grid-4">
       <div class="pricing-card">
         <div class="pricing-tier">Explorer</div>
         <div class="pricing-amount">$0</div>
+        <div class="pricing-period">&nbsp;</div>
         <div class="pricing-desc">Everything you need to start</div>
         <ul class="pricing-features">
           <li>Full 3D globe with 45+ live layers</li>
           <li>CII scores for 150+ countries</li>
-          <li>Confidence badges + verification shields</li>
           <li>Intelligence Brief (3x/week)</li>
           <li>3 AI analyst queries/day</li>
-          <li>2 composite alert rules</li>
+          <li>1 alert rule</li>
           <li>48-hour timeline</li>
-          <li>Prediction ledger (public)</li>
+          <li>2 saved map views</li>
+          <li>Compare 2 countries</li>
         </ul>
         <a href="#/intel" class="pricing-cta">Open the Map</a>
       </div>
 
-      <div class="pricing-card pricing-analyst" id="analyst-card">
-        <div class="pricing-founding-overlay" id="founding-overlay" hidden>
-          <div class="pricing-founding-badge">FOUNDING RATE</div>
-          <div class="pricing-founding-price">$19/mo <span>locked for life</span></div>
-          <div class="pricing-founding-remaining" id="founding-remaining"></div>
-          <button type="button" class="pricing-cta pricing-cta-founding" id="founding-btn">Claim Founding Seat</button>
-        </div>
-        <div class="pricing-tier">Analyst</div>
-        <div class="pricing-amount" id="analyst-price">$29<span>/mo</span></div>
-        <div class="pricing-desc">Full evidence chains + daily briefs</div>
+      <div class="pricing-card pricing-insider">
+        <div class="pricing-tier">Insider</div>
+        <div class="pricing-amount" data-monthly="$19" data-annual="$199">$19<span class="pricing-period">/mo</span></div>
+        <div class="pricing-annual-note" data-monthly="" data-annual="$16.58/mo billed annually" style="font-size:11px;color:var(--nw-cyan);min-height:16px"></div>
+        <div class="pricing-desc">Daily intelligence + full evidence</div>
         <ul class="pricing-features">
           <li class="pricing-features-header">Everything in Explorer, plus:</li>
-          <li>Daily intelligence brief (every morning)</li>
-          <li>Full evidence chains (all 150+ countries)</li>
-          <li>Unlimited AI analyst queries w/ citations</li>
-          <li>5 composite alert rules</li>
-          <li>Deep-dive country analysis command</li>
-          <li>1 scenario simulation/day</li>
-          <li>30-day time-travel intelligence</li>
-          <li>Push notifications for crisis alerts</li>
+          <li><strong>Daily intelligence brief</strong></li>
+          <li><strong>Full evidence chains</strong> (all countries)</li>
+          <li>10 AI analyst queries/day</li>
+          <li>3 alert rules + email delivery</li>
+          <li>7-day timeline history</li>
+          <li>5 saved map views</li>
+          <li>Compare 4 countries</li>
         </ul>
-        <button type="button" class="pricing-cta pricing-cta-primary" id="analyst-cta">Start 14-Day Trial</button>
+        <button type="button" class="pricing-cta pricing-cta-primary" data-tier="insider">Start 14-Day Trial</button>
       </div>
 
       <div class="pricing-card pricing-featured">
-        <div class="pricing-badge">RECOMMENDED</div>
+        <div class="pricing-badge">MOST POPULAR</div>
+        <div class="pricing-tier">Analyst</div>
+        <div class="pricing-amount" data-monthly="$29" data-annual="$299">$29<span class="pricing-period">/mo</span></div>
+        <div class="pricing-annual-note" data-monthly="" data-annual="$24.92/mo billed annually" style="font-size:11px;color:var(--nw-cyan);min-height:16px"></div>
+        <div class="pricing-desc">Unlimited AI + scenario simulation</div>
+        <ul class="pricing-features">
+          <li class="pricing-features-header">Everything in Insider, plus:</li>
+          <li><strong>Unlimited AI analyst queries</strong></li>
+          <li><strong>Scenario simulation</strong> (1/day)</li>
+          <li>30-day timeline + time-travel</li>
+          <li>5 alert rules</li>
+          <li>Cinema mode (no watermark)</li>
+          <li>10 saved map views</li>
+          <li>Compare 6 countries</li>
+        </ul>
+        <button type="button" class="pricing-cta pricing-cta-primary" data-tier="analyst">Start 14-Day Trial</button>
+      </div>
+
+      <div class="pricing-card pricing-pro">
         <div class="pricing-tier">Pro</div>
-        <div class="pricing-amount">$99<span>/mo</span></div>
-        <div class="pricing-desc">Portfolio exposure + unlimited everything</div>
+        <div class="pricing-amount" data-monthly="$99" data-annual="$999">$99<span class="pricing-period">/mo</span></div>
+        <div class="pricing-annual-note" data-monthly="" data-annual="$83.25/mo billed annually" style="font-size:11px;color:var(--nw-cyan);min-height:16px"></div>
+        <div class="pricing-desc">Portfolio + API + unlimited everything</div>
         <ul class="pricing-features">
           <li class="pricing-features-header">Everything in Analyst, plus:</li>
           <li><strong>Portfolio Geopolitical Exposure</strong></li>
-          <li>Unlimited scenario simulations</li>
-          <li>90-day full history + time-travel</li>
+          <li><strong>Unlimited scenario simulations</strong></li>
+          <li>90-day history + time-travel</li>
+          <li>Unlimited alert rules</li>
           <li>Crisis playbooks (auto-trigger)</li>
-          <li>Priority email briefings</li>
           <li>CSV/JSON data export</li>
-          <li>Early access to new features</li>
+          <li>REST API access</li>
+          <li>Personalized daily brief</li>
         </ul>
-        <button type="button" class="pricing-cta pricing-cta-primary" id="pro-cta">Start 14-Day Trial</button>
+        <button type="button" class="pricing-cta pricing-cta-primary" data-tier="pro">Start 14-Day Trial</button>
       </div>
     </section>
 
     <p class="pricing-enterprise">
-      Enterprise API from $299/mo — REST API, webhooks, historical export, custom SLA.
+      Enterprise API from $299/mo \u2014 REST API, webhooks, historical export, custom SLA.
       <a href="mailto:hello@nexuswatch.dev?subject=Enterprise%20API">Talk to us</a>
     </p>
 
@@ -106,7 +127,7 @@ export function renderPricingPage(container: HTMLElement): void {
         </div>
         <div class="pricing-faq-item">
           <h3>Do you offer discounts?</h3>
-          <p>Yes — 50% off for students, journalists, academics, and non-profits. Email hello@nexuswatch.dev with proof.</p>
+          <p>Yes \u2014 50% off for students, journalists, academics, and non-profits. Email hello@nexuswatch.dev with proof. Annual plans save up to 16%.</p>
         </div>
         <div class="pricing-faq-item">
           <h3>Is my portfolio data private?</h3>
@@ -114,17 +135,44 @@ export function renderPricingPage(container: HTMLElement): void {
         </div>
         <div class="pricing-faq-item">
           <h3>Can I try before committing?</h3>
-          <p>Every paid tier has a 14-day full refund policy. Use everything, cancel if it's not pulling its weight.</p>
+          <p>Every paid tier has a 14-day free trial. Full access, card required, cancel anytime.</p>
         </div>
         <div class="pricing-faq-item">
           <h3>Why is this cheaper than Stratfor or Dataminr?</h3>
-          <p>They charge for analyst headcount. We charge for software. Our CII scores, evidence chains, and AI analysis are automated — so we can offer institutional-grade intelligence at consumer prices.</p>
+          <p>They charge for analyst headcount. We charge for software. Our CII scores, evidence chains, and AI analysis are automated \u2014 so we can offer institutional-grade intelligence at consumer prices.</p>
         </div>
       </div>
     </section>
   `;
 
   container.appendChild(page);
+
+  // === Billing toggle (monthly ↔ annual) ===
+  let currentInterval: 'month' | 'year' = 'month';
+  const toggleBtns = page.querySelectorAll('.pricing-toggle-btn');
+  const priceEls = page.querySelectorAll<HTMLElement>('.pricing-amount[data-monthly]');
+  const noteEls = page.querySelectorAll<HTMLElement>('.pricing-annual-note');
+
+  toggleBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      currentInterval = (btn as HTMLElement).dataset.interval === 'year' ? 'year' : 'month';
+      toggleBtns.forEach((b) => b.classList.toggle('active', b === btn));
+
+      priceEls.forEach((el) => {
+        const monthly = el.dataset.monthly || '';
+        const annual = el.dataset.annual || '';
+        if (currentInterval === 'year') {
+          el.innerHTML = `${annual}<span class="pricing-period">/yr</span>`;
+        } else {
+          el.innerHTML = `${monthly}<span class="pricing-period">/mo</span>`;
+        }
+      });
+
+      noteEls.forEach((el) => {
+        el.textContent = currentInterval === 'year' ? el.dataset.annual || '' : '';
+      });
+    });
+  });
 
   // === Checkout wiring ===
   const checkoutStatus = document.getElementById('checkout-status');
@@ -135,88 +183,62 @@ export function renderPricingPage(container: HTMLElement): void {
     }
   };
 
-  async function startCheckout(tier: 'analyst' | 'pro' | 'founding', button: HTMLButtonElement | HTMLAnchorElement) {
+  async function startCheckout(tier: PaidTier, button: HTMLButtonElement) {
     const originalText = button.textContent || '';
-    if (button instanceof HTMLButtonElement) button.disabled = true;
-    button.textContent = '…';
+    button.disabled = true;
+    button.textContent = '\u2026';
     if (checkoutStatus) checkoutStatus.textContent = '';
 
+    trackEvent('checkout_started', { tier, interval: currentInterval });
+
     try {
-      const abVariant = localStorage.getItem('nw:ab-analyst') || 'a';
-      const variantParam = tier === 'analyst' ? `&variant=${abVariant}` : '';
-      const res = await fetch(`/api/stripe/checkout?tier=${tier}${variantParam}`, {
+      const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        body: JSON.stringify({ tier, interval: currentInterval }),
       });
-      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string; maxSeats?: number };
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
 
       if (res.status === 401) {
         sessionStorage.setItem('nw:pending-checkout', tier);
-        setStatus('Redirecting to sign in…', 'var(--nw-text-muted)');
+        sessionStorage.setItem('nw:pending-interval', currentInterval);
+        setStatus('Redirecting to sign in\u2026', 'var(--nw-text-muted)');
         window.location.href = `/api/auth/google?return=${encodeURIComponent('/#/pricing?resume=' + tier)}`;
-        return;
-      }
-
-      if (res.status === 403 && tier === 'founding') {
-        button.textContent = 'SOLD OUT';
-        setStatus(`Founding tier is fully subscribed. Analyst tier is still open at $29/mo.`, 'var(--nw-error)');
-        document.getElementById('founding-overlay')?.setAttribute('hidden', '');
         return;
       }
 
       if (!res.ok || !data.url) throw new Error(data.error || `Checkout failed (${res.status})`);
 
-      setStatus('Redirecting to Stripe…', 'var(--nw-text-muted)');
+      setStatus('Redirecting to Stripe\u2026', 'var(--nw-text-muted)');
       window.location.href = data.url;
     } catch (err) {
-      if (button instanceof HTMLButtonElement) button.disabled = false;
+      button.disabled = false;
       button.textContent = originalText;
-      setStatus(err instanceof Error ? err.message : 'Checkout failed — try again', 'var(--nw-error)');
+      setStatus(err instanceof Error ? err.message : 'Checkout failed \u2014 try again', 'var(--nw-error)');
     }
   }
 
-  // Wire CTAs
-  const analystCta = document.getElementById('analyst-cta') as HTMLButtonElement | null;
-  const proCta = document.getElementById('pro-cta') as HTMLButtonElement | null;
-  const foundingBtn = document.getElementById('founding-btn') as HTMLButtonElement | null;
-
-  analystCta?.addEventListener('click', () => startCheckout('analyst', analystCta));
-  proCta?.addEventListener('click', () => startCheckout('pro', proCta));
-  foundingBtn?.addEventListener('click', () => startCheckout('founding', foundingBtn));
+  // Wire all tier CTAs
+  page.querySelectorAll<HTMLButtonElement>('.pricing-cta-primary[data-tier]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tier = btn.dataset.tier as PaidTier;
+      void startCheckout(tier, btn);
+    });
+  });
 
   // Resume checkout after OAuth bounce
   const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
   const resumeTier = params.get('resume') || sessionStorage.getItem('nw:pending-checkout');
-  if (resumeTier === 'analyst' || resumeTier === 'pro' || resumeTier === 'founding') {
+  const resumeInterval = sessionStorage.getItem('nw:pending-interval');
+  if (resumeTier === 'insider' || resumeTier === 'analyst' || resumeTier === 'pro') {
     sessionStorage.removeItem('nw:pending-checkout');
-    const btn = resumeTier === 'pro' ? proCta : resumeTier === 'founding' ? foundingBtn : analystCta;
+    sessionStorage.removeItem('nw:pending-interval');
+    if (resumeInterval === 'year') {
+      currentInterval = 'year';
+      toggleBtns.forEach((b) => b.classList.toggle('active', (b as HTMLElement).dataset.interval === 'year'));
+    }
+    const btn = page.querySelector<HTMLButtonElement>(`.pricing-cta-primary[data-tier="${resumeTier}"]`);
     if (btn) void startCheckout(resumeTier, btn);
-  }
-
-  // === Founding stock ===
-  const foundingOverlay = document.getElementById('founding-overlay');
-  const foundingRemaining = document.getElementById('founding-remaining');
-  if (foundingOverlay) {
-    fetch('/api/stripe/founding-stock')
-      .then((r) => r.json())
-      .then((data: { remaining?: number; max?: number; soldOut?: boolean }) => {
-        if (data.soldOut || !data.remaining || data.remaining <= 0) {
-          foundingOverlay.setAttribute('hidden', '');
-          return;
-        }
-        foundingOverlay.removeAttribute('hidden');
-        if (foundingRemaining) {
-          foundingRemaining.textContent = `${data.remaining} of ${data.max || 100} seats remaining`;
-        }
-      })
-      .catch(() => foundingOverlay.setAttribute('hidden', ''));
-  }
-
-  // A/B test
-  const abVariant = localStorage.getItem('nw:ab-analyst') || (Math.random() < 0.5 ? 'a' : 'b');
-  localStorage.setItem('nw:ab-analyst', abVariant);
-  if (abVariant === 'b') {
-    const priceEl = document.getElementById('analyst-price');
-    if (priceEl) priceEl.innerHTML = '$19<span>/mo</span>';
   }
 }

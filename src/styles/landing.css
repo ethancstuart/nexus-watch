@@ -410,17 +410,18 @@
   grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
-.landing-pricing-grid.three-tier {
-  grid-template-columns: 1fr 1fr 1fr;
+.landing-pricing-grid.four-tier {
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   align-items: start;
 }
-@media (max-width: 768px) {
-  .landing-pricing-grid.three-tier {
-    grid-template-columns: 1fr;
+@media (max-width: 1024px) {
+  .landing-pricing-grid.four-tier {
+    grid-template-columns: 1fr 1fr;
   }
 }
 @media (max-width: 640px) {
-  .landing-pricing-grid {
+  .landing-pricing-grid,
+  .landing-pricing-grid.four-tier {
     grid-template-columns: 1fr;
   }
 }

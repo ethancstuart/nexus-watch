@@ -178,9 +178,8 @@ export function renderLanding(root: HTMLElement): void {
 
     <section class="landing-pricing">
       <h2>Choose your level of intelligence</h2>
-      <p class="landing-pricing-subtitle">Trust is free. Depth is paid.</p>
-
-      <div class="landing-pricing-grid three-tier">
+      <p class="landing-pricing-subtitle">Trust is free. Depth is paid. All paid tiers include a 14-day free trial.</p>
+      <div class="landing-pricing-grid four-tier">
         <div class="landing-price-card">
           <div class="landing-price-tier">Explorer</div>
           <div class="landing-price-amount">$0</div>
@@ -189,54 +188,49 @@ export function renderLanding(root: HTMLElement): void {
             <li>Full 3D globe with 45+ live layers</li>
             <li>CII scores for 150+ countries</li>
             <li>Intelligence Brief (3x/week)</li>
-            <li>2 alert rules</li>
-            <li>48-hour timeline</li>
-            <li>3 AI analyst queries/day</li>
+            <li>3 AI queries/day</li>
           </ul>
           <a href="#/intel" class="landing-price-btn landing-price-btn-free">Open the Map</a>
         </div>
-        <div class="landing-price-card landing-price-analyst" id="analyst-card">
-          <div class="landing-founding-overlay" id="founding-banner" hidden>
-            <div class="landing-founding-badge">FOUNDING MEMBER</div>
-            <div class="landing-founding-price">$19/mo <span>locked forever</span></div>
-            <div class="landing-founding-remaining" id="founding-remaining"></div>
-            <div class="landing-founding-includes" style="font-size:11px;color:rgba(255,255,255,0.6);margin:8px 0;line-height:1.5;text-align:left">
-              Founding members get everything in Analyst:<br>
-              Daily briefs &bull; Full evidence chains &bull; Unlimited AI queries &bull; 5 alert rules &bull; 30-day history
-            </div>
-            <button type="button" class="landing-price-btn founding" data-tier="founding">Claim Founding Seat</button>
-          </div>
-          <div class="landing-price-tier">Analyst</div>
-          <div class="landing-price-amount" id="analyst-price">$29<span>/mo</span></div>
-          <div class="landing-price-desc">Full evidence chains + daily briefs</div>
+        <div class="landing-price-card">
+          <div class="landing-price-tier">Insider</div>
+          <div class="landing-price-amount">$19<span>/mo</span></div>
+          <div class="landing-price-desc">Daily intel + full evidence</div>
           <ul class="landing-price-features">
-            <li>Everything in Explorer, plus:</li>
             <li>Daily intelligence brief</li>
             <li>Full evidence chains</li>
-            <li>Unlimited AI queries</li>
-            <li>5 alert rules</li>
-            <li>30-day timeline</li>
+            <li>10 AI queries/day</li>
+            <li>Email alerts</li>
           </ul>
-          <button type="button" class="landing-price-btn" data-tier="analyst">Start 14-Day Trial</button>
+          <a href="#/pricing" class="landing-price-btn">See details</a>
         </div>
         <div class="landing-price-card featured">
-          <div class="landing-price-badge">RECOMMENDED</div>
+          <div class="landing-price-badge">MOST POPULAR</div>
+          <div class="landing-price-tier">Analyst</div>
+          <div class="landing-price-amount">$29<span>/mo</span></div>
+          <div class="landing-price-desc">Unlimited AI + scenarios</div>
+          <ul class="landing-price-features">
+            <li>Unlimited AI analyst</li>
+            <li>Scenario simulation</li>
+            <li>30-day timeline</li>
+            <li>No watermark</li>
+          </ul>
+          <a href="#/pricing" class="landing-price-btn featured">See details</a>
+        </div>
+        <div class="landing-price-card">
           <div class="landing-price-tier">Pro</div>
           <div class="landing-price-amount">$99<span>/mo</span></div>
-          <div class="landing-price-desc">Portfolio exposure + unlimited everything</div>
+          <div class="landing-price-desc">Portfolio + API + everything</div>
           <ul class="landing-price-features">
-            <li>Everything in Analyst, plus:</li>
-            <li>Portfolio geopolitical exposure</li>
-            <li>Unlimited scenarios</li>
-            <li>90-day full history</li>
+            <li>Portfolio exposure</li>
+            <li>REST API access</li>
             <li>CSV/JSON export</li>
             <li>Crisis playbooks</li>
-            <li>Priority briefings</li>
           </ul>
-          <button type="button" class="landing-price-btn featured" data-tier="pro">Start 14-Day Trial</button>
+          <a href="#/pricing" class="landing-price-btn">See details</a>
         </div>
       </div>
-      <p class="landing-pricing-note">Enterprise API from $299/mo — <a href="mailto:hello@nexuswatch.dev">Talk to us</a></p>
+      <p class="landing-pricing-note">Annual plans save up to 16%. Enterprise API from $299/mo — <a href="mailto:hello@nexuswatch.dev">Talk to us</a></p>
       <div class="landing-checkout-status" id="checkout-status" role="status" aria-live="polite"></div>
     </section>
 
@@ -323,142 +317,6 @@ export function renderLanding(root: HTMLElement): void {
     e.preventDefault();
     document.getElementById('landing-subscribe')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
-
-  // ── Analyst pricing A/B test ─────────────────────────────────────────────
-  // Variant A = $29/mo (control), Variant B = $19/mo (test).
-  // Assignment is sticky via localStorage.
-  const abVariant = localStorage.getItem('nw:ab-analyst') || (Math.random() < 0.5 ? 'a' : 'b');
-  localStorage.setItem('nw:ab-analyst', abVariant);
-
-  if (abVariant === 'b') {
-    const priceEl = document.getElementById('analyst-price');
-    if (priceEl) priceEl.innerHTML = '$19<span>/mo</span>';
-  }
-
-  // ── Pricing checkout wiring ──────────────────────────────────────────────
-  // Replaces the old dead hrefs that navigated to #/intel. Now each paid
-  // tier button POSTs to /api/stripe/checkout with the tier query parameter
-  // and redirects to the returned Stripe session URL.
-  const checkoutStatus = document.getElementById('checkout-status');
-  const setStatus = (message: string, color: string) => {
-    if (!checkoutStatus) return;
-    checkoutStatus.textContent = message;
-    checkoutStatus.style.color = color;
-  };
-  const clearStatus = () => {
-    if (checkoutStatus) checkoutStatus.textContent = '';
-  };
-
-  async function startCheckout(tier: 'analyst' | 'pro' | 'founding', button: HTMLButtonElement) {
-    const originalText = button.textContent || '';
-    button.disabled = true;
-    button.textContent = '…';
-    clearStatus();
-    try {
-      const variantParam = tier === 'analyst' ? `&variant=${abVariant}` : '';
-      const res = await fetch(`/api/stripe/checkout?tier=${tier}${variantParam}`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        url?: string;
-        error?: string;
-        maxSeats?: number;
-      };
-
-      if (res.status === 401) {
-        // Not logged in — show branded login modal instead of raw redirect.
-        // Modal explains why they're signing in and offers Google + GitHub.
-        sessionStorage.setItem('nw:pending-checkout', tier);
-        button.disabled = false;
-        button.textContent = originalText;
-        const { showLoginModal } = await import('../ui/loginModal.ts');
-        showLoginModal(tier, `/#/?resume-checkout=${tier}`);
-        return;
-      }
-
-      if (res.status === 403 && tier === 'founding') {
-        button.textContent = 'SOLD OUT';
-        setStatus(
-          `Founding tier is fully subscribed (${data.maxSeats || 100} seats filled). Analyst tier is still open at $29/mo.`,
-          '#ef4444',
-        );
-        // Also hide the founding banner since it's now confirmed sold out
-        document.getElementById('founding-banner')?.setAttribute('hidden', '');
-        return;
-      }
-
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || `Checkout failed (${res.status})`);
-      }
-
-      setStatus('Redirecting to Stripe…', '#888');
-      window.location.href = data.url;
-    } catch (err) {
-      console.error('[landing] Checkout failed:', err);
-      button.disabled = false;
-      button.textContent = originalText;
-      setStatus(err instanceof Error ? err.message : 'Checkout failed — try again', '#ef4444');
-    }
-  }
-
-  // Wire all buttons that declare a data-tier attribute.
-  page.querySelectorAll<HTMLButtonElement>('button[data-tier]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const tier = btn.dataset.tier as 'analyst' | 'pro' | 'founding' | undefined;
-      if (tier === 'analyst' || tier === 'pro' || tier === 'founding') {
-        void startCheckout(tier, btn);
-      }
-    });
-  });
-
-  // Resume a checkout that was interrupted by an OAuth bounce.
-  const resumeTier = sessionStorage.getItem('nw:pending-checkout');
-  if (resumeTier === 'analyst' || resumeTier === 'pro' || resumeTier === 'founding') {
-    sessionStorage.removeItem('nw:pending-checkout');
-    const resumeBtn = page.querySelector<HTMLButtonElement>(`button[data-tier="${resumeTier}"]`);
-    if (resumeBtn) {
-      void startCheckout(resumeTier, resumeBtn);
-    }
-  }
-
-  // ── Founding stock fetch ─────────────────────────────────────────────────
-  // The banner is hidden by default and only shown when seats remain. The
-  // endpoint is short-cached (10s) so the badge stays fresh as users claim
-  // seats. If the fetch fails the banner stays hidden — we'd rather
-  // undersell gracefully than show a broken badge.
-  const foundingBanner = document.getElementById('founding-banner');
-  const foundingRemainingEl = document.getElementById('founding-remaining');
-  if (foundingBanner) {
-    // 3-second timeout — if endpoint is slow, show founding banner with "checking" text
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
-    fetch('/api/stripe/founding-stock', { signal: controller.signal })
-      .then((r) => r.json())
-      .then((data: { remaining?: number; max?: number; soldOut?: boolean }) => {
-        clearTimeout(timeout);
-        if (data.soldOut || !data.remaining || data.remaining <= 0) {
-          foundingBanner.setAttribute('hidden', '');
-          return;
-        }
-        foundingBanner.removeAttribute('hidden');
-        if (foundingRemainingEl) {
-          const taken = (data.max || 100) - (data.remaining || 0);
-          foundingRemainingEl.textContent =
-            data.remaining <= 20
-              ? `Only ${data.remaining} founding seats left \u2014 $19/mo locked forever`
-              : `${taken} claimed \u2014 ${data.remaining} founding seats remaining`;
-        }
-      })
-      .catch(() => {
-        clearTimeout(timeout);
-        // Timeout or error — show founding banner with "checking" text so user knows it exists
-        foundingBanner.removeAttribute('hidden');
-        if (foundingRemainingEl) {
-          foundingRemainingEl.textContent = 'checking availability...';
-        }
-      });
-  }
 
   // ── Live CII ticker ────────────────────────────────────────────────────
   const tickerStrip = document.getElementById('cii-ticker-strip');

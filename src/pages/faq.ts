@@ -26,11 +26,11 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: 'Is NexusWatch really free?',
-    a: 'Yes. The Explorer tier gives you the full 3D globe with 45+ live layers, CII scores for 150+ countries, intelligence briefs 3x/week, and 3 AI analyst queries per day. No credit card required, no trial expiration. Paid tiers (Analyst $29/mo, Pro $99/mo) unlock daily briefs, full evidence chains, scenario simulation, and more.',
+    a: 'Yes. The Explorer tier gives you the full 3D globe with 45+ live layers, CII scores for 150+ countries, intelligence briefs 3x/week, and 3 AI analyst queries per day. No credit card required, no trial expiration. Paid tiers start at $19/mo (Insider) for daily briefs and full evidence chains.',
   },
   {
-    q: 'What is the Founding Member offer?',
-    a: 'The first 100 subscribers can lock in the Analyst tier at $19/mo for life \u2014 the price never increases. Founding members get everything in the Analyst tier: daily briefs, full evidence chains, unlimited AI queries, 5 alert rules, and 30-day history. Once 100 seats are claimed, the offer closes permanently.',
+    q: 'What are the paid tiers?',
+    a: 'Insider ($19/mo or $199/yr) adds daily briefs, full evidence chains, and 10 AI queries/day. Analyst ($29/mo or $299/yr) adds unlimited AI, scenario simulation, and 30-day history. Pro ($99/mo or $999/yr) adds portfolio exposure, API access, data export, and crisis playbooks. All paid tiers include a 14-day free trial.',
   },
   {
     q: 'How do I compare countries?',
