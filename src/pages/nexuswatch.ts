@@ -1323,6 +1323,72 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
   }
   container.appendChild(summary);
 
+  // ── Your Watchlist (CII-watched countries with deltas) ──
+  const ciiWatchlist = getCiiWatchlist();
+  const allScores = getCachedCII();
+  if (ciiWatchlist.length > 0 && allScores.length > 0) {
+    const wlHeader = createElement('div', { className: 'nw-section-header' });
+    wlHeader.textContent = `YOUR WATCHLIST (${ciiWatchlist.length})`;
+    container.appendChild(wlHeader);
+
+    // Sort by delta magnitude (biggest movers first), then by CII score
+    const wlEntries = ciiWatchlist
+      .map((w) => {
+        const s = allScores.find((sc) => sc.countryCode === w.countryCode);
+        const d = getCIIDelta(w.countryCode);
+        return { watch: w, score: s, delta: d };
+      })
+      .filter((e) => e.score)
+      .sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0) || b.score!.score - a.score!.score);
+
+    for (const entry of wlEntries) {
+      const s = entry.score!;
+      const row = createElement('div', { className: 'nw-country-row' });
+      const color = ciiColor(s.score);
+      const flag = createElement('span', { className: 'nw-country-flag', textContent: countryFlag(s.countryCode) });
+      const name = createElement('span', { className: 'nw-country-name', textContent: s.countryName });
+      const scoreEl = createElement('span', { className: 'nw-country-score' });
+      scoreEl.style.color = color;
+      scoreEl.textContent = String(s.score);
+
+      const deltaEl = createElement('span', {});
+      if (entry.delta !== null && Math.abs(entry.delta) >= 0.5) {
+        const sign = entry.delta > 0 ? '+' : '';
+        deltaEl.textContent = `${sign}${entry.delta}`;
+        deltaEl.style.cssText = `font-size:9px;font-family:var(--nw-font-mono);margin-left:3px;color:${entry.delta > 0 ? '#dc2626' : '#22c55e'}`;
+      }
+
+      const trendEl = createElement('span', { className: 'nw-country-trend' });
+      if (s.trend === 'rising') {
+        trendEl.textContent = '\u2191';
+        trendEl.style.color = '#dc2626';
+      } else if (s.trend === 'falling') {
+        trendEl.textContent = '\u2193';
+        trendEl.style.color = '#22c55e';
+      }
+
+      row.appendChild(flag);
+      row.appendChild(name);
+      row.appendChild(trendEl);
+      row.appendChild(scoreEl);
+      row.appendChild(deltaEl);
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', () => {
+        const country = getMonitoredCountries().find((c) => c.code === s.countryCode);
+        if (country) mapView.flyTo(country.lon, country.lat, 5);
+        showCountryDetail(document.querySelector('.nw-sidebar') || document.body, s);
+      });
+      container.appendChild(row);
+    }
+
+    if (wlEntries.length === 0) {
+      const emptyEl = createElement('div', { className: 'nw-placeholder' });
+      emptyEl.innerHTML =
+        'Add countries on the <a href="#/watchlist" style="color:var(--nw-accent)">Watchlist page</a>';
+      container.appendChild(emptyEl);
+    }
+  }
+
   // Auto-generated threat alerts
   const autoAlerts = getAutoAlerts();
   if (autoAlerts.length > 0) {
@@ -1472,6 +1538,52 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
       }
 
       container.appendChild(row);
+    }
+  }
+
+  // ── Top Movers — biggest CII changes since last visit ──
+  const snapshotForMovers = getPreviousSnapshot();
+  const scoresForMovers = getCachedCII();
+  if (snapshotForMovers && scoresForMovers.length > 0) {
+    const topMoversData = scoresForMovers
+      .map((s) => {
+        const prev = snapshotForMovers.scores[s.countryCode];
+        if (prev === undefined) return null;
+        const d = Math.round((s.score - prev) * 10) / 10;
+        return Math.abs(d) >= 1 ? { score: s, delta: d } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => Math.abs(b!.delta) - Math.abs(a!.delta))
+      .slice(0, 8) as { score: CIIScore; delta: number }[];
+
+    if (topMoversData.length > 0) {
+      const moversHeader = createElement('div', { className: 'nw-section-header' });
+      moversHeader.textContent = `TOP MOVERS (${topMoversData.length})`;
+      container.appendChild(moversHeader);
+
+      for (const { score: ms, delta: md } of topMoversData) {
+        const row = createElement('div', { className: 'nw-country-row' });
+        const flag = createElement('span', { className: 'nw-country-flag', textContent: countryFlag(ms.countryCode) });
+        const name = createElement('span', { className: 'nw-country-name', textContent: ms.countryName });
+        const scoreEl = createElement('span', { className: 'nw-country-score' });
+        scoreEl.style.color = ciiColor(ms.score);
+        scoreEl.textContent = String(ms.score);
+        const deltaEl = createElement('span', {});
+        const sign = md > 0 ? '+' : '';
+        deltaEl.textContent = `${sign}${md}`;
+        deltaEl.style.cssText = `font-size:10px;font-weight:700;font-family:var(--nw-font-mono);margin-left:4px;color:${md > 0 ? '#dc2626' : '#22c55e'}`;
+        row.appendChild(flag);
+        row.appendChild(name);
+        row.appendChild(scoreEl);
+        row.appendChild(deltaEl);
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', () => {
+          const country = getMonitoredCountries().find((c) => c.code === ms.countryCode);
+          if (country) mapView.flyTo(country.lon, country.lat, 5);
+          showCountryDetail(document.querySelector('.nw-sidebar') || document.body, ms);
+        });
+        container.appendChild(row);
+      }
     }
   }
 
