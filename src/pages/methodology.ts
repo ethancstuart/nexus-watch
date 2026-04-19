@@ -35,7 +35,7 @@ export function renderMethodology(root: HTMLElement): void {
 
       <h2 class="brief-section-header">What is CII?</h2>
       <p>The Country Instability Index (CII) is a composite score from <strong>0 to 100</strong> that quantifies a country's instability across 6 risk dimensions. It's computed every 5 minutes from live data feeds and updated continuously.</p>
-      <p>NexusWatch currently monitors <strong>86 countries</strong> across three tiers (Core, Extended, Monitor) — prioritizing conflict zones, strategic chokepoints, major economies, and regions with high geopolitical volatility. Every country's tier is visible in the sidebar.</p>
+      <p>NexusWatch currently monitors <strong>150+ countries</strong> across three tiers (Core, Extended, Monitor) — prioritizing conflict zones, strategic chokepoints, major economies, and regions with high geopolitical volatility. Every country's tier is visible in the sidebar.</p>
       <p>CII powers the daily intelligence brief, correlation detection engine, scenario simulation, verification engine, and portfolio exposure calculations.</p>
 
       <h2 class="brief-section-header">Data Sources (12 primary)</h2>

@@ -26,7 +26,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: 'Is NexusWatch really free?',
-    a: 'Yes. The Explorer tier gives you the full 3D globe with 45+ live layers, CII scores for 86 countries, intelligence briefs 3x/week, and 3 AI analyst queries per day. No credit card required, no trial expiration. Paid tiers (Analyst $29/mo, Pro $99/mo) unlock daily briefs, full evidence chains, scenario simulation, and more.',
+    a: 'Yes. The Explorer tier gives you the full 3D globe with 45+ live layers, CII scores for 150+ countries, intelligence briefs 3x/week, and 3 AI analyst queries per day. No credit card required, no trial expiration. Paid tiers (Analyst $29/mo, Pro $99/mo) unlock daily briefs, full evidence chains, scenario simulation, and more.',
   },
   {
     q: 'What is the Founding Member offer?',

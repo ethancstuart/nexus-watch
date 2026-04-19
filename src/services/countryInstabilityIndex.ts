@@ -45,7 +45,7 @@ export interface CIIScore {
 //   monitor  — baseline + global feed pass-through, lower refresh priority
 export type CountryTier = 'core' | 'extended' | 'monitor';
 
-// Countries to score — 86 nations across every inhabited continent.
+// Countries to score — 150+ nations across every inhabited continent.
 // Core: geopolitical hotspots + G7/G20 + major US allies/adversaries.
 // Extended: regionally significant nations with active risk vectors.
 // Monitor: stable or small nations tracked for completeness and correlation detection.
@@ -131,26 +131,112 @@ const MONITORED_COUNTRIES: {
   { code: 'TN', name: 'Tunisia', lat: 33.9, lon: 9.5, radius: 3, tier: 'extended' },
 
   // ── Monitor: correlation detection, completeness, emerging risk ──
+  // Africa — West
   { code: 'GH', name: 'Ghana', lat: 7.9, lon: -1.0, radius: 4, tier: 'monitor' },
   { code: 'SN', name: 'Senegal', lat: 14.5, lon: -14.5, radius: 3, tier: 'monitor' },
   { code: 'CM', name: 'Cameroon', lat: 7.4, lon: 12.4, radius: 4, tier: 'monitor' },
+  { code: 'CI', name: "C\u00f4te d'Ivoire", lat: 7.5, lon: -5.5, radius: 4, tier: 'monitor' },
+  { code: 'GN', name: 'Guinea', lat: 9.9, lon: -12.1, radius: 3, tier: 'monitor' },
+  { code: 'SL', name: 'Sierra Leone', lat: 8.5, lon: -11.8, radius: 2, tier: 'monitor' },
+  { code: 'LR', name: 'Liberia', lat: 6.4, lon: -9.4, radius: 2, tier: 'monitor' },
+  { code: 'TG', name: 'Togo', lat: 8.6, lon: 1.2, radius: 2, tier: 'monitor' },
+  { code: 'BJ', name: 'Benin', lat: 9.3, lon: 2.3, radius: 2, tier: 'monitor' },
+  { code: 'MR', name: 'Mauritania', lat: 21.0, lon: -10.9, radius: 5, tier: 'monitor' },
+  { code: 'GM', name: 'Gambia', lat: 13.4, lon: -16.6, radius: 1, tier: 'monitor' },
+  // Africa — East
   { code: 'AO', name: 'Angola', lat: -11.2, lon: 17.9, radius: 5, tier: 'monitor' },
   { code: 'TZ', name: 'Tanzania', lat: -6.4, lon: 34.9, radius: 5, tier: 'monitor' },
   { code: 'RW', name: 'Rwanda', lat: -1.9, lon: 29.9, radius: 2, tier: 'monitor' },
+  { code: 'BI', name: 'Burundi', lat: -3.4, lon: 29.9, radius: 2, tier: 'monitor' },
+  { code: 'ER', name: 'Eritrea', lat: 15.2, lon: 39.8, radius: 3, tier: 'monitor' },
+  { code: 'DJ', name: 'Djibouti', lat: 11.6, lon: 43.1, radius: 1, tier: 'monitor' },
+  { code: 'MG', name: 'Madagascar', lat: -18.9, lon: 47.5, radius: 5, tier: 'monitor' },
+  // Africa — Southern
   { code: 'ZW', name: 'Zimbabwe', lat: -19.0, lon: 29.2, radius: 4, tier: 'monitor' },
+  { code: 'ZM', name: 'Zambia', lat: -13.1, lon: 27.8, radius: 4, tier: 'monitor' },
+  { code: 'BW', name: 'Botswana', lat: -22.3, lon: 24.7, radius: 4, tier: 'monitor' },
+  { code: 'NA', name: 'Namibia', lat: -22.6, lon: 17.1, radius: 5, tier: 'monitor' },
+  { code: 'MW', name: 'Malawi', lat: -13.3, lon: 34.3, radius: 3, tier: 'monitor' },
+  // Central Asia & Caucasus
   { code: 'KZ', name: 'Kazakhstan', lat: 48.0, lon: 68.0, radius: 8, tier: 'monitor' },
   { code: 'UZ', name: 'Uzbekistan', lat: 41.3, lon: 64.6, radius: 5, tier: 'monitor' },
   { code: 'GE', name: 'Georgia', lat: 42.3, lon: 43.4, radius: 3, tier: 'monitor' },
   { code: 'AZ', name: 'Azerbaijan', lat: 40.1, lon: 47.6, radius: 3, tier: 'monitor' },
   { code: 'AM', name: 'Armenia', lat: 40.1, lon: 44.5, radius: 2, tier: 'monitor' },
+  { code: 'TM', name: 'Turkmenistan', lat: 38.9, lon: 59.6, radius: 5, tier: 'monitor' },
+  { code: 'KG', name: 'Kyrgyzstan', lat: 41.2, lon: 74.8, radius: 3, tier: 'monitor' },
+  { code: 'TJ', name: 'Tajikistan', lat: 38.6, lon: 68.8, radius: 3, tier: 'monitor' },
+  { code: 'MN', name: 'Mongolia', lat: 46.9, lon: 103.8, radius: 6, tier: 'monitor' },
+  // South Asia
   { code: 'NP', name: 'Nepal', lat: 28.4, lon: 84.1, radius: 3, tier: 'monitor' },
   { code: 'LK', name: 'Sri Lanka', lat: 7.9, lon: 80.8, radius: 3, tier: 'monitor' },
+  { code: 'BT', name: 'Bhutan', lat: 27.5, lon: 90.4, radius: 2, tier: 'monitor' },
+  { code: 'MV', name: 'Maldives', lat: 3.2, lon: 73.2, radius: 1, tier: 'monitor' },
+  // Southeast Asia & Pacific
   { code: 'KH', name: 'Cambodia', lat: 12.6, lon: 104.9, radius: 3, tier: 'monitor' },
   { code: 'SG', name: 'Singapore', lat: 1.4, lon: 103.8, radius: 1, tier: 'monitor' },
+  { code: 'LA', name: 'Laos', lat: 18.0, lon: 102.6, radius: 3, tier: 'monitor' },
+  { code: 'BN', name: 'Brunei', lat: 4.9, lon: 114.9, radius: 1, tier: 'monitor' },
+  { code: 'TL', name: 'Timor-Leste', lat: -8.6, lon: 125.7, radius: 2, tier: 'monitor' },
+  { code: 'PG', name: 'Papua New Guinea', lat: -6.3, lon: 143.9, radius: 5, tier: 'monitor' },
+  { code: 'FJ', name: 'Fiji', lat: -17.7, lon: 178.1, radius: 2, tier: 'monitor' },
+  // East Asia
+  { code: 'HK', name: 'Hong Kong', lat: 22.3, lon: 114.2, radius: 1, tier: 'monitor' },
+  // Oceania
   { code: 'NZ', name: 'New Zealand', lat: -40.9, lon: 174.9, radius: 4, tier: 'monitor' },
+  // Middle East & Gulf
   { code: 'JO', name: 'Jordan', lat: 30.6, lon: 36.2, radius: 3, tier: 'monitor' },
   { code: 'AE', name: 'UAE', lat: 23.4, lon: 53.8, radius: 3, tier: 'monitor' },
   { code: 'QA', name: 'Qatar', lat: 25.4, lon: 51.2, radius: 2, tier: 'monitor' },
+  { code: 'KW', name: 'Kuwait', lat: 29.3, lon: 47.5, radius: 2, tier: 'monitor' },
+  { code: 'BH', name: 'Bahrain', lat: 26.0, lon: 50.5, radius: 1, tier: 'monitor' },
+  { code: 'OM', name: 'Oman', lat: 21.5, lon: 55.9, radius: 4, tier: 'monitor' },
+  // Europe — Balkans & Eastern
+  { code: 'RS', name: 'Serbia', lat: 44.0, lon: 20.9, radius: 3, tier: 'monitor' },
+  { code: 'BA', name: 'Bosnia', lat: 43.9, lon: 17.7, radius: 3, tier: 'monitor' },
+  { code: 'XK', name: 'Kosovo', lat: 42.6, lon: 20.9, radius: 2, tier: 'monitor' },
+  { code: 'ME', name: 'Montenegro', lat: 42.7, lon: 19.4, radius: 2, tier: 'monitor' },
+  { code: 'MK', name: 'North Macedonia', lat: 41.5, lon: 21.7, radius: 2, tier: 'monitor' },
+  { code: 'AL', name: 'Albania', lat: 41.3, lon: 19.8, radius: 2, tier: 'monitor' },
+  { code: 'BY', name: 'Belarus', lat: 53.7, lon: 27.9, radius: 4, tier: 'monitor' },
+  { code: 'MD', name: 'Moldova', lat: 47.0, lon: 28.8, radius: 3, tier: 'monitor' },
+  { code: 'BG', name: 'Bulgaria', lat: 42.7, lon: 25.5, radius: 3, tier: 'monitor' },
+  { code: 'HR', name: 'Croatia', lat: 45.1, lon: 15.2, radius: 3, tier: 'monitor' },
+  { code: 'HU', name: 'Hungary', lat: 47.2, lon: 19.5, radius: 3, tier: 'monitor' },
+  { code: 'CZ', name: 'Czech Republic', lat: 49.8, lon: 15.5, radius: 3, tier: 'monitor' },
+  { code: 'SK', name: 'Slovakia', lat: 48.7, lon: 19.7, radius: 3, tier: 'monitor' },
+  { code: 'GR', name: 'Greece', lat: 39.1, lon: 21.8, radius: 3, tier: 'monitor' },
+  // Europe — Nordics & Baltics
+  { code: 'SE', name: 'Sweden', lat: 60.1, lon: 18.6, radius: 5, tier: 'monitor' },
+  { code: 'FI', name: 'Finland', lat: 61.9, lon: 25.7, radius: 5, tier: 'monitor' },
+  { code: 'NO', name: 'Norway', lat: 60.5, lon: 8.5, radius: 5, tier: 'monitor' },
+  { code: 'DK', name: 'Denmark', lat: 56.3, lon: 9.5, radius: 3, tier: 'monitor' },
+  { code: 'EE', name: 'Estonia', lat: 58.6, lon: 25.0, radius: 2, tier: 'monitor' },
+  { code: 'LV', name: 'Latvia', lat: 56.9, lon: 24.1, radius: 2, tier: 'monitor' },
+  { code: 'LT', name: 'Lithuania', lat: 55.2, lon: 23.9, radius: 2, tier: 'monitor' },
+  // Europe — Western
+  { code: 'NL', name: 'Netherlands', lat: 52.1, lon: 5.3, radius: 2, tier: 'monitor' },
+  { code: 'BE', name: 'Belgium', lat: 50.5, lon: 4.5, radius: 2, tier: 'monitor' },
+  { code: 'CH', name: 'Switzerland', lat: 46.8, lon: 8.2, radius: 2, tier: 'monitor' },
+  { code: 'AT', name: 'Austria', lat: 47.5, lon: 14.6, radius: 2, tier: 'monitor' },
+  { code: 'PT', name: 'Portugal', lat: 39.4, lon: -8.2, radius: 3, tier: 'monitor' },
+  { code: 'IE', name: 'Ireland', lat: 53.1, lon: -7.7, radius: 3, tier: 'monitor' },
+  // Central America & Caribbean
+  { code: 'GT', name: 'Guatemala', lat: 14.6, lon: -90.5, radius: 3, tier: 'monitor' },
+  { code: 'HN', name: 'Honduras', lat: 14.1, lon: -87.2, radius: 3, tier: 'monitor' },
+  { code: 'SV', name: 'El Salvador', lat: 13.7, lon: -88.9, radius: 2, tier: 'monitor' },
+  { code: 'NI', name: 'Nicaragua', lat: 12.9, lon: -85.2, radius: 3, tier: 'monitor' },
+  { code: 'PA', name: 'Panama', lat: 8.5, lon: -80.8, radius: 3, tier: 'monitor' },
+  { code: 'CR', name: 'Costa Rica', lat: 9.7, lon: -83.8, radius: 3, tier: 'monitor' },
+  { code: 'DO', name: 'Dominican Republic', lat: 18.7, lon: -70.2, radius: 3, tier: 'monitor' },
+  { code: 'JM', name: 'Jamaica', lat: 18.1, lon: -77.3, radius: 2, tier: 'monitor' },
+  { code: 'TT', name: 'Trinidad & Tobago', lat: 10.4, lon: -61.3, radius: 1, tier: 'monitor' },
+  // South America
+  { code: 'EC', name: 'Ecuador', lat: -1.8, lon: -78.2, radius: 4, tier: 'monitor' },
+  { code: 'BO', name: 'Bolivia', lat: -16.3, lon: -63.6, radius: 5, tier: 'monitor' },
+  { code: 'PY', name: 'Paraguay', lat: -23.4, lon: -58.4, radius: 4, tier: 'monitor' },
+  { code: 'UY', name: 'Uruguay', lat: -32.5, lon: -55.8, radius: 3, tier: 'monitor' },
+  { code: 'GY', name: 'Guyana', lat: 4.9, lon: -58.9, radius: 3, tier: 'monitor' },
 ];
 
 export function getMonitoredCountries(): typeof MONITORED_COUNTRIES {

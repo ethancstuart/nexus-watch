@@ -36,7 +36,7 @@ export function renderLanding(root: HTMLElement): void {
       </div>
 
       <a href="#/intel" class="landing-cta-primary">EXPLORE THE MAP — FREE</a>
-      <p class="landing-cta-subtext">No account. No credit card. 86 countries scored live.</p>
+      <p class="landing-cta-subtext">No account. No credit card. 150+ countries scored live.</p>
 
       <div class="landing-brief-signup">
         <label for="hero-email" class="sr-only">Email address</label>
@@ -50,7 +50,7 @@ export function renderLanding(root: HTMLElement): void {
 
     <section class="landing-stats-bar">
       <div class="landing-stat"><span class="landing-stat-num nw-data-lg">45+</span><span class="landing-stat-label">Data Layers</span></div>
-      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">86</span><span class="landing-stat-label">Countries</span></div>
+      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">150+</span><span class="landing-stat-label">Countries</span></div>
       <div class="landing-stat"><span class="landing-stat-num nw-data-lg">12</span><span class="landing-stat-label">Verified Sources</span></div>
       <div class="landing-stat"><span class="landing-stat-num nw-data-lg">100%</span><span class="landing-stat-label">Auditable</span></div>
     </section>
@@ -187,7 +187,7 @@ export function renderLanding(root: HTMLElement): void {
           <div class="landing-price-desc">Everything you need to start</div>
           <ul class="landing-price-features">
             <li>Full 3D globe with 45+ live layers</li>
-            <li>CII scores for 86 countries</li>
+            <li>CII scores for 150+ countries</li>
             <li>Intelligence Brief (3x/week)</li>
             <li>2 alert rules</li>
             <li>48-hour timeline</li>

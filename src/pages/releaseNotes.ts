@@ -22,7 +22,7 @@ export function renderReleaseNotes(container: HTMLElement): void {
       version: 'v2.0',
       title: 'Verified Intelligence Platform — Launch',
       highlights: [
-        '86 countries (up from 23) with 3-tier coverage system',
+        '150+ countries (up from 23) with 3-tier coverage system',
         'Intelligence Confidence System — every CII score decomposes to source data',
         'Verification Engine — CONFIRMED / CORROBORATED / UNVERIFIED badges',
         'Scenario Simulation Engine — 7 preset what-if scenarios',

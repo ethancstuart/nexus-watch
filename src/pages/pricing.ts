@@ -32,7 +32,7 @@ export function renderPricingPage(container: HTMLElement): void {
         <div class="pricing-desc">Everything you need to start</div>
         <ul class="pricing-features">
           <li>Full 3D globe with 45+ live layers</li>
-          <li>CII scores for 86 countries</li>
+          <li>CII scores for 150+ countries</li>
           <li>Confidence badges + verification shields</li>
           <li>Intelligence Brief (3x/week)</li>
           <li>3 AI analyst queries/day</li>
@@ -56,7 +56,7 @@ export function renderPricingPage(container: HTMLElement): void {
         <ul class="pricing-features">
           <li class="pricing-features-header">Everything in Explorer, plus:</li>
           <li>Daily intelligence brief (every morning)</li>
-          <li>Full evidence chains (all 86 countries)</li>
+          <li>Full evidence chains (all 150+ countries)</li>
           <li>Unlimited AI analyst queries w/ citations</li>
           <li>5 composite alert rules</li>
           <li>Deep-dive country analysis command</li>

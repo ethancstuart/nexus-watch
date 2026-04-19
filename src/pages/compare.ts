@@ -8,6 +8,7 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { getMonitoredCountries } from '../services/countryInstabilityIndex.ts';
 
 interface CiiApiRow {
   country_code: string;
@@ -23,73 +24,8 @@ interface CiiApiRow {
   };
 }
 
-const COUNTRY_NAMES: Record<string, string> = {
-  UA: 'Ukraine',
-  RU: 'Russia',
-  CN: 'China',
-  TW: 'Taiwan',
-  IR: 'Iran',
-  IQ: 'Iraq',
-  SY: 'Syria',
-  IL: 'Israel',
-  PS: 'Palestine',
-  YE: 'Yemen',
-  SD: 'Sudan',
-  SS: 'South Sudan',
-  ET: 'Ethiopia',
-  SO: 'Somalia',
-  CD: 'DR Congo',
-  MM: 'Myanmar',
-  AF: 'Afghanistan',
-  PK: 'Pakistan',
-  KP: 'North Korea',
-  KR: 'South Korea',
-  VE: 'Venezuela',
-  NG: 'Nigeria',
-  LY: 'Libya',
-  LB: 'Lebanon',
-  SA: 'Saudi Arabia',
-  US: 'United States',
-  JP: 'Japan',
-  DE: 'Germany',
-  GB: 'United Kingdom',
-  FR: 'France',
-  IN: 'India',
-  BR: 'Brazil',
-  MX: 'Mexico',
-  PH: 'Philippines',
-  ID: 'Indonesia',
-  TR: 'Turkey',
-  EG: 'Egypt',
-  ZA: 'South Africa',
-  KE: 'Kenya',
-  BD: 'Bangladesh',
-  ML: 'Mali',
-  BF: 'Burkina Faso',
-  HT: 'Haiti',
-  CU: 'Cuba',
-  NE: 'Niger',
-  CF: 'Central African Rep.',
-  MZ: 'Mozambique',
-  CO: 'Colombia',
-  UG: 'Uganda',
-  TD: 'Chad',
-  TH: 'Thailand',
-  VN: 'Vietnam',
-  MY: 'Malaysia',
-  PL: 'Poland',
-  RO: 'Romania',
-  AU: 'Australia',
-  CA: 'Canada',
-  IT: 'Italy',
-  ES: 'Spain',
-  AR: 'Argentina',
-  CL: 'Chile',
-  PE: 'Peru',
-  DZ: 'Algeria',
-  MA: 'Morocco',
-  TN: 'Tunisia',
-};
+// Build COUNTRY_NAMES dynamically from the single source of truth
+const COUNTRY_NAMES: Record<string, string> = Object.fromEntries(getMonitoredCountries().map((c) => [c.code, c.name]));
 
 /** Reverse lookup: country name → code */
 const NAME_TO_CODE: Record<string, string> = {};
