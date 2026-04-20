@@ -26,7 +26,7 @@ async function postViaTypefully(content: string): Promise<AdapterPostResult> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-KEY': `Bearer ${apiKey}`,
+        'X-API-KEY': apiKey,
       },
       body: JSON.stringify({
         content,

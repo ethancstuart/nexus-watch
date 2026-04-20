@@ -97,17 +97,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const sql = neon(dbUrl);
       const rows = (await sql`
-        SELECT score, components, created_at
+        SELECT score, components, timestamp
         FROM country_cii_history
         WHERE country_code = ${code}
-        ORDER BY created_at DESC
+        ORDER BY timestamp DESC
         LIMIT 1
-      `) as unknown as Array<{ score: number; components: Record<string, number>; created_at: string }>;
+      `) as unknown as Array<{ score: number; components: Record<string, number>; timestamp: string }>;
 
       if (rows.length > 0) {
         score = rows[0].score;
         components = rows[0].components || {};
-        date = new Date(rows[0].created_at).toISOString().slice(0, 10);
+        date = new Date(rows[0].timestamp).toISOString().slice(0, 10);
       }
     } catch {
       // Fall through with defaults

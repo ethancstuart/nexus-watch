@@ -182,7 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }));
 
         try {
-          await fetch('https://api.resend.com/emails/batch', {
+          const resp = await fetch('https://api.resend.com/emails/batch', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -191,7 +191,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: JSON.stringify(payload),
             signal: AbortSignal.timeout(15000),
           });
-          criticalSent += chunk.length;
+          if (resp.ok) {
+            criticalSent += chunk.length;
+          } else {
+            const body = await resp.text().catch(() => '');
+            console.error(`[alert-dispatch] Resend error ${resp.status}: ${body.slice(0, 200)}`);
+          }
         } catch (err) {
           console.error(
             `[alert-dispatch] Critical alert send failed for ${alert.country_code}:`,

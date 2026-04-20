@@ -51,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       SELECT DISTINCT ON (country_code)
         country_code, country_name, score, components
       FROM country_cii_history
-      ORDER BY country_code, created_at DESC
+      ORDER BY country_code, timestamp DESC
     `) as unknown as Array<{
       country_code: string;
       country_name: string;

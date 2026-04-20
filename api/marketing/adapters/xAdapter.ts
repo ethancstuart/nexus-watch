@@ -52,7 +52,7 @@ async function postViaTypefully(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-KEY': `Bearer ${apiKey}`,
+        'X-API-KEY': apiKey,
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),

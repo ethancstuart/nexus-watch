@@ -23,6 +23,9 @@ export const config = { runtime: 'nodejs', maxDuration: 60 };
  * upgrade the per-adapter pollers without changing the cron contract.
  */
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
+  if (process.env.MARKETING_AUTOMATION_ENABLED !== 'true') {
+    return res.status(200).json({ success: true, skipped: true, reason: 'MARKETING_AUTOMATION_ENABLED is not true' });
+  }
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'DATABASE_URL not configured' });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
