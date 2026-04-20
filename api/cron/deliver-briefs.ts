@@ -43,6 +43,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const briefHtml = briefs[0].summary as string;
 
+  // Guard: skip if brief generation hasn't completed yet
+  if (!briefHtml || briefHtml === 'generating...') {
+    return res.status(200).json({
+      success: true,
+      skipped: true,
+      reason: `Brief for ${today} is still generating. Skipping delivery.`,
+    });
+  }
+
   // 2. Find timezone buckets where local time is 7:00–7:59 AM right now
   //
   // We compute which UTC offsets correspond to 7 AM local time at the current
@@ -85,8 +94,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const allEmails = new Set<string>();
   subscribers.forEach((s) => allEmails.add(s.email as string));
 
-  // Admin emails: check if already sent today
-  if (adminEmails.length > 0) {
+  // Admin emails: deliver at 13:00 UTC+ (6am PDT / 5am PST — early enough for morning review)
+  if (adminEmails.length > 0 && currentUtcHour >= 13) {
     const adminDelivered = await sql`
       SELECT subscriber_email FROM brief_subscriber_delivery
       WHERE brief_date = ${today}
