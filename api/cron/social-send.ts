@@ -253,7 +253,8 @@ async function sendToBufferX(text: string): Promise<SendResult> {
             text: $text,
             channelId: $channelId,
             schedulingType: automatic,
-            mode: addToQueue
+            mode: addToQueue,
+            attachment: false
           }) {
             ... on PostActionSuccess { post { id } }
             ... on MutationError { message }

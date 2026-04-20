@@ -268,7 +268,8 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
             text: $text,
             channelId: $channelId,
             schedulingType: automatic,
-            mode: addToQueue
+            mode: addToQueue,
+            attachment: false
           }) {
             ... on PostActionSuccess { post { id } }
             ... on MutationError { message }
