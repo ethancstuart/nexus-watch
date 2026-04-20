@@ -94,6 +94,7 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
              value="${codes.map((c) => (COUNTRY_NAMES[c] ? `${COUNTRY_NAMES[c]} (${c})` : c)).join(', ')}">
       <datalist id="nw-compare-countries">${datalistOptions}</datalist>
       <button class="nw-compare-submit">Compare</button>
+      <button class="nw-compare-share" style="font-family:var(--nw-font-mono);font-size:11px;padding:6px 12px;background:transparent;border:1px solid var(--nw-border);color:var(--nw-text-secondary);border-radius:4px;cursor:pointer">Share</button>
     </div>
     <div class="nw-compare-validation" style="font-size:11px;color:var(--nw-text-muted);margin:6px 0 0;min-height:16px"></div>
     <div class="nw-compare-presets">
@@ -209,6 +210,18 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submit.click();
+  });
+
+  // Share button — copy current comparison URL
+  const shareBtn = picker.querySelector('.nw-compare-share') as HTMLButtonElement;
+  shareBtn.addEventListener('click', () => {
+    const url = window.location.href;
+    void navigator.clipboard.writeText(url).then(() => {
+      shareBtn.textContent = 'Copied!';
+      setTimeout(() => {
+        shareBtn.textContent = 'Share';
+      }, 2000);
+    });
   });
 
   picker.querySelectorAll('.nw-compare-preset').forEach((btn) => {

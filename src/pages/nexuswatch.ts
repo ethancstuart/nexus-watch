@@ -1684,11 +1684,20 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
         trendEl.style.color = '#22c55e';
       }
 
+      // Brief link
+      const briefLink = createElement('a', {});
+      briefLink.setAttribute('href', `#/brief-country/${s.countryCode}`);
+      briefLink.textContent = '\u{1F4CB}';
+      briefLink.title = `${s.countryName} country brief`;
+      briefLink.style.cssText = 'font-size:10px;text-decoration:none;margin-left:4px;opacity:0.5';
+      briefLink.addEventListener('click', (ev) => ev.stopPropagation());
+
       row.appendChild(flag);
       row.appendChild(name);
       row.appendChild(trendEl);
       row.appendChild(scoreEl);
       row.appendChild(deltaEl);
+      row.appendChild(briefLink);
       row.style.cursor = 'pointer';
       row.addEventListener('click', () => {
         const country = getMonitoredCountries().find((c) => c.code === s.countryCode);
