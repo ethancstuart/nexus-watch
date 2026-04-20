@@ -5,6 +5,21 @@
 
 ---
 
+## Council Decisions (2026-04-20)
+
+| # | Question | Decision |
+|---|---|---|
+| Tara (Brand) | Alert copy with data labels in ≤280 chars | **A** — Inline natural language ("Ukraine's instability score jumped 5 points — ACLED is flagging new frontline activity"). Data labels in image, not jammed into copy. |
+| Riley (Eng) | `/api/og/social` failure behavior | **B** — Send without image. Text post goes out, failure logged. Image is enhancement not requirement. |
+| Nadia (CS) | LinkedIn vs X voice ratio enforcement | **C** — Explicit voice ratio line injected per prompt: "LinkedIn: write at 50/50 analyst/friend ratio." |
+| Ava (Growth) | CTA value prop hardcoding | **B + C** — KV config holds the headline by default (editable without deploy). If unset, Claude generates it dynamically from current live stats. |
+| Marcus (Data) | Kill switch granularity | **C** — Per-platform-per-type flags in KV config for maximum control. |
+| Jordan (Revenue) | Voice eval status | **C then A** — Voice eval IS implemented. Run it but don't block posts on failure — log scores only until 20+ real outputs validated. |
+| Kai (Product) | Urgency signal for alert type | **B** — Explicit CII delta threshold: score change ≥5 pts within 24h = `urgency: 'high'`. Computed in topicSelector signal candidates. |
+| Horizon (Investor) | Live vs shadow on April 28 | **A** — Live from day one. Buffer approval queue is the safety net; shadow mode delays feedback loop with no real benefit. |
+
+---
+
 ## Problem
 
 The current marketing automation system is built but off. When tested, posts:
