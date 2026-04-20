@@ -332,6 +332,22 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/terms', () => {
+    import('./pages/terms.ts')
+      .then((m) => {
+        void transition(appRoot);
+        m.renderTermsPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/privacy', () => {
+    import('./pages/privacy.ts')
+      .then((m) => {
+        void transition(appRoot);
+        m.renderPrivacyPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/admin/social-queue', () => {
     import('./pages/socialQueue.ts')
       .then((m) => {

@@ -251,8 +251,10 @@ export function renderLanding(root: HTMLElement): void {
         <a href="#/faq">FAQ</a>
         <a href="#/whats-new">What's New</a>
         <a href="#/roadmap">Roadmap</a>
+        <a href="#/terms">Terms</a>
+        <a href="#/privacy">Privacy</a>
       </div>
-      <div class="landing-footer-copy">© ${new Date().getFullYear()} NexusWatch. Intelligence you can audit.</div>
+      <div class="landing-footer-copy">\u00a9 ${new Date().getFullYear()} NexusWatch. Intelligence you can audit.</div>
     </footer>
   `;
 
