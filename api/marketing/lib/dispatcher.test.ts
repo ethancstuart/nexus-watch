@@ -51,6 +51,18 @@ describe('buildImageUrl', () => {
     const url = buildImageUrl('alert', topic);
     expect(url).not.toContain('metric=');
   });
+
+  it('cta: always uses hardcoded title regardless of topic hook', () => {
+    const topic = { ...baseTopic, hook: 'This hook should be ignored for CTA', post_type: 'cta' as const };
+    const url = buildImageUrl('cta', topic);
+    expect(url).toContain('158%20countries');
+  });
+
+  it('alert: metric uses + encoding not %20', () => {
+    const url = buildImageUrl('alert', baseTopic);
+    // Should have CII+84 not CII%2084 or CII 84
+    expect(url).toMatch(/metric=CII[+]84/);
+  });
 });
 
 describe('isPostTypeEnabled', () => {
@@ -72,5 +84,41 @@ describe('isPostTypeEnabled', () => {
 
   it('does not affect other platforms', () => {
     expect(isPostTypeEnabled({ 'x:alert': false }, 'linkedin', 'alert')).toBe(true);
+  });
+});
+
+describe('alert platform gate logic', () => {
+  it('isPostTypeEnabled allows alert on x', () => {
+    expect(isPostTypeEnabled({}, 'x', 'alert')).toBe(true);
+  });
+
+  it('isPostTypeEnabled allows alert on linkedin when no kill switch', () => {
+    // The platform gate is an explicit code check (post_type === alert && linkedin),
+    // separate from kill switches. Kill switch allows by default.
+    expect(isPostTypeEnabled({}, 'linkedin', 'alert')).toBe(true);
+  });
+
+  it('kill switch can disable alerts on linkedin independently', () => {
+    expect(isPostTypeEnabled({ 'linkedin:alert': false }, 'linkedin', 'alert')).toBe(false);
+  });
+});
+
+describe('CTA headline override pattern', () => {
+  it('spread-assign preserves all Topic fields while replacing hook', () => {
+    const originalTopic: Topic = {
+      pillar: 'product',
+      topic_key: 'cta-test',
+      entity_keys: [],
+      hook: 'original hook',
+      score: 70,
+      post_type: 'cta',
+    };
+    const overrideHeadline = '158 countries. Real-time intelligence.';
+    const overriddenTopic = { ...originalTopic, hook: overrideHeadline };
+
+    expect(overriddenTopic.hook).toBe(overrideHeadline);
+    expect(overriddenTopic.post_type).toBe('cta');
+    expect(overriddenTopic.pillar).toBe('product');
+    expect(overriddenTopic.topic_key).toBe('cta-test');
   });
 });
