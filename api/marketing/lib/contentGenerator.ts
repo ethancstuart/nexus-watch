@@ -13,7 +13,7 @@
  */
 
 import type { Platform } from './flags.js';
-import type { Topic, Pillar } from './topicSelector.js';
+import type { Topic, Pillar, PostType } from './topicSelector.js';
 import type { VoiceProfile } from './marketingVoice.js';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -46,6 +46,7 @@ export interface GenerationRequest {
   platform: Platform;
   topic: Topic;
   voiceProfile: VoiceProfile;
+  postType: PostType;
   // Optional parent post (for content waterfall — substack → derivatives)
   parentContent?: string;
   parentPlatform?: Platform;
@@ -65,6 +66,72 @@ interface AnthropicMessageResponse {
   content: Array<{ type: string; text?: string }>;
   model: string;
   usage: { input_tokens: number; output_tokens: number };
+}
+
+export function buildPostTypePrompt(postType: PostType, platform: Platform): string {
+  if (postType === 'alert') {
+    return `POST TYPE: Alert
+Lead with a number or a place name — never with "In" or "The."
+Name the data layer that flagged this in the first sentence.
+One concrete claim. Zero hedging language.
+Single post only, ≤280 characters. End with nexuswatch.dev.
+LinkedIn: write at 50/50 analyst/friend ratio.`;
+  }
+
+  if (postType === 'data_story' && platform === 'x') {
+    return `POST TYPE: Data Story — X Thread (3 tweets)
+Tweet 1: hook with a specific stat or observation.
+Tweet 2: what the data layer actually shows — be specific about the source.
+Tweet 3: why it matters right now + nexuswatch.dev.
+Separate tweets with a blank line. No "🧵" opener.`;
+  }
+
+  if (postType === 'data_story' && platform === 'linkedin') {
+    return `POST TYPE: Data Story — LinkedIn
+LinkedIn: write at 50/50 analyst/friend ratio.
+Line 1: one-sentence hook with a tension or a number. No preamble.
+Paragraph 2: context (2–3 sentences, 40% analyst).
+Bullet list: 3–4 observations, each grounded in a NexusWatch layer.
+Closing line: one read or next step. No "thoughts?" No "agree or disagree?"
+150–400 words total.`;
+  }
+
+  if (postType === 'cta' && platform === 'x') {
+    return `POST TYPE: CTA — X
+Show the product working, not the product existing.
+One concrete intelligence example a reader can verify for free right now.
+Soft close: "it's free to start" not "sign up."
+Single post ≤280 chars. Include nexuswatch.dev.`;
+  }
+
+  if (postType === 'cta' && platform === 'linkedin') {
+    return `POST TYPE: CTA — LinkedIn
+LinkedIn: write at 50/50 analyst/friend ratio.
+"We built X because Y" logic — lead with the problem, not the product.
+One concrete example of NexusWatch solving it.
+Soft close with nexuswatch.dev/pricing. 100–200 words.
+Avoid hype opener phrases and false humility.`;
+  }
+
+  if (postType === 'product_update' && platform === 'x') {
+    return `POST TYPE: Product Update — X
+One sentence: what we shipped. One sentence: why we built it.
+Optional third sentence: what it unlocks for the reader.
+1–2 tweets max. Include nexuswatch.dev.`;
+  }
+
+  if (postType === 'product_update' && platform === 'linkedin') {
+    return `POST TYPE: Product Update — LinkedIn
+LinkedIn: write at 50/50 analyst/friend ratio.
+"We built X because Y" structure.
+What it does in one sentence. The decision behind it in one paragraph.
+What you can do with it now. nexuswatch.dev link. 150–300 words.`;
+  }
+
+  // Fallback for other platforms (beehiiv, substack, medium, etc.)
+  return `POST TYPE: Data Story
+Share one concrete intelligence finding. Be specific about the data source.
+Include nexuswatch.dev.`;
 }
 
 function buildUserPrompt(req: GenerationRequest): string {
@@ -147,7 +214,8 @@ export async function generateContent(req: GenerationRequest): Promise<Generatio
 
   const model = MODEL_FOR_PLATFORM[req.platform];
   const maxTokens = MAX_TOKENS_FOR_PLATFORM[req.platform];
-  const systemPrompt = req.voiceProfile.systemPrompt;
+  const postTypePrompt = buildPostTypePrompt(req.postType, req.platform);
+  const systemPrompt = `${postTypePrompt}\n\n${req.voiceProfile.systemPrompt}`;
   const userPrompt = buildUserPrompt(req);
 
   try {
