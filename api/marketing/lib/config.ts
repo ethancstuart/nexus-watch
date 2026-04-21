@@ -56,6 +56,17 @@ export interface MarketingConfig {
   updatedAt: string;
   /** Admin user id who made the last write, if known. */
   updatedBy?: string;
+  /**
+   * Per-platform-per-type kill switches. Key: `${platform}:${post_type}`.
+   * If absent or true → enabled. false → skip this type on this platform.
+   * Example: { "x:alert": false } disables alert posts on X only.
+   */
+  killSwitches?: Record<string, boolean>;
+  /**
+   * Optional CTA headline override. Editable without deploy.
+   * If set, dispatcher uses this as the topic hook for cta posts instead of generating it.
+   */
+  ctaHeadline?: string;
 }
 
 export const DEFAULT_CONFIG: MarketingConfig = {
@@ -85,6 +96,8 @@ export const DEFAULT_CONFIG: MarketingConfig = {
   embargo: [],
   version: 0,
   updatedAt: new Date(0).toISOString(),
+  killSwitches: {},
+  ctaHeadline: undefined,
 };
 
 async function kvGet(key: string): Promise<string | null> {
@@ -130,6 +143,10 @@ function hydrate(raw: unknown): MarketingConfig {
     version: typeof r.version === 'number' ? r.version : 0,
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : DEFAULT_CONFIG.updatedAt,
     updatedBy: r.updatedBy,
+    killSwitches: typeof r.killSwitches === 'object' && r.killSwitches !== null && !Array.isArray(r.killSwitches)
+      ? (r.killSwitches as Record<string, boolean>)
+      : {},
+    ctaHeadline: typeof r.ctaHeadline === 'string' ? r.ctaHeadline : undefined,
   };
 }
 

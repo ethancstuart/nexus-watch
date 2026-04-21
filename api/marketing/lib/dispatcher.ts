@@ -18,7 +18,7 @@
 
 import { neon } from '@neondatabase/serverless';
 import { type Platform, preflight, recordRun, checkAndIncrementAnthropicCounter } from './flags.js';
-import { selectTopic, recordTopicUsed } from './topicSelector.js';
+import { selectTopic, recordTopicUsed, type PostType, type Topic } from './topicSelector.js';
 import { buildVoiceProfile } from './marketingVoice.js';
 import { generateContent, evaluateVoice } from './contentGenerator.js';
 import { getConfig } from './config.js';
@@ -58,6 +58,43 @@ export interface DispatchSummary {
   platform_post_id?: string;
   platform_error?: string;
   stub?: boolean;
+}
+
+const SOCIAL_BASE_URL = 'https://nexuswatch.dev';
+
+export function buildImageUrl(postType: PostType, topic: Topic): string | undefined {
+  const t = encodeURIComponent(topic.hook.slice(0, 80));
+  const country = topic.entity_keys[0] ? `&country=${encodeURIComponent(topic.entity_keys[0])}` : '';
+  const metric = topic.metadata?.cii_score != null
+    ? `&metric=${encodeURIComponent(`CII ${topic.metadata.cii_score}`).replace(/%20/g, '+')}`
+    : '';
+  const layer = topic.source_layer
+    ? `&layer=${encodeURIComponent(topic.source_layer.toUpperCase())}`
+    : '';
+
+  if (postType === 'alert') {
+    return `${SOCIAL_BASE_URL}/api/og/social?type=alert&title=${t}${country}${metric}${layer}`;
+  }
+  if (postType === 'data_story') {
+    return `${SOCIAL_BASE_URL}/api/og/social?type=data_story&title=${t}${layer}`;
+  }
+  if (postType === 'cta') {
+    return `${SOCIAL_BASE_URL}/api/og/social?type=cta&title=${encodeURIComponent('158 countries. Real-time intelligence.')}`;
+  }
+  if (postType === 'product_update') {
+    return `${SOCIAL_BASE_URL}/api/og/social?type=product_update&title=${t}`;
+  }
+  return undefined;
+}
+
+export function isPostTypeEnabled(
+  killSwitches: Record<string, boolean> | undefined,
+  platform: Platform,
+  postType: PostType,
+): boolean {
+  if (!killSwitches) return true;
+  const key = `${platform}:${postType}`;
+  return killSwitches[key] !== false;
 }
 
 export async function runDispatch(platform: Platform, baseUrl: string): Promise<DispatchSummary> {
@@ -112,7 +149,7 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   }
 
   // 1. Pick topic.
-  const topic = await selectTopic(sql, platform);
+  let topic = await selectTopic(sql, platform);
   if (!topic) {
     summary.reason = 'no_eligible_topic';
     await recordRun(platform);
@@ -120,6 +157,25 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   }
   summary.topic_key = topic.topic_key;
   summary.pillar = topic.pillar;
+
+  // Platform gate: alert posts only go to X.
+  if (topic.post_type === 'alert' && platform === 'linkedin') {
+    summary.reason = 'alert_skipped_linkedin';
+    await recordRun(platform);
+    return summary;
+  }
+
+  // Per-platform-per-type kill switch from KV config.
+  if (!isPostTypeEnabled(cfg?.killSwitches, platform, topic.post_type)) {
+    summary.reason = `kill_switch_${platform}_${topic.post_type}`;
+    await recordRun(platform);
+    return summary;
+  }
+
+  // CTA headline override from KV config — editable without deploy.
+  if (topic.post_type === 'cta' && cfg?.ctaHeadline) {
+    topic = { ...topic, hook: cfg.ctaHeadline };
+  }
 
   // 2. Build voice profile.
   const voice = await buildVoiceProfile(sql, platform);
@@ -131,7 +187,7 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   }
 
   // 3. Generate content.
-  const gen = await generateContent({ platform, topic, voiceProfile: voice });
+  const gen = await generateContent({ platform, topic, voiceProfile: voice, postType: topic.post_type });
   if (!gen) {
     summary.reason = 'generation_failed';
     return summary;
@@ -144,6 +200,9 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   const voiceViolations = evalResult?.violations ?? [];
   summary.voice_score = voiceScore;
   summary.voice_passed = voicePassed;
+
+  // Image URL: only for X. LinkedIn gets undefined — text-only performs better.
+  const imageUrl = platform === 'x' ? buildImageUrl(topic.post_type, topic) : undefined;
 
   // 5. Decide status.
   const isForbiddenViolation = voiceViolations.some(
@@ -158,12 +217,14 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   const insertRows = (await sql`
     INSERT INTO marketing_posts (
       platform, pillar, topic_key, entity_keys, format, content, metadata,
-      status, shadow_mode, voice_score, voice_violations, scheduled_at, variant_id
+      status, shadow_mode, voice_score, voice_violations, scheduled_at, variant_id,
+      post_type
     )
     VALUES (
       ${platform}, ${topic.pillar}, ${topic.topic_key}, ${topic.entity_keys},
       ${gen.format}, ${gen.content}, ${JSON.stringify({ source_url: topic.source_url, source_layer: topic.source_layer, rationale: gen.rationale, model: gen.model, input_tokens: gen.input_tokens, output_tokens: gen.output_tokens, variant: variant ? { experiment: variant.experiment_key, label: variant.label } : null })}::jsonb,
-      ${status}, ${pf.shadow}, ${voiceScore}, ${voiceViolations}, NOW(), ${variant?.id ?? null}
+      ${status}, ${pf.shadow}, ${voiceScore}, ${voiceViolations}, NOW(), ${variant?.id ?? null},
+      ${topic.post_type}
     )
     RETURNING id
   `) as unknown as Array<{ id: number }>;
@@ -181,7 +242,7 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
       return summary;
     }
     const result = await adapter.post(
-      { content: gen.content, format: gen.format, metadata: { source_url: topic.source_url } },
+      { content: gen.content, format: gen.format, image_url: imageUrl, metadata: { source_url: topic.source_url } },
       pf.shadow,
     );
     summary.platform_post_id = result.platform_post_id;
