@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ ok: false, reason: 'no_eligible_topic' });
     }
     const voice = await buildVoiceProfile(sql, platform);
-    const gen = await generateContent({ platform, topic, voiceProfile: voice });
+    const gen = await generateContent({ platform, topic, voiceProfile: voice, postType: topic.post_type });
     if (!gen) return res.json({ ok: false, reason: 'generation_failed', topic });
     const baseUrl = `${req.headers['x-forwarded-proto'] ?? 'https'}://${req.headers.host}`;
     const evalResult = await evaluateVoice(baseUrl, platform, gen.content);
