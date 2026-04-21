@@ -107,11 +107,18 @@ export default async function handler(req: VercelRequest) {
   const sizeParam = url.searchParams.get('size') || '1200x630';
   const [width, height] = sizeParam.split('x').map(Number);
 
-  const country = (url.searchParams.get('country') || 'UA')
-    .toUpperCase()
-    .replace(/[^A-Z]/g, '')
-    .slice(0, 2);
-  const countryName = escapeHtml(COUNTRY_NAMES[country] || country);
+  // New marketing post-type params
+  const rawTitle = url.searchParams.get('title') || 'NexusWatch Intelligence';
+  const title = escapeHtml(rawTitle.slice(0, 80));
+  const metric = escapeHtml(url.searchParams.get('metric') || '');
+  const layer = escapeHtml(url.searchParams.get('layer') || '');
+  const date = escapeHtml(url.searchParams.get('date') || new Date().toISOString().split('T')[0]);
+  // country param for new templates: allow longer names (not just 2-letter codes)
+  const countryDisplay = escapeHtml((url.searchParams.get('country') || '').slice(0, 40));
+
+  // Legacy params for existing cii-card / crisis templates
+  const legacyCountry = (url.searchParams.get('country') || 'UA').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  const countryName = escapeHtml(COUNTRY_NAMES[legacyCountry] || legacyCountry);
   const score = Math.max(0, Math.min(100, parseInt(url.searchParams.get('score') || '65', 10) || 0));
   const delta = Math.max(-100, Math.min(100, parseFloat(url.searchParams.get('delta') || '3') || 0));
   const signals = escapeHtml(url.searchParams.get('signals') || '');
@@ -119,15 +126,22 @@ export default async function handler(req: VercelRequest) {
 
   let html: string;
 
-  if (type === 'cii-card') {
-    html = renderCiiCard(country, countryName, score, delta, today);
+  if (type === 'alert') {
+    html = renderMarketingAlert(title, countryDisplay, metric, layer, date);
+  } else if (type === 'data_story') {
+    html = renderMarketingDataStory(title, metric, layer, date);
+  } else if (type === 'cta') {
+    html = renderMarketingCta(title);
+  } else if (type === 'product_update') {
+    html = renderMarketingProductUpdate(title, date);
+  } else if (type === 'cii-card') {
+    html = renderCiiCard(legacyCountry, countryName, score, delta, today);
   } else if (type === 'crisis') {
-    html = renderCrisisCard(country, countryName, score, delta, signals, today);
+    html = renderCrisisCard(legacyCountry, countryName, score, delta, signals, today);
   } else {
     html = renderBrandCard();
   }
 
-  // @vercel/og accepts HTML strings on Edge runtime — cast to satisfy TS
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new ImageResponse(html as any, { width, height });
 }
@@ -213,5 +227,65 @@ function renderBrandCard(): string {
     <span style="color:#ededed;font-size:24px;font-weight:600;text-align:center;">Real-Time Geopolitical Intelligence</span>
     <span style="color:#666;font-size:14px;margin-top:16px;letter-spacing:0.05em;">45+ data layers · 86 countries · AI-powered daily briefs</span>
     <span style="color:#666;font-size:12px;margin-top:24px;">nexuswatch.dev</span>
+  </div>`;
+}
+
+function renderMarketingAlert(title: string, country: string, metric: string, layer: string, date: string): string {
+  return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:#1a0505;padding:48px 64px;font-family:Inter,system-ui,sans-serif;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="color:#ff6b35;font-size:16px;font-weight:700;letter-spacing:0.08em;">NEXUSWATCH</span>
+      <span style="color:#fff;font-size:11px;font-weight:700;letter-spacing:0.14em;padding:4px 14px;background:#dc2626;border-radius:20px;">ALERT</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      ${country ? `<span style="color:#ff6b35;font-size:48px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">${country}</span>` : ''}
+      ${metric ? `<span style="color:#fff;font-size:72px;font-weight:700;line-height:1;">${metric}</span>` : ''}
+      <span style="color:#e0e0e0;font-size:28px;font-weight:600;line-height:1.3;">${title}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      ${layer ? `<span style="color:#888;font-size:13px;letter-spacing:0.06em;">SOURCE: ${layer}</span>` : '<span></span>'}
+      <span style="color:#ff6b35;font-size:13px;font-weight:600;">nexuswatch.dev</span>
+    </div>
+  </div>`;
+}
+
+function renderMarketingDataStory(title: string, metric: string, layer: string, date: string): string {
+  return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:#0a0f1e;padding:48px 64px;font-family:Inter,system-ui,sans-serif;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="color:#ff6600;font-size:16px;font-weight:700;letter-spacing:0.08em;">NEXUSWATCH</span>
+      <span style="color:#3b82f6;font-size:12px;letter-spacing:0.1em;">${date}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      ${metric ? `<span style="color:#3b82f6;font-size:56px;font-weight:700;line-height:1;">${metric}</span>` : ''}
+      <span style="color:#ededed;font-size:32px;font-weight:600;line-height:1.3;">${title}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      ${layer ? `<span style="color:#666;font-size:13px;letter-spacing:0.06em;">via ${layer}</span>` : '<span></span>'}
+      <span style="color:#666;font-size:13px;">nexuswatch.dev</span>
+    </div>
+  </div>`;
+}
+
+function renderMarketingCta(valueProp: string): string {
+  return `<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;width:100%;height:100%;background:#0a0f1e;padding:48px;font-family:Inter,system-ui,sans-serif;gap:20px;">
+    <span style="color:#ff6600;font-size:48px;font-weight:700;letter-spacing:0.08em;">NEXUSWATCH</span>
+    <span style="color:#ededed;font-size:24px;font-weight:500;text-align:center;max-width:800px;">${valueProp}</span>
+    <span style="color:#f59e0b;font-size:18px;font-weight:600;letter-spacing:0.04em;">Free to start · No credit card</span>
+    <span style="color:#555;font-size:14px;margin-top:8px;">nexuswatch.dev</span>
+  </div>`;
+}
+
+function renderMarketingProductUpdate(title: string, date: string): string {
+  return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:#0a0f1e;padding:48px 64px;font-family:Inter,system-ui,sans-serif;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="color:#10b981;font-size:12px;font-weight:700;letter-spacing:0.12em;padding:4px 14px;background:#052e16;border:1px solid #10b981;border-radius:20px;">NOW LIVE</span>
+      <span style="color:#ff6600;font-size:16px;font-weight:700;letter-spacing:0.08em;">NEXUSWATCH</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <span style="color:#ededed;font-size:40px;font-weight:700;line-height:1.2;">${title}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="color:#666;font-size:12px;">${date}</span>
+      <span style="color:#10b981;font-size:13px;">nexuswatch.dev</span>
+    </div>
   </div>`;
 }
