@@ -74,8 +74,7 @@ export function buildPostTypePrompt(postType: PostType, platform: Platform): str
 Lead with a number or a place name — never with "In" or "The."
 Name the data layer that flagged this in the first sentence.
 One concrete claim. Zero hedging language.
-Single post only, ≤280 characters. End with nexuswatch.dev.
-LinkedIn: write at 50/50 analyst/friend ratio.`;
+Single post only, ≤280 characters. End with nexuswatch.dev.`;
   }
 
   if (postType === 'data_story' && platform === 'x') {
