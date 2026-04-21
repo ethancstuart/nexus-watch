@@ -199,9 +199,7 @@ const CONTEXT_ROTATION: Array<{ key: string; hook: string; entities: string[] }>
   },
 ];
 
-export function derivePostType(
-  topic: Pick<Topic, 'pillar' | 'source_layer' | 'metadata'>,
-): PostType {
+export function derivePostType(topic: Pick<Topic, 'pillar' | 'source_layer' | 'metadata'>): PostType {
   if (topic.pillar === 'signal' && topic.metadata?.urgency === 'high') return 'alert';
   if (topic.pillar === 'signal' || topic.pillar === 'pattern') return 'data_story';
   if (topic.source_layer === 'release-notes') return 'product_update'; // overrides pillar=product
@@ -303,11 +301,15 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
     case 'signal': {
       // Pull CII countries with ≥5pt delta in 24h — these become urgency:high signals.
       const [currentCii, prevCii] = await Promise.all([
-        (sql`SELECT DISTINCT ON (country_code) country_code, country_name, score
-            FROM country_cii_history ORDER BY country_code, timestamp DESC` as Promise<unknown[]>).catch(() => [] as unknown[]),
-        (sql`SELECT DISTINCT ON (country_code) country_code, country_name, score
+        (
+          sql`SELECT DISTINCT ON (country_code) country_code, country_name, score
+            FROM country_cii_history ORDER BY country_code, timestamp DESC` as Promise<unknown[]>
+        ).catch(() => [] as unknown[]),
+        (
+          sql`SELECT DISTINCT ON (country_code) country_code, country_name, score
             FROM country_cii_history WHERE timestamp < NOW() - INTERVAL '20 hours'
-            ORDER BY country_code, timestamp DESC` as Promise<unknown[]>).catch(() => [] as unknown[]),
+            ORDER BY country_code, timestamp DESC` as Promise<unknown[]>
+        ).catch(() => [] as unknown[]),
       ]);
       const prevCiiMap = new Map(
         (prevCii as Array<{ country_name: string; score: number }>).map((r) => [r.country_name, r.score]),
@@ -325,16 +327,16 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
       );
 
       // Pull ACLED events from last 24h.
-      const acled = (
-        await (sql`
+      const acled = (await (
+        sql`
           SELECT id, country, location, fatalities, event_type, source_url, occurred_at
           FROM acled_events
           WHERE occurred_at > NOW() - INTERVAL '24 hours'
             AND occurred_at < NOW() - INTERVAL '60 minutes'
           ORDER BY fatalities DESC NULLS LAST, occurred_at DESC
           LIMIT 5
-        ` as Promise<unknown[]>).catch(() => [] as unknown[])
-      ) as unknown as Array<{
+        ` as Promise<unknown[]>
+      ).catch(() => [] as unknown[])) as unknown as Array<{
         id: string;
         country: string;
         location: string;

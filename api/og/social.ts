@@ -117,7 +117,10 @@ export default async function handler(req: VercelRequest) {
   const countryDisplay = escapeHtml((url.searchParams.get('country') || '').slice(0, 40));
 
   // Legacy params for existing cii-card / crisis templates
-  const legacyCountry = (url.searchParams.get('country') || 'UA').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  const legacyCountry = (url.searchParams.get('country') || 'UA')
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+    .slice(0, 2);
   const countryName = escapeHtml(COUNTRY_NAMES[legacyCountry] || legacyCountry);
   const score = Math.max(0, Math.min(100, parseInt(url.searchParams.get('score') || '65', 10) || 0));
   const delta = Math.max(-100, Math.min(100, parseFloat(url.searchParams.get('delta') || '3') || 0));

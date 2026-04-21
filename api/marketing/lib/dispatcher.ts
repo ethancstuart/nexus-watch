@@ -65,12 +65,11 @@ const SOCIAL_BASE_URL = 'https://nexuswatch.dev';
 export function buildImageUrl(postType: PostType, topic: Topic): string | undefined {
   const t = encodeURIComponent(topic.hook.slice(0, 80));
   const country = topic.entity_keys[0] ? `&country=${encodeURIComponent(topic.entity_keys[0])}` : '';
-  const metric = topic.metadata?.cii_score != null
-    ? `&metric=${encodeURIComponent(`CII ${topic.metadata.cii_score}`).replace(/%20/g, '+')}`
-    : '';
-  const layer = topic.source_layer
-    ? `&layer=${encodeURIComponent(topic.source_layer.toUpperCase())}`
-    : '';
+  const metric =
+    topic.metadata?.cii_score != null
+      ? `&metric=${encodeURIComponent(`CII ${topic.metadata.cii_score}`).replace(/%20/g, '+')}`
+      : '';
+  const layer = topic.source_layer ? `&layer=${encodeURIComponent(topic.source_layer.toUpperCase())}` : '';
 
   if (postType === 'alert') {
     return `${SOCIAL_BASE_URL}/api/og/social?type=alert&title=${t}${country}${metric}${layer}`;

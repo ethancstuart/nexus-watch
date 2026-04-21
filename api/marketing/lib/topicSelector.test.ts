@@ -35,6 +35,8 @@ describe('derivePostType', () => {
   });
 
   it('signal + urgency medium → data_story (only high triggers alert)', () => {
-    expect(derivePostType({ pillar: 'signal', source_layer: 'acled', metadata: { urgency: 'medium' } })).toBe('data_story');
+    expect(derivePostType({ pillar: 'signal', source_layer: 'acled', metadata: { urgency: 'medium' } })).toBe(
+      'data_story',
+    );
   });
 });

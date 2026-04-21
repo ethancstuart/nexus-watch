@@ -143,9 +143,10 @@ function hydrate(raw: unknown): MarketingConfig {
     version: typeof r.version === 'number' ? r.version : 0,
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt : DEFAULT_CONFIG.updatedAt,
     updatedBy: r.updatedBy,
-    killSwitches: typeof r.killSwitches === 'object' && r.killSwitches !== null && !Array.isArray(r.killSwitches)
-      ? (r.killSwitches as Record<string, boolean>)
-      : {},
+    killSwitches:
+      typeof r.killSwitches === 'object' && r.killSwitches !== null && !Array.isArray(r.killSwitches)
+        ? (r.killSwitches as Record<string, boolean>)
+        : {},
     ctaHeadline: typeof r.ctaHeadline === 'string' ? r.ctaHeadline : undefined,
   };
 }
