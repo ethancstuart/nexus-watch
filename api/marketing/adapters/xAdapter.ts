@@ -39,7 +39,7 @@ async function postViaTypefully(
     share: true,
     auto_retweet_enabled: false,
     auto_plug_enabled: false,
-    schedule_date: 'next-free-slot',
+    schedule_date: new Date().toISOString(),
   };
 
   // Pass image URL to Typefully if available (D-5 visual posts)
