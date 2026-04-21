@@ -204,7 +204,7 @@ export function derivePostType(
 ): PostType {
   if (topic.pillar === 'signal' && topic.metadata?.urgency === 'high') return 'alert';
   if (topic.pillar === 'signal' || topic.pillar === 'pattern') return 'data_story';
-  if (topic.source_layer === 'release-notes') return 'product_update';
+  if (topic.source_layer === 'release-notes') return 'product_update'; // overrides pillar=product
   if (topic.pillar === 'product') return 'cta';
   if (topic.pillar === 'methodology') return 'product_update';
   return 'data_story';
@@ -312,13 +312,16 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
       const prevCiiMap = new Map(
         (prevCii as Array<{ country_name: string; score: number }>).map((r) => [r.country_name, r.score]),
       );
-      const highDeltaCountries = new Set(
+      const highDeltaMap = new Map<string, number>(
         (currentCii as Array<{ country_name: string; score: number }>)
           .filter((r) => {
             const prev = prevCiiMap.get(r.country_name);
             return prev !== undefined && Math.abs(r.score - prev) >= 5;
           })
-          .map((r) => r.country_name),
+          .map((r) => {
+            const prev = prevCiiMap.get(r.country_name)!;
+            return [r.country_name, Math.abs(r.score - prev)] as [string, number];
+          }),
       );
 
       // Pull ACLED events from last 24h.
@@ -345,7 +348,7 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
         const topic_key = `acled-${e.id}`;
         const entity_keys = [e.country];
         if (await isDedup(sql, topic_key, entity_keys)) continue;
-        const urgency = highDeltaCountries.has(e.country) ? 'high' : undefined;
+        const urgency = highDeltaMap.has(e.country) ? 'high' : undefined;
         const ciiRow = (currentCii as Array<{ country_name: string; score: number }>).find(
           (r) => r.country_name === e.country,
         );
@@ -353,7 +356,7 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
           pillar,
           topic_key,
           entity_keys,
-          hook: `${e.event_type} reported in ${e.location}, ${e.country} — ${e.fatalities} fatalities (via our ACLED layer).`,
+          hook: `${e.event_type} reported in ${e.location}, ${e.country} — ${e.fatalities ?? 0} fatalities (via our ACLED layer).`,
           source_layer: 'acled',
           source_url: e.source_url,
           metadata: { occurred_at: e.occurred_at, fatalities: e.fatalities, urgency, cii_score: ciiRow?.score },
@@ -363,8 +366,8 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
       }
 
       // Fallback: CII-based signal topic if ACLED is empty but CII spiked.
-      if (highDeltaCountries.size > 0) {
-        const country = [...highDeltaCountries][0];
+      if (highDeltaMap.size > 0) {
+        const country = [...highDeltaMap.entries()].sort((a, b) => b[1] - a[1])[0][0];
         const ciiRow = (currentCii as Array<{ country_name: string; score: number }>).find(
           (r) => r.country_name === country,
         );

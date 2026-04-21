@@ -29,4 +29,12 @@ describe('derivePostType', () => {
   it('context → data_story (default)', () => {
     expect(derivePostType({ pillar: 'context', source_layer: 'context-rotation', metadata: {} })).toBe('data_story');
   });
+
+  it('signal + no metadata → data_story (no crash)', () => {
+    expect(derivePostType({ pillar: 'signal', source_layer: 'acled' })).toBe('data_story');
+  });
+
+  it('signal + urgency medium → data_story (only high triggers alert)', () => {
+    expect(derivePostType({ pillar: 'signal', source_layer: 'acled', metadata: { urgency: 'medium' } })).toBe('data_story');
+  });
 });
