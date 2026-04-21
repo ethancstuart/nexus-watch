@@ -122,12 +122,12 @@ export default async function handler(req: VercelRequest) {
   const score = Math.max(0, Math.min(100, parseInt(url.searchParams.get('score') || '65', 10) || 0));
   const delta = Math.max(-100, Math.min(100, parseFloat(url.searchParams.get('delta') || '3') || 0));
   const signals = escapeHtml(url.searchParams.get('signals') || '');
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0]; // legacy templates only
 
   let html: string;
 
   if (type === 'alert') {
-    html = renderMarketingAlert(title, countryDisplay, metric, layer, date);
+    html = renderMarketingAlert(title, countryDisplay, metric, layer);
   } else if (type === 'data_story') {
     html = renderMarketingDataStory(title, metric, layer, date);
   } else if (type === 'cta') {
@@ -230,7 +230,7 @@ function renderBrandCard(): string {
   </div>`;
 }
 
-function renderMarketingAlert(title: string, country: string, metric: string, layer: string, date: string): string {
+function renderMarketingAlert(title: string, country: string, metric: string, layer: string): string {
   return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:#1a0505;padding:48px 64px;font-family:Inter,system-ui,sans-serif;">
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <span style="color:#ff6b35;font-size:16px;font-weight:700;letter-spacing:0.08em;">NEXUSWATCH</span>
