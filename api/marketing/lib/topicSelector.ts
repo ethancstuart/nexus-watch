@@ -18,6 +18,8 @@ type NeonSql = any;
 
 export type Pillar = ConfigPillar;
 
+export type PostType = 'alert' | 'data_story' | 'cta' | 'product_update';
+
 export interface Topic {
   pillar: Pillar;
   topic_key: string;
@@ -27,6 +29,7 @@ export interface Topic {
   source_url?: string;
   metadata?: Record<string, unknown>;
   score: number; // higher = preferred
+  post_type: PostType;
 }
 
 /**
@@ -196,6 +199,17 @@ const CONTEXT_ROTATION: Array<{ key: string; hook: string; entities: string[] }>
   },
 ];
 
+export function derivePostType(
+  topic: Pick<Topic, 'pillar' | 'source_layer' | 'metadata'>,
+): PostType {
+  if (topic.pillar === 'signal' && topic.metadata?.urgency === 'high') return 'alert';
+  if (topic.pillar === 'signal' || topic.pillar === 'pattern') return 'data_story';
+  if (topic.source_layer === 'release-notes') return 'product_update';
+  if (topic.pillar === 'product') return 'cta';
+  if (topic.pillar === 'methodology') return 'product_update';
+  return 'data_story';
+}
+
 /**
  * Read which of the rotation topics has been posted least recently for
  * the given prefix and platform.
@@ -287,18 +301,37 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
   const today = new Date().toISOString().slice(0, 10);
   switch (pillar) {
     case 'signal': {
-      // Pull highest-severity ACLED event from last 24h that we haven't
-      // covered yet. Falls back to GDELT if ACLED table empty.
+      // Pull CII countries with ≥5pt delta in 24h — these become urgency:high signals.
+      const [currentCii, prevCii] = await Promise.all([
+        (sql`SELECT DISTINCT ON (country_code) country_code, country_name, score
+            FROM country_cii_history ORDER BY country_code, timestamp DESC` as Promise<unknown[]>).catch(() => [] as unknown[]),
+        (sql`SELECT DISTINCT ON (country_code) country_code, country_name, score
+            FROM country_cii_history WHERE timestamp < NOW() - INTERVAL '20 hours'
+            ORDER BY country_code, timestamp DESC` as Promise<unknown[]>).catch(() => [] as unknown[]),
+      ]);
+      const prevCiiMap = new Map(
+        (prevCii as Array<{ country_name: string; score: number }>).map((r) => [r.country_name, r.score]),
+      );
+      const highDeltaCountries = new Set(
+        (currentCii as Array<{ country_name: string; score: number }>)
+          .filter((r) => {
+            const prev = prevCiiMap.get(r.country_name);
+            return prev !== undefined && Math.abs(r.score - prev) >= 5;
+          })
+          .map((r) => r.country_name),
+      );
+
+      // Pull ACLED events from last 24h.
       const acled = (
-        await sql`
-        SELECT id, country, location, fatalities, event_type, source_url, occurred_at
-        FROM acled_events
-        WHERE occurred_at > NOW() - INTERVAL '24 hours'
-          AND occurred_at < NOW() - INTERVAL '60 minutes'
-        ORDER BY fatalities DESC NULLS LAST, occurred_at DESC
-        LIMIT 5
-      `
-      ).catch(() => [] as unknown[]) as unknown as Array<{
+        await (sql`
+          SELECT id, country, location, fatalities, event_type, source_url, occurred_at
+          FROM acled_events
+          WHERE occurred_at > NOW() - INTERVAL '24 hours'
+            AND occurred_at < NOW() - INTERVAL '60 minutes'
+          ORDER BY fatalities DESC NULLS LAST, occurred_at DESC
+          LIMIT 5
+        ` as Promise<unknown[]>).catch(() => [] as unknown[])
+      ) as unknown as Array<{
         id: string;
         country: string;
         location: string;
@@ -307,10 +340,15 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
         source_url: string;
         occurred_at: string;
       }>;
+
       for (const e of acled) {
         const topic_key = `acled-${e.id}`;
         const entity_keys = [e.country];
         if (await isDedup(sql, topic_key, entity_keys)) continue;
+        const urgency = highDeltaCountries.has(e.country) ? 'high' : undefined;
+        const ciiRow = (currentCii as Array<{ country_name: string; score: number }>).find(
+          (r) => r.country_name === e.country,
+        );
         return {
           pillar,
           topic_key,
@@ -318,10 +356,34 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
           hook: `${e.event_type} reported in ${e.location}, ${e.country} — ${e.fatalities} fatalities (via our ACLED layer).`,
           source_layer: 'acled',
           source_url: e.source_url,
-          metadata: { occurred_at: e.occurred_at, fatalities: e.fatalities },
+          metadata: { occurred_at: e.occurred_at, fatalities: e.fatalities, urgency, cii_score: ciiRow?.score },
           score: 100 + (e.fatalities ?? 0),
+          post_type: derivePostType({ pillar, source_layer: 'acled', metadata: { urgency } }),
         };
       }
+
+      // Fallback: CII-based signal topic if ACLED is empty but CII spiked.
+      if (highDeltaCountries.size > 0) {
+        const country = [...highDeltaCountries][0];
+        const ciiRow = (currentCii as Array<{ country_name: string; score: number }>).find(
+          (r) => r.country_name === country,
+        );
+        const topic_key = `cii-alert-${country}-${today}`;
+        const entity_keys = [country];
+        if (!(await isDedup(sql, topic_key, entity_keys))) {
+          return {
+            pillar,
+            topic_key,
+            entity_keys,
+            hook: `${country}'s instability score jumped — CII is flagging significant change in the last 24 hours.`,
+            source_layer: 'cii',
+            metadata: { urgency: 'high', cii_score: ciiRow?.score },
+            score: 95,
+            post_type: 'alert' as const,
+          };
+        }
+      }
+
       return null;
     }
     case 'pattern': {
@@ -354,6 +416,7 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
           source_layer: 'cii',
           metadata: { country_code: m.country_code, score: m.score, delta: m.score_delta_7d },
           score: 80 + Math.abs(m.score_delta_7d),
+          post_type: derivePostType({ pillar, source_layer: 'cii', metadata: {} }),
         };
       }
       return null;
@@ -369,6 +432,7 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
         hook: pick.hook,
         source_layer: 'methodology',
         score: 60,
+        post_type: derivePostType({ pillar, source_layer: 'methodology', metadata: {} }),
       };
     }
     case 'product': {
@@ -400,6 +464,7 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
           source_url: `https://nexuswatch.dev/whats-new#${n.slug}`,
           metadata: { body: n.body.slice(0, 500) },
           score: 70,
+          post_type: derivePostType({ pillar, source_layer: 'release-notes', metadata: {} }),
         };
       }
       return null;
@@ -415,6 +480,7 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
         hook: pick.hook,
         source_layer: 'context-rotation',
         score: 50,
+        post_type: derivePostType({ pillar, source_layer: 'context-rotation', metadata: {} }),
       };
     }
   }
