@@ -393,7 +393,7 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
     }
     case 'pattern': {
       // Top CII mover this week — computed via self-join on country_cii_history.
-      const movers = await sql`
+      const movers = (await sql`
         WITH latest AS (
           SELECT DISTINCT ON (country_code) country_code, country_name, score
           FROM country_cii_history
@@ -412,7 +412,7 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
         WHERE ABS(l.score - COALESCE(w.old_score, l.score)) > 5
         ORDER BY ABS(l.score - COALESCE(w.old_score, l.score)) DESC
         LIMIT 3
-      `.catch(() => []) as unknown as Array<{
+      `.catch(() => [])) as unknown as Array<{
         country_code: string;
         country_name: string;
         score: number;

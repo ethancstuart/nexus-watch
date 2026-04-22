@@ -89,23 +89,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const beehiivPubId = process.env.BEEHIIV_PUBLICATION_ID;
     if (beehiivKey && beehiivPubId) {
       try {
-        const beehiivRes = await fetch(
-          `https://api.beehiiv.com/v2/publications/${beehiivPubId}/subscriptions`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${beehiivKey}`,
-            },
-            body: JSON.stringify({
-              email: email.toLowerCase().trim(),
-              reactivate_existing: true,
-              send_welcome_email: false,
-              utm_source: (source as string) || 'landing',
-            }),
-            signal: AbortSignal.timeout(8000),
+        const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/subscriptions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${beehiivKey}`,
           },
-        );
+          body: JSON.stringify({
+            email: email.toLowerCase().trim(),
+            reactivate_existing: true,
+            send_welcome_email: false,
+            utm_source: (source as string) || 'landing',
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
         if (!beehiivRes.ok) {
           const errText = await beehiivRes.text().catch(() => '');
           console.error(`[subscribe] beehiiv sync failed: ${beehiivRes.status} — ${errText.slice(0, 200)}`);

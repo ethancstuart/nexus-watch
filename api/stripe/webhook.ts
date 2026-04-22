@@ -107,13 +107,10 @@ export default async function handler(req: Request): Promise<Response> {
   // Idempotency: attempt to claim this event atomically via SET NX.
   // If the key already exists, return 200 immediately without processing.
   try {
-    const claimRes = await fetch(
-      `${kvUrl}/set/stripe-event:${event.id}/1?NX=true&EX=86400`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${kvToken}` },
-      },
-    );
+    const claimRes = await fetch(`${kvUrl}/set/stripe-event:${event.id}/1?NX=true&EX=86400`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
     const claimData = (await claimRes.json()) as { result: string | null };
     // Upstash returns { result: "OK" } on success, { result: null } if key existed.
     if (claimData.result === null) {
@@ -246,7 +243,6 @@ export default async function handler(req: Request): Promise<Response> {
         console.log(`[stripe/webhook] Ignoring unhandled event type: ${event.type}`);
         break;
     }
-
   } catch (err) {
     // Processing failed. Log loudly and return 500 so Stripe retries.
     // The idempotency key was already claimed via SET NX above, so a retry from

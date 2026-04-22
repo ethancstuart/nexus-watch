@@ -170,7 +170,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const kvToken = process.env.KV_REST_API_TOKEN;
   if (kvUrl && kvToken) {
     const cookies = String(req.headers.cookie ?? '');
-    const sessionMatch = cookies.split(';').map((c) => c.trim()).find((c) => c.startsWith('__Host-session='));
+    const sessionMatch = cookies
+      .split(';')
+      .map((c) => c.trim())
+      .find((c) => c.startsWith('__Host-session='));
     const sessionId = sessionMatch?.split('=')[1];
 
     if (sessionId) {
