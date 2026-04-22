@@ -165,15 +165,11 @@ export default async function handler(req: Request) {
     const kvUrl = process.env.KV_REST_API_URL;
     const kvToken = process.env.KV_REST_API_TOKEN;
     if (kvUrl && kvToken) {
-      await fetch(`${kvUrl}/set/session:${sessionId}`, {
+      // Set session with TTL (7 days = 604800 seconds) in a single atomic call
+      await fetch(`${kvUrl}/set/session:${sessionId}?EX=604800`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(user),
-      });
-      // Set TTL to 7 days
-      await fetch(`${kvUrl}/expire/session:${sessionId}/604800`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${kvToken}` },
       });
 
       // Store reverse mapping for webhook session updates
