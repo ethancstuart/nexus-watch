@@ -44,6 +44,21 @@ const ADAPTERS: Partial<Record<Platform, PlatformAdapter>> = {
 
 const VOICE_HOLD_THRESHOLD = 70;
 
+const PLATFORM_CHAR_LIMITS: Partial<Record<Platform, number>> = {
+  x: 280,
+  bluesky: 300,
+  threads: 500,
+  instagram: 2200,
+};
+
+function validateContentLength(platform: Platform, content: string): string | null {
+  const limit = PLATFORM_CHAR_LIMITS[platform];
+  if (!limit) return null;
+  const len = [...content].length;
+  if (len > limit) return `content too long for ${platform}: ${len}/${limit} chars`;
+  return null;
+}
+
 export interface DispatchSummary {
   platform: Platform;
   proceeded: boolean;
@@ -192,6 +207,14 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
     return summary;
   }
 
+  // Pre-flight content length check — fail fast before spending a voice eval call.
+  const lengthError = validateContentLength(platform, gen.content);
+  if (lengthError) {
+    summary.reason = 'content_too_long';
+    summary.platform_error = lengthError;
+    return summary;
+  }
+
   // 4. Voice evaluation.
   const evalResult = await evaluateVoice(baseUrl, platform, gen.content);
   const voicePassed = evalResult?.passed ?? true;
@@ -207,9 +230,12 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   const isForbiddenViolation = voiceViolations.some(
     (v) => v.toLowerCase().includes('forbidden') || v.toLowerCase().includes('partisan'),
   );
+  // voiceScore === 0 with voicePassed === true means semantic check was skipped/errored.
+  // In that case we don't hold — only hold on explicit failure or a real low score.
+  const semanticSkipped = voicePassed && voiceScore === 0;
   let status: 'drafted' | 'scheduled' | 'posted' | 'failed' | 'suppressed' | 'held';
   if (isForbiddenViolation) status = 'suppressed';
-  else if (!voicePassed || voiceScore < VOICE_HOLD_THRESHOLD) status = 'held';
+  else if (!voicePassed || (!semanticSkipped && voiceScore < VOICE_HOLD_THRESHOLD)) status = 'held';
   else status = 'scheduled';
 
   // 6. INSERT marketing_posts (always log).
@@ -230,6 +256,11 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
   const postId = insertRows[0]?.id;
   summary.post_id = postId;
   summary.status = status;
+
+  // Record dedup immediately so the same topic isn't regenerated while held.
+  if (postId) {
+    await recordTopicUsed(sql, topic.topic_key, topic.entity_keys, platform, postId).catch(() => {});
+  }
 
   // 7. Dispatch only if scheduled.
   if (status === 'scheduled' && postId) {
@@ -259,8 +290,6 @@ export async function runDispatch(platform: Platform, baseUrl: string): Promise<
         WHERE id = ${postId}
       `;
       summary.status = 'posted';
-      // Dedup record only after successful publish.
-      await recordTopicUsed(sql, topic.topic_key, topic.entity_keys, platform, postId);
     } else {
       await sql`
         UPDATE marketing_posts

@@ -84,6 +84,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Sync to beehiiv publication (non-blocking — subscription is already saved).
+    const beehiivKey = process.env.BEEHIIV_API_KEY;
+    const beehiivPubId = process.env.BEEHIIV_PUBLICATION_ID;
+    if (beehiivKey && beehiivPubId) {
+      try {
+        const beehiivRes = await fetch(
+          `https://api.beehiiv.com/v2/publications/${beehiivPubId}/subscriptions`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${beehiivKey}`,
+            },
+            body: JSON.stringify({
+              email: email.toLowerCase().trim(),
+              reactivate_existing: true,
+              send_welcome_email: false,
+              utm_source: (source as string) || 'landing',
+            }),
+            signal: AbortSignal.timeout(8000),
+          },
+        );
+        if (!beehiivRes.ok) {
+          const errText = await beehiivRes.text().catch(() => '');
+          console.error(`[subscribe] beehiiv sync failed: ${beehiivRes.status} — ${errText.slice(0, 200)}`);
+        }
+      } catch (err) {
+        console.error('[subscribe] beehiiv sync error:', err instanceof Error ? err.message : err);
+      }
+    }
+
     return res.json({ success: true, message: 'Subscribed to NexusWatch Intelligence Brief' });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

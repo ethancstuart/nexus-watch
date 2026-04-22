@@ -156,7 +156,10 @@ function runDeterministicChecks(draft: VoiceDraft): { passed: boolean; violation
   if (emojiMatches.length > emojiLimit) {
     violations.push(`exceeds ${draft.platform} emoji limit: ${emojiMatches.length}/${emojiLimit}`);
   }
-  const nonBrandEmoji = emojiMatches.filter((e) => !(BRAND_EMOJI_SET as readonly string[]).includes(e));
+  // Strip U+FE0F variation selector before comparing — models sometimes omit it.
+  const stripVS = (e: string) => e.replace(/\uFE0F/g, '');
+  const normalizedBrandSet = (BRAND_EMOJI_SET as readonly string[]).map(stripVS);
+  const nonBrandEmoji = emojiMatches.filter((e) => !normalizedBrandSet.includes(stripVS(e)));
   if (nonBrandEmoji.length > 0) {
     const unique = [...new Set(nonBrandEmoji)].join('');
     violations.push(`contains emoji outside the brand set (${unique}); allowed: ${BRAND_EMOJI_SET.join('')}`);

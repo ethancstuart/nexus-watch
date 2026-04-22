@@ -392,17 +392,27 @@ async function buildCandidateForPillar(sql: NeonSql, pillar: Pillar, platform: P
       return null;
     }
     case 'pattern': {
-      // Top CII mover this week.
-      const movers = (
-        await sql`
-        SELECT country_code, country_name, score, score_delta_7d
-        FROM country_instability_snapshots
-        WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM country_instability_snapshots)
-          AND ABS(score_delta_7d) > 5
-        ORDER BY ABS(score_delta_7d) DESC
+      // Top CII mover this week — computed via self-join on country_cii_history.
+      const movers = await sql`
+        WITH latest AS (
+          SELECT DISTINCT ON (country_code) country_code, country_name, score
+          FROM country_cii_history
+          ORDER BY country_code, timestamp DESC
+        ),
+        week_ago AS (
+          SELECT DISTINCT ON (country_code) country_code, score AS old_score
+          FROM country_cii_history
+          WHERE timestamp < NOW() - INTERVAL '6 days'
+          ORDER BY country_code, timestamp DESC
+        )
+        SELECT l.country_code, l.country_name, l.score,
+               (l.score - COALESCE(w.old_score, l.score)) AS score_delta_7d
+        FROM latest l
+        LEFT JOIN week_ago w ON w.country_code = l.country_code
+        WHERE ABS(l.score - COALESCE(w.old_score, l.score)) > 5
+        ORDER BY ABS(l.score - COALESCE(w.old_score, l.score)) DESC
         LIMIT 3
-      `
-      ).catch(() => [] as unknown[]) as unknown as Array<{
+      `.catch(() => []) as unknown as Array<{
         country_code: string;
         country_name: string;
         score: number;

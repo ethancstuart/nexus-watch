@@ -87,6 +87,28 @@ export default async function handler(req: Request): Promise<Response> {
   }
   const tier = resolvedTier as Tier;
 
+  // Founding-100 seat cap — enforce before any Stripe API call
+  if (tier === 'insider') {
+    try {
+      const reservedRaw = await kvGet(kvUrl, kvToken, 'stripe-founding-reserved');
+      const reserved = reservedRaw !== null ? parseInt(reservedRaw, 10) : 0;
+      if (reserved >= 100) {
+        return jsonResponse(409, {
+          error: 'founding_cohort_full',
+          message: 'The Founding-100 cohort is full. Choose the Analyst or Pro tier.',
+        });
+      }
+      // Atomically reserve a seat
+      await fetch(`${kvUrl}/incr/stripe-founding-reserved`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${kvToken}` },
+      });
+    } catch (err) {
+      // Fail open — log but allow checkout to proceed
+      console.error('[stripe/checkout] Founding seat cap KV check failed:', err instanceof Error ? err.message : err);
+    }
+  }
+
   // Price ID mapping — monthly and annual for each tier
   const PRICE_MAP: Record<Tier, Record<Interval, string | undefined>> = {
     insider: {

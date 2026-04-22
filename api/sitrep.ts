@@ -48,6 +48,28 @@ export default async function handler(req: Request) {
   const data = body.data || {};
   const isQueryMode = body.mode === 'query' && body.query;
 
+  // Input validation — guard against prompt injection and oversized payloads.
+  if (body.query !== undefined) {
+    if (typeof body.query !== 'string') {
+      return new Response(JSON.stringify({ error: 'query must be a string' }), {
+        status: 400,
+        headers: CORS_HEADERS,
+      });
+    }
+    if (body.query.length > 500) {
+      return new Response(JSON.stringify({ error: 'query too long (max 500 chars)' }), {
+        status: 400,
+        headers: CORS_HEADERS,
+      });
+    }
+    if (/```|ignore (all |previous |the |your )/i.test(body.query)) {
+      return new Response(JSON.stringify({ error: 'invalid query format' }), {
+        status: 400,
+        headers: CORS_HEADERS,
+      });
+    }
+  }
+
   // Query mode — answer a specific question using platform data
   if (isQueryMode) {
     const querySystemPrompt = `You are the NexusWatch AI command center — an intelligent analyst that answers questions about global geopolitical conditions using real-time platform data.

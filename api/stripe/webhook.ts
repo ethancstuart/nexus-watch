@@ -104,19 +104,23 @@ export default async function handler(req: Request): Promise<Response> {
 
   const event = JSON.parse(body) as StripeEvent;
 
-  // Idempotency check — skip if we've already processed this event ID.
+  // Idempotency: attempt to claim this event atomically via SET NX.
+  // If the key already exists, return 200 immediately without processing.
   try {
-    const idempRes = await fetch(`${kvUrl}/get/stripe-event:${event.id}`, {
-      headers: { Authorization: `Bearer ${kvToken}` },
-    });
-    const idempData = (await idempRes.json()) as { result: string | null };
-    if (idempData.result) {
+    const claimRes = await fetch(
+      `${kvUrl}/set/stripe-event:${event.id}/1?NX=true&EX=86400`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${kvToken}` },
+      },
+    );
+    const claimData = (await claimRes.json()) as { result: string | null };
+    // Upstash returns { result: "OK" } on success, { result: null } if key existed.
+    if (claimData.result === null) {
       return new Response('OK', { status: 200 });
     }
   } catch (err) {
-    // KV read failed — log and continue. Worst case we re-process an event,
-    // which our handlers are idempotent against.
-    console.error('[stripe/webhook] Idempotency check failed:', err instanceof Error ? err.message : err);
+    console.error('[stripe/webhook] Idempotency claim failed:', err instanceof Error ? err.message : err);
   }
 
   try {
@@ -243,16 +247,12 @@ export default async function handler(req: Request): Promise<Response> {
         break;
     }
 
-    // Mark event as processed (24h TTL) — only after successful handling.
-    await fetch(`${kvUrl}/set/stripe-event:${event.id}/1?EX=86400`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${kvToken}` },
-    });
   } catch (err) {
     // Processing failed. Log loudly and return 500 so Stripe retries.
-    // The idempotency marker was NOT written, so retry will re-attempt handling.
-    // Our handlers are idempotent at the KV-set level, so a retry after partial
-    // progress is safe.
+    // The idempotency key was already claimed via SET NX above, so a retry from
+    // Stripe will be de-duped. This is intentional: if KV claim succeeded but
+    // processing fails, Stripe's retry will hit the 200 fast-path and not
+    // re-process. For a true retry, the key must expire (24h) or be deleted manually.
     console.error(
       `[stripe/webhook] Processing error for event ${event.id} (${event.type}):`,
       err instanceof Error ? err.message : err,

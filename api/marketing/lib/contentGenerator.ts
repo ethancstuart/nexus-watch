@@ -21,14 +21,14 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 // Per-platform model selection. Haiku for short-form (cheap, fast),
 // Sonnet for long-form (better narrative cohesion at length).
 const MODEL_FOR_PLATFORM: Record<Platform, string> = {
-  x: 'claude-haiku-4-5',
-  bluesky: 'claude-haiku-4-5',
-  threads: 'claude-haiku-4-5',
-  linkedin: 'claude-haiku-4-5',
-  substack: 'claude-sonnet-4-5',
-  medium: 'claude-sonnet-4-5',
-  beehiiv: 'claude-haiku-4-5',
-  instagram: 'claude-haiku-4-5',
+  x: 'claude-haiku-4-5-20251001',
+  bluesky: 'claude-haiku-4-5-20251001',
+  threads: 'claude-haiku-4-5-20251001',
+  linkedin: 'claude-haiku-4-5-20251001',
+  substack: 'claude-sonnet-4-5-20251001',
+  medium: 'claude-sonnet-4-5-20251001',
+  beehiiv: 'claude-haiku-4-5-20251001',
+  instagram: 'claude-haiku-4-5-20251001',
 };
 
 const MAX_TOKENS_FOR_PLATFORM: Record<Platform, number> = {
@@ -72,7 +72,7 @@ export function buildPostTypePrompt(postType: PostType, platform: Platform): str
   if (postType === 'alert') {
     return `POST TYPE: Alert
 Lead with a number or a place name — never with "In" or "The."
-Name the data layer that flagged this in the first sentence.
+Reference the data layer with "our [layer] shows" or "our [layer] flagged" — use "our" to anchor NexusWatch as the source.
 One concrete claim. Zero hedging language.
 Single post only, ≤280 characters. End with nexuswatch.dev.`;
   }
@@ -129,7 +129,7 @@ What you can do with it now. nexuswatch.dev link. 150–300 words.`;
 
   // Fallback for other platforms (beehiiv, substack, medium, etc.)
   return `POST TYPE: Data Story
-Share one concrete intelligence finding. Be specific about the data source.
+Share one concrete intelligence finding. Use "our [layer]" or "we're tracking" to anchor NexusWatch as the source.
 Include nexuswatch.dev.`;
 }
 

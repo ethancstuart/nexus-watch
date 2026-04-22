@@ -165,6 +165,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { query, context } = req.body as { query?: string; context?: string };
   if (!query) return res.status(400).json({ error: 'query required' });
 
+  // Server-side rate limiting: 5/day for free, unlimited for premium.
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  if (kvUrl && kvToken) {
+    const cookies = String(req.headers.cookie ?? '');
+    const sessionMatch = cookies.split(';').map((c) => c.trim()).find((c) => c.startsWith('__Host-session='));
+    const sessionId = sessionMatch?.split('=')[1];
+
+    if (sessionId) {
+      try {
+        const sessRes = await fetch(`${kvUrl}/get/session:${sessionId}`, {
+          headers: { Authorization: `Bearer ${kvToken}` },
+        });
+        const sessData = (await sessRes.json()) as { result: string | null };
+        let userTier = 'free';
+        if (sessData.result) {
+          let s = JSON.parse(sessData.result);
+          if (typeof s === 'string') s = JSON.parse(s);
+          userTier = (s?.tier as string) ?? 'free';
+        }
+
+        if (userTier !== 'premium') {
+          const today = new Date().toISOString().slice(0, 10);
+          const rateLimitKey = `ai-analyst-limit:${sessionId}:${today}`;
+          const incrRes = await fetch(`${kvUrl}/incr/${rateLimitKey}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${kvToken}` },
+          });
+          const incrData = (await incrRes.json()) as { result: number };
+          const count = incrData.result ?? 1;
+
+          if (count === 1) {
+            await fetch(`${kvUrl}/expire/${rateLimitKey}/86400`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${kvToken}` },
+            });
+          }
+
+          if (count > 5) {
+            return res.status(429).json({
+              error: 'rate_limit_exceeded',
+              message: 'Free tier: 5 AI analyst queries per day. Upgrade for unlimited access.',
+              upgrade_url: 'https://nexuswatch.dev/#/pricing',
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[ai-analyst] Rate limit check failed:', err instanceof Error ? err.message : err);
+      }
+    }
+  }
+
   const userMessage = context ? `${query}\n\nPlatform context:\n${context}` : query;
   const streaming = wantsStream(req);
 
