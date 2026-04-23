@@ -147,6 +147,55 @@ export function renderPricingPage(container: HTMLElement): void {
 
   container.appendChild(page);
 
+  // === Founding seats counter ===
+  void (async () => {
+    try {
+      const statusRes = await fetch('/api/stripe/founding-status');
+      if (!statusRes.ok) return;
+      const status = (await statusRes.json()) as { claimed: number; remaining: number; isFull: boolean };
+
+      const insiderCard = page.querySelector<HTMLElement>('.pricing-insider');
+      if (!insiderCard) return;
+
+      const ctaBtn = insiderCard.querySelector<HTMLButtonElement>('.pricing-cta-primary');
+      if (!ctaBtn) return;
+
+      const counterBlock = createElement('div', { className: 'pricing-founding-counter' });
+      counterBlock.style.cssText = 'margin-bottom:12px;';
+
+      if (status.isFull) {
+        counterBlock.innerHTML = `
+          <div style="font-size:12px;color:#22c55e;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">
+            ● Founding cohort is full
+          </div>
+          <div style="height:4px;background:#1a1a1a;border-radius:2px;">
+            <div style="width:100%;height:100%;background:#22c55e;border-radius:2px;"></div>
+          </div>`;
+        ctaBtn.textContent = 'Cohort Full — See Analyst Tier →';
+        ctaBtn.removeAttribute('data-tier');
+        ctaBtn.addEventListener('click', () => {
+          const analystCard = page.querySelector('.pricing-featured');
+          analystCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        const badge = insiderCard.querySelector('.pricing-tier');
+        if (badge) badge.textContent = 'COHORT CLOSED';
+      } else {
+        const pct = Math.round((status.claimed / 100) * 100);
+        counterBlock.innerHTML = `
+          <div style="font-size:12px;color:#22c55e;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">
+            ● ${status.claimed} of 100 founding seats claimed
+          </div>
+          <div style="height:4px;background:#1a1a1a;border-radius:2px;">
+            <div style="width:${pct}%;height:100%;background:#22c55e;border-radius:2px;"></div>
+          </div>`;
+      }
+
+      insiderCard.insertBefore(counterBlock, ctaBtn);
+    } catch {
+      // Fail silently — pricing page remains fully functional
+    }
+  })();
+
   // === Billing toggle (monthly ↔ annual) ===
   let currentInterval: 'month' | 'year' = 'month';
   const toggleBtns = page.querySelectorAll('.pricing-toggle-btn');
@@ -192,11 +241,12 @@ export function renderPricingPage(container: HTMLElement): void {
     trackEvent('checkout_started', { tier, interval: currentInterval });
 
     try {
+      const referredBy = sessionStorage.getItem('nw-referral') || '';
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ tier, interval: currentInterval }),
+        body: JSON.stringify({ tier, interval: currentInterval, referredBy }),
       });
       const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
 
