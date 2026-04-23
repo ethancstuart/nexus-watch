@@ -48,7 +48,8 @@
     { "path": "/api/cron/source-ofac", "schedule": "0 */6 * * *" },
     { "path": "/api/cron/source-noaa-storms", "schedule": "0 * * * *" },
     { "path": "/api/cron/source-copernicus", "schedule": "0 12 * * *" },
-    { "path": "/api/cron/source-vdem", "schedule": "0 3 1 * *" }
+    { "path": "/api/cron/source-vdem", "schedule": "0 3 1 * *" },
+    { "path": "/api/cron/scheduled-emails", "schedule": "0 * * * *" }
   ],
   "headers": [
     {
