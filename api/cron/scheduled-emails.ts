@@ -88,6 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const kvRes = await fetch(`${kvUrl}/get/stripe:${encodeURIComponent(row.user_id)}`, {
           headers: { Authorization: `Bearer ${kvToken}` },
+          signal: AbortSignal.timeout(5000),
         });
         if (kvRes.ok) {
           const kvData = (await kvRes.json()) as { result: string | null };
@@ -118,6 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           Authorization: `Bearer ${resendKey}`,
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(15000),
         body: JSON.stringify({
           from: 'NexusWatch <hello@nexuswatch.dev>',
           to: row.email,
@@ -138,5 +140,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  console.log('[scheduled-emails] sent=%d skipped=%d errors=%d', sent, skipped, errors.length);
   return res.status(200).json({ success: true, sent, skipped, errors });
 }
