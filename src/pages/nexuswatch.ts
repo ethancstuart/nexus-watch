@@ -1,6 +1,7 @@
 import '../styles/nexuswatch.css';
 import { createElement } from '../utils/dom.ts';
 import { getCiiWatchlist, addCiiWatch } from '../services/ciiWatchlist.ts';
+import { maybeShowWelcomeModal } from '../ui/welcomeModal.ts';
 import { MapView } from '../map/MapView.ts';
 import { MapLayerManager } from '../map/MapLayerManager.ts';
 // Core layers (always enabled by default) — eagerly loaded
@@ -783,14 +784,9 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   }
 
   // ── Upgrade confirmation (after Stripe checkout) ──
-  if (window.location.search.includes('upgraded=true')) {
-    const toast = createElement('div', { className: 'nw-upgrade-toast' });
-    toast.innerHTML =
-      '<span class="nw-upgrade-toast-text"><strong>Welcome to NexusWatch Pro!</strong> All features unlocked.</span><button class="nw-upgrade-toast-close" onclick="this.parentElement.remove()">✕</button>';
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 6000);
-    // Clean URL
-    history.replaceState(null, '', window.location.pathname + window.location.hash);
+  const upgradedParam = new URLSearchParams(window.location.search).get('upgraded');
+  if (upgradedParam === 'insider' || upgradedParam === 'analyst' || upgradedParam === 'pro') {
+    void maybeShowWelcomeModal(upgradedParam);
   }
 
   // ── Theater preset deep-link ──
