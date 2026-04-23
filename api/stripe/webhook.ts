@@ -1,5 +1,7 @@
 export const config = { runtime: 'edge' };
 
+import { neon } from '@neondatabase/serverless';
+
 /**
  * Stripe webhook handler.
  *
@@ -161,8 +163,80 @@ export default async function handler(req: Request): Promise<Response> {
 
         // Founding tier: INCR the confirmed-active counter. Reservation counter
         // already counted this session when checkout.ts created the Stripe session.
-        if (tierMeta === 'founding') {
+        if (tierMeta === 'insider') {
           await kvIncr(kvUrl, kvToken, 'stripe-founding-active');
+        }
+
+        // Insert 3-email onboarding sequence into scheduled_emails
+        const dbUrl = process.env.DATABASE_URL;
+        const userEmail =
+          (session.customer_email as string | null) ||
+          (session.customer_details as { email?: string } | null)?.email ||
+          '';
+        if (dbUrl && userEmail) {
+          try {
+            const sql = neon(dbUrl);
+            await sql`
+              INSERT INTO scheduled_emails (user_id, email, tier, template, send_at) VALUES
+              (${userId}, ${userEmail}, ${tierMeta || 'insider'}, 'welcome_d0', NOW()),
+              (${userId}, ${userEmail}, ${tierMeta || 'insider'}, 'nudge_d3',   NOW() + INTERVAL '3 days'),
+              (${userId}, ${userEmail}, ${tierMeta || 'insider'}, 'upgrade_d7', NOW() + INTERVAL '7 days')
+            `;
+          } catch (err) {
+            console.error('[stripe/webhook] scheduled_emails insert failed:', err instanceof Error ? err.message : err);
+          }
+        }
+
+        // Referral attribution
+        const referredBy = metadata.referredBy as string | undefined;
+        if (referredBy && referredBy.trim()) {
+          const referrerId = referredBy.trim();
+          try {
+            await kvIncr(kvUrl, kvToken, `referral:count:${referrerId}`);
+            await kvSet(kvUrl, kvToken, `referral:conversion:${userId}`, referrerId);
+
+            // Phase 2: Stripe credit — gated behind env var, defaults off
+            if (process.env.REFERRAL_CREDITS_ENABLED === 'true') {
+              const referrerStripe = await kvGetJson<{ customerId?: string }>(kvUrl, kvToken, `stripe:${referrerId}`);
+              const referrerCustomerId = referrerStripe?.customerId;
+              const referralCountRaw = await kvGetStr(kvUrl, kvToken, `referral:count:${referrerId}`);
+              const referralCount = referralCountRaw ? parseInt(referralCountRaw, 10) : 1;
+              const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+              if (referrerCustomerId && referralCount <= 12 && stripeKey) {
+                await fetch(`https://api.stripe.com/v1/customers/${referrerCustomerId}/balance_transactions`, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Basic ${btoa(stripeKey + ':')}`,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                  },
+                  body: new URLSearchParams({
+                    amount: '-2900',
+                    currency: 'usd',
+                    description: `Referral credit — ${encodeURIComponent(userEmail)} converted`,
+                  }).toString(),
+                });
+
+                const resendKey = process.env.RESEND_API_KEY;
+                const referrerData = await kvGetJson<{ email?: string }>(kvUrl, kvToken, `session:${referrerId}`);
+                const referrerEmail = referrerData?.email;
+                if (resendKey && referrerEmail) {
+                  await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      from: 'NexusWatch <hello@nexuswatch.dev>',
+                      to: referrerEmail,
+                      subject: 'Someone used your link — a free month added',
+                      html: `<p>Someone just signed up using your NexusWatch referral link. A $29 credit has been applied to your account — it will automatically offset your next renewal.</p>`,
+                    }),
+                  });
+                }
+              }
+            }
+          } catch (err) {
+            console.error('[stripe/webhook] referral attribution failed:', err instanceof Error ? err.message : err);
+          }
         }
         break;
       }
@@ -172,7 +246,7 @@ export default async function handler(req: Request): Promise<Response> {
         // when the session was created.
         const session = event.data.object;
         const metadata = (session.metadata as Record<string, string>) || {};
-        if (metadata.tier === 'founding') {
+        if (metadata.tier === 'insider') {
           await kvDecr(kvUrl, kvToken, 'stripe-founding-reserved');
           console.log(`[stripe/webhook] Released founding reservation for expired session (user ${metadata.userId})`);
         }
@@ -280,6 +354,18 @@ async function kvGetJson<T>(kvUrl: string, kvToken: string, key: string): Promis
     let parsed: unknown = JSON.parse(data.result);
     if (typeof parsed === 'string') parsed = JSON.parse(parsed);
     return parsed as T;
+  } catch {
+    return null;
+  }
+}
+
+async function kvGetStr(kvUrl: string, kvToken: string, key: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${kvUrl}/get/${encodeURIComponent(key)}`, {
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
+    const data = (await res.json()) as { result: string | null };
+    return data.result;
   } catch {
     return null;
   }
