@@ -80,7 +80,7 @@ export async function maybeShowWelcomeModal(tier: WelcomeTier): Promise<void> {
   }
 
   const badgeText = tier === 'insider' ? `${content.badge}${memberNumber}` : content.badge;
-  const referralUrl = userId ? `nexuswatch.dev/?ref=${userId}` : '';
+  const referralUrl = userId ? `https://nexuswatch.dev/?ref=${userId}` : '';
 
   const overlay = document.createElement('div');
   overlay.style.cssText =
