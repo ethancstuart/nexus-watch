@@ -163,6 +163,9 @@ export function renderPricingPage(container: HTMLElement): void {
       const counterBlock = createElement('div', { className: 'pricing-founding-counter' });
       counterBlock.style.cssText = 'margin-bottom:12px;';
 
+      // Sanitize claimed value to prevent markup injection
+      const claimedNum = typeof status.claimed === 'number' ? Math.min(status.claimed, 100) : 0;
+
       if (status.isFull) {
         counterBlock.innerHTML = `
           <div style="font-size:12px;color:#22c55e;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">
@@ -171,6 +174,7 @@ export function renderPricingPage(container: HTMLElement): void {
           <div style="height:4px;background:#1a1a1a;border-radius:2px;">
             <div style="width:100%;height:100%;background:#22c55e;border-radius:2px;"></div>
           </div>`;
+        ctaBtn.disabled = true;
         ctaBtn.textContent = 'Cohort Full — See Analyst Tier →';
         ctaBtn.removeAttribute('data-tier');
         ctaBtn.addEventListener('click', () => {
@@ -180,10 +184,10 @@ export function renderPricingPage(container: HTMLElement): void {
         const badge = insiderCard.querySelector('.pricing-tier');
         if (badge) badge.textContent = 'COHORT CLOSED';
       } else {
-        const pct = Math.round((status.claimed / 100) * 100);
+        const pct = Math.min(Math.round(claimedNum), 100);
         counterBlock.innerHTML = `
           <div style="font-size:12px;color:#22c55e;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">
-            ● ${status.claimed} of 100 founding seats claimed
+            ● ${claimedNum} of 100 founding seats claimed
           </div>
           <div style="height:4px;background:#1a1a1a;border-radius:2px;">
             <div style="width:${pct}%;height:100%;background:#22c55e;border-radius:2px;"></div>
