@@ -1,0 +1,40 @@
+<h2>Referral Mechanism — Which Model?</h2>
+<p class="subtitle">This shapes how complex the build is and how strong the growth loop is</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Soft / Social</h3>
+      <p>Personal share link + "Founding Ambassador" badge. Tracks who referred who. No billing changes. <strong>Build time: ~4 hours.</strong></p>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Pros</h4><ul><li>Ships before April 28</li><li>No Stripe complexity</li><li>Still measurable</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Weak incentive to actually share</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Hard / Economic</h3>
+      <p>Referrer gets a free month for each converted paying subscriber. Stripe credit logic required. <strong>Build time: ~1 week.</strong></p>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Pros</h4><ul><li>Real incentive to share</li><li>Industry standard</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Won't ship before launch</li><li>Billing edge cases</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Founding-Exclusive Upgrade</h3>
+      <p>Refer 3 paying users → unlock the next tier free for life. Only during founding window. Creates urgency to share before seats run out. <strong>Build time: ~2 days.</strong></p>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Pros</h4><ul><li>Strong "tell friends before it closes" hook</li><li>Exclusive to founding cohort — high perceived value</li><li>No ongoing billing credit complexity</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Only works during founding window</li><li>Needs referral tracking in KV</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

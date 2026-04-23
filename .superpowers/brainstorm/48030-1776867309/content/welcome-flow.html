@@ -1,0 +1,31 @@
+<h2>Post-Payment Welcome Flow — How Big?</h2>
+<p class="subtitle">What happens after someone pays and lands back on the app</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>In-App Welcome Modal</h3>
+      <p>Replace the 6-second toast with a proper modal. "You're in — here's what to do first." 3 setup steps: set your watchlist, pick your brief frequency, run your first sitrep. Done in-app, no email.</p>
+      <p style="margin-top:8px;color:var(--accent)"><strong>Ships: April 28 · Build: ~3 hours</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Email Onboarding Sequence</h3>
+      <p>Day 1 welcome + what to do first. Day 3 "have you tried the AI analyst?" nudge. Day 7 upgrade prompt if still on free. Sent via Resend, triggered by Stripe webhook.</p>
+      <p style="margin-top:8px;color:var(--accent)"><strong>Ships: April 28 · Build: ~4 hours</strong></p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Both — In-App + Email Sequence</h3>
+      <p>Welcome modal on landing + a 3-email sequence in the background. The modal gets them oriented in the first 5 minutes. The emails keep them coming back over the first week. Together they drive the activation → retention loop.</p>
+      <p style="margin-top:8px;color:var(--accent)"><strong>Ships: April 28 · Build: ~1 day</strong></p>
+    </div>
+  </div>
+</div>

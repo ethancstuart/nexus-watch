@@ -1,0 +1,71 @@
+<h2>Founding Seats Counter — Which Treatment?</h2>
+<p class="subtitle">Same data, different psychological framing. Which converts better?</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a0a;padding:24px;font-family:'JetBrains Mono',monospace">
+      <div style="border:1px solid #2a2a2a;border-radius:6px;padding:20px;max-width:280px;margin:0 auto">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">FOUNDING INSIDER</div>
+        <div style="font-size:28px;font-weight:700;color:#fff;margin-bottom:4px">$19<span style="font-size:14px;color:#888">/mo</span></div>
+        <div style="font-size:11px;color:#888;margin-bottom:16px">Lifetime rate · never increases</div>
+        <div style="background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:10px 12px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0"></div>
+          <div>
+            <div style="font-size:12px;color:#22c55e;font-weight:600">61 of 100 seats claimed</div>
+            <div style="height:4px;background:#222;border-radius:2px;margin-top:6px"><div style="width:61%;height:100%;background:#22c55e;border-radius:2px"></div></div>
+          </div>
+        </div>
+        <button style="width:100%;background:#22c55e;color:#000;border:none;padding:10px;border-radius:4px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">CLAIM YOUR SEAT →</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Progress Bar</h3>
+      <p>"61 of 100 claimed" with a filling green bar. Positive framing. Shows momentum — seats are moving.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a0a;padding:24px;font-family:'JetBrains Mono',monospace">
+      <div style="border:1px solid #2a2a2a;border-radius:6px;padding:20px;max-width:280px;margin:0 auto">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">FOUNDING INSIDER</div>
+        <div style="font-size:28px;font-weight:700;color:#fff;margin-bottom:4px">$19<span style="font-size:14px;color:#888">/mo</span></div>
+        <div style="font-size:11px;color:#888;margin-bottom:16px">Lifetime rate · never increases</div>
+        <div style="background:#2d1a00;border:1px solid #f97316;border-radius:4px;padding:10px 12px;margin-bottom:14px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:#f97316">39</div>
+          <div style="font-size:11px;color:#f97316;letter-spacing:1px">SEATS REMAINING</div>
+        </div>
+        <button style="width:100%;background:#f97316;color:#000;border:none;padding:10px;border-radius:4px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">CLAIM YOUR SEAT →</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Seats Remaining</h3>
+      <p>"39 seats remaining" in orange. Loss framing — scarcity is front and center. Gets more urgent as the number drops.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a0a;padding:24px;font-family:'JetBrains Mono',monospace">
+      <div style="border:1px solid #2a2a2a;border-radius:6px;padding:20px;max-width:280px;margin:0 auto">
+        <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">FOUNDING INSIDER</div>
+        <div style="font-size:28px;font-weight:700;color:#fff;margin-bottom:4px">$19<span style="font-size:14px;color:#888">/mo</span></div>
+        <div style="font-size:11px;color:#888;margin-bottom:16px">Lifetime rate · never increases</div>
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#666;margin-bottom:4px">
+            <span>0</span><span style="color:#fff;font-weight:600">61 claimed</span><span style="color:#ef4444">39 left</span>
+          </div>
+          <div style="height:6px;background:#1a1a1a;border-radius:3px;position:relative">
+            <div style="width:61%;height:100%;background:linear-gradient(90deg,#22c55e,#eab308);border-radius:3px"></div>
+          </div>
+          <div style="font-size:10px;color:#666;margin-top:4px;text-align:right">closes at 100</div>
+        </div>
+        <button style="width:100%;background:linear-gradient(90deg,#22c55e,#eab308);color:#000;border:none;padding:10px;border-radius:4px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">CLAIM YOUR SEAT →</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Both + Color Shift</h3>
+      <p>Shows claimed AND remaining. Bar shifts green → yellow → red as seats fill. Most information, highest urgency near the end.</p>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome Modal Mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #111;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    gap: 48px;
+  }
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #555;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  /* ── MAP BACKGROUND BLUR ── */
+  .map-blur {
+    width: 100%;
+    max-width: 900px;
+    height: 520px;
+    background: radial-gradient(ellipse at 30% 50%, #0d1f0d 0%, #070d12 60%, #050810 100%);
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #1a1a1a;
+  }
+  .map-blur::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 25% 40%, rgba(34,197,94,0.08) 0%, transparent 40%),
+      radial-gradient(circle at 70% 60%, rgba(59,130,246,0.06) 0%, transparent 35%),
+      radial-gradient(circle at 50% 25%, rgba(234,179,8,0.04) 0%, transparent 30%);
+  }
+  /* subtle globe grid lines */
+  .map-blur::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  /* ── MODAL OVERLAY ── */
+  .overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+    z-index: 10;
+  }
+  .modal {
+    background: #0e0e0e;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    width: 440px;
+    padding: 28px 32px 32px;
+    position: relative;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.8);
+  }
+  .modal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #22c55e;
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 3px;
+    padding: 3px 8px;
+    margin-bottom: 14px;
+  }
+  .modal-badge .dot {
+    width: 5px; height: 5px;
+    background: #22c55e;
+    border-radius: 50%;
+  }
+  .modal h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+  .modal .sub {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+  .steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #141414;
+    border: 1px solid #222;
+    border-radius: 5px;
+    padding: 11px 14px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .step:hover { border-color: #333; }
+  .step-num {
+    width: 22px; height: 22px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 50%;
+    font-size: 11px;
+    color: #555;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-text { flex: 1; }
+  .step-text strong { font-size: 13px; color: #ccc; display: block; margin-bottom: 2px; }
+  .step-text span { font-size: 11px; color: #555; }
+  .step-arrow { color: #333; font-size: 14px; }
+
+  .divider { border: none; border-top: 1px solid #1a1a1a; margin: 0 0 20px; }
+
+  .share-block {
+    background: #0a0a0a;
+    border: 1px solid #1e1e1e;
+    border-radius: 5px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+  }
+  .share-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #444;
+    margin-bottom: 8px;
+  }
+  .share-url {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .share-url input {
+    flex: 1;
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 3px;
+    color: #22c55e;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+  .share-url button {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #888;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .share-hint { font-size: 10px; color: #444; margin-top: 6px; }
+
+  .cta-btn {
+    width: 100%;
+    background: #22c55e;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+  }
+  /* ── TIER VARIANTS ── */
+  .variants {
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .variant {
+    background: #0e0e0e;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .variant-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #555;
+    margin-bottom: 12px;
+  }
+  .v-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    border-radius: 3px; padding: 2px 7px; margin-bottom: 10px;
+  }
+  .v-badge.green { color: #22c55e; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); }
+  .v-badge.blue { color: #3b82f6; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); }
+  .v-badge.purple { color: #a855f7; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.2); }
+  .v-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .v-sub { font-size: 11px; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="section-label">Welcome Modal — Founding Member (Insider Tier)</div>
+
+<div class="map-blur">
+  <div class="overlay">
+    <div class="modal">
+      <div class="modal-badge"><span class="dot"></span> Founding Member #62</div>
+      <h2>You're in. The map is yours.</h2>
+      <p class="sub">3 things to do in the next 5 minutes to get the most out of NexusWatch.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <strong>Add your first country to watchlist</strong>
+            <span>Get alerts when CII moves or crises develop</span>
+          </div>
+          <div class="step-arrow">›</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <strong>Set your brief schedule</strong>
+            <span>Daily or Mon / Wed / Fri delivery</span>
+          </div>
+          <div class="step-arrow">›</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <strong>Run your first sitrep</strong>
+            <span>Ask the AI analyst about any region right now</span>
+          </div>
+          <div class="step-arrow">›</div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="share-block">
+        <div class="share-label">Your founding referral link</div>
+        <div class="share-url">
+          <input type="text" value="nexuswatch.dev/?ref=usr_8f2k" readonly>
+          <button>Copy</button>
+        </div>
+        <div class="share-hint">Refer paying subscribers → earn free months (coming May 5)</div>
+      </div>
+
+      <button class="cta-btn">START EXPLORING →</button>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">Tier Variants</div>
+<div class="variants">
+  <div class="variant">
+    <div class="variant-label">Insider tier</div>
+    <div class="v-badge green"><span style="width:5px;height:5px;background:#22c55e;border-radius:50%;display:inline-block"></span> Founding Member #62</div>
+    <div class="v-title">You're in. The map is yours.</div>
+    <div class="v-sub">Lifetime rate locked. Founding cohort closes at 100.</div>
+  </div>
+  <div class="variant">
+    <div class="variant-label">Analyst tier</div>
+    <div class="v-badge blue"><span style="width:5px;height:5px;background:#3b82f6;border-radius:50%;display:inline-block"></span> Analyst Access Unlocked</div>
+    <div class="v-title">Intelligence, fully unlocked.</div>
+    <div class="v-sub">Daily briefs, full AI analyst, watchlist alerts.</div>
+  </div>
+  <div class="variant">
+    <div class="variant-label">Pro tier</div>
+    <div class="v-badge purple"><span style="width:5px;height:5px;background:#a855f7;border-radius:50%;display:inline-block"></span> Pro Access Unlocked</div>
+    <div class="v-title">You have the full picture.</div>
+    <div class="v-sub">API access, scenario simulation, unlimited everything.</div>
+  </div>
+</div>
+
+</body>
+</html>
