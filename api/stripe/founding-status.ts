@@ -16,6 +16,9 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     const kvRes = await fetch(`${kvUrl}/get/stripe-founding-reserved`, {
       headers: { Authorization: `Bearer ${kvToken}` },
     });
+    if (!kvRes.ok) {
+      return res.status(200).json({ claimed: 0, remaining: 100, isFull: false });
+    }
     const data = (await kvRes.json()) as { result: string | null };
     const claimed = data.result !== null ? Math.min(parseInt(data.result, 10) || 0, 100) : 0;
     const remaining = 100 - claimed;
