@@ -74,13 +74,13 @@ export async function maybeShowWelcomeModal(tier: WelcomeTier): Promise<void> {
     tier === 'insider' &&
     statusResult.status === 'fulfilled' &&
     statusResult.value !== null &&
-    (statusResult.value as FoundingStatus).claimed
+    typeof (statusResult.value as FoundingStatus).claimed === 'number'
   ) {
     memberNumber = ` #${(statusResult.value as FoundingStatus).claimed}`;
   }
 
   const badgeText = tier === 'insider' ? `${content.badge}${memberNumber}` : content.badge;
-  const referralUrl = userId ? `https://nexuswatch.dev/?ref=${userId}` : '';
+  const referralUrl = userId ? `https://nexuswatch.dev/?ref=${encodeURIComponent(userId)}` : '';
 
   const overlay = document.createElement('div');
   overlay.style.cssText =
@@ -193,6 +193,7 @@ export async function maybeShowWelcomeModal(tier: WelcomeTier): Promise<void> {
   document.body.appendChild(overlay);
 
   function dismiss() {
+    document.removeEventListener('keydown', onKeyDown);
     localStorage.setItem('nw-onboarded', '1');
     history.replaceState(null, '', window.location.pathname + window.location.hash);
     overlay.remove();
