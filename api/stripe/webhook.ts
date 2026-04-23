@@ -138,12 +138,18 @@ export default async function handler(req: Request): Promise<Response> {
           break;
         }
 
+        const sessionEmailRaw =
+          (session.customer_email as string | null) ||
+          (session.customer_details as { email?: string } | null)?.email ||
+          '';
+
         // Store forward mapping (stripe:{userId} → customer/subscription/status/paidTier)
         await kvSet(kvUrl, kvToken, `stripe:${userId}`, {
           customerId,
           subscriptionId,
           status: 'active',
           paidTier: tierMeta || 'insider',
+          email: sessionEmailRaw,
         });
 
         // Write reverse index so subsequent webhook events are O(1).
@@ -169,18 +175,14 @@ export default async function handler(req: Request): Promise<Response> {
 
         // Insert 3-email onboarding sequence into scheduled_emails
         const dbUrl = process.env.DATABASE_URL;
-        const userEmail =
-          (session.customer_email as string | null) ||
-          (session.customer_details as { email?: string } | null)?.email ||
-          '';
-        if (dbUrl && userEmail) {
+        if (dbUrl && sessionEmailRaw) {
           try {
             const sql = neon(dbUrl);
             await sql`
               INSERT INTO scheduled_emails (user_id, email, tier, template, send_at) VALUES
-              (${userId}, ${userEmail}, ${tierMeta || 'insider'}, 'welcome_d0', NOW()),
-              (${userId}, ${userEmail}, ${tierMeta || 'insider'}, 'nudge_d3',   NOW() + INTERVAL '3 days'),
-              (${userId}, ${userEmail}, ${tierMeta || 'insider'}, 'upgrade_d7', NOW() + INTERVAL '7 days')
+              (${userId}, ${sessionEmailRaw}, ${tierMeta || 'insider'}, 'welcome_d0', NOW()),
+              (${userId}, ${sessionEmailRaw}, ${tierMeta || 'insider'}, 'nudge_d3',   NOW() + INTERVAL '3 days'),
+              (${userId}, ${sessionEmailRaw}, ${tierMeta || 'insider'}, 'upgrade_d7', NOW() + INTERVAL '7 days')
             `;
           } catch (err) {
             console.error('[stripe/webhook] scheduled_emails insert failed:', err instanceof Error ? err.message : err);
@@ -191,51 +193,62 @@ export default async function handler(req: Request): Promise<Response> {
         const referredBy = metadata.referredBy as string | undefined;
         if (referredBy && referredBy.trim()) {
           const referrerId = referredBy.trim();
-          try {
-            await kvIncr(kvUrl, kvToken, `referral:count:${referrerId}`);
-            await kvSet(kvUrl, kvToken, `referral:conversion:${userId}`, referrerId);
+          if (!/^[\w-]{1,128}$/.test(referrerId)) {
+            console.warn('[stripe/webhook] Skipping referral: suspicious referrerId format:', referrerId);
+          } else {
+            try {
+              await kvIncr(kvUrl, kvToken, `referral:count:${referrerId}`);
+              await kvSet(kvUrl, kvToken, `referral:conversion:${userId}`, referrerId);
 
-            // Phase 2: Stripe credit — gated behind env var, defaults off
-            if (process.env.REFERRAL_CREDITS_ENABLED === 'true') {
-              const referrerStripe = await kvGetJson<{ customerId?: string }>(kvUrl, kvToken, `stripe:${referrerId}`);
-              const referrerCustomerId = referrerStripe?.customerId;
-              const referralCountRaw = await kvGetStr(kvUrl, kvToken, `referral:count:${referrerId}`);
-              const referralCount = referralCountRaw ? parseInt(referralCountRaw, 10) : 1;
-              const stripeKey = process.env.STRIPE_SECRET_KEY;
+              // Phase 2: Stripe credit — gated behind env var, defaults off
+              if (process.env.REFERRAL_CREDITS_ENABLED === 'true') {
+                const referrerStripe = await kvGetJson<{ customerId?: string }>(kvUrl, kvToken, `stripe:${referrerId}`);
+                const referrerCustomerId = referrerStripe?.customerId;
+                const referralCountRaw = await kvGetStr(kvUrl, kvToken, `referral:count:${referrerId}`);
+                const referralCount = referralCountRaw ? parseInt(referralCountRaw, 10) : 1;
+                const stripeKey = process.env.STRIPE_SECRET_KEY;
 
-              if (referrerCustomerId && referralCount <= 12 && stripeKey) {
-                await fetch(`https://api.stripe.com/v1/customers/${referrerCustomerId}/balance_transactions`, {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Basic ${btoa(stripeKey + ':')}`,
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                  },
-                  body: new URLSearchParams({
-                    amount: '-2900',
-                    currency: 'usd',
-                    description: `Referral credit — ${encodeURIComponent(userEmail)} converted`,
-                  }).toString(),
-                });
+                if (referrerCustomerId && referralCount <= 12 && stripeKey) {
+                  const creditRes = await fetch(
+                    `https://api.stripe.com/v1/customers/${referrerCustomerId}/balance_transactions`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        Authorization: `Basic ${btoa(stripeKey + ':')}`,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                      },
+                      body: new URLSearchParams({
+                        amount: '-2900',
+                        currency: 'usd',
+                        description: `Referral credit — ${encodeURIComponent(sessionEmailRaw)} converted`,
+                      }).toString(),
+                    },
+                  );
 
-                const resendKey = process.env.RESEND_API_KEY;
-                const referrerData = await kvGetJson<{ email?: string }>(kvUrl, kvToken, `session:${referrerId}`);
-                const referrerEmail = referrerData?.email;
-                if (resendKey && referrerEmail) {
-                  await fetch('https://api.resend.com/emails', {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      from: 'NexusWatch <hello@nexuswatch.dev>',
-                      to: referrerEmail,
-                      subject: 'Someone used your link — a free month added',
-                      html: `<p>Someone just signed up using your NexusWatch referral link. A $29 credit has been applied to your account — it will automatically offset your next renewal.</p>`,
-                    }),
-                  });
+                  if (creditRes.ok) {
+                    const resendKey = process.env.RESEND_API_KEY;
+                    const referrerData = await kvGetJson<{ email?: string }>(kvUrl, kvToken, `stripe:${referrerId}`);
+                    const referrerEmail = referrerData?.email;
+                    if (resendKey && referrerEmail) {
+                      await fetch('https://api.resend.com/emails', {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          from: 'NexusWatch <hello@nexuswatch.dev>',
+                          to: referrerEmail,
+                          subject: 'Someone used your link — a free month added',
+                          html: `<p>Someone just signed up using your NexusWatch referral link. A $29 credit has been applied to your account — it will automatically offset your next renewal.</p>`,
+                        }),
+                      });
+                    }
+                  } else {
+                    console.error('[stripe/webhook] Stripe referral credit failed:', creditRes.status);
+                  }
                 }
               }
+            } catch (err) {
+              console.error('[stripe/webhook] referral attribution failed:', err instanceof Error ? err.message : err);
             }
-          } catch (err) {
-            console.error('[stripe/webhook] referral attribution failed:', err instanceof Error ? err.message : err);
           }
         }
         break;
