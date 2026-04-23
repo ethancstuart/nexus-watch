@@ -453,4 +453,10 @@ export function renderLanding(root: HTMLElement): void {
           '<p style="color:#666;text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.</p>';
       });
   }
+
+  // Capture referral attribution from share link
+  const refParam = new URLSearchParams(window.location.search).get('ref');
+  if (refParam) {
+    sessionStorage.setItem('nw-referral', refParam);
+  }
 }
