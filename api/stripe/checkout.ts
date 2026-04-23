@@ -65,11 +65,13 @@ export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   let bodyTier: string | null = null;
   let bodyInterval: string | null = null;
+  let bodyReferredBy: string | null = null;
 
   try {
-    const body = (await req.json()) as { tier?: string; interval?: string };
+    const body = (await req.json()) as { tier?: string; interval?: string; referredBy?: string };
     bodyTier = body.tier || null;
     bodyInterval = body.interval || null;
+    bodyReferredBy = body.referredBy || null;
   } catch {
     // No JSON body — fall back to query params
   }
@@ -161,6 +163,9 @@ export default async function handler(req: Request): Promise<Response> {
   params.append('metadata[tier]', tier);
   params.append('metadata[userId]', user.id);
   params.append('metadata[interval]', interval);
+  if (bodyReferredBy) {
+    params.append('metadata[referredBy]', bodyReferredBy);
+  }
 
   // 14-day trial for all paid tiers
   params.append('subscription_data[trial_period_days]', '14');
