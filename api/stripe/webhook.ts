@@ -134,7 +134,7 @@ export default async function handler(req: Request): Promise<Response> {
     }
   } catch (err) {
     console.error('[stripe/webhook] Lock acquisition failed:', err instanceof Error ? err.message : err);
-    // Continue — a failed lock should not block processing
+    return new Response('Lock acquisition error', { status: 500 });
   }
 
   try {
@@ -222,8 +222,12 @@ export default async function handler(req: Request): Promise<Response> {
                 }),
               });
               if (welcomeRes.ok) {
-                await sql`UPDATE scheduled_emails SET sent_at = NOW() WHERE user_id = ${userId} AND template = 'welcome_d0' AND sent_at IS NULL`;
-                console.log(`[stripe/webhook] welcome_d0 sent immediately to ${sessionEmailRaw}`);
+                try {
+                  await sql`UPDATE scheduled_emails SET sent_at = NOW() WHERE user_id = ${userId} AND template = 'welcome_d0' AND sent_at IS NULL`;
+                  console.log(`[stripe/webhook] welcome_d0 sent immediately to ${sessionEmailRaw}`);
+                } catch (updateErr) {
+                  console.warn('[stripe/webhook] welcome_d0 sent but cron row mark failed (cron will re-attempt send):', updateErr instanceof Error ? updateErr.message : updateErr);
+                }
               } else {
                 console.warn(`[stripe/webhook] welcome_d0 send failed (${welcomeRes.status}), cron fallback active`);
               }
