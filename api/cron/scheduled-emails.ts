@@ -77,13 +77,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         AND (claimed_at IS NULL OR claimed_at < NOW() - INTERVAL '10 minutes')
       ORDER BY send_at ASC
       LIMIT 50
-      FOR UPDATE SKIP LOCKED
     )
     RETURNING id, user_id, email, tier, template
   `) as ScheduledEmail[];
 
   if (dueEmails.length === 0) {
-    return res.status(200).json({ success: true, sent: 0, skipped: 0 });
+    return res.status(200).json({ success: true, sent: 0, skipped: 0, errors: [] });
   }
 
   let sent = 0;
