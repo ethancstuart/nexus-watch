@@ -51,7 +51,7 @@ function buildEmailContent(template: string, currentTier: string): { subject: st
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -67,11 +67,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = neon(dbUrl);
 
   const dueEmails = (await sql`
-    SELECT id, user_id, email, tier, template
-    FROM scheduled_emails
-    WHERE send_at <= NOW() AND sent_at IS NULL
-    ORDER BY send_at ASC
-    LIMIT 100
+    UPDATE scheduled_emails
+    SET claimed_at = NOW()
+    WHERE id IN (
+      SELECT id FROM scheduled_emails
+      WHERE send_at <= NOW()
+        AND sent_at IS NULL
+        AND retry_count < 5
+        AND (claimed_at IS NULL OR claimed_at < NOW() - INTERVAL '10 minutes')
+      ORDER BY send_at ASC
+      LIMIT 50
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING id, user_id, email, tier, template
   `) as ScheduledEmail[];
 
   if (dueEmails.length === 0) {
@@ -86,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let currentTier = row.tier;
     if (row.template === 'upgrade_d7' && kvUrl && kvToken) {
       try {
-        const kvRes = await fetch(`${kvUrl}/get/stripe:${encodeURIComponent(row.user_id)}`, {
+        const kvRes = await fetch(`${kvUrl}/get/${encodeURIComponent(`stripe:${row.user_id}`)}`, {
           headers: { Authorization: `Bearer ${kvToken}` },
           signal: AbortSignal.timeout(5000),
         });
@@ -132,11 +140,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await sql`UPDATE scheduled_emails SET sent_at = NOW() WHERE id = ${row.id}`;
         sent++;
       } else {
-        const body = await emailRes.text();
-        errors.push(`id=${row.id}: ${emailRes.status} ${body.slice(0, 100)}`);
+        const errBody = await emailRes.text();
+        const errMsg = `${emailRes.status} ${errBody.slice(0, 100)}`;
+        errors.push(`id=${row.id}: ${errMsg}`);
+        await sql`
+          UPDATE scheduled_emails
+          SET retry_count = retry_count + 1, last_error = ${errMsg}
+          WHERE id = ${row.id}
+        `;
       }
     } catch (err) {
-      errors.push(`id=${row.id}: ${err instanceof Error ? err.message : 'unknown'}`);
+      const errMsg = err instanceof Error ? err.message : 'unknown';
+      errors.push(`id=${row.id}: ${errMsg}`);
+      try {
+        await sql`
+          UPDATE scheduled_emails
+          SET retry_count = retry_count + 1, last_error = ${errMsg}
+          WHERE id = ${row.id}
+        `;
+      } catch {
+        // Non-fatal — retry count update failure is acceptable
+      }
     }
   }
 
