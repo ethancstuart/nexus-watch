@@ -2,6 +2,7 @@
 
 interface FoundingStatus {
   claimed: number;
+  active: number;
   remaining: number;
   isFull: boolean;
 }
@@ -13,6 +14,14 @@ interface AuthMe {
 }
 
 type WelcomeTier = 'insider' | 'analyst' | 'pro';
+
+function lsGet(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function lsSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* no-op in private mode */ }
+}
 
 interface TierContent {
   badgeColor: string;
@@ -51,7 +60,7 @@ const TIER_CONTENT: Record<WelcomeTier, TierContent> = {
 };
 
 export async function maybeShowWelcomeModal(tier: WelcomeTier): Promise<void> {
-  if (localStorage.getItem('nw-onboarded')) return;
+  if (lsGet('nw-onboarded')) return;
 
   const content = TIER_CONTENT[tier];
   if (!content) return;
@@ -74,9 +83,10 @@ export async function maybeShowWelcomeModal(tier: WelcomeTier): Promise<void> {
     tier === 'insider' &&
     statusResult.status === 'fulfilled' &&
     statusResult.value !== null &&
-    typeof (statusResult.value as FoundingStatus).claimed === 'number'
+    typeof (statusResult.value as FoundingStatus).active === 'number'
   ) {
-    memberNumber = ` #${(statusResult.value as FoundingStatus).claimed}`;
+    const activeCount = (statusResult.value as FoundingStatus).active;
+    if (activeCount > 0) memberNumber = ` #${activeCount}`;
   }
 
   const badgeText = tier === 'insider' ? `${content.badge}${memberNumber}` : content.badge;
@@ -89,139 +99,152 @@ export async function maybeShowWelcomeModal(tier: WelcomeTier): Promise<void> {
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-label', 'Welcome to NexusWatch');
 
-  overlay.innerHTML = `
-    <div style="
-      background:#0e0e0e;
-      border:1px solid #2a2a2a;
-      border-radius:8px;
-      width:440px;
-      max-width:calc(100vw - 32px);
-      max-height:calc(100vh - 32px);
-      overflow-y:auto;
-      padding:28px 32px 32px;
-      box-shadow:0 24px 64px rgba(0,0,0,0.8);
-      font-family:'JetBrains Mono','Fira Code',monospace;
-    ">
-      <div style="
-        display:inline-flex;align-items:center;gap:6px;
-        font-size:10px;text-transform:uppercase;letter-spacing:2px;
-        color:${content.badgeColor};
-        background:${content.badgeBg};
-        border:1px solid ${content.badgeBorder};
-        border-radius:3px;padding:3px 8px;margin-bottom:14px;
-      ">${badgeText}</div>
+  const modal = document.createElement('div');
+  modal.style.cssText =
+    'background:#0e0e0e;border:1px solid #2a2a2a;border-radius:8px;width:440px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow-y:auto;padding:28px 32px 32px;box-shadow:0 24px 64px rgba(0,0,0,0.8);font-family:"JetBrains Mono","Fira Code",monospace;';
 
-      <h2 style="font-size:20px;font-weight:700;color:#fff;line-height:1.3;margin:0 0 6px;">${content.headline}</h2>
-      <p style="font-size:12px;color:#666;margin:0 0 24px;line-height:1.5;">${content.subheadline}</p>
+  const badge = document.createElement('div');
+  badge.style.cssText = `display:inline-flex;align-items:center;gap:6px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:${content.badgeColor};background:${content.badgeBg};border:1px solid ${content.badgeBorder};border-radius:3px;padding:3px 8px;margin-bottom:14px;`;
+  badge.textContent = badgeText;
+  modal.appendChild(badge);
 
-      <div id="nw-modal-steps" style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
-        <div class="nw-modal-step" data-step="watchlist" style="
-          display:flex;align-items:center;gap:12px;
-          background:#141414;border:1px solid #222;border-radius:5px;
-          padding:11px 14px;cursor:pointer;
-        ">
-          <div style="width:22px;height:22px;background:#1a1a1a;border:1px solid #333;border-radius:50%;font-size:11px;color:#555;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
-          <div style="flex:1;">
-            <strong style="font-size:13px;color:#ccc;display:block;margin-bottom:2px;">Add your first country to watchlist</strong>
-            <span style="font-size:11px;color:#555;">Get alerts when CII moves or crises develop</span>
-          </div>
-          <span style="color:#333;font-size:14px;">›</span>
-        </div>
-        <div class="nw-modal-step" data-step="schedule" style="
-          display:flex;align-items:center;gap:12px;
-          background:#141414;border:1px solid #222;border-radius:5px;
-          padding:11px 14px;cursor:pointer;
-        ">
-          <div style="width:22px;height:22px;background:#1a1a1a;border:1px solid #333;border-radius:50%;font-size:11px;color:#555;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
-          <div style="flex:1;">
-            <strong style="font-size:13px;color:#ccc;display:block;margin-bottom:2px;">Set your brief schedule</strong>
-            <span style="font-size:11px;color:#555;">Daily or Mon / Wed / Fri delivery</span>
-          </div>
-          <span style="color:#333;font-size:14px;">›</span>
-        </div>
-        <div class="nw-modal-step" data-step="sitrep" style="
-          display:flex;align-items:center;gap:12px;
-          background:#141414;border:1px solid #222;border-radius:5px;
-          padding:11px 14px;cursor:pointer;
-        ">
-          <div style="width:22px;height:22px;background:#1a1a1a;border:1px solid #333;border-radius:50%;font-size:11px;color:#555;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
-          <div style="flex:1;">
-            <strong style="font-size:13px;color:#ccc;display:block;margin-bottom:2px;">Run your first sitrep</strong>
-            <span style="font-size:11px;color:#555;">Ask the AI analyst about any region right now</span>
-          </div>
-          <span style="color:#333;font-size:14px;">›</span>
-        </div>
-      </div>
+  const headline = document.createElement('h2');
+  headline.style.cssText = 'font-size:20px;font-weight:700;color:#fff;line-height:1.3;margin:0 0 6px;';
+  headline.textContent = content.headline;
+  modal.appendChild(headline);
 
-      <hr style="border:none;border-top:1px solid #1a1a1a;margin:0 0 20px;">
+  const subheadline = document.createElement('p');
+  subheadline.style.cssText = 'font-size:12px;color:#666;margin:0 0 24px;line-height:1.5;';
+  subheadline.textContent = content.subheadline;
+  modal.appendChild(subheadline);
 
-      ${
-        referralUrl
-          ? `<div style="
-          background:#0a0a0a;border:1px solid #1e1e1e;border-radius:5px;
-          padding:12px 14px;margin-bottom:20px;
-        ">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#444;margin-bottom:8px;">
-            Your Founding Referral Link
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="text" id="nw-referral-input" readonly value="${referralUrl}" style="
-              flex:1;background:#111;border:1px solid #222;border-radius:3px;
-              color:#22c55e;font-family:inherit;font-size:11px;padding:6px 10px;
-            ">
-            <button id="nw-referral-copy" style="
-              background:#1a1a1a;border:1px solid #333;color:#888;
-              font-family:inherit;font-size:11px;padding:6px 10px;
-              border-radius:3px;cursor:pointer;white-space:nowrap;
-            ">Copy</button>
-          </div>
-          <div style="font-size:10px;color:#444;margin-top:6px;">
-            Refer paying subscribers → earn free months (coming May 5)
-          </div>
-        </div>`
-          : ''
-      }
+  const stepsContainer = document.createElement('div');
+  stepsContainer.id = 'nw-modal-steps';
+  stepsContainer.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-bottom:24px;';
 
-      <button id="nw-modal-cta" style="
-        width:100%;background:#22c55e;color:#000;border:none;border-radius:4px;
-        padding:12px;font-family:inherit;font-size:13px;font-weight:700;
-        letter-spacing:1px;cursor:pointer;
-      ">START EXPLORING →</button>
-    </div>
-  `;
+  const stepDefs = [
+    { step: 'watchlist', num: '1', title: 'Add your first country to watchlist', sub: 'Get alerts when CII moves or crises develop' },
+    { step: 'schedule',  num: '2', title: 'Set your brief schedule', sub: 'Daily or Mon / Wed / Fri delivery' },
+    { step: 'sitrep',   num: '3', title: 'Run your first sitrep', sub: 'Ask the AI analyst about any region right now' },
+  ];
 
+  for (const def of stepDefs) {
+    const stepEl = document.createElement('div');
+    stepEl.className = 'nw-modal-step';
+    stepEl.dataset.step = def.step;
+    stepEl.style.cssText =
+      'display:flex;align-items:center;gap:12px;background:#141414;border:1px solid #222;border-radius:5px;padding:11px 14px;cursor:pointer;';
+
+    const numEl = document.createElement('div');
+    numEl.style.cssText =
+      'width:22px;height:22px;background:#1a1a1a;border:1px solid #333;border-radius:50%;font-size:11px;color:#555;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    numEl.textContent = def.num;
+
+    const textWrap = document.createElement('div');
+    textWrap.style.cssText = 'flex:1;';
+    const strong = document.createElement('strong');
+    strong.style.cssText = 'font-size:13px;color:#ccc;display:block;margin-bottom:2px;';
+    strong.textContent = def.title;
+    const span = document.createElement('span');
+    span.style.cssText = 'font-size:11px;color:#555;';
+    span.textContent = def.sub;
+    textWrap.appendChild(strong);
+    textWrap.appendChild(span);
+
+    const arrow = document.createElement('span');
+    arrow.style.cssText = 'color:#333;font-size:14px;';
+    arrow.textContent = '›';
+
+    stepEl.appendChild(numEl);
+    stepEl.appendChild(textWrap);
+    stepEl.appendChild(arrow);
+    stepsContainer.appendChild(stepEl);
+  }
+  modal.appendChild(stepsContainer);
+
+  const hr = document.createElement('hr');
+  hr.style.cssText = 'border:none;border-top:1px solid #1a1a1a;margin:0 0 20px;';
+  modal.appendChild(hr);
+
+  let referralInputEl: HTMLInputElement | null = null;
+  let copyBtnEl: HTMLButtonElement | null = null;
+
+  if (referralUrl) {
+    const referralBlock = document.createElement('div');
+    referralBlock.style.cssText =
+      'background:#0a0a0a;border:1px solid #1e1e1e;border-radius:5px;padding:12px 14px;margin-bottom:20px;';
+
+    const referralLabel = document.createElement('div');
+    referralLabel.style.cssText =
+      'font-size:10px;text-transform:uppercase;letter-spacing:2px;color:#444;margin-bottom:8px;';
+    referralLabel.textContent = 'Your Founding Referral Link';
+
+    const referralRow = document.createElement('div');
+    referralRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+    referralInputEl = document.createElement('input');
+    referralInputEl.type = 'text';
+    referralInputEl.id = 'nw-referral-input';
+    referralInputEl.readOnly = true;
+    referralInputEl.value = referralUrl;
+    referralInputEl.style.cssText =
+      'flex:1;background:#111;border:1px solid #222;border-radius:3px;color:#22c55e;font-family:inherit;font-size:11px;padding:6px 10px;';
+
+    copyBtnEl = document.createElement('button');
+    copyBtnEl.id = 'nw-referral-copy';
+    copyBtnEl.style.cssText =
+      'background:#1a1a1a;border:1px solid #333;color:#888;font-family:inherit;font-size:11px;padding:6px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;';
+    copyBtnEl.textContent = 'Copy';
+
+    referralRow.appendChild(referralInputEl);
+    referralRow.appendChild(copyBtnEl);
+
+    const referralNote = document.createElement('div');
+    referralNote.style.cssText = 'font-size:10px;color:#444;margin-top:6px;';
+    referralNote.textContent = 'Refer paying subscribers → earn free months (coming May 5)';
+
+    referralBlock.appendChild(referralLabel);
+    referralBlock.appendChild(referralRow);
+    referralBlock.appendChild(referralNote);
+    modal.appendChild(referralBlock);
+  }
+
+  const ctaBtn = document.createElement('button');
+  ctaBtn.id = 'nw-modal-cta';
+  ctaBtn.style.cssText =
+    'width:100%;background:#22c55e;color:#000;border:none;border-radius:4px;padding:12px;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;';
+  ctaBtn.textContent = 'START EXPLORING →';
+  modal.appendChild(ctaBtn);
+
+  overlay.appendChild(modal);
   document.body.appendChild(overlay);
+
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape') dismiss();
+  }
 
   function dismiss() {
     document.removeEventListener('keydown', onKeyDown);
-    localStorage.setItem('nw-onboarded', '1');
+    lsSet('nw-onboarded', '1');
     history.replaceState(null, '', window.location.pathname + window.location.hash);
     overlay.remove();
   }
 
-  overlay.querySelector('#nw-modal-cta')?.addEventListener('click', dismiss);
+  ctaBtn.addEventListener('click', dismiss);
 
-  function onKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      dismiss();
-      document.removeEventListener('keydown', onKeyDown);
-    }
-  }
   document.addEventListener('keydown', onKeyDown);
 
-  overlay.querySelectorAll<HTMLElement>('.nw-modal-step').forEach((step) => {
-    step.addEventListener('mouseenter', () => {
-      step.style.borderColor = '#333';
-    });
-    step.addEventListener('mouseleave', () => {
-      step.style.borderColor = '#222';
-    });
+  stepsContainer.querySelectorAll<HTMLElement>('.nw-modal-step').forEach((step) => {
+    step.addEventListener('mouseenter', () => { step.style.borderColor = '#333'; });
+    step.addEventListener('mouseleave', () => { step.style.borderColor = '#222'; });
 
     step.addEventListener('click', () => {
       const action = step.dataset.step;
       if (action === 'watchlist') {
+        dismiss();
         document.dispatchEvent(new CustomEvent('nw:open-watchlist'));
       } else if (action === 'schedule') {
+        dismiss();
         document.dispatchEvent(new CustomEvent('nw:open-preferences', { detail: { section: 'briefs' } }));
       } else if (action === 'sitrep') {
         dismiss();
@@ -234,23 +257,19 @@ export async function maybeShowWelcomeModal(tier: WelcomeTier): Promise<void> {
     });
   });
 
-  const copyBtn = overlay.querySelector<HTMLButtonElement>('#nw-referral-copy');
-  const referralInput = overlay.querySelector<HTMLInputElement>('#nw-referral-input');
-  if (copyBtn && referralInput) {
-    copyBtn.addEventListener('click', async () => {
+  if (copyBtnEl && referralInputEl) {
+    const inputEl = referralInputEl;
+    const btnEl = copyBtnEl;
+    btnEl.addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(referralInput.value);
-        copyBtn.textContent = 'Copied ✓';
-        setTimeout(() => {
-          copyBtn.textContent = 'Copy';
-        }, 2000);
+        await navigator.clipboard.writeText(inputEl.value);
+        btnEl.textContent = 'Copied ✓';
+        setTimeout(() => { btnEl.textContent = 'Copy'; }, 2000);
       } catch {
-        referralInput.select();
+        inputEl.select();
         document.execCommand('copy');
-        copyBtn.textContent = 'Copied ✓';
-        setTimeout(() => {
-          copyBtn.textContent = 'Copy';
-        }, 2000);
+        btnEl.textContent = 'Copied ✓';
+        setTimeout(() => { btnEl.textContent = 'Copy'; }, 2000);
       }
     });
   }
