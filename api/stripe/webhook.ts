@@ -106,20 +106,35 @@ export default async function handler(req: Request): Promise<Response> {
 
   const event = JSON.parse(body) as StripeEvent;
 
-  // Idempotency: attempt to claim this event atomically via SET NX.
-  // If the key already exists, return 200 immediately without processing.
+  // Phase 1: check permanent idempotency key (already processed successfully).
   try {
-    const claimRes = await fetch(`${kvUrl}/set/stripe-event:${event.id}/1?NX=true&EX=86400`, {
+    const doneRes = await fetch(`${kvUrl}/get/stripe-event:${event.id}`, {
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
+    const doneData = (await doneRes.json()) as { result: string | null };
+    if (doneData.result !== null) {
+      return new Response('OK', { status: 200 }); // already processed
+    }
+  } catch (err) {
+    console.error('[stripe/webhook] Idempotency check failed:', err instanceof Error ? err.message : err);
+    // Continue — a failed read should not block processing
+  }
+
+  // Phase 2: acquire short-lived lock to prevent concurrent duplicate processing.
+  // Lock expires in 60s. On transient failure, Stripe retries after ~30s minimum,
+  // so the lock will have expired and the retry can proceed.
+  try {
+    const lockRes = await fetch(`${kvUrl}/set/stripe-lock:${event.id}/1?NX=true&EX=60`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${kvToken}` },
     });
-    const claimData = (await claimRes.json()) as { result: string | null };
-    // Upstash returns { result: "OK" } on success, { result: null } if key existed.
-    if (claimData.result === null) {
-      return new Response('OK', { status: 200 });
+    const lockData = (await lockRes.json()) as { result: string | null };
+    if (lockData.result === null) {
+      return new Response('OK', { status: 200 }); // concurrent duplicate, skip
     }
   } catch (err) {
-    console.error('[stripe/webhook] Idempotency claim failed:', err instanceof Error ? err.message : err);
+    console.error('[stripe/webhook] Lock acquisition failed:', err instanceof Error ? err.message : err);
+    // Continue — a failed lock should not block processing
   }
 
   try {
@@ -176,16 +191,45 @@ export default async function handler(req: Request): Promise<Response> {
         // Insert 3-email onboarding sequence into scheduled_emails
         const dbUrl = process.env.DATABASE_URL;
         if (dbUrl && sessionEmailRaw) {
+          const sql = neon(dbUrl);
           try {
-            const sql = neon(dbUrl);
             await sql`
               INSERT INTO scheduled_emails (user_id, email, tier, template, send_at) VALUES
-              (${userId}, ${sessionEmailRaw}, ${tierMeta || 'insider'}, 'welcome_d0', NOW()),
+              (${userId}, ${sessionEmailRaw}, ${tierMeta || 'insider'}, 'welcome_d0',  NOW()),
               (${userId}, ${sessionEmailRaw}, ${tierMeta || 'insider'}, 'nudge_d3',   NOW() + INTERVAL '3 days'),
               (${userId}, ${sessionEmailRaw}, ${tierMeta || 'insider'}, 'upgrade_d7', NOW() + INTERVAL '7 days')
+              ON CONFLICT (user_id, template) DO NOTHING
             `;
           } catch (err) {
             console.error('[stripe/webhook] scheduled_emails insert failed:', err instanceof Error ? err.message : err);
+          }
+
+          // Attempt immediate welcome email. On success, mark the cron row sent_at = NOW()
+          // so the cron skips it. On failure, the cron row remains for pickup within 60 min.
+          const resendKey = process.env.RESEND_API_KEY;
+          if (resendKey && sessionEmailRaw) {
+            const activeTier = tierMeta || 'insider';
+            try {
+              const welcomeRes = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+                signal: AbortSignal.timeout(15000),
+                body: JSON.stringify({
+                  from: 'NexusWatch <hello@nexuswatch.dev>',
+                  to: sessionEmailRaw,
+                  subject: "You're in — here's what NexusWatch shows right now",
+                  html: `<div style="font-family:monospace;background:#0a0a0a;color:#e0e0e0;padding:32px;max-width:600px;margin:0 auto;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#22c55e;margin-bottom:24px;">NEXUSWATCH</div><h1 style="font-size:22px;font-weight:700;color:#fff;margin:0 0 16px;">Welcome to NexusWatch.</h1><p style="font-size:14px;color:#888;line-height:1.6;margin:0 0 24px;">Your ${activeTier} access is active. Three things to do right now:</p><div style="border:1px solid #1e1e1e;border-radius:6px;padding:16px;margin-bottom:12px;"><a href="https://nexuswatch.dev/#/intel" style="color:#22c55e;text-decoration:none;font-size:13px;font-weight:700;">→ Open the Intel Map</a><p style="font-size:12px;color:#666;margin:4px 0 0;">45+ live layers. 150+ countries. Add your first watchlist country.</p></div><div style="border:1px solid #1e1e1e;border-radius:6px;padding:16px;margin-bottom:12px;"><a href="https://nexuswatch.dev/#/intel?open=ai-terminal" style="color:#22c55e;text-decoration:none;font-size:13px;font-weight:700;">→ Run a Sitrep</a><p style="font-size:12px;color:#666;margin:4px 0 0;">Ask the AI analyst: "What's the current situation in [region]?"</p></div><div style="border:1px solid #1e1e1e;border-radius:6px;padding:16px;margin-bottom:24px;"><a href="https://nexuswatch.dev/#/briefs" style="color:#22c55e;text-decoration:none;font-size:13px;font-weight:700;">→ Read the Brief Archive</a><p style="font-size:12px;color:#666;margin:4px 0 0;">Daily intelligence briefs, every morning.</p></div><p style="font-size:11px;color:#555;margin:0;">NexusWatch — nexuswatch.dev</p></div>`,
+                }),
+              });
+              if (welcomeRes.ok) {
+                await sql`UPDATE scheduled_emails SET sent_at = NOW() WHERE user_id = ${userId} AND template = 'welcome_d0' AND sent_at IS NULL`;
+                console.log(`[stripe/webhook] welcome_d0 sent immediately to ${sessionEmailRaw}`);
+              } else {
+                console.warn(`[stripe/webhook] welcome_d0 send failed (${welcomeRes.status}), cron fallback active`);
+              }
+            } catch (err) {
+              console.warn('[stripe/webhook] welcome_d0 send failed (exception), cron fallback active:', err instanceof Error ? err.message : err);
+            }
           }
         }
 
@@ -195,6 +239,8 @@ export default async function handler(req: Request): Promise<Response> {
           const referrerId = referredBy.trim();
           if (!/^[\w-]{1,128}$/.test(referrerId)) {
             console.warn('[stripe/webhook] Skipping referral: suspicious referrerId format:', referrerId);
+          } else if (referrerId === userId) {
+            console.warn('[stripe/webhook] Skipping self-referral for user:', userId);
           } else {
             try {
               await kvIncr(kvUrl, kvToken, `referral:count:${referrerId}`);
@@ -220,7 +266,7 @@ export default async function handler(req: Request): Promise<Response> {
                       body: new URLSearchParams({
                         amount: '-2900',
                         currency: 'usd',
-                        description: `Referral credit — ${encodeURIComponent(sessionEmailRaw)} converted`,
+                        description: 'NexusWatch referral conversion',
                       }).toString(),
                     },
                   );
@@ -277,11 +323,13 @@ export default async function handler(req: Request): Promise<Response> {
           break;
         }
 
-        // Read existing record to preserve the paidTier across status transitions.
+        // Read existing record to preserve the paidTier and email across status transitions.
         const existing = await kvGetJson<{
           paidTier?: 'insider' | 'analyst' | 'pro' | 'founding';
+          email?: string;
         }>(kvUrl, kvToken, `stripe:${userId}`);
         const paidTier = existing?.paidTier;
+        const existingEmail = existing?.email ?? '';
 
         const tier = status === 'active' || status === 'trialing' ? 'premium' : 'free';
         await kvSet(kvUrl, kvToken, `stripe:${userId}`, {
@@ -289,6 +337,7 @@ export default async function handler(req: Request): Promise<Response> {
           subscriptionId: subscription.id as string,
           status,
           paidTier,
+          email: existingEmail,
         });
         await updateUserSessions(kvUrl, kvToken, userId, tier, tier === 'premium' ? paidTier : undefined);
         break;
@@ -307,7 +356,7 @@ export default async function handler(req: Request): Promise<Response> {
         const existing = await kvGetJson<{
           paidTier?: 'insider' | 'analyst' | 'pro' | 'founding';
         }>(kvUrl, kvToken, `stripe:${userId}`);
-        const wasFounding = existing?.paidTier === 'founding';
+        const wasFounding = existing?.paidTier === 'insider' || existing?.paidTier === 'founding';
 
         await kvSet(kvUrl, kvToken, `stripe:${userId}`, {
           customerId,
@@ -332,16 +381,24 @@ export default async function handler(req: Request): Promise<Response> {
     }
   } catch (err) {
     // Processing failed. Log loudly and return 500 so Stripe retries.
-    // The idempotency key was already claimed via SET NX above, so a retry from
-    // Stripe will be de-duped. This is intentional: if KV claim succeeded but
-    // processing fails, Stripe's retry will hit the 200 fast-path and not
-    // re-process. For a true retry, the key must expire (24h) or be deleted manually.
+    // The permanent idempotency key is NOT written on failure, so Stripe's retry
+    // will re-process the event (the short-lived lock will have expired by then).
     console.error(
       `[stripe/webhook] Processing error for event ${event.id} (${event.type}):`,
       err instanceof Error ? err.message : err,
       err instanceof Error ? err.stack : undefined,
     );
     return new Response('Processing error — Stripe will retry', { status: 500 });
+  }
+
+  // Write permanent idempotency key only after successful processing.
+  try {
+    await fetch(`${kvUrl}/set/stripe-event:${event.id}/1?NX=true&EX=86400`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${kvToken}` },
+    });
+  } catch {
+    // Non-fatal — worst case is re-processing a duplicate event
   }
 
   return new Response('OK', { status: 200 });
