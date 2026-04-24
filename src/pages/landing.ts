@@ -456,7 +456,11 @@ export function renderLanding(root: HTMLElement): void {
 
   // Capture referral attribution from share link
   const refParam = new URLSearchParams(window.location.search).get('ref');
-  if (refParam) {
-    sessionStorage.setItem('nw-referral', refParam);
+  if (refParam && /^[\w-]{1,128}$/.test(refParam)) {
+    localStorage.setItem('nw-referral', refParam);
+    // Clean the URL so users don't accidentally share their own ref link
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('ref');
+    history.replaceState(null, '', cleanUrl.toString());
   }
 }

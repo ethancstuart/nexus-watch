@@ -245,12 +245,16 @@ export function renderPricingPage(container: HTMLElement): void {
     trackEvent('checkout_started', { tier, interval: currentInterval });
 
     try {
-      const referredBy = sessionStorage.getItem('nw-referral') || '';
+      const referredBy = localStorage.getItem('nw-referral');
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ tier, interval: currentInterval, referredBy }),
+        body: JSON.stringify({
+          tier,
+          interval: currentInterval,
+          ...(referredBy ? { referredBy } : {}),
+        }),
       });
       const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
 
