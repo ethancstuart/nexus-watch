@@ -1,0 +1,305 @@
+/* =============================================================================
+   NexusWatch Design Tokens — single source of truth for the static CSS surface.
+
+   Three layers in this codebase, ordered from "runtime, dynamic" to "static
+   compile-time":
+
+     1) src/styles/tokens.ts    — runtime token objects (terminal/dossier
+                                  themes), applied via applyTheme() to
+                                  document.documentElement.style. Owns the
+                                  PALETTE.
+     2) src/styles/tokens.css   — THIS FILE. Static CSS-variable defaults for
+                                  type scale, spacing, radius, shadows, motion,
+                                  and z-index. Read by every other stylesheet.
+                                  Color defaults here are a fallback for when
+                                  applyTheme() hasn't run yet.
+     3) src/styles/design-tokens.css — legacy --nw-* color/type variables.
+                                  Kept for compat with un-migrated stylesheets;
+                                  gradually being absorbed into the canonical
+                                  --color-* / --text-* / --space-* names below.
+
+   Adding a new token? Put it here unless it's a per-theme color (those go in
+   tokens.ts so the runtime theme switch can flip them). When in doubt, here.
+
+   See docs/design-system.md for the philosophy and usage rules.
+   ============================================================================= */
+
+:root {
+  /* ---------------------------------------------------------------------------
+     COLOR — semantic, not literal. Values default to the terminal palette so
+     pre-hydration paint and stylesheets that load before applyTheme() see
+     correct values. applyTheme() overrides these at runtime per theme.
+
+     The full live palette lives in src/styles/tokens.ts (terminalTokens /
+     dossierTokens). Don't add literal hex values here — only canonical
+     fallbacks aligned with the terminal theme.
+     --------------------------------------------------------------------------- */
+
+  /* Surfaces */
+  --color-bg: #000000;
+  --color-bg-2: #0a0a0a;
+  --color-surface: #0a0a0a;
+  --color-surface-elevated: #111111;
+  --color-surface-sunken: #000000;
+  --color-surface-muted: #0d0d0d;
+
+  /* Text */
+  --color-text: #cccccc;
+  --color-text-2: #888888;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #cccccc;
+  --color-text-tertiary: #888888;
+  --color-muted: #666666;
+  --color-text-muted: #666666;
+  --color-text-inverse: #000000;
+
+  /* Borders */
+  --color-border: #1a1a1a;
+  --color-border-2: #262626;
+  --color-border-subtle: #141414;
+  --color-border-strong: #262626;
+
+  /* Accent — orange terminal accent (oxblood in dossier theme via tokens.ts) */
+  --color-accent: #ff6600;
+  --color-accent-hover: #ff7722;
+  --color-accent-soft: #ff8533;
+  --color-accent-dim: rgba(255, 102, 0, 0.15);
+  --color-accent-border: rgba(255, 102, 0, 0.3);
+  --color-accent-bg-soft: rgba(255, 102, 0, 0.08);
+
+  /* Signal severity — used for alerts, toasts, intel pills */
+  --color-signal-critical: #dc2626;
+  --color-signal-warning: #e5a913;
+  --color-signal-ok: #22c55e;
+  --color-signal-info: #6b8aff;
+
+  /* Tension Index palette — terminal command-center scale (low → critical) */
+  --color-tension-low: #00d4aa;
+  --color-tension-med: #e5a913;
+  --color-tension-high: #ff6600;
+  --color-tension-critical: #dc2626;
+
+  /* Data change indicators (markets / tickers) */
+  --color-up: #00ff00;
+  --color-down: #ff3333;
+  --color-flat: #888888;
+
+  /* ---------------------------------------------------------------------------
+     TYPOGRAPHY — font stacks + scale.
+
+     Two stacks: mono is the product default (Bloomberg-terminal DNA), serif
+     is for marketing surfaces only. Sans (Inter) lives in design-tokens.css
+     and is consumed by un-migrated dashboard surfaces; do not add new sans
+     usage outside marketing.
+     --------------------------------------------------------------------------- */
+
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  --font-serif: 'Source Serif 4', ui-serif, Georgia, 'Times New Roman', Times, serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Type scale — px values, dashboard-side. Line heights live alongside.
+     Marketing surfaces clamp on top of this with --text-marquee below. */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-2xl: 36px;
+  --text-3xl: 48px;
+  --text-display: 64px;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-base: 1.5;
+  --leading-loose: 1.6;
+
+  --tracking-tight: -0.02em;
+  --tracking-base: 0em;
+  --tracking-wide: 0.05em;
+  --tracking-mono-meta: 0.08em;
+  --tracking-eyebrow: 0.16em;
+
+  /* Marketing-surface fluid type — clamp(min, fluid, max) */
+  --text-marquee: clamp(48px, 8vw, 96px);
+  --text-editorial-headline: clamp(28px, 4vw, 48px);
+  --text-editorial-body: clamp(17px, 1.4vw, 20px);
+  --leading-marquee: 0.95;
+  --tracking-marquee: -0.03em;
+
+  /* ---------------------------------------------------------------------------
+     SPACING — 4px-based scale. Names match a 4px grid:
+       --space-1 = 4px, --space-2 = 8px, --space-3 = 12px, --space-4 = 16px,
+       --space-6 = 24px, --space-8 = 32px, --space-12 = 48px, --space-16 = 64px,
+       --space-24 = 96px, --space-32 = 128px.
+
+     Surveyed existing stylesheets for the values they use; 4px granularity
+     covers everything currently in the codebase without forcing rounding.
+     --------------------------------------------------------------------------- */
+
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* Editorial / marketing rhythm — generous breathing room */
+  --space-section-tight: var(--space-12);
+  --space-section: var(--space-20);
+  --space-section-loose: var(--space-32);
+
+  /* ---------------------------------------------------------------------------
+     BORDER RADIUS
+     --------------------------------------------------------------------------- */
+
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* ---------------------------------------------------------------------------
+     SHADOWS + GLOWS — terminal aesthetic. Glows are colored shadows used on
+     intel pills, severity badges, and Cinema HUD elements. Keep alpha low —
+     these are for "alive" signaling, not drama.
+     --------------------------------------------------------------------------- */
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+
+  --glow-cyan: 0 0 12px rgba(0, 212, 170, 0.35), 0 0 24px rgba(0, 212, 170, 0.15);
+  --glow-amber: 0 0 12px rgba(229, 169, 19, 0.35), 0 0 24px rgba(229, 169, 19, 0.15);
+  --glow-accent: 0 0 12px rgba(255, 102, 0, 0.4), 0 0 24px rgba(255, 102, 0, 0.18);
+  --glow-critical: 0 0 12px rgba(220, 38, 38, 0.45), 0 0 32px rgba(220, 38, 38, 0.2);
+
+  /* ---------------------------------------------------------------------------
+     Z-INDEX — canonical scale. Replaces the chaotic 9999/310/300/260/250/220/
+     200/190 values currently in cinema.css and elsewhere.
+
+     Layers, low to high:
+       base       — page content baseline
+       map        — MapLibre canvas + overlays
+       hud        — Cinema HUD pills, intel bar, profile bar (above map)
+       panel      — floating panels, layer controls, country panel
+       modal      — modal dialogs, settings, upgrade prompts
+       toast      — transient toasts/notifications
+       cinema-intro — Cinema mode intro overlay (top of stack, momentary)
+
+     Track B1 will replace the literal numbers in cinema.css with these tokens.
+     This file ONLY defines the scale — it does not edit cinema.css.
+     --------------------------------------------------------------------------- */
+
+  --z-base: 1;
+  --z-map: 10;
+  --z-hud: 100;
+  --z-panel: 200;
+  --z-modal: 1000;
+  --z-toast: 2000;
+  --z-cinema-intro: 9999;
+
+  /* ---------------------------------------------------------------------------
+     MOTION TOKENS — durations + easing. Reusable utilities + keyframes live
+     in motion.css alongside.
+     --------------------------------------------------------------------------- */
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 400ms;
+  --dur-marquee: 600ms;
+}
+
+/* ============================================================================
+   THEME VARIANTS — explicit data-theme selectors so static stylesheets that
+   reference --color-* see the right values even if the runtime applyTheme()
+   pipeline hasn't fired (e.g. SSR-first paint, slow hydration, error states).
+
+   The runtime path in src/config/theme.ts sets root.dataset.theme = "terminal"
+   or "dossier". Legacy values "dark"/"oled" are canonicalized to "terminal"
+   and "light" to "dossier" before they reach the DOM, but the legacy data-
+   theme selectors below also catch any DOM that was set by older code paths.
+
+   The PALETTE source of truth is src/styles/tokens.ts — these blocks mirror
+   the canonical entries so hand-authored CSS can rely on them. Keep them in
+   sync; when tokens.ts changes a color, change it here too.
+   ============================================================================ */
+
+:root[data-theme='terminal'],
+:root[data-theme='dark'],
+:root[data-theme='oled'] {
+  --color-bg: #000000;
+  --color-bg-2: #0a0a0a;
+  --color-surface: #0a0a0a;
+  --color-surface-elevated: #111111;
+  --color-surface-sunken: #000000;
+  --color-surface-muted: #0d0d0d;
+
+  --color-text: #cccccc;
+  --color-text-2: #888888;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #cccccc;
+  --color-text-tertiary: #888888;
+  --color-muted: #666666;
+  --color-text-muted: #666666;
+  --color-text-inverse: #000000;
+
+  --color-border: #1a1a1a;
+  --color-border-2: #262626;
+  --color-border-subtle: #141414;
+  --color-border-strong: #262626;
+
+  --color-accent: #ff6600;
+  --color-accent-hover: #ff7722;
+  --color-accent-soft: #ff8533;
+  --color-accent-dim: rgba(255, 102, 0, 0.15);
+  --color-accent-border: rgba(255, 102, 0, 0.3);
+  --color-accent-bg-soft: rgba(255, 102, 0, 0.08);
+}
+
+:root[data-theme='dossier'],
+:root[data-theme='light'] {
+  /* Dossier — ivory page on graphite ink, oxblood accent. Mirrors
+     dossierTokens in src/styles/tokens.ts and email-tokens.ts. */
+  --color-bg: #faf8f3;
+  --color-bg-2: #f2efe6;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-sunken: #f2efe6;
+  --color-surface-muted: #f2efe6;
+
+  --color-text: #12161c;
+  --color-text-2: #6b7280;
+  --color-text-primary: #12161c;
+  --color-text-secondary: #3b4252;
+  --color-text-tertiary: #6b7280;
+  --color-muted: #6b7280;
+  --color-text-muted: #6b7280;
+  --color-text-inverse: #faf8f3;
+
+  --color-border: #e5e0d4;
+  --color-border-2: #c9c3b4;
+  --color-border-subtle: #e5e0d4;
+  --color-border-strong: #c9c3b4;
+
+  --color-accent: #9a1b1b;
+  --color-accent-hover: #c7453f;
+  --color-accent-soft: #c7453f;
+  --color-accent-dim: rgba(154, 27, 27, 0.15);
+  --color-accent-border: rgba(154, 27, 27, 0.35);
+  --color-accent-bg-soft: #f6e4e2;
+}
