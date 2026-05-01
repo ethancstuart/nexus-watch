@@ -1637,9 +1637,8 @@ function renderMasthead(date: string, time: string): string {
 }
 
 /**
- * CTA block — "Open Live Map" + "Upgrade to Analyst" pairing. Rendered in
- * the email shell only. Uses the founding tier in CTA copy when appropriate;
- * for v1 of A.6 we default to the Analyst upgrade messaging.
+ * CTA block — "Open Live Map" + "Read the Brief Archive" pairing. Rendered
+ * in the email shell only.
  */
 function renderCTA(): string {
   const ctaButton = style({
@@ -1674,7 +1673,7 @@ function renderCTA(): string {
   return (
     `<div ${styleAttr(style({ margin: `${space.xl} 0`, textAlign: 'center' }))}>` +
     `<a href="https://nexuswatch.dev/#/intel" ${styleAttr(ctaSecondary)}>Open Live Map →</a>` +
-    `<a href="https://nexuswatch.dev/#/pricing?tier=analyst" ${styleAttr(ctaButton)}>Upgrade to Analyst · $29/mo</a>` +
+    `<a href="https://nexuswatch.dev/#/briefs" ${styleAttr(ctaButton)}>Read the Brief Archive →</a>` +
     `</div>`
   );
 }
@@ -1748,7 +1747,7 @@ function renderPlainText(briefText: string, date: string, time: string, archiveU
     `──────────────────────────────────────────`,
     ``,
     `Open the live map: https://nexuswatch.dev/#/intel`,
-    `Upgrade to Analyst ($29/mo): https://nexuswatch.dev/#/pricing?tier=analyst`,
+    `Read the Brief Archive: https://nexuswatch.dev/#/briefs`,
     `Forward today's brief: ${archiveUrl}`,
     ``,
     `Preferences: https://nexuswatch.dev/#/preferences`,

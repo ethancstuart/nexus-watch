@@ -23,7 +23,6 @@ describe('checkSession', () => {
       name: 'Test User',
       avatar: 'https://example.com/avatar.png',
       provider: 'google',
-      tier: 'free' as const,
       createdAt: '2026-01-01',
     };
     vi.stubGlobal(
@@ -58,7 +57,6 @@ describe('checkSession', () => {
       name: 'Cached',
       avatar: '',
       provider: 'github',
-      tier: 'free',
       createdAt: '2026-01-01',
     };
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
@@ -77,7 +75,6 @@ describe('onAuthChange', () => {
       name: 'Test',
       avatar: '',
       provider: 'google',
-      tier: 'free' as const,
       createdAt: '2026-01-01',
     };
     vi.stubGlobal(

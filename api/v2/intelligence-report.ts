@@ -15,8 +15,6 @@ export const config = { runtime: 'nodejs', maxDuration: 120 };
  * scenario modeling, risk matrix, pattern matches, and recommended
  * monitoring posture.
  *
- * Pro tier only. 5 per month, or $5 per additional report.
- *
  * POST /api/v2/intelligence-report
  * Body: { country: "SD", topic?: "civil war trajectory", depth?: "comprehensive" }
  */

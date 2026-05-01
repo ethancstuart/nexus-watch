@@ -9,18 +9,14 @@ function getSessionId(req: Request): string | null {
   return sessionCookie?.split('=')[1] || null;
 }
 
-async function getUser(
-  sessionId: string,
-  kvUrl: string,
-  kvToken: string,
-): Promise<{ id: string; tier: string } | null> {
+async function getUser(sessionId: string, kvUrl: string, kvToken: string): Promise<{ id: string } | null> {
   try {
     const res = await fetch(`${kvUrl}/get/session:${sessionId}`, { headers: { Authorization: `Bearer ${kvToken}` } });
     const data = (await res.json()) as { result: string | null };
     if (!data.result) return null;
     let user = JSON.parse(data.result);
     if (typeof user === 'string') user = JSON.parse(user);
-    return user?.id ? { id: user.id, tier: user.tier || 'free' } : null;
+    return user?.id ? { id: user.id } : null;
   } catch {
     return null;
   }
@@ -82,7 +78,7 @@ export default async function handler(req: Request) {
   }
 
   const user = await getUser(sessionId, kvUrl, kvToken);
-  if (!user || user.tier !== 'premium') {
+  if (!user) {
     return new Response(null, { status: 302, headers: { Location: '/#/app?calendar=error' } });
   }
 

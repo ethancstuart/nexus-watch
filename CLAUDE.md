@@ -245,13 +245,6 @@ Always label new bugs with their severity tier.
   - Conflict resolution: per-key merge, local dirty keys take priority over server
   - Beacon flush on tab close for pending changes
   - Change tracking via dashview:storage-changed CustomEvent on document
-- Stripe premium: raw fetch (no SDK). Tiers: $29/mo Analyst + $99/mo Pro + $19/mo founding-100 lifetime (locked 2026-04-11). Founding tier is first-100-subscribers-only; closes after cohort fills. Comparables anchor: Stratfor $149, Rundown Pro $20, Dataminr enterprise.
-  - Checkout: POST /api/stripe/checkout → Stripe hosted checkout → webhook → KV update
-  - Webhook: HMAC-SHA256 signature verification via Web Crypto, idempotency keys (24h TTL)
-  - Self-healing: api/auth/session.ts checks stripe:{userId} in KV on every session load
-  - Portal: POST /api/stripe/portal → Stripe billing portal for self-service cancel/update
-  - Reverse session mapping: user-sessions:{userId} enables webhook to update all active sessions
-- Calendar panel is premium-gated (requiredTier: 'premium')
-- Alert limit: 5 for free tier, unlimited for premium (aligned in tier.ts, re-exported from alerts.ts)
+- Free for everyone — no paywall, no tiers, no Stripe. Account exists for cross-device sync, watchlists, alerts, and briefs.
 - localStorage quota errors dispatch dashview:storage-error CustomEvent for UI toasts
 - OG image: /api/og generates 1200x630 PNG via @vercel/og (Edge Function, zero client impact)

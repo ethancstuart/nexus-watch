@@ -29,14 +29,14 @@ export function renderTermsPage(root: HTMLElement): void {
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">3. Data Accuracy</h2>
       <p>NexusWatch aggregates data from third-party sources. We do not guarantee the accuracy, completeness, or timeliness of any data. CII scores are computed algorithmically and may contain errors. Evidence chains show our sources and methodology transparently so you can evaluate the data yourself. Data freshness is indicated by badges on each layer.</p>
 
-      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">4. Accounts & Payments</h2>
-      <p>Free accounts require Google or GitHub authentication. Paid subscriptions (Insider, Analyst, Pro) are billed monthly or annually through Stripe. All paid tiers include a 14-day free trial. You can cancel anytime with one click via the Stripe billing portal \u2014 no questions asked, no retention tricks. Refunds are prorated for the unused portion of your billing period.</p>
+      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">4. Accounts</h2>
+      <p>NexusWatch is free for everyone. Accounts require Google or GitHub authentication and are used to sync watchlists, alerts, and briefs across devices. There is no paid plan and no payment processing.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">5. What You Can Do</h2>
       <p>You may use NexusWatch data in your own analysis, reports, and articles with attribution ("Source: NexusWatch"). You may share briefs and screenshots. You may not resell NexusWatch data as a competing product, use automated scraping to extract data at scale, or misrepresent NexusWatch outputs as your own original analysis without attribution.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">6. API Usage</h2>
-      <p>Pro tier API access is subject to rate limits. API data must include attribution. API keys are personal and non-transferable. We reserve the right to revoke API access for abuse.</p>
+      <p>API access is subject to rate limits. API data must include attribution. API keys are personal and non-transferable. We reserve the right to revoke API access for abuse.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">7. Availability</h2>
       <p>We aim for high availability but do not guarantee uptime. Data sources may become unavailable, APIs may change, and the service may have downtime for maintenance. Check the <a href="#/status" style="color:var(--nw-accent)">status page</a> for current system state.</p>

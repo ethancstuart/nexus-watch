@@ -690,7 +690,6 @@ body.nw-historical-mode .nw-map-container::after {
   .nw-portfolio-page,
   .nw-audit-page,
   .nw-accuracy-page,
-  .nw-pricing-page,
   .nw-apidocs-page,
   .nw-releases-page {
     padding: 20px 12px;
@@ -1545,8 +1544,7 @@ body.nw-historical-mode .nw-map-container::after {
   color: #ccc;
 }
 
-/* Pricing / API docs / Release notes pages */
-.nw-pricing-page,
+/* API docs / Release notes pages */
 .nw-apidocs-page,
 .nw-releases-page {
   min-height: 100vh;
@@ -1557,14 +1555,12 @@ body.nw-historical-mode .nw-map-container::after {
   margin: 0 auto;
   font-family: 'Inter', system-ui, sans-serif;
 }
-.nw-pricing-header,
 .nw-apidocs-header,
 .nw-releases-header {
   margin-bottom: 32px;
   padding-bottom: 20px;
   border-bottom: 1px solid #1a1a1a;
 }
-.nw-pricing-back,
 .nw-apidocs-back,
 .nw-releases-back {
   display: inline-block;
@@ -1576,7 +1572,6 @@ body.nw-historical-mode .nw-map-container::after {
   border-radius: 4px;
   margin-bottom: 16px;
 }
-.nw-pricing-header h1,
 .nw-apidocs-header h1,
 .nw-releases-header h1 {
   margin: 0 0 8px 0;
@@ -1584,7 +1579,6 @@ body.nw-historical-mode .nw-map-container::after {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.nw-pricing-subtitle,
 .nw-apidocs-subtitle,
 .nw-releases-subtitle {
   margin: 0;
@@ -1592,161 +1586,6 @@ body.nw-historical-mode .nw-map-container::after {
   color: #888;
   max-width: 700px;
   line-height: 1.5;
-}
-
-/* Pricing tiers */
-.nw-pricing-tiers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-  margin-bottom: 40px;
-}
-.nw-tier {
-  background: #111;
-  border: 1px solid #1a1a1a;
-  border-radius: 8px;
-  padding: 24px 20px;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-.nw-tier-popular {
-  border-color: #ff6600;
-  box-shadow: 0 0 20px rgba(255, 102, 0, 0.15);
-}
-.nw-tier-badge {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ff6600;
-  color: #000;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  padding: 3px 10px;
-  border-radius: 3px;
-}
-.nw-tier-name {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: #888;
-  margin-bottom: 8px;
-}
-.nw-tier-price {
-  font-size: 36px;
-  font-weight: 700;
-  color: #e0e0e0;
-  margin-bottom: 4px;
-}
-.nw-tier-period {
-  font-size: 14px;
-  color: #666;
-  font-weight: 400;
-}
-.nw-tier-tag {
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 20px;
-  min-height: 28px;
-}
-.nw-tier-features {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 20px 0;
-  flex: 1;
-}
-.nw-tier-features li {
-  font-size: 12px;
-  color: #ccc;
-  padding: 4px 0;
-  line-height: 1.5;
-}
-.nw-tier-cta {
-  display: block;
-  text-align: center;
-  padding: 10px 16px;
-  border: 1px solid #333;
-  color: #ccc;
-  text-decoration: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 1px;
-}
-.nw-tier-cta:hover {
-  border-color: #ff6600;
-  color: #ff6600;
-}
-.nw-tier-cta-primary {
-  background: #ff6600;
-  border-color: #ff6600;
-  color: #000;
-}
-.nw-tier-cta-primary:hover {
-  background: #ff8800;
-  color: #000;
-}
-.nw-pricing-founding {
-  text-align: center;
-  padding: 32px 20px;
-  background: linear-gradient(135deg, #1a1a1a, #0d0d0d);
-  border: 1px solid #ff6600;
-  border-radius: 8px;
-  margin-bottom: 40px;
-}
-.nw-founding-badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: #ff6600;
-  background: rgba(255, 102, 0, 0.1);
-  padding: 4px 10px;
-  border-radius: 3px;
-  margin-bottom: 10px;
-}
-.nw-pricing-founding h2 {
-  margin: 0 0 10px 0;
-  font-size: 28px;
-  color: #e0e0e0;
-}
-.nw-pricing-founding p {
-  max-width: 500px;
-  margin: 0 auto 16px;
-  color: #bbb;
-  line-height: 1.5;
-}
-.nw-pricing-founding .nw-tier-cta {
-  display: inline-block;
-  max-width: 260px;
-}
-.nw-pricing-faq h2 {
-  font-size: 20px;
-  margin: 0 0 16px 0;
-}
-.nw-faq-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-}
-.nw-faq-item {
-  background: #111;
-  border: 1px solid #1a1a1a;
-  padding: 16px 18px;
-  border-radius: 4px;
-}
-.nw-faq-item h3 {
-  margin: 0 0 8px 0;
-  font-size: 13px;
-  color: #ff6600;
-}
-.nw-faq-item p {
-  margin: 0;
-  font-size: 12px;
-  color: #bbb;
-  line-height: 1.6;
 }
 
 /* API docs */

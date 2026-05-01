@@ -4,8 +4,7 @@
  * Maps financial holdings to geopolitical risk. "Your portfolio has
  * 23% exposure to countries with CII > 60."
  *
- * This is the Pro tier ($99/mo) feature that makes hedge fund PMs pay
- * without blinking. Input: portfolio holdings. Output: risk heatmap
+ * Input: portfolio holdings. Output: risk heatmap
  * on the globe, scenario impact estimates, CII-weighted exposure.
  *
  * Holdings → Country Exposure → CII Score → Weighted Risk

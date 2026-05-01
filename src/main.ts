@@ -124,7 +124,6 @@ function show404(root: HTMLElement) {
   const links = [
     ['Intel Map', '#/intel'],
     ['Briefs', '#/briefs'],
-    ['Pricing', '#/pricing'],
     ['Watchlist', '#/watchlist'],
     ['Feed', '#/feed'],
     ['Compare', '#/compare'],
@@ -209,14 +208,6 @@ router
       .then((m) => {
         void transition(appRoot);
         m.renderPortfolioPage(appRoot);
-      })
-      .catch((err) => showRouteError(appRoot, err));
-  })
-  .on('/pricing', () => {
-    import('./pages/pricing.ts')
-      .then((m) => {
-        void transition(appRoot);
-        m.renderPricingPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
@@ -361,14 +352,6 @@ router
       .then((m) => {
         void transition(appRoot);
         m.renderAdminMarketing(appRoot);
-      })
-      .catch((err) => showRouteError(appRoot, err));
-  })
-  .on('/admin/revenue', () => {
-    import('./pages/adminRevenue.ts')
-      .then((m) => {
-        void transition(appRoot);
-        void m.renderAdminRevenue(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })

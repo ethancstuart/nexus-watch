@@ -41,13 +41,6 @@ const PAGES: Array<{ id: string; title: string; href: string; keywords: string[]
       icon: '📰',
     },
     {
-      id: 'pricing',
-      title: 'Pricing',
-      href: '#/pricing',
-      keywords: ['tier', 'plans', 'subscribe', 'analyst', 'pro'],
-      icon: '💳',
-    },
-    {
       id: 'methodology',
       title: 'Methodology',
       href: '#/methodology',

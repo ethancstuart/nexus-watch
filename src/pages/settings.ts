@@ -107,22 +107,10 @@ function renderAccountHeader(): HTMLElement {
     wrap.innerHTML = `
       <div class="dossier-kicker" style="text-align: left; margin-bottom: 8px;">ACCOUNT</div>
       <h1 class="dossier-title" style="text-align: left; font-size: 32px; margin-bottom: 12px;">Not signed in</h1>
-      <p style="${leadStyle()}">Sign in to sync your interests across devices and manage your subscription. You can still edit interests below — they'll save to this browser only.</p>
+      <p style="${leadStyle()}">Sign in to sync your interests across devices. You can still edit interests below — they'll save to this browser only.</p>
     `;
     return wrap;
   }
-
-  // Map paidTier → display name
-  const tierNames: Record<string, string> = { insider: 'INSIDER', analyst: 'ANALYST', pro: 'PRO', founding: 'INSIDER' };
-  const tierLabel = user.paidTier ? tierNames[user.paidTier] || 'EXPLORER' : 'EXPLORER';
-  const tierColor =
-    tierLabel === 'PRO'
-      ? '#ff6600'
-      : tierLabel === 'ANALYST'
-        ? '#00d4aa'
-        : tierLabel === 'INSIDER'
-          ? '#e5a913'
-          : dossierColors.textTertiary;
 
   wrap.innerHTML = `
     <div class="dossier-kicker" style="text-align: left; margin-bottom: 8px;">ACCOUNT</div>
@@ -130,11 +118,8 @@ function renderAccountHeader(): HTMLElement {
     <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-family: ${dossierFonts.mono}; font-size: 12px; color: ${dossierColors.textTertiary};">
       <span>${escapeHtml(user.email)}</span>
       <span aria-hidden="true">\u00b7</span>
-      <span style="color: ${tierColor}; font-weight: 700; letter-spacing: 0.12em;">${tierLabel}</span>
-      <span aria-hidden="true">\u00b7</span>
       <span>via ${escapeHtml(user.provider)}</span>
     </div>
-    ${user.paidTier ? `<div style="margin-top:12px"><a href="/api/stripe/portal" style="font-family:${dossierFonts.mono};font-size:11px;color:${dossierColors.accent};text-decoration:none">Manage subscription \u2192</a></div>` : `<div style="margin-top:12px"><a href="#/pricing" style="font-family:${dossierFonts.mono};font-size:11px;color:${dossierColors.accent};text-decoration:none">Upgrade your plan \u2192</a></div>`}
   `;
   return wrap;
 }
@@ -218,7 +203,7 @@ function renderDeliveryEditor(draft: DraftState): HTMLElement {
     <p style="${leadStyle()}">Change the cadence any time. Takes effect with the next brief cycle.</p>
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
       ${freqOption('daily', 'Daily', 'Every morning at 5 AM ET. Best for active watchers.')}
-      ${freqOption('mwf', 'Monday / Wednesday / Friday', 'Three per week. The free tier cadence.')}
+      ${freqOption('mwf', 'Monday / Wednesday / Friday', 'Three per week. A lighter cadence.')}
       ${freqOption('weekly', 'Weekly (Sunday)', 'Sunday Week-in-Review only. Maximum signal, minimum inbox.')}
     </div>
   `;
