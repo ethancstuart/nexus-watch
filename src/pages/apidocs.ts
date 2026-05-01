@@ -4,8 +4,10 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 export function renderApiDocsPage(container: HTMLElement): void {
+  setPageSeo(PAGE_SEO.apidocs);
   container.innerHTML = '';
   container.className = 'nw-apidocs-page';
 

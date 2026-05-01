@@ -9,6 +9,7 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +106,7 @@ function accColor(pct: number | null): string {
 // ---------------------------------------------------------------------------
 
 export async function renderAccuracyPage(container: HTMLElement): Promise<void> {
+  setPageSeo(PAGE_SEO.accuracy);
   container.innerHTML = '';
   container.className = 'nw-accuracy-page';
 

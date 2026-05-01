@@ -164,4 +164,78 @@ export const PAGE_SEO = {
       'What NexusWatch is shipping next — data layers, AI features, and intelligence systems on the public roadmap. Free.',
     canonicalPath: '/roadmap',
   },
+  portfolio: {
+    title: 'Portfolio Geopolitical Exposure',
+    description:
+      "Map your portfolio's geopolitical risk exposure to country instability scores across 86 countries. Holdings → CII-weighted exposure. Free.",
+    canonicalPath: '/portfolio',
+  },
+  entities: {
+    title: 'Entity Graph',
+    description:
+      'Browse geopolitical non-state actors — armed groups, intelligence agencies, PMCs, sanctioned organizations. Sponsors, proxies, operating countries. Free.',
+    canonicalPath: '/entities',
+  },
+  countryBrief: {
+    title: 'Country Brief',
+    description:
+      'Printable single-page country brief: CII score, 6-component breakdown, top signals, data gaps, rule version. Suitable for boardrooms. Free.',
+    canonicalPath: '/brief-country',
+  },
+  releaseNotes: {
+    title: "What's New",
+    description:
+      'Release notes for NexusWatch — new data layers, AI features, intelligence systems, and platform improvements. Building in public. Free.',
+    canonicalPath: '/whats-new',
+  },
+  terms: {
+    title: 'Terms of Service',
+    description:
+      'Terms of Service for NexusWatch — usage policies, attribution requirements, and the open-source commitment. Free.',
+    canonicalPath: '/terms',
+  },
+  privacy: {
+    title: 'Privacy Policy',
+    description:
+      'How NexusWatch handles user data — local-first storage, optional cross-device sync, and what we never collect. Free.',
+    canonicalPath: '/privacy',
+  },
+  apidocs: {
+    title: 'Public API v2',
+    description:
+      'NexusWatch Intelligence API v2 — verified geopolitical data with source attribution, confidence scores, and methodology metadata. Free.',
+    canonicalPath: '/api',
+  },
+  audit: {
+    title: 'Public Audit Viewer',
+    description:
+      "Drill into any country's CII computation history — every rule applied, every source cited, every delta. Radical transparency. Free.",
+    canonicalPath: '/audit',
+  },
+  status: {
+    title: 'Data Health',
+    description:
+      'Real-time service health for every NexusWatch data source — 45+ layers, circuit-breaker states, last-success timestamps. Public transparency. Free.',
+    canonicalPath: '/status',
+  },
+  caseStudy: {
+    title: 'Case Study',
+    description:
+      'Technical case study for NexusWatch — system design, data pipeline, AI integration, and the engineering choices behind the platform. Free.',
+    canonicalPath: '/case-study',
+  },
+  // ---------------------------------------------------------------------------
+  // Routes intentionally without entries:
+  //
+  //   /welcome          — onboarding flow, transient, behind first-visit gate
+  //   /settings         — account settings, requires login, noindex by intent
+  //   /admin/*          — admin tooling (social-queue, marketing), private
+  //   /entities/:id     — dynamic detail; uses entities entry as base then
+  //                       overrides via setPageSeo() per entity at render time
+  //   /audit/:country   — dynamic detail; uses audit entry as base
+  //   /brief/:date      — dynamic brief detail; sets canonical per brief
+  //
+  // These either don't need SEO (private) or override the base entry at
+  // render time with the dynamic resource's title/description.
+  // ---------------------------------------------------------------------------
 } as const satisfies Record<string, PageSeo>;

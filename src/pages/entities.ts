@@ -13,6 +13,7 @@
 
 import { createElement } from '../utils/dom.ts';
 import { ENTITIES, getEntity, type EntityType } from '../services/entityRegistry.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 const TYPE_LABELS: Record<EntityType, string> = {
   armed_group: 'Armed Group',
@@ -35,6 +36,22 @@ const TYPE_COLORS: Record<EntityType, string> = {
 };
 
 export function renderEntitiesPage(root: HTMLElement, detailId?: string): void {
+  // Base SEO; per-entity detail can override via setPageSeo if/when wired.
+  if (detailId) {
+    const entity = getEntity(detailId);
+    if (entity) {
+      setPageSeo({
+        ...PAGE_SEO.entities,
+        title: `${entity.name} · Entity Brief`,
+        description: `${entity.name} — ${TYPE_LABELS[entity.type]}. Operating profile, sponsors, proxies, and associated countries on NexusWatch.`,
+        canonicalPath: `/entities/${entity.id}`,
+      });
+    } else {
+      setPageSeo(PAGE_SEO.entities);
+    }
+  } else {
+    setPageSeo(PAGE_SEO.entities);
+  }
   root.innerHTML = '';
   root.className = 'nw-entities-page';
 

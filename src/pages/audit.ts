@@ -9,6 +9,7 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 interface AuditEntry {
   id: string;
@@ -32,6 +33,17 @@ interface AuditEntry {
 }
 
 export async function renderAuditPage(root: HTMLElement, country?: string): Promise<void> {
+  if (country) {
+    const code = country.toUpperCase();
+    setPageSeo({
+      ...PAGE_SEO.audit,
+      title: `${code} · Audit Trail`,
+      description: `Full CII audit trail for ${code}: every rule applied, every source cited, every score delta. Public transparency. Free.`,
+      canonicalPath: `/audit/${code}`,
+    });
+  } else {
+    setPageSeo(PAGE_SEO.audit);
+  }
   root.innerHTML = '';
   root.className = 'nw-audit-page';
 

@@ -15,10 +15,12 @@ import {
   type PortfolioHolding,
   type PortfolioRiskReport,
 } from '../services/portfolioExposure.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 const STORAGE_KEY = 'nw:portfolio-holdings';
 
 export function renderPortfolioPage(container: HTMLElement): void {
+  setPageSeo(PAGE_SEO.portfolio);
   container.innerHTML = '';
   container.className = 'nw-portfolio-page';
 

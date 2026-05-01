@@ -3,8 +3,10 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 export function renderPrivacyPage(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.privacy);
   root.innerHTML = '';
   root.className = 'nw-legal-page nw-page';
 
