@@ -7,11 +7,13 @@
 
 import '../styles/watchlist.css';
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 import { getCiiWatchlist, addCiiWatch, removeCiiWatch, updateCiiWatch } from '../services/ciiWatchlist.ts';
 import { getCachedCII, getMonitoredCountries } from '../services/countryInstabilityIndex.ts';
 import { getCountryNote, setCountryNote } from '../services/countryNotes.ts';
 
 export function renderWatchlistPage(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.watchlist);
   root.innerHTML = '';
   root.className = 'nw-watchlist-page';
 

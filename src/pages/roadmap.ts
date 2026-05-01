@@ -1,10 +1,12 @@
 import { createElement } from '../utils/dom.ts';
 import { getUser } from '../services/auth.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 function getCurrentTier(): string {
   return 'free';
 }
 
 export function renderRoadmap(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.roadmap);
   root.textContent = '';
 
   const page = createElement('div', { className: 'roadmap-page' });

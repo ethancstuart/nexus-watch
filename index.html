@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg" />
     <link rel="alternate" type="application/rss+xml" title="NexusWatch Intelligence Brief" href="/api/feed" />
     <link rel="alternate" type="application/rss+xml" title="NexusWatch CII Daily Updates" href="/rss/cii" />
@@ -17,32 +18,74 @@
       rel="stylesheet"
     />
     <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
-    <title>NexusWatch | Real-Time Geopolitical Intelligence Platform</title>
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#ff6600" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-    <link rel="canonical" href="https://nexuswatch.dev" />
+    <title>NexusWatch · Real-Time Geopolitical Intelligence</title>
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#04050a" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
+    <link rel="canonical" href="https://nexuswatch.dev/" />
+    <link rel="alternate" type="application/atom+xml" title="NexusWatch Intelligence Brief (Atom)" href="/api/atom" />
 
     <!-- Open Graph / Social -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="NexusWatch — Real-Time Geopolitical Intelligence" />
+    <meta property="og:site_name" content="NexusWatch" />
+    <meta property="og:title" content="NexusWatch · Real-Time Geopolitical Intelligence" />
     <meta
       property="og:description"
       content="45+ live data layers on a 3D globe. 86 countries scored. AI-powered daily briefs. Dark vessel detection. Cinema mode. Free."
     />
-    <meta property="og:image" content="https://nexuswatch.dev/api/og" />
-    <meta property="og:url" content="https://nexuswatch.dev" />
+    <meta property="og:image" content="https://nexuswatch.dev/api/og?type=site" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://nexuswatch.dev/" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="NexusWatch — Real-Time Geopolitical Intelligence" />
+    <meta name="twitter:site" content="@nexuswatch_io" />
+    <meta name="twitter:creator" content="@nexuswatch_io" />
+    <meta name="twitter:title" content="NexusWatch · Real-Time Geopolitical Intelligence" />
     <meta
       name="twitter:description"
       content="45+ live data layers on a 3D globe. 86 countries scored. AI-powered daily briefs. Dark vessel detection. Cinema mode. Free."
     />
-    <meta name="twitter:image" content="https://nexuswatch.dev/api/og" />
+    <meta name="twitter:image" content="https://nexuswatch.dev/api/og?type=site" />
     <meta
       name="description"
-      content="NexusWatch is a real-time geopolitical intelligence platform. 45+ data layers, 86-country instability scoring, AI daily briefs, dark vessel detection, and cinema mode on a 3D globe."
+      content="Open-source geopolitical intelligence platform. 45+ live data layers on a 3D globe, 86-country instability scoring, daily AI briefs, and dark vessel detection. Free."
     />
+
+    <!-- JSON-LD: WebSite + Organization for landing -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://nexuswatch.dev/#website",
+            "url": "https://nexuswatch.dev/",
+            "name": "NexusWatch",
+            "description": "Real-time geopolitical intelligence platform. Free.",
+            "publisher": { "@id": "https://nexuswatch.dev/#org" },
+            "inLanguage": "en-US",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://nexuswatch.dev/#/intel?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://nexuswatch.dev/#org",
+            "name": "NexusWatch",
+            "url": "https://nexuswatch.dev/",
+            "logo": "https://nexuswatch.dev/icons/icon-512.svg",
+            "sameAs": [
+              "https://twitter.com/nexuswatch_io",
+              "https://github.com/ethancstuart/nexus-watch"
+            ]
+          }
+        ]
+      }
+    </script>
     <!-- Critical CSS: loading overlay renders before main CSS downloads -->
     <style>
       body {

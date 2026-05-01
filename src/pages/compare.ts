@@ -9,6 +9,7 @@
 
 import { createElement } from '../utils/dom.ts';
 import { getMonitoredCountries } from '../services/countryInstabilityIndex.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 interface CiiApiRow {
   country_code: string;
@@ -58,6 +59,7 @@ function scoreColor(score: number): string {
 }
 
 export async function renderComparePage(root: HTMLElement): Promise<void> {
+  setPageSeo(PAGE_SEO.compare);
   root.innerHTML = '';
   root.className = 'nw-compare-page';
 

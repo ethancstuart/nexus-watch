@@ -1,8 +1,10 @@
 import '../styles/landing.css';
 import { createElement } from '../utils/dom.ts';
 import { trackEvent } from '../services/analytics.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 export function renderLanding(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.landing);
   root.textContent = '';
 
   const page = createElement('div', { className: 'nw-landing' });
@@ -255,6 +257,10 @@ export function renderLanding(root: HTMLElement): void {
         <a href="#/privacy">Privacy</a>
       </div>
       <div class="landing-footer-copy">\u00a9 ${new Date().getFullYear()} NexusWatch. Intelligence you can audit.</div>
+      <div class="landing-footer-feeds" style="position:absolute;right:24px;bottom:12px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#666;">
+        <a href="/api/feed" rel="alternate" type="application/rss+xml" style="color:#888;text-decoration:none;margin-right:10px;">RSS</a>
+        <a href="/api/atom" rel="alternate" type="application/atom+xml" style="color:#888;text-decoration:none;">Atom</a>
+      </div>
     </footer>
   `;
 

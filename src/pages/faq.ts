@@ -6,6 +6,7 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
@@ -51,6 +52,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
 ];
 
 export function renderFaqPage(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.faq);
   root.innerHTML = '';
   root.className = 'nw-faq-page';
 
