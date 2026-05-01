@@ -10,6 +10,12 @@ import { EventLog } from './EventLog.ts';
 import type { MapView } from '../map/MapView.ts';
 import type { MapLayerManager } from '../map/MapLayerManager.ts';
 
+/** Cinema mode requires a viewport at least this wide; below it we render
+ *  the mobile gate fail-state instead of the broken layout. */
+const CINEMA_MIN_VIEWPORT_PX = 1200;
+/** Idle ms after which Event Log + Intel Brief dim to ambient opacity. */
+const CINEMA_IDLE_HIDE_MS = 10_000;
+
 interface CinemaModeConfig {
   app: HTMLElement;
   mapContainer: HTMLElement;
@@ -29,8 +35,15 @@ export class CinemaMode {
 
   // DOM elements
   private profileBar: HTMLElement | null = null;
+  private regionBar: HTMLElement | null = null;
   private exitBtn: HTMLElement | null = null;
   private scanline: HTMLElement | null = null;
+  private wakeDot: HTMLElement | null = null;
+  private mobileGate: HTMLElement | null = null;
+
+  // Idle / chrome auto-hide state
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private idleHandlers: { type: string; fn: (e: Event) => void }[] = [];
 
   // Subsystems
   private cameraDirector: CameraDirector | null = null;
@@ -84,6 +97,14 @@ export class CinemaMode {
 
   enter(): void {
     if (this.active) return;
+
+    // Mobile gate — Cinema is broken below 1200px. Render a clean fail-state
+    // and bail rather than committing to a layout that crashes into itself.
+    if (typeof window !== 'undefined' && window.innerWidth < CINEMA_MIN_VIEWPORT_PX) {
+      this.showMobileGate();
+      return;
+    }
+
     this.active = true;
 
     // Save current state
@@ -146,13 +167,20 @@ export class CinemaMode {
     // Notify subsystems
     for (const cb of this.onExitCallbacks) cb();
 
+    // Tear down idle auto-hide listeners + timer
+    this.teardownIdleAutoHide();
+
     // Remove cinema DOM
     this.profileBar?.remove();
     this.profileBar = null;
+    this.regionBar?.remove();
+    this.regionBar = null;
     this.exitBtn?.remove();
     this.exitBtn = null;
     this.scanline?.remove();
     this.scanline = null;
+    this.wakeDot?.remove();
+    this.wakeDot = null;
 
     // Remove cinema class (triggers CSS reverse transition)
     this.config.app.classList.remove('nw-cinema');
@@ -247,19 +275,33 @@ export class CinemaMode {
   }
 
   private showCinemaUI(): void {
-    // Profile bar
+    // Profile bar (row 1: persona pills CMD/WAR/SEA/...)
     this.profileBar = this.createProfileBar();
     document.body.appendChild(this.profileBar);
     requestAnimationFrame(() => this.profileBar?.classList.add('visible'));
+
+    // Region bar (row 2: profile.priorityRegions). Stacked under the
+    // persona pills so the two rows never collide.
+    this.regionBar = this.createRegionBar();
+    document.body.appendChild(this.regionBar);
+    requestAnimationFrame(() => this.regionBar?.classList.add('visible'));
 
     // Scanline
     this.scanline = createElement('div', { className: 'cinema-scanline' });
     this.config.mapContainer.appendChild(this.scanline);
 
-    // Exit button
+    // Exit button (top-right, viewport-clamped)
     this.exitBtn = createElement('button', { className: 'cinema-exit-btn', textContent: 'EXIT (Esc)' });
     this.exitBtn.addEventListener('click', () => this.exit());
     document.body.appendChild(this.exitBtn);
+
+    // Wake dot — pulses while chrome is auto-hidden so users have an
+    // affordance back to the panels.
+    this.wakeDot = createElement('div', { className: 'cinema-wake-dot' });
+    document.body.appendChild(this.wakeDot);
+
+    // Auto-hide Event Log + Intel Brief on idle (10s of no input).
+    this.installIdleAutoHide();
 
     // Start subsystems
     this.cameraDirector = new CameraDirector(this.config.mapView, this.activeProfile);
@@ -401,16 +443,123 @@ export class CinemaMode {
     return bar;
   }
 
+  private createRegionBar(): HTMLElement {
+    const bar = createElement('div', { className: 'cinema-region-bar' });
+    this.populateRegionBar(bar);
+    return bar;
+  }
+
+  private populateRegionBar(bar: HTMLElement): void {
+    bar.textContent = '';
+    for (const region of this.activeProfile.priorityRegions) {
+      const pill = createElement('button', {
+        className: 'cinema-region-pill',
+        textContent: region.name,
+      });
+      pill.title = `Fly to ${region.name}`;
+      pill.addEventListener('click', () => {
+        // Mark active and fly the camera to the region.
+        bar.querySelectorAll('.cinema-region-pill').forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        this.config.mapView.flyTo(region.lng, region.lat, region.zoom);
+        document.dispatchEvent(
+          new CustomEvent('cinema:focus-change', {
+            detail: { lat: region.lat, lng: region.lng, label: region.name, source: 'region-bar' },
+          }),
+        );
+      });
+      bar.appendChild(pill);
+    }
+  }
+
   private updateProfileBar(): void {
     if (!this.profileBar) return;
     const pills = this.profileBar.querySelectorAll('.cinema-profile-pill');
     pills.forEach((pill, i) => {
       pill.classList.toggle('active', CINEMA_PROFILES[i].id === this.activeProfile.id);
     });
+    // Region pills change with profile — repopulate.
+    if (this.regionBar) this.populateRegionBar(this.regionBar);
+  }
+
+  // ── Idle auto-hide ───────────────────────────────────────────────────
+  // After 10s of no mouse / keyboard / touch input, dim Event Log + Intel
+  // Brief to ambient opacity (CSS handles the visual). First interaction
+  // restores them. Persona/region top rows stay full opacity (navigational).
+
+  private installIdleAutoHide(): void {
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    void reduced; // CSS @media query handles reduced-motion; we keep the same
+    // class-based show/hide either way.
+
+    const wake = (): void => {
+      if (!this.active) return;
+      this.config.app.classList.remove('cinema-chrome-idle');
+      if (this.idleTimer) clearTimeout(this.idleTimer);
+      this.idleTimer = setTimeout(() => {
+        if (this.active) this.config.app.classList.add('cinema-chrome-idle');
+      }, CINEMA_IDLE_HIDE_MS);
+    };
+
+    const events = ['mousemove', 'keydown', 'touchstart', 'wheel'] as const;
+    for (const type of events) {
+      const fn = (): void => wake();
+      document.addEventListener(type, fn, { passive: true });
+      this.idleHandlers.push({ type, fn });
+    }
+    wake(); // Start the countdown.
+  }
+
+  private teardownIdleAutoHide(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+    for (const { type, fn } of this.idleHandlers) {
+      document.removeEventListener(type, fn);
+    }
+    this.idleHandlers = [];
+    this.config.app.classList.remove('cinema-chrome-idle');
+  }
+
+  // ── Mobile gate ───────────────────────────────────────────────────────
+  // Cinema mode is broken under 1200px. Render a clean fail-state with an
+  // explicit fallback to the standard intel view.
+
+  private showMobileGate(): void {
+    if (this.mobileGate) return;
+    const gate = createElement('div', { className: 'cinema-mobile-gate' });
+    const title = createElement('div', {
+      className: 'cinema-mobile-gate-title',
+      textContent: 'Cinema needs a wider screen',
+    });
+    const body = createElement('div', {
+      className: 'cinema-mobile-gate-body',
+      textContent:
+        'Cinema mode is designed for tablets and desktops at 1200px or wider. Try landscape on a tablet, or continue with the standard intel view.',
+    });
+    const btn = createElement('button', {
+      className: 'cinema-mobile-gate-btn',
+      textContent: 'Continue to standard view',
+    });
+    btn.addEventListener('click', () => {
+      gate.remove();
+      this.mobileGate = null;
+    });
+    gate.appendChild(title);
+    gate.appendChild(body);
+    gate.appendChild(btn);
+    document.body.appendChild(gate);
+    this.mobileGate = gate;
   }
 
   destroy(): void {
     if (this.active) this.exit();
+    this.mobileGate?.remove();
+    this.mobileGate = null;
     this.onEnterCallbacks = [];
     this.onExitCallbacks = [];
     this.onProfileChangeCallbacks = [];
