@@ -42,14 +42,24 @@ function urlEntry(loc: string, lastmod: string, changefreq: string, priority: st
   </url>`;
 }
 
+// Public routes only. Paywall surfaces (/pricing, /billing) are intentionally
+// omitted — the product is free, so those URLs would be misleading or stale.
+// Admin, settings/private, and any auth-only flows are also excluded.
 const STATIC_ROUTES: Array<{ path: string; changefreq: string; priority: string }> = [
   { path: '', changefreq: 'daily', priority: '1.0' },
   { path: 'briefs', changefreq: 'daily', priority: '0.9' },
   { path: 'intel', changefreq: 'hourly', priority: '0.9' },
-  { path: 'methodology', changefreq: 'monthly', priority: '0.5' },
+  { path: 'why-free', changefreq: 'monthly', priority: '0.7' },
   { path: 'about', changefreq: 'monthly', priority: '0.5' },
+  { path: 'methodology', changefreq: 'monthly', priority: '0.5' },
   { path: 'roadmap', changefreq: 'weekly', priority: '0.4' },
   { path: 'accuracy', changefreq: 'daily', priority: '0.7' },
+  { path: 'compare', changefreq: 'weekly', priority: '0.5' },
+  { path: 'watchlist', changefreq: 'weekly', priority: '0.4' },
+  { path: 'feed', changefreq: 'daily', priority: '0.5' },
+  { path: 'faq', changefreq: 'monthly', priority: '0.4' },
+  { path: 'terms', changefreq: 'yearly', priority: '0.2' },
+  { path: 'privacy', changefreq: 'yearly', priority: '0.2' },
   { path: 'rss/cii', changefreq: 'daily', priority: '0.3' },
 ];
 

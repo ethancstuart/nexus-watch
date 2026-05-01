@@ -1,4 +1,20 @@
 User-agent: *
 Allow: /
 
+# Auth-only and operational surfaces — keep search engines out
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/admin
+Disallow: /api/admin/
+Disallow: /api/internal
+Disallow: /api/internal/
+Disallow: /settings
+Disallow: /settings/
+Disallow: /welcome
+Disallow: /audit
+Disallow: /audit/
+
+# Honor crawl-delay for well-behaved bots
+Crawl-delay: 1
+
 Sitemap: https://nexuswatch.dev/sitemap.xml

@@ -1,6 +1,8 @@
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 export function renderRoadmap(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.roadmap);
   root.textContent = '';
 
   const page = createElement('div', { className: 'roadmap-page' });

@@ -1,6 +1,7 @@
 import '../styles/briefs-dossier.css';
 import { createElement } from '../utils/dom.ts';
 import { escapeHtml, renderBriefBody } from '../utils/briefRenderer.ts';
+import { setPageSeo, setJsonLd, PAGE_SEO } from '../utils/seo.ts';
 
 /**
  * Brief archive pages — Light Intel Dossier styling (Track A.10).
@@ -52,14 +53,7 @@ interface BriefDetailResponse {
 export function renderBriefs(root: HTMLElement): void {
   root.textContent = '';
 
-  document.title = 'The NexusWatch Brief — Daily Geopolitical Intelligence';
-  const descMeta = document.querySelector('meta[name="description"]');
-  if (descMeta) {
-    descMeta.setAttribute(
-      'content',
-      'Daily geopolitical intelligence from NexusWatch. 3-minute scans of what changed overnight and what to watch.',
-    );
-  }
+  setPageSeo(PAGE_SEO.briefs);
 
   const page = createElement('div', { className: 'briefs-dossier' });
   page.innerHTML = `
@@ -317,10 +311,33 @@ export function renderBrief(root: HTMLElement, date: string): void {
       // crawlers, but this in-SPA update helps clients that re-crawl
       // on hash changes.
       upsertMeta('property', 'og:title', `NexusWatch Situation Brief · ${briefDate}`);
-      upsertMeta('property', 'og:description', `Daily geopolitical intelligence from NexusWatch — ${dayName}.`);
-      upsertMeta('property', 'og:image', `/api/brief/screenshot?date=${encodeURIComponent(briefDate)}&size=og`);
+      upsertMeta('property', 'og:description', `Daily geopolitical intelligence from NexusWatch — ${dayName}. Free.`);
+      upsertMeta(
+        'property',
+        'og:image',
+        `https://nexuswatch.dev/api/og?type=brief&date=${encodeURIComponent(briefDate)}`,
+      );
       upsertMeta('property', 'og:url', `https://nexuswatch.dev/brief/${briefDate}`);
       upsertMeta('property', 'og:type', 'article');
+
+      // Article schema for the brief — helps Google News + share unfurls.
+      setJsonLd('brief-article', {
+        '@context': 'https://schema.org',
+        '@type': 'NewsArticle',
+        headline: `NexusWatch Situation Brief · ${briefDate}`,
+        description: `Daily geopolitical intelligence from NexusWatch — ${dayName}.`,
+        image: `https://nexuswatch.dev/api/og?type=brief&date=${encodeURIComponent(briefDate)}`,
+        datePublished: `${briefDate}T10:00:00Z`,
+        dateModified: `${briefDate}T10:00:00Z`,
+        mainEntityOfPage: `https://nexuswatch.dev/brief/${briefDate}`,
+        author: { '@type': 'Organization', name: 'NexusWatch' },
+        publisher: {
+          '@type': 'Organization',
+          name: 'NexusWatch',
+          logo: { '@type': 'ImageObject', url: 'https://nexuswatch.dev/icons/icon-512.svg' },
+        },
+        isAccessibleForFree: true,
+      });
     })
     .catch(() => {
       articleEl.innerHTML = `

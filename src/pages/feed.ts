@@ -9,6 +9,7 @@
 
 import '../styles/feed.css';
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 import { getCachedCII, getMonitoredCountries } from '../services/countryInstabilityIndex.ts';
 import { getVerifiedSignals } from '../services/verificationEngine.ts';
 import { getContradictions } from '../services/sourceDisagreement.ts';
@@ -138,6 +139,7 @@ function buildFeed(): FeedCard[] {
 }
 
 export function renderFeedPage(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.feed);
   root.innerHTML = '';
   root.className = 'nw-feed-page';
 

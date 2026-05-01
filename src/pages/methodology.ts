@@ -1,11 +1,13 @@
 import '../styles/briefs.css'; // Reuse briefs page styling
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 /**
  * CII Methodology page — explains the Country Instability Index algorithm.
  * Route: /#/methodology
  */
 export function renderMethodology(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.methodology);
   root.textContent = '';
 
   const page = createElement('div', { className: 'briefs-page' });
