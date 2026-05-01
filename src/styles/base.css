@@ -1,3 +1,5 @@
+@import './tokens.css';
+@import './motion.css';
 @import './design-tokens.css';
 @import './components.css';
 @import './pages-shared.css';

@@ -1,0 +1,150 @@
+/* =============================================================================
+   NexusWatch Motion Vocabulary
+
+   The motion language is restrained. Two camps:
+
+     - Dashboard / Cinema / data surfaces: snap, brief, functional. Fades and
+       slide-ins under 250ms. Never decorative.
+     - Marketing surfaces (.marketing-surface): editorial reveal — slow fade,
+       word stagger, slow rotate. Reference: phantom.land, jasminegunarto.com,
+       Awwwards (obys-2, pixel-melbourne, shader-development-studio,
+       studio-namma, alt-2). Anti-reference: bruno-simon (gimmicky 3D).
+
+   Easing + duration tokens live in tokens.css. This file provides the
+   reusable utility classes + keyframes that consume them.
+
+   ALL motion is gated on prefers-reduced-motion. The bottom of this file
+   neutralizes every animation/transition for users who opted out.
+
+   Track C (landing rebuild) consumes .word-stagger and .fade-in-up.
+   Track B1 (Cinema HUD) keeps its own choreography but should consume the
+   easing/duration tokens.
+   ============================================================================= */
+
+/* ----------------------------------------------------------------------------
+   Keyframes
+   ---------------------------------------------------------------------------- */
+
+@keyframes nw-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nw-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nw-word-reveal {
+  /* Same shape as fade-in-up but isolated so consumers can target it
+     independently for staggered children without inheriting other timings. */
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nw-slow-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Reusable utility classes
+   ---------------------------------------------------------------------------- */
+
+/* Single-shot fade-in with translate. Apply to any block element on enter. */
+.fade-in-up {
+  animation: nw-fade-in-up var(--dur-marquee, 600ms) var(--ease-out, ease-out) both;
+}
+
+.fade-in {
+  animation: nw-fade-in var(--dur-base, 250ms) var(--ease-out, ease-out) both;
+}
+
+/* Slow editorial rotation — for marquee accents, rotating dividers, the
+   marketing-surface "intelligence is moving" hero ornament. 60s revolution. */
+.slow-rotate {
+  animation: nw-slow-rotate 60s linear infinite;
+  will-change: transform;
+}
+
+/* ----------------------------------------------------------------------------
+   Word stagger — kinetic typography reveal for marquee headlines.
+
+   Usage:
+     <h1 class="word-stagger">
+       <span>Real</span><span>-time</span><span>geopolitical</span><span>intelligence</span>
+     </h1>
+
+   Each direct child <span> opacity 0 → 1 + translateY +12px → 0 with a 50ms
+   stagger between siblings via nth-child delays. Track C will own the actual
+   markup; this file owns the reveal vocabulary.
+
+   Stagger uses an explicit 16-child ladder (covers nearly any practical
+   marquee sentence). Beyond 16 children, additional words simply use the
+   16-step delay — graceful, not broken.
+   ---------------------------------------------------------------------------- */
+
+.word-stagger {
+  /* Container itself stays still — only its children animate. */
+}
+
+.word-stagger > * {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: nw-word-reveal var(--dur-marquee, 600ms) var(--ease-out, ease-out) both;
+}
+
+.word-stagger > *:nth-child(1)  { animation-delay:   0ms; }
+.word-stagger > *:nth-child(2)  { animation-delay:  50ms; }
+.word-stagger > *:nth-child(3)  { animation-delay: 100ms; }
+.word-stagger > *:nth-child(4)  { animation-delay: 150ms; }
+.word-stagger > *:nth-child(5)  { animation-delay: 200ms; }
+.word-stagger > *:nth-child(6)  { animation-delay: 250ms; }
+.word-stagger > *:nth-child(7)  { animation-delay: 300ms; }
+.word-stagger > *:nth-child(8)  { animation-delay: 350ms; }
+.word-stagger > *:nth-child(9)  { animation-delay: 400ms; }
+.word-stagger > *:nth-child(10) { animation-delay: 450ms; }
+.word-stagger > *:nth-child(11) { animation-delay: 500ms; }
+.word-stagger > *:nth-child(12) { animation-delay: 550ms; }
+.word-stagger > *:nth-child(13) { animation-delay: 600ms; }
+.word-stagger > *:nth-child(14) { animation-delay: 650ms; }
+.word-stagger > *:nth-child(15) { animation-delay: 700ms; }
+.word-stagger > *:nth-child(n+16) { animation-delay: 750ms; }
+
+/* ----------------------------------------------------------------------------
+   Reduced motion — neutralize EVERY animation/transition for users who opted
+   out. base.css already has a global block for this; we duplicate here so
+   motion.css is self-contained and the contract is clear at a glance.
+   ---------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in-up,
+  .fade-in,
+  .slow-rotate,
+  .word-stagger > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
