@@ -144,8 +144,6 @@ export function renderPortfolioPage(container: HTMLElement): void {
 
   // Weight summary + normalize button
   const weightSummary = createElement('div', { className: 'nw-weight-summary' });
-  weightSummary.style.cssText =
-    'display:flex;align-items:center;gap:12px;padding:8px 0;font-family:var(--nw-font-mono);font-size:12px;min-height:28px';
   formPanel.appendChild(weightSummary);
 
   const updateWeightSummary = () => {
@@ -155,21 +153,19 @@ export function renderPortfolioPage(container: HTMLElement): void {
       return;
     }
     const rounded = Math.round(total * 10) / 10;
-    let color = 'var(--nw-cyan, #00d4aa)'; // green at 100%
+    let kind = 'is-ok';
     let icon = '\u2713';
     if (Math.abs(total - 100) > 0.5) {
-      color = 'var(--nw-amber, #e5a913)'; // orange when != 100%
+      kind = 'is-warn';
       icon = '\u26a0';
     }
     if (total > 150) {
-      color = '#dc2626'; // red when > 150%
+      kind = 'is-critical';
       icon = '\u26a0';
     }
     const normalizeBtn =
-      Math.abs(total - 100) > 0.5
-        ? `<button class="nw-normalize-btn" style="font-size:11px;padding:3px 10px;background:transparent;border:1px solid var(--nw-border);color:var(--nw-text-secondary);border-radius:4px;cursor:pointer;font-family:var(--nw-font-mono)">Normalize to 100%</button>`
-        : '';
-    weightSummary.innerHTML = `<span style="color:${color}">${icon} Total allocation: ${rounded}%</span>${normalizeBtn}`;
+      Math.abs(total - 100) > 0.5 ? `<button class="nw-normalize-btn" type="button">Normalize to 100%</button>` : '';
+    weightSummary.innerHTML = `<span class="nw-weight-summary-text ${kind}">${icon} Total allocation: ${rounded}%</span>${normalizeBtn}`;
 
     const normBtn = weightSummary.querySelector('.nw-normalize-btn');
     if (normBtn) {
@@ -257,7 +253,15 @@ export function renderPortfolioPage(container: HTMLElement): void {
 
   // RIGHT: Results
   const resultsPanel = createElement('div', { className: 'nw-portfolio-results' });
-  resultsPanel.innerHTML = '<div class="nw-results-empty">Add holdings to see your geopolitical exposure.</div>';
+  resultsPanel.innerHTML = `
+    <div class="nw-state">
+      <p class="nw-state-title">Add holdings to see geopolitical exposure</p>
+      <p class="nw-state-body">
+        Enter tickers + weights on the left, or pick a preset. We'll map each
+        holding to its country revenue exposure and weight by live CII.
+      </p>
+    </div>
+  `;
 
   main.appendChild(formPanel);
   main.appendChild(resultsPanel);
@@ -273,12 +277,35 @@ export function renderPortfolioPage(container: HTMLElement): void {
 
   function recompute(): void {
     if (holdings.length === 0) {
-      resultsPanel.innerHTML = '<div class="nw-results-empty">Add holdings to see your geopolitical exposure.</div>';
+      resultsPanel.innerHTML = `
+        <div class="nw-state">
+          <p class="nw-state-title">Add holdings to see geopolitical exposure</p>
+          <p class="nw-state-body">
+            Enter tickers + weights on the left, or pick a preset. We'll map each
+            holding to its country revenue exposure and weight by live CII.
+          </p>
+        </div>
+      `;
       return;
     }
 
-    const report = computePortfolioExposure(holdings);
-    renderResults(resultsPanel, report);
+    try {
+      const report = computePortfolioExposure(holdings);
+      renderResults(resultsPanel, report);
+    } catch {
+      resultsPanel.innerHTML = `
+        <div class="nw-state nw-state-error" role="alert">
+          <p class="nw-state-title">Couldn't compute exposure</p>
+          <p class="nw-state-body">
+            Some holdings may not be in our coverage list. Remove unsupported
+            tickers and try again.
+          </p>
+          <button class="nw-state-cta nw-portfolio-retry" type="button">Try again</button>
+        </div>
+      `;
+      const retry = resultsPanel.querySelector('.nw-portfolio-retry');
+      retry?.addEventListener('click', () => recompute());
+    }
   }
 
   renderHoldings();
@@ -371,13 +398,13 @@ function renderResults(container: HTMLElement, report: PortfolioRiskReport): voi
     const projected = applyScenario(report, s.overrides);
     const delta = projected - report.overallRisk;
     const row = createElement('div', { className: 'nw-risk-scenario-row' });
-    const deltaColor = delta >= 15 ? '#dc2626' : delta >= 5 ? '#f97316' : delta >= 1 ? '#eab308' : '#6b7280';
+    const deltaTier = delta >= 15 ? 'critical' : delta >= 5 ? 'high' : delta >= 1 ? 'med' : 'flat';
     row.innerHTML = `
       <div class="nw-scenario-head">
         <strong>${s.label}</strong>
         <span class="nw-scenario-desc">${s.description}</span>
       </div>
-      <div class="nw-scenario-delta" style="color: ${deltaColor}">
+      <div class="nw-scenario-delta nw-delta-${deltaTier}">
         ${report.overallRisk} → <strong>${projected}</strong>
         <span class="nw-scenario-deltanum">${delta >= 0 ? '+' : ''}${delta}</span>
       </div>
@@ -429,14 +456,14 @@ function renderResults(container: HTMLElement, report: PortfolioRiskReport): voi
     <tbody>
       ${topCountries
         .map((c) => {
-          const ciiColor =
-            c.ciiScore >= 75 ? '#dc2626' : c.ciiScore >= 50 ? '#f97316' : c.ciiScore >= 25 ? '#eab308' : '#22c55e';
+          const ciiTier =
+            c.ciiScore >= 75 ? 'critical' : c.ciiScore >= 50 ? 'high' : c.ciiScore >= 25 ? 'med' : 'low';
           return `<tr>
             <td>${c.countryName}</td>
             <td>${c.exposurePct}%</td>
-            <td style="color: ${ciiColor}">${c.ciiScore}</td>
+            <td class="nw-tier-${ciiTier}">${c.ciiScore}</td>
             <td>${c.weightedRisk.toFixed(1)}</td>
-            <td class="nw-exposure-holdings">${c.holdings.join(', ')}</td>
+            <td class="nw-exposure-holdings" title="${c.holdings.join(', ')}">${c.holdings.join(', ')}</td>
           </tr>`;
         })
         .join('')}
