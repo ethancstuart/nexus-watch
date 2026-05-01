@@ -197,7 +197,11 @@ export class EarthquakeLayer implements MapDataLayer {
       },
     });
 
-    // Labels for M >= 4.0
+    // Labels for M >= 4.0. Larger magnitudes win collisions via
+    // symbol-sort-key (negated magnitude — MapLibre renders lower sort-key
+    // values FIRST, so we negate to put bigger quakes on top). Labels never
+    // overlap each other, never the country labels, and never duplicate
+    // (the dedupe key keeps just one instance of the same M-value visible).
     this.map.addLayer({
       id: 'earthquakes-labels',
       type: 'symbol',
@@ -208,6 +212,9 @@ export class EarthquakeLayer implements MapDataLayer {
         'text-size': 11,
         'text-offset': [0, -1.5],
         'text-font': ['Open Sans Bold'],
+        'text-allow-overlap': false,
+        'text-ignore-placement': false,
+        'symbol-sort-key': ['-', 0, ['get', 'magnitude']],
       },
       paint: {
         'text-color': '#ffffff',

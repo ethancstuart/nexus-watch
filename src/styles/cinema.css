@@ -1,4 +1,28 @@
-/* ── Cinema Mode ── */
+/* =============================================================================
+   Cinema Mode
+
+   Z-INDEX SCALE — consumed from src/styles/tokens.css (Track D).
+     --z-base         (1)    page baseline
+     --z-map          (10)   MapLibre canvas + overlays
+     --z-hud          (100)  persistent HUD: LIVE indicator, time, tension score,
+                             corner brackets, scanline (read-only chrome that
+                             must sit above the map at all times)
+     --z-panel        (200)  floating panels: Event Log, Intel Brief, profile bar,
+                             region pills, Reset/exit button, ticker
+     --z-modal        (1000) modal dialogs (cinema exit confirmation, settings)
+     --z-toast        (2000) transient toasts/notifications
+     --z-cinema-intro (9999) cinema intro fade overlay (top of stack, momentary)
+
+   Stacking inside a layer is by document order. Two adjacent panels at
+   --z-panel can still overlap each other, so anchor them to non-overlapping
+   regions of the viewport instead of relying on z-order to fix collisions.
+
+   MOTION TOKENS — see src/styles/motion.css.
+     --dur-fast (150ms) — cursor-driven reveal/hide
+     --dur-base (250ms) — chrome enter/exit, profile pill swap
+     --dur-slow (400ms) — intro fade, narration enter
+     --ease-out         — standard easing for HUD chrome
+   ============================================================================= */
 
 /* Chrome transitions (smooth fade, not display:none like fullscreen) */
 .nw-app.nw-cinema .nw-topbar {
@@ -15,6 +39,18 @@
   opacity: 0;
   pointer-events: none;
 }
+/* Hide the standard theater preset bar in cinema — its replacement is a
+   cinema-native region row that stacks below the persona pills (see
+   .cinema-region-bar below). */
+.nw-app.nw-cinema .nw-theater-bar {
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+  height: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+}
 .nw-app.nw-cinema .nw-map-container {
   width: 100% !important;
 }
@@ -25,12 +61,12 @@
   position: fixed;
   inset: 0;
   background: #000;
-  z-index: 9999;
+  z-index: var(--z-cinema-intro);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 1;
-  transition: opacity 0.5s ease;
+  transition: opacity var(--dur-slow, 400ms) var(--ease-out, ease);
 }
 .cinema-intro-overlay.fade-out {
   opacity: 0;
@@ -76,19 +112,78 @@
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 300;
+  z-index: var(--z-panel);
   display: flex;
   gap: 4px;
   padding: 4px;
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  scrollbar-width: none;
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 102, 0, 0.2);
   border-radius: 4px;
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity var(--dur-slow, 400ms) var(--ease-out, ease);
 }
 .cinema-profile-bar.visible {
   opacity: 1;
+}
+.cinema-profile-bar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Region Bar (theater pills, row 2) ──
+   Stacked under the persona pills so the two never collide. Same visual
+   language as the profile bar, narrower pills since there are more of them. */
+.cinema-region-bar {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-panel);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 102, 0, 0.12);
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity var(--dur-slow, 400ms) var(--ease-out, ease);
+}
+.cinema-region-bar.visible {
+  opacity: 1;
+}
+.cinema-region-bar::-webkit-scrollbar {
+  display: none;
+}
+.cinema-region-pill {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  padding: 4px 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--dur-fast, 150ms) var(--ease-out, ease);
+}
+.cinema-region-pill:hover {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 102, 0, 0.4);
+}
+.cinema-region-pill.active {
+  color: #ff6600;
+  border-color: rgba(255, 102, 0, 0.6);
+  background: rgba(255, 102, 0, 0.08);
 }
 
 .cinema-profile-pill {
@@ -122,11 +217,12 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 200;
+  z-index: var(--z-hud);
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
 }
 
-/* Corner brackets */
+/* Corner brackets — anchored below the two stacked top rows
+   (persona pills + region pills, total ~96px) so they don't overlap. */
 .cinema-hud::before,
 .cinema-hud::after {
   content: '';
@@ -137,12 +233,12 @@
   border-style: solid;
 }
 .cinema-hud::before {
-  top: 48px;
+  top: 100px;
   left: 16px;
   border-width: 1px 0 0 1px;
 }
 .cinema-hud::after {
-  top: 48px;
+  top: 100px;
   right: 16px;
   border-width: 1px 1px 0 0;
 }
@@ -172,7 +268,7 @@
 
 .cinema-hud-topleft {
   position: absolute;
-  top: 56px;
+  top: 108px;
   left: 24px;
   display: flex;
   flex-direction: column;
@@ -212,8 +308,9 @@
 
 .cinema-hud-topright {
   position: absolute;
-  top: 56px;
+  top: 108px;
   right: 24px;
+  max-width: calc(100vw - 32px);
   text-align: right;
   display: flex;
   flex-direction: column;
@@ -292,7 +389,7 @@
   height: 36px;
   background: rgba(0, 0, 0, 0.85);
   border-top: 1px solid rgba(255, 102, 0, 0.3);
-  z-index: 250;
+  z-index: var(--z-panel);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -383,9 +480,11 @@
 
 /* ── Narration Overlay ── */
 
+/* Intel Brief — docks above the bottom ticker (36px) with an 8px gap so it
+   never collides with the M3.x earthquake pills. */
 .cinema-narration {
   position: fixed;
-  bottom: 52px;
+  bottom: 44px;
   left: 16px;
   width: 380px;
   max-width: calc(100vw - 32px);
@@ -394,13 +493,13 @@
   border-left: 2px solid #ff6600;
   border-radius: 0 4px 4px 0;
   padding: 12px 16px;
-  z-index: 260;
+  z-index: var(--z-panel);
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   transform: translateX(-110%);
   opacity: 0;
   transition:
-    transform 0.4s ease,
-    opacity 0.4s ease;
+    transform var(--dur-slow, 400ms) var(--ease-out, ease),
+    opacity var(--dur-slow, 400ms) var(--ease-out, ease);
 }
 .cinema-narration.visible {
   transform: translateX(0);
@@ -446,7 +545,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 190;
+  z-index: var(--z-hud);
   overflow: hidden;
 }
 .cinema-scanline::after {
@@ -472,17 +571,31 @@
 
 .cinema-event-log {
   position: fixed;
-  top: 48px;
+  top: 100px;
   left: 0;
   bottom: 44px;
   width: 320px;
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
   border-right: 1px solid rgba(255, 102, 0, 0.15);
-  z-index: 220;
+  z-index: var(--z-panel);
   display: flex;
   flex-direction: column;
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  /* Auto-hide on idle — see CinemaMode.ts. opacity transitions via
+     --dur-base; instantly snaps under prefers-reduced-motion (handled in
+     motion.css). */
+  transition: opacity var(--dur-base, 250ms) var(--ease-out, ease);
+}
+/* Idle: panel chrome dims to "ambient" so the globe reads. Restored by
+   first interaction (mousemove / keydown / touch). */
+.nw-cinema.cinema-chrome-idle .cinema-event-log,
+.nw-cinema.cinema-chrome-idle .cinema-narration {
+  opacity: 0.15;
+}
+.nw-cinema.cinema-chrome-idle .cinema-event-log:hover,
+.nw-cinema.cinema-chrome-idle .cinema-narration:hover {
+  opacity: 1;
 }
 
 .cinema-log-header {
@@ -661,26 +774,33 @@
 
 /* ── Exit Button ── */
 
+/* Reset/Exit button — anchored to the top-right corner inside the
+   viewport. Stacked below the tension-score block (which lives in
+   .cinema-hud-topright at top:108) so neither is clipped at the edge. */
 .cinema-exit-btn {
   position: fixed;
-  bottom: 44px;
+  top: 16px;
   right: 16px;
-  z-index: 310;
+  max-width: calc(100vw - 32px);
+  z-index: var(--z-panel);
   pointer-events: auto;
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-size: 9px;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.5);
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 102, 0, 0.25);
   border-radius: 2px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    color var(--dur-fast, 150ms) var(--ease-out, ease),
+    border-color var(--dur-fast, 150ms) var(--ease-out, ease);
 }
 .cinema-exit-btn:hover {
-  color: rgba(255, 255, 255, 0.7);
-  border-color: rgba(255, 255, 255, 0.5);
+  color: #ff6600;
+  border-color: rgba(255, 102, 0, 0.6);
 }
 
 /* ── Staggered HUD entry ── */
@@ -706,4 +826,94 @@
 }
 .cinema-hud.revealed > :nth-child(5) {
   transition-delay: 600ms;
+}
+
+/* ── Wake Dot — pulsing indicator while chrome is auto-hidden ── */
+
+.cinema-wake-dot {
+  position: fixed;
+  bottom: 50px;
+  left: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 102, 0, 0.6);
+  z-index: var(--z-panel);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-base, 250ms) var(--ease-out, ease);
+}
+.nw-cinema.cinema-chrome-idle .cinema-wake-dot {
+  opacity: 1;
+  animation: cinema-wake-pulse 2.5s ease-in-out infinite;
+}
+@keyframes cinema-wake-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+}
+
+/* ── Mobile gate — Cinema needs >=1200px ── */
+.cinema-mobile-gate {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6, 24px);
+  text-align: center;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  color: rgba(255, 255, 255, 0.85);
+}
+.cinema-mobile-gate-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #ff6600;
+  margin-bottom: 12px;
+}
+.cinema-mobile-gate-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.65);
+  max-width: 360px;
+  margin-bottom: 24px;
+}
+.cinema-mobile-gate-btn {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ff6600;
+  background: transparent;
+  border: 1px solid rgba(255, 102, 0, 0.5);
+  border-radius: 2px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all var(--dur-fast, 150ms) var(--ease-out, ease);
+}
+.cinema-mobile-gate-btn:hover {
+  background: rgba(255, 102, 0, 0.1);
+  border-color: #ff6600;
+}
+
+/* Reduced motion — neutralize idle fades and pulse animations.
+   Visibility still flips, but instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .cinema-event-log,
+  .cinema-narration,
+  .cinema-wake-dot {
+    transition: none !important;
+    animation: none !important;
+  }
 }

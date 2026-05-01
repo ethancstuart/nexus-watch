@@ -92,6 +92,12 @@ export class MapView {
       } catch {
         // Fog not supported
       }
+      // Dim base-style country / place labels at globe-zoom levels so they
+      // stay ambient context — data labels (event markers, intel pills) own
+      // first read. CARTO dark-matter / positron / voyager all use layer ids
+      // that include 'country'/'place'/'state'/'admin'; we filter by name
+      // pattern instead of hard-coding so the override survives style swaps.
+      this.dimBaseStyleLabels();
     });
 
     this.resizeObserver = new ResizeObserver(() => {
@@ -244,6 +250,69 @@ export class MapView {
       pitch: this.map.getPitch(),
       bearing: this.map.getBearing(),
     };
+  }
+
+  /**
+   * Dim base-style country / place / state labels at globe-zoom levels so
+   * they stay ambient context. Without this the CARTO dark-matter style
+   * paints "NORTH KOREA / SOUTH KOREA / JAPAN" at full size right on top of
+   * our data labels (M-x earthquakes, ACLED events, intel pills) which makes
+   * the Cinema-mode globe unreadable around dense regions.
+   *
+   * Heuristic: any base-style symbol layer whose id mentions country / place /
+   * state / admin / city is treated as a "place label." Strategy:
+   *   - text-opacity ramps from 0.25 (zoom 2) → 0.65 (zoom 8). Country
+   *     names read at theater-zoom but stay quiet at globe-zoom.
+   *   - text-size scales down (10px@z2 → 14px@z8) so we don't get the
+   *     20px+ "MONGOLIA" stomp.
+   *   - text-color forced to a muted gray so labels never compete with the
+   *     orange/red severity colors on our data layers.
+   *   - text-halo-color set to pure black so labels read against the dark
+   *     basemap without bleeding.
+   * If MapLibre rejects a property (style spec mismatch), we silently skip
+   * that layer rather than throwing — the goal is best-effort dimming.
+   */
+  private dimBaseStyleLabels(): void {
+    if (!this.map) return;
+    const style = this.map.getStyle();
+    if (!style?.layers) return;
+
+    const PLACE_LABEL_PATTERN = /\b(country|place|state|admin|city|town|locality)\b/i;
+    const dimColor = '#7a7a7a';
+    const haloColor = 'rgba(0, 0, 0, 0.9)';
+    const opacityRamp = ['interpolate', ['linear'], ['zoom'], 2, 0.25, 5, 0.5, 8, 0.65] as unknown;
+    const sizeRamp = ['interpolate', ['linear'], ['zoom'], 2, 10, 5, 12, 8, 14] as unknown;
+
+    for (const layer of style.layers) {
+      if (layer.type !== 'symbol') continue;
+      if (!PLACE_LABEL_PATTERN.test(layer.id)) continue;
+
+      try {
+        this.map.setPaintProperty(layer.id, 'text-opacity', opacityRamp as maplibregl.ExpressionSpecification);
+      } catch {
+        /* layer may not have text — skip */
+      }
+      try {
+        this.map.setPaintProperty(layer.id, 'text-color', dimColor);
+      } catch {
+        /* skip */
+      }
+      try {
+        this.map.setPaintProperty(layer.id, 'text-halo-color', haloColor);
+      } catch {
+        /* skip */
+      }
+      try {
+        this.map.setPaintProperty(layer.id, 'text-halo-width', 1);
+      } catch {
+        /* skip */
+      }
+      try {
+        this.map.setLayoutProperty(layer.id, 'text-size', sizeRamp as maplibregl.ExpressionSpecification);
+      } catch {
+        /* skip */
+      }
+    }
   }
 
   destroy(): void {
