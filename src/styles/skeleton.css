@@ -1,0 +1,150 @@
+/* =============================================================================
+   Skeleton + shared async-state utilities for data-dense pages.
+
+   Track B2 (page visual sweep). Uses canonical tokens — no hardcoded hex/px.
+   Pages that need shaped loading or empty/error states should pull from here
+   so async UI is consistent across the dense surfaces (compare, watchlist,
+   portfolio, feed, country brief, methodology).
+
+   Usage:
+     .nw-skel             — base shimmer block (set width/height inline or via
+                            specific shape classes below)
+     .nw-skel-line        — text line (h: 1em-ish)
+     .nw-skel-line-sm     — small text/meta
+     .nw-skel-card        — card-shaped block, takes full width of its grid cell
+     .nw-state            — wrapper for empty/error/loading states (centered)
+     .nw-state-empty      — empty: muted message + optional CTA
+     .nw-state-error      — error: warning tone + retry button
+     .nw-state-title      — primary message inside state
+     .nw-state-body       — secondary explanatory copy
+     .nw-state-cta        — link/button below message
+
+   Don't add page-specific styling here. Pages can override locally if needed.
+   ============================================================================= */
+
+@keyframes nw-skel-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.nw-skel {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 0%,
+    var(--color-surface-elevated) 50%,
+    var(--color-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: nw-skel-shimmer 1.4s var(--ease-in-out) infinite;
+  border-radius: var(--radius-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nw-skel {
+    animation: none;
+    background: var(--color-surface);
+  }
+}
+
+.nw-skel-line {
+  height: 1em;
+  width: 100%;
+  margin-block: var(--space-2);
+}
+
+.nw-skel-line-sm {
+  height: 0.75em;
+  width: 60%;
+  margin-block: var(--space-1);
+}
+
+.nw-skel-card {
+  width: 100%;
+  height: 160px;
+  margin-bottom: var(--space-3);
+}
+
+/* Shared empty / error / loading state container.
+   Pages should put one of these inside their list/grid container. */
+.nw-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-12) var(--space-6);
+  gap: var(--space-2);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.nw-state-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.nw-state-body {
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  color: var(--color-text-secondary);
+  margin: 0;
+  max-width: 48ch;
+}
+
+.nw-state-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.nw-state-cta:hover,
+.nw-state-cta:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-accent-hover);
+  outline: none;
+}
+
+.nw-state-error .nw-state-title {
+  color: var(--color-signal-warning);
+}
+
+.nw-state-error .nw-state-cta {
+  color: var(--color-signal-warning);
+  border-color: var(--color-signal-warning);
+}
+
+.nw-state-error .nw-state-cta:hover {
+  background: rgba(229, 169, 19, 0.08);
+}
+
+/* Loading variant — replaces "Loading..." text with shaped skeletons.
+   Pages compose this with their own skeleton blocks. */
+.nw-state-loading {
+  border-style: solid;
+  border-color: var(--color-border-subtle);
+}
