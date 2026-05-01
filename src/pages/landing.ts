@@ -15,7 +15,6 @@ export function renderLanding(root: HTMLElement): void {
         <a href="#/intel" class="landing-nav-link">Intel Map</a>
         <a href="#/briefs" class="landing-nav-link">Briefs</a>
         <a href="#subscribe" class="landing-nav-link landing-nav-subscribe">Subscribe</a>
-        <a href="#/pricing" class="landing-nav-link">Pricing</a>
         <a href="#/methodology" class="landing-nav-link">About</a>
       </div>
     </nav>
@@ -35,7 +34,7 @@ export function renderLanding(root: HTMLElement): void {
         </div>
       </div>
 
-      <a href="#/intel" class="landing-cta-primary">EXPLORE THE MAP — FREE</a>
+      <a href="#/intel" class="landing-cta-primary">Open the dashboard →</a>
       <p class="landing-cta-subtext">No account. No credit card. 150+ countries scored live.</p>
 
       <div class="landing-brief-signup">
@@ -147,7 +146,7 @@ export function renderLanding(root: HTMLElement): void {
         <h2>Portfolio Geopolitical Exposure</h2>
         <span class="landing-brief-badge">LIVE DEMO</span>
       </div>
-      <p class="landing-portfolio-desc">See how geopolitical risk maps to real holdings. This is a sample portfolio — <a href="#/portfolio">run your own</a> with Pro.</p>
+      <p class="landing-portfolio-desc">See how geopolitical risk maps to real holdings. This is a sample portfolio — <a href="#/portfolio">run your own</a>.</p>
       <div class="landing-portfolio-holdings">
         <span class="landing-holding-chip">TSM 25%</span>
         <span class="landing-holding-chip">XOM 20%</span>
@@ -176,64 +175,6 @@ export function renderLanding(root: HTMLElement): void {
       </div>
     </section>
 
-    <section class="landing-pricing">
-      <h2>Choose your level of intelligence</h2>
-      <p class="landing-pricing-subtitle">Trust is free. Depth is paid. All paid tiers include a 14-day free trial.</p>
-      <div class="landing-pricing-grid four-tier">
-        <div class="landing-price-card">
-          <div class="landing-price-tier">Explorer</div>
-          <div class="landing-price-amount">$0</div>
-          <div class="landing-price-desc">Everything you need to start</div>
-          <ul class="landing-price-features">
-            <li>Full 3D globe with 45+ live layers</li>
-            <li>CII scores for 150+ countries</li>
-            <li>Intelligence Brief (3x/week)</li>
-            <li>3 AI queries/day</li>
-          </ul>
-          <a href="#/intel" class="landing-price-btn landing-price-btn-free">Open the Map</a>
-        </div>
-        <div class="landing-price-card">
-          <div class="landing-price-tier">Insider</div>
-          <div class="landing-price-amount">$19<span>/mo</span></div>
-          <div class="landing-price-desc">Daily intel + full evidence</div>
-          <ul class="landing-price-features">
-            <li>Daily intelligence brief</li>
-            <li>Full evidence chains</li>
-            <li>10 AI queries/day</li>
-            <li>Email alerts</li>
-          </ul>
-          <a href="#/pricing" class="landing-price-btn">See details</a>
-        </div>
-        <div class="landing-price-card featured">
-          <div class="landing-price-badge">MOST POPULAR</div>
-          <div class="landing-price-tier">Analyst</div>
-          <div class="landing-price-amount">$29<span>/mo</span></div>
-          <div class="landing-price-desc">Unlimited AI + scenarios</div>
-          <ul class="landing-price-features">
-            <li>Unlimited AI analyst</li>
-            <li>Scenario simulation</li>
-            <li>30-day timeline</li>
-            <li>No watermark</li>
-          </ul>
-          <a href="#/pricing" class="landing-price-btn featured">See details</a>
-        </div>
-        <div class="landing-price-card">
-          <div class="landing-price-tier">Pro</div>
-          <div class="landing-price-amount">$99<span>/mo</span></div>
-          <div class="landing-price-desc">Portfolio + API + everything</div>
-          <ul class="landing-price-features">
-            <li>Portfolio exposure</li>
-            <li>REST API access</li>
-            <li>CSV/JSON export</li>
-            <li>Crisis playbooks</li>
-          </ul>
-          <a href="#/pricing" class="landing-price-btn">See details</a>
-        </div>
-      </div>
-      <p class="landing-pricing-note">Annual plans save up to 16%. Enterprise API from $299/mo — <a href="mailto:hello@nexuswatch.dev">Talk to us</a></p>
-      <div class="landing-checkout-status" id="checkout-status" role="status" aria-live="polite"></div>
-    </section>
-
     <section class="landing-personas">
       <p class="landing-personas-text">Built for fund managers, policy analysts, journalists, and security teams.</p>
     </section>
@@ -241,7 +182,6 @@ export function renderLanding(root: HTMLElement): void {
     <footer class="landing-footer">
       <div class="landing-footer-brand">NexusWatch Intelligence Platform</div>
       <div class="landing-footer-links">
-        <a href="#/pricing">Pricing</a>
         <a href="#/methodology">Methodology</a>
         <a href="#/accuracy">Accuracy Ledger</a>
         <a href="#/audit">Evidence Chain</a>

@@ -1,7 +1,6 @@
 import '../styles/nexuswatch.css';
 import { createElement } from '../utils/dom.ts';
 import { getCiiWatchlist, addCiiWatch } from '../services/ciiWatchlist.ts';
-import { maybeShowWelcomeModal } from '../ui/welcomeModal.ts';
 import { MapView } from '../map/MapView.ts';
 import { MapLayerManager } from '../map/MapLayerManager.ts';
 // Core layers (always enabled by default) — eagerly loaded
@@ -104,8 +103,6 @@ import '../styles/mobile.css';
 import { openBriefPanel } from '../ui/briefPanel.ts';
 import { createUserMenu } from '../ui/userMenu.ts';
 import { copyShareUrl, getViewStateFromUrl, type ViewState } from '../services/shareView.ts';
-import { canAccess, showUpgradePrompt, getCurrentTier } from '../services/tierGating.ts';
-import '../styles/tier-gating.css';
 import { createMapStyleToggle } from '../map/MapStyleToggle.ts';
 import type { IntelItem, MapLayerCategory } from '../types/index.ts';
 
@@ -227,11 +224,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const alertBtn = createElement('button', { className: 'nw-sitrep-btn nw-essential', textContent: 'ALERTS' });
   alertBtn.title = 'Natural language alert builder (A)';
   alertBtn.addEventListener('click', () => {
-    if (canAccess('nl-alerts-1')) openAlertBuilder(mapContainer);
-    else {
-      // Feature-specific upgrade prompt with context about what alerts do
-      showUpgradePrompt('Advanced Alerts', 'insider');
-    }
+    openAlertBuilder(mapContainer);
   });
 
   const shareBtn = createElement('button', { className: 'nw-sitrep-btn', textContent: 'SHARE' });
@@ -781,12 +774,6 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         }
       }, 3000);
     }
-  }
-
-  // ── Upgrade confirmation (after Stripe checkout) ──
-  const upgradedParam = new URLSearchParams(window.location.search).get('upgraded');
-  if (upgradedParam === 'insider' || upgradedParam === 'analyst' || upgradedParam === 'pro') {
-    void maybeShowWelcomeModal(upgradedParam);
   }
 
   // ── Theater preset deep-link ──
@@ -1425,8 +1412,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           break;
         case 'a':
           if (!e.ctrlKey && !e.metaKey) {
-            if (canAccess('nl-alerts-1')) openAlertBuilder(mapContainer);
-            else showUpgradePrompt('Natural Language Alerts');
+            openAlertBuilder(mapContainer);
           }
           break;
         case 'l':
@@ -1437,8 +1423,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
           break;
         case 't':
           if (!e.ctrlKey && !e.metaKey) {
-            if (canAccess('timeline-48hr')) timeline.show();
-            else showUpgradePrompt('Timeline Playback');
+            timeline.show();
           }
           break;
         case 'c':
@@ -2108,28 +2093,6 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
     }
   }
   container.appendChild(layersBody);
-
-  // ── Upgrade CTA for non-Pro users ──
-  const currentTier = getCurrentTier();
-  if (currentTier !== 'pro') {
-    const upgradeCta = createElement('div', {});
-    upgradeCta.style.cssText =
-      'margin:16px 0 0;padding:12px;border:1px solid var(--nw-border);border-radius:6px;text-align:center;background:var(--nw-surface)';
-
-    const nextTier =
-      currentTier === 'free'
-        ? { name: 'Insider', feature: 'daily briefs & full evidence chains', price: '$19/mo' }
-        : currentTier === 'insider'
-          ? { name: 'Analyst', feature: 'unlimited AI & scenario simulation', price: '$29/mo' }
-          : { name: 'Pro', feature: 'portfolio exposure & API access', price: '$99/mo' };
-
-    upgradeCta.innerHTML = `
-      <div style="font-family:var(--nw-font-mono);font-size:10px;letter-spacing:1px;color:var(--nw-text-muted);margin:0 0 6px">UPGRADE</div>
-      <div style="font-size:13px;color:var(--nw-text-secondary);margin:0 0 8px">Get ${nextTier.feature}</div>
-      <a href="#/pricing" style="font-family:var(--nw-font-mono);font-size:11px;color:var(--nw-accent);text-decoration:none">${nextTier.name} \u2014 ${nextTier.price} \u2192</a>
-    `;
-    container.appendChild(upgradeCta);
-  }
 
   // ── Data Sources Status ──
   const sourcesHeader = createElement('div', { className: 'nw-section-header nw-section-collapsible collapsed' });
