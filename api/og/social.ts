@@ -272,7 +272,7 @@ function renderMarketingCta(valueProp: string): string {
   return `<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;width:100%;height:100%;background:#0a0f1e;padding:48px;font-family:Inter,system-ui,sans-serif;gap:20px;">
     <span style="color:#ff6600;font-size:48px;font-weight:700;letter-spacing:0.08em;">NEXUSWATCH</span>
     <span style="color:#ededed;font-size:24px;font-weight:500;text-align:center;max-width:800px;">${valueProp}</span>
-    <span style="color:#f59e0b;font-size:18px;font-weight:600;letter-spacing:0.04em;">Free to start · No credit card</span>
+    <span style="color:#f59e0b;font-size:18px;font-weight:600;letter-spacing:0.04em;">Free. Forever. No account required to read.</span>
     <span style="color:#555;font-size:14px;margin-top:8px;">nexuswatch.dev</span>
   </div>`;
 }
