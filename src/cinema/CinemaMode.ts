@@ -84,6 +84,13 @@ export class CinemaMode {
 
   enter(): void {
     if (this.active) return;
+
+    // TODO(track-b1, mobile): Cinema mode is gated to viewports >= 1200px.
+    // Track B1 owns this gate. When B1 lands, this method should early-return
+    // (with a friendly toast / fallback dialog) when window.innerWidth < 1200,
+    // and the feat/mobile-responsive sweep should remove this comment.
+    // See docs/mobile-audit.md item §10.
+
     this.active = true;
 
     // Save current state
