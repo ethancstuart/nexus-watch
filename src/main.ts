@@ -355,14 +355,6 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
-  .on('/admin/revenue', () => {
-    import('./pages/adminRevenue.ts')
-      .then((m) => {
-        void transition(appRoot);
-        void m.renderAdminRevenue(appRoot);
-      })
-      .catch((err) => showRouteError(appRoot, err));
-  })
   .on('/brief/:date', (params) => {
     import('./pages/briefs.ts')
       .then((m) => {
