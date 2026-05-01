@@ -1,6 +1,24 @@
 import maplibregl from 'maplibre-gl';
 import { getMapStyleUrl } from './MapStyleToggle.ts';
 const VIEWPORT_KEY = 'nw:map-viewport';
+const MAPLIBRE_CSS_URL = 'https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css';
+
+/**
+ * Inject the maplibre-gl stylesheet on first MapView construction.
+ * Loading it from index.html would block paint on every route — but
+ * landing/pricing/etc. don't render the globe. Idempotent: we tag the
+ * <link> so subsequent MapView instances don't re-add it.
+ */
+function ensureMaplibreStylesheet(): void {
+  const existing = document.querySelector<HTMLLinkElement>('link[data-nw-maplibre-css]');
+  if (existing) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = MAPLIBRE_CSS_URL;
+  link.crossOrigin = 'anonymous';
+  link.dataset.nwMaplibreCss = '1';
+  document.head.appendChild(link);
+}
 
 interface SavedViewport {
   center: [number, number];
@@ -20,6 +38,10 @@ export class MapView {
   }
 
   init(): maplibregl.Map {
+    // Inject maplibre-gl.css before constructing the map so default
+    // controls (zoom, attribution, popups) render styled. See top-level
+    // comment on ensureMaplibreStylesheet for why this isn't in index.html.
+    ensureMaplibreStylesheet();
     // Clear stale viewport from pre-globe era
     const GLOBE_VERSION = 'globe-v2';
     if (localStorage.getItem('nw:globe-version') !== GLOBE_VERSION) {
@@ -38,7 +60,15 @@ export class MapView {
       attributionControl: false,
       maxZoom: 18,
       minZoom: 0.8,
-      ...({ preserveDrawingBuffer: true } as Record<string, unknown>), // Required for canvas.toDataURL() screenshot export
+      // Prefer fade-in on tile load so empty-tile frames don't flash.
+      fadeDuration: 300,
+      // Parallelize tile sprite/icon image fetches. MapLibre default is
+      // 16 — we explicitly set it to make the boot path faster on
+      // connections that can support it. Lower-end mobile networks still
+      // benefit because the requests are HTTP/2 multiplexed. The option
+      // is accepted at runtime but not in the v5 MapOptions type, so we
+      // widen via a cast.
+      ...({ maxParallelImageRequests: 16, preserveDrawingBuffer: true } as Record<string, unknown>),
     });
 
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');

@@ -90,7 +90,9 @@ import { animateCounter } from '../ui/animatedCounter.ts';
 import { identifyRegion } from '../utils/geo.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
-import { CinemaMode } from '../cinema/CinemaMode.ts';
+// Cinema mode is lazy-loaded on first interaction to keep it out of the
+// initial dashboard bundle (~80KB+ savings). See cinemaLoader below.
+import type { CinemaMode } from '../cinema/CinemaMode.ts';
 import { computeCorrelations } from '../services/correlationEngine.ts';
 import { evaluateAlerts, setRules } from '../services/alertEngine.ts';
 import { loadRulesFromStorage, openAlertBuilder } from '../ui/alertBuilder.ts';
@@ -236,7 +238,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       p: mapView.getViewState().pitch,
       b: mapView.getViewState().bearing,
       l: layerManager.getEnabledLayers().map((l) => l.id),
-      pr: cinema.isActive() ? cinema.getActiveProfile().id : undefined,
+      pr: cinema.isActive() ? cinema.getActiveProfileId() : undefined,
     };
     void copyShareUrl(state).then((ok) => {
       shareBtn.textContent = ok ? 'COPIED!' : 'FAILED';
@@ -960,15 +962,47 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // Load investigation from URL if shared
   InvestigationManager.loadFromUrl(mapView, layerManager);
 
-  // ── Cinema Mode ──
-  const cinema = new CinemaMode({
-    app,
-    mapContainer,
-    mapView,
-    layerManager,
-    getLayerData,
-    signal,
-  });
+  // ── Cinema Mode (lazy-loaded) ──
+  // Cinema is heavy (~80KB) and most users never enter it. Defer loading
+  // the entire chunk until first interaction (button click, `c` shortcut,
+  // shared-view deep link, or escape-while-active).
+  let cinemaInstance: CinemaMode | null = null;
+  let cinemaLoadPromise: Promise<CinemaMode> | null = null;
+  const loadCinema = (): Promise<CinemaMode> => {
+    if (cinemaInstance) return Promise.resolve(cinemaInstance);
+    if (cinemaLoadPromise) return cinemaLoadPromise;
+    cinemaLoadPromise = import('../cinema/CinemaMode.ts').then((m) => {
+      cinemaInstance = new m.CinemaMode({
+        app,
+        mapContainer,
+        mapView,
+        layerManager,
+        getLayerData,
+        signal,
+      });
+      return cinemaInstance;
+    });
+    return cinemaLoadPromise;
+  };
+  const cinema = {
+    isActive: (): boolean => cinemaInstance?.isActive() ?? false,
+    getActiveProfileId: (): string | undefined => cinemaInstance?.getActiveProfile().id,
+    toggle: (): void => {
+      void loadCinema().then((c) => c.toggle());
+    },
+    enter: (): void => {
+      void loadCinema().then((c) => c.enter());
+    },
+    exit: (): void => {
+      cinemaInstance?.exit();
+    },
+    setProfile: (p: string): void => {
+      void loadCinema().then((c) => c.setProfile(p));
+    },
+    destroy: (): void => {
+      cinemaInstance?.destroy();
+    },
+  };
   cinemaBtn.addEventListener('click', () => cinema.toggle());
 
   // ── Floating widgets ──
