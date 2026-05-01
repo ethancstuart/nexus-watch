@@ -1,412 +1,536 @@
+/**
+ * Landing — editorial rebuild (Track C).
+ *
+ * Surfaces the "Free." positioning. Hero is the live globe with kinetic
+ * typographic overlay; below the fold are restrained editorial sections
+ * (feature grid, layer breadth, Cinema preview, sample brief, why-free
+ * teaser, newsletter, receipts, footer).
+ *
+ * Mobile-first. The globe is a decorative background — interactivity is
+ * disabled on the landing surface and the desktop boots MapLibre lazily.
+ * On mobile we paint a static dark globe (no MapLibre cost) so first paint
+ * is measured in milliseconds, not megabytes.
+ */
+
 import '../styles/landing.css';
 import { createElement } from '../utils/dom.ts';
 import { trackEvent } from '../services/analytics.ts';
 import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
+const FALLBACK_BRIEF = {
+  date: 'Sample',
+  headline: 'A reading on the world, written each morning at 05:00 ET.',
+  excerpt:
+    'Three minutes. The conflicts that moved overnight, the disasters that landed, the markets that flinched. Each line evidence-chained back to the source — USGS, ACLED, GDELT, AIS — so you can audit anything that smells off. The full archive is open.',
+};
+
+interface BriefResponse {
+  date?: string;
+  headline?: string;
+  summary?: string;
+}
+
 export function renderLanding(root: HTMLElement): void {
   setPageSeo(PAGE_SEO.landing);
   root.textContent = '';
 
-  const page = createElement('div', { className: 'nw-landing' });
-  page.setAttribute('role', 'main');
-  page.id = 'main-content';
-  page.innerHTML = `
-    <nav class="landing-nav">
-      <span class="landing-logo">NexusWatch</span>
-      <div class="landing-nav-links">
-        <a href="#/intel" class="landing-nav-link">Intel Map</a>
-        <a href="#/briefs" class="landing-nav-link">Briefs</a>
-        <a href="#subscribe" class="landing-nav-link landing-nav-subscribe">Subscribe</a>
-        <a href="#/methodology" class="landing-nav-link">About</a>
+  // Reduced motion + viewport-based decisions.
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isNarrow = window.matchMedia('(max-width: 767px)').matches;
+
+  // Top-level <main> opts into the marketing surface (Source Serif, generous
+  // rhythm). Adding nw-landing-surface on top scopes our overrides.
+  const main = createElement('main', { className: 'marketing-surface nw-landing-surface' });
+  main.id = 'main-content';
+  main.setAttribute('role', 'main');
+
+  main.innerHTML = `
+    <nav class="nw-nav" aria-label="Primary">
+      <a href="#/" class="nw-nav-brand"><span class="nw-nav-mark">●</span>&nbsp;NexusWatch</a>
+      <div class="nw-nav-links">
+        <a href="#/intel">Intel Map</a>
+        <a href="#/briefs">Briefs</a>
+        <a href="#/why-free">Why Free</a>
+        <a href="#/about">About</a>
       </div>
     </nav>
 
-    <section class="landing-hero">
-      <div class="landing-hero-badge">VERIFIED GEOPOLITICAL INTELLIGENCE</div>
-      <h1 class="landing-hero-title">See the world's risk in real time.</h1>
-      <p class="landing-hero-sub">Every score backed by evidence you can trace. Free.</p>
+    <section class="nw-hero" aria-label="Hero">
+      <div class="nw-hero-globe" id="nw-hero-globe" aria-hidden="true"></div>
 
-      <div class="landing-cii-ticker-hero" id="cii-ticker">
-        <div class="landing-ticker-header">
-          <span class="landing-ticker-dot"></span>
-          <span class="landing-ticker-label">LIVE CII</span>
+      <div class="nw-hero-live" aria-hidden="true">
+        <span class="nw-hero-live-dot"></span>
+        <span>LIVE</span>
+      </div>
+
+      <div class="nw-hero-content" id="nw-hero-content">
+        <span class="nw-eyebrow">Geopolitical Intelligence</span>
+        <h1 class="nw-hero-headline word-stagger" aria-label="The world, watched.">
+          <span>The</span> <span>world,</span> <span>watched<span class="nw-hero-period">.</span></span>
+        </h1>
+        <p class="nw-hero-sub">45+ live data layers. 86 countries scored. Daily AI briefs. Free.</p>
+        <a href="#/intel" class="nw-hero-cta" data-cta="hero-primary">
+          Open the dashboard <span class="nw-hero-cta-arrow" aria-hidden="true">→</span>
+        </a>
+        <p class="nw-hero-fineprint">It's the entire site. Free.</p>
+      </div>
+    </section>
+
+    <section class="nw-reveal" aria-label="What it is">
+      <span class="nw-section-eyebrow">What it is</span>
+      <h2 class="nw-section-heading">A command center for a moving world.</h2>
+      <p class="nw-section-lede">
+        Open the dashboard, watch the globe spin, drop pins on what matters. Every layer is live, every score
+        traces back to a source, every brief is something you'd actually read.
+      </p>
+      <div class="nw-features-grid">
+        <article class="nw-feature">
+          <span class="nw-feature-label">45+ Layers</span>
+          <h3 class="nw-feature-title">Live data, every minute.</h3>
+          <p class="nw-feature-desc">Earthquakes, conflict, sanctions, shipping, satellites, AI sentiment, dark vessels, undersea cables, and thirty-seven more — refreshed continuously.</p>
+        </article>
+        <article class="nw-feature">
+          <span class="nw-feature-label">86 Countries</span>
+          <h3 class="nw-feature-title">A scored world.</h3>
+          <p class="nw-feature-desc">The Country Instability Index decomposes into six weighted components with evidence chains and confidence badges. Click a number, see the data behind it.</p>
+        </article>
+        <article class="nw-feature">
+          <span class="nw-feature-label">Daily Brief</span>
+          <h3 class="nw-feature-title">Three minutes. Every morning.</h3>
+          <p class="nw-feature-desc">A synthesized intelligence report, composed by AI, vetted against the sources you can read for yourself. Free in your inbox or via RSS.</p>
+        </article>
+        <article class="nw-feature">
+          <span class="nw-feature-label">Cinema Mode</span>
+          <h3 class="nw-feature-title">Drop it on a TV.</h3>
+          <p class="nw-feature-desc">A wall-display loop: globe, alerts, instability deltas, briefings cycling on a slow tempo. Trading floors, ops rooms, your living room.</p>
+        </article>
+        <article class="nw-feature">
+          <span class="nw-feature-label">Open API</span>
+          <h3 class="nw-feature-title">Query the firehose.</h3>
+          <p class="nw-feature-desc">A v2 REST surface over the same data the dashboard reads. No key required for basic queries. Built so other people can build on top.</p>
+        </article>
+        <article class="nw-feature">
+          <span class="nw-feature-label">Receipts</span>
+          <h3 class="nw-feature-title">Open-source, evidence-chained.</h3>
+          <p class="nw-feature-desc">MIT-licensed. Every claim traces to a source row and a confidence score. Calls we got wrong stay in the prediction ledger — that's the work.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="nw-reveal" aria-label="Layers">
+      <span class="nw-section-eyebrow">Layers / 45+</span>
+      <h2 class="nw-section-heading">The breadth of the surface.</h2>
+      <p class="nw-section-lede">
+        Five categories, thirty named layers visible above; fifteen more under the hood. Toggle any of them on
+        the live map.
+      </p>
+      <div class="nw-layers-rail" id="nw-layers-rail">
+        <article class="nw-layer-card">
+          <div class="nw-layer-head">
+            <span class="nw-layer-name">Conflict & Military</span>
+            <span class="nw-layer-count">7 <span class="nw-layer-dot" aria-hidden="true"></span></span>
+          </div>
+          <ul class="nw-layer-list">
+            <li>ACLED Live Conflicts</li>
+            <li>Conflict Zones</li>
+            <li>Military Bases (28)</li>
+            <li>Cyber Threat Corridors</li>
+            <li>OFAC Sanctions</li>
+            <li>GPS Jamming Zones</li>
+            <li>Frontlines</li>
+          </ul>
+        </article>
+        <article class="nw-layer-card">
+          <div class="nw-layer-head">
+            <span class="nw-layer-name">Natural Hazards</span>
+            <span class="nw-layer-count">5 <span class="nw-layer-dot" aria-hidden="true"></span></span>
+          </div>
+          <ul class="nw-layer-list">
+            <li>Earthquakes (USGS, 1 min)</li>
+            <li>Wildfires (NASA FIRMS)</li>
+            <li>GDACS Disasters</li>
+            <li>WHO Disease Outbreaks</li>
+            <li>Weather Alerts</li>
+          </ul>
+        </article>
+        <article class="nw-layer-card">
+          <div class="nw-layer-head">
+            <span class="nw-layer-name">Infrastructure</span>
+            <span class="nw-layer-count">9 <span class="nw-layer-dot" aria-hidden="true"></span></span>
+          </div>
+          <ul class="nw-layer-list">
+            <li>Ship Tracking (26)</li>
+            <li>Chokepoint Status (6)</li>
+            <li>Undersea Cables (12)</li>
+            <li>Oil & Gas Pipelines</li>
+            <li>Nuclear Facilities (22)</li>
+            <li>Strategic Ports (18)</li>
+            <li>Trade Routes</li>
+            <li>Space Launches</li>
+            <li>Energy Grid</li>
+          </ul>
+        </article>
+        <article class="nw-layer-card">
+          <div class="nw-layer-head">
+            <span class="nw-layer-name">Intelligence</span>
+            <span class="nw-layer-count">7 <span class="nw-layer-dot" aria-hidden="true"></span></span>
+          </div>
+          <ul class="nw-layer-list">
+            <li>GDELT News Events</li>
+            <li>Prediction Markets</li>
+            <li>Satellites (animated orbits)</li>
+            <li>Internet Outages</li>
+            <li>Election Calendar</li>
+            <li>Refugee Displacement Arcs</li>
+            <li>Sentiment</li>
+          </ul>
+        </article>
+        <article class="nw-layer-card">
+          <div class="nw-layer-head">
+            <span class="nw-layer-name">Environment</span>
+            <span class="nw-layer-count">2 <span class="nw-layer-dot" aria-hidden="true"></span></span>
+          </div>
+          <ul class="nw-layer-list">
+            <li>Air Quality AQI (30 cities)</li>
+            <li>Live Aircraft (OpenSky)</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="nw-reveal" aria-label="Cinema mode">
+      <div class="nw-cinema">
+        <div class="nw-cinema-copy">
+          <span class="nw-section-eyebrow">Cinema Mode</span>
+          <h2 class="nw-section-heading">Drop it on a TV. Watch the world.</h2>
+          <p>Cinema is the same intelligence, choreographed for a wall — slow globe rotation, alert pills cycling,
+            instability deltas ticking. Set it once. Forget the remote. The world keeps moving.</p>
+          <a href="#/intel?cinema=1" class="nw-hero-cta" data-cta="cinema-preview">
+            Try Cinema <span class="nw-hero-cta-arrow" aria-hidden="true">→</span>
+          </a>
         </div>
-        <div class="landing-ticker-strip" id="cii-ticker-strip">
-          <span class="landing-ticker-loading">Loading live scores...</span>
+        <div class="nw-cinema-stage" aria-hidden="true">
+          <span class="nw-cinema-pill">CINEMA / LIVE</span>
+          <div class="nw-cinema-bottombar">
+            <span>EARTHQUAKE · 6.2 · LUZON</span>
+            <span>CII · YE +3 · 84</span>
+          </div>
         </div>
       </div>
+    </section>
 
-      <a href="#/intel" class="landing-cta-primary">Open the dashboard →</a>
-      <p class="landing-cta-subtext">No account. No credit card. 150+ countries scored live.</p>
+    <section class="nw-reveal" aria-label="Today's brief">
+      <span class="nw-section-eyebrow">Today's Brief</span>
+      <h2 class="nw-section-heading">A reading on the world, every morning.</h2>
+      <article class="nw-brief-card" id="nw-brief-card">
+        <div class="nw-brief-meta">
+          <span id="nw-brief-date">${FALLBACK_BRIEF.date}</span>
+          <span>NexusWatch · Daily Intelligence</span>
+        </div>
+        <h3 class="nw-brief-headline" id="nw-brief-headline">${FALLBACK_BRIEF.headline}</h3>
+        <p class="nw-brief-excerpt" id="nw-brief-excerpt">${FALLBACK_BRIEF.excerpt}</p>
+        <a href="#/briefs" class="nw-brief-link">Read the full brief <span aria-hidden="true">→</span></a>
+      </article>
+    </section>
 
-      <div class="landing-brief-signup">
-        <label for="hero-email" class="sr-only">Email address</label>
-        <form class="landing-subscribe-form" id="landing-subscribe">
-          <input type="email" id="hero-email" placeholder="your@email.com" required class="landing-email-input">
-          <button type="submit" class="landing-subscribe-btn">GET THE DAILY BRIEF — FREE</button>
+    <section class="nw-reveal nw-whyfree-teaser" aria-label="Why free">
+      <p class="nw-whyfree-teaser-quote">
+        "The existing platforms are paywalled and unreadable. Free, forever-ish, no tiers."
+      </p>
+      <p class="nw-whyfree-teaser-attribution">
+        — Ethan, operator
+        <a href="#/why-free">Read the full case →</a>
+      </p>
+    </section>
+
+    <section class="nw-reveal" aria-label="Newsletter">
+      <span class="nw-section-eyebrow">Subscribe</span>
+      <h2 class="nw-section-heading">Get the daily brief in your inbox. Free.</h2>
+      <div class="nw-signup">
+        <form class="nw-signup-form" id="nw-subscribe-form" novalidate>
+          <label for="nw-subscribe-email" class="sr-only">Email address</label>
+          <input
+            type="email"
+            id="nw-subscribe-email"
+            name="email"
+            class="nw-signup-input"
+            placeholder="you@somewhere.com"
+            autocomplete="email"
+            required
+          />
+          <button type="submit" class="nw-signup-button">Subscribe</button>
         </form>
-        <div class="landing-subscribe-status" id="landing-sub-status"></div>
+        <p class="nw-signup-status" id="nw-subscribe-status" role="status" aria-live="polite"></p>
       </div>
     </section>
 
-    <section class="landing-stats-bar">
-      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">45+</span><span class="landing-stat-label">Data Layers</span></div>
-      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">150+</span><span class="landing-stat-label">Countries</span></div>
-      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">12</span><span class="landing-stat-label">Verified Sources</span></div>
-      <div class="landing-stat"><span class="landing-stat-num nw-data-lg">100%</span><span class="landing-stat-label">Auditable</span></div>
+    <section class="nw-reveal" aria-label="Sources and receipts">
+      <span class="nw-section-eyebrow">Sources / Receipts</span>
+      <h2 class="nw-section-heading">Public data. Public method.</h2>
+      <p class="nw-section-lede">
+        Everything on the map traces back to one of these. Open repo on GitHub; open API at <code>/api</code>.
+      </p>
+      <ul class="nw-trust-list">
+        <li>USGS</li>
+        <li>GDELT</li>
+        <li>NASA FIRMS</li>
+        <li>ACLED</li>
+        <li>OpenSky</li>
+        <li>OpenAQ</li>
+        <li>GDACS</li>
+        <li>WHO</li>
+        <li>AIS / Marine Traffic</li>
+        <li>Polymarket</li>
+        <li>V-Dem</li>
+        <li>Cloudflare Radar</li>
+      </ul>
     </section>
 
-    <section class="landing-trust">
-      <span class="landing-trust-label">TRUSTED DATA SOURCES</span>
-      <div class="landing-trust-logos">
-        <span class="landing-trust-badge">USGS</span>
-        <span class="landing-trust-badge">NASA FIRMS</span>
-        <span class="landing-trust-badge">ACLED</span>
-        <span class="landing-trust-badge">WHO</span>
-        <span class="landing-trust-badge">GDACS</span>
-        <span class="landing-trust-badge">AIS</span>
-        <span class="landing-trust-badge">GDELT</span>
-        <span class="landing-trust-badge">OpenSky</span>
-        <span class="landing-trust-badge">Polymarket</span>
-        <span class="landing-trust-badge">V-Dem</span>
+    <footer class="nw-footer">
+      <div class="nw-footer-top">
+        <div class="nw-footer-brand"><span>●</span> NexusWatch</div>
+        <div class="nw-footer-links">
+          <a href="#/intel">Intel Map</a>
+          <a href="#/briefs">Briefs</a>
+          <a href="#/why-free">Why Free</a>
+          <a href="#/about">About</a>
+          <a href="#/api">API</a>
+          <a href="https://github.com/ethancstuart/nexus-watch" target="_blank" rel="noopener">GitHub</a>
+          <a href="/api/feed" rel="alternate" type="application/rss+xml">RSS</a>
+        </div>
       </div>
-      <div class="landing-trust-proof">
-        <span class="landing-ticker-dot"></span>
-        <span class="landing-trust-proof-text">Last signal processed: <span id="last-signal-time">moments ago</span></span>
-      </div>
-    </section>
-
-    <section class="landing-methodology-cta">
-      <h2>How we score countries</h2>
-      <p>The Country Instability Index (CII) decomposes every score into 6 weighted components across 12+ verified data sources. Every number links to its evidence chain.</p>
-      <div class="landing-methodology-links">
-        <a href="#/methodology" class="nw-button-ghost nw-button-sm">Read full methodology</a>
-        <a href="#/accuracy" class="nw-button-ghost nw-button-sm">View prediction accuracy</a>
-      </div>
-    </section>
-
-    <section class="landing-features">
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[◆◆◆]</div>
-        <h3>Intelligence Confidence System</h3>
-        <p>Every CII score decomposes to its source data. Click 72 → see the 14 ACLED events, 2 USGS quakes, and 23 GDELT articles. With confidence badges.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[🛡🛡]</div>
-        <h3>Multi-Source Verification</h3>
-        <p>Events tagged CONFIRMED (3+ sources), CORROBORATED (2 sources), or UNVERIFIED (single source) — how actual intel agencies work.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[?!?]</div>
-        <h3>Scenario Simulation</h3>
-        <p>"What happens if Iran closes the Strait of Hormuz?" Forward-looking what-if analysis with CII deltas, cascade chains, historical precedents.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[📊]</div>
-        <h3>Portfolio Geopolitical Exposure</h3>
-        <p>Map your holdings to country-level risk. "Your portfolio has 23% exposure to countries with CII > 60." For hedge funds and family offices.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[◷◷◷]</div>
-        <h3>Time-Travel Intelligence</h3>
-        <p>Scrub through history. See what the Middle East looked like 6 months ago. Track Sudan's trajectory week by week. 90 days of CII history.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[✓✗]</div>
-        <h3>Prediction Ledger</h3>
-        <p>We publish our accuracy. "Learning in public." Every assessment tracked against outcome. We'll never hide a wrong call.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[!⚠!]</div>
-        <h3>Crisis Playbooks</h3>
-        <p>Auto-activates when major events fire. Historical precedent, monitoring priorities, at-risk infrastructure — all in one modal.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[<=>]</div>
-        <h3>Risk Cascade Engine</h3>
-        <p>56 cross-border dependency rules. Sudan → Chad refugees. Iran → Japan oil. Taiwan → US semiconductors. See how crises propagate.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[!?!]</div>
-        <h3>Natural Language Alerts</h3>
-        <p>"Alert me when Sudan CII > 60 AND oil moves > 3%." Composite multi-condition alerts with AND/OR logic.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[<->]</div>
-        <h3>Entity Graph</h3>
-        <p>Palantir-inspired investigation. Click any country to see proxy networks, alliances, chokepoint dependencies, and conflict actors.</p>
-      </div>
-      <div class="landing-feature anim-fade-up">
-        <div class="landing-feature-icon">[---]</div>
-        <h3>Dark Vessel Detection</h3>
-        <p>Ships that stop broadcasting AIS near sensitive waters get flagged. Hormuz. Bab el-Mandeb. Taiwan Strait. Automatic.</p>
-      </div>
-    </section>
-
-    <section class="landing-portfolio-demo anim-fade-up">
-      <div class="landing-portfolio-header">
-        <h2>Portfolio Geopolitical Exposure</h2>
-        <span class="landing-brief-badge">LIVE DEMO</span>
-      </div>
-      <p class="landing-portfolio-desc">See how geopolitical risk maps to real holdings. This is a sample portfolio — <a href="#/portfolio">run your own</a>.</p>
-      <div class="landing-portfolio-holdings">
-        <span class="landing-holding-chip">TSM 25%</span>
-        <span class="landing-holding-chip">XOM 20%</span>
-        <span class="landing-holding-chip">AAPL 30%</span>
-        <span class="landing-holding-chip">VWO 25%</span>
-      </div>
-      <div class="landing-portfolio-result" id="portfolio-demo-result">
-        <span class="landing-ticker-loading">Analyzing geopolitical exposure...</span>
-      </div>
-    </section>
-
-    <section class="landing-brief-preview">
-      <div class="landing-brief-header">
-        <h2>Today's NexusWatch Brief</h2>
-        <span class="landing-brief-badge">SAMPLE</span>
-      </div>
-      <div class="landing-brief-content" id="landing-brief-preview">Loading today's brief...</div>
-      <div class="landing-brief-fade"></div>
-      <div class="landing-brief-cta">
-        <p>Get the full brief delivered free every morning</p>
-        <form class="landing-subscribe-form" id="brief-subscribe">
-          <input type="email" placeholder="your@email.com" required class="landing-email-input">
-          <button type="submit" class="landing-subscribe-btn">SUBSCRIBE TO THE BRIEF</button>
-        </form>
-        <div class="landing-subscribe-status" id="brief-sub-status"></div>
-      </div>
-    </section>
-
-    <section class="landing-personas">
-      <p class="landing-personas-text">Built for fund managers, policy analysts, journalists, and security teams.</p>
-    </section>
-
-    <footer class="landing-footer">
-      <div class="landing-footer-brand">NexusWatch Intelligence Platform</div>
-      <div class="landing-footer-links">
-        <a href="#/methodology">Methodology</a>
-        <a href="#/accuracy">Accuracy Ledger</a>
-        <a href="#/audit">Evidence Chain</a>
-        <a href="#/status">System Status</a>
-        <a href="#/api">API Docs</a>
-        <a href="#/briefs">Brief Archive</a>
-        <a href="#/faq">FAQ</a>
-        <a href="#/whats-new">What's New</a>
-        <a href="#/roadmap">Roadmap</a>
-        <a href="#/terms">Terms</a>
-        <a href="#/privacy">Privacy</a>
-      </div>
-      <div class="landing-footer-copy">\u00a9 ${new Date().getFullYear()} NexusWatch. Intelligence you can audit.</div>
-      <div class="landing-footer-feeds" style="position:absolute;right:24px;bottom:12px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#666;">
-        <a href="/api/feed" rel="alternate" type="application/rss+xml" style="color:#888;text-decoration:none;margin-right:10px;">RSS</a>
-        <a href="/api/atom" rel="alternate" type="application/atom+xml" style="color:#888;text-decoration:none;">Atom</a>
+      <div class="nw-footer-meta">
+        © ${new Date().getFullYear()} NexusWatch · MIT License · Built in the open.
       </div>
     </footer>
   `;
 
-  root.appendChild(page);
+  root.appendChild(main);
 
-  // Entrance animations via IntersectionObserver
-  const animElements = page.querySelectorAll('.anim-fade-up');
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry, index) => {
-        if (entry.isIntersecting) {
-          setTimeout(() => entry.target.classList.add('visible'), index * 100);
-          observer.unobserve(entry.target);
-        }
-      });
-    },
-    { threshold: 0.1 },
-  );
-  animElements.forEach((el) => observer.observe(el));
-
-  // Subscribe form handler (shared across all forms)
-  function setupSubscribeForm(formId: string, statusId: string) {
-    const form = document.getElementById(formId) as HTMLFormElement;
-    const statusEl = document.getElementById(statusId);
-    form?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = (form.querySelector('input') as HTMLInputElement).value;
-      if (statusEl) {
-        statusEl.textContent = 'Subscribing...';
-        statusEl.style.color = '#888';
-      }
-      try {
-        const res = await fetch('/api/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, source: formId }),
-        });
-        const data = await res.json();
-        if (statusEl) {
-          statusEl.textContent = data.success
-            ? "✓ You're in! First brief arrives tomorrow morning."
-            : data.error || 'Failed';
-          statusEl.style.color = data.success ? '#22c55e' : '#ef4444';
-        }
-        if (data.success) {
-          trackEvent('brief_signup', { source: formId });
-        }
-      } catch {
-        if (statusEl) {
-          statusEl.textContent = 'Network error — try again';
-          statusEl.style.color = '#ef4444';
-        }
-      }
-    });
+  // ── Hero globe — lazy MapLibre on desktop, static fallback on mobile ──
+  const heroGlobe = main.querySelector<HTMLElement>('#nw-hero-globe');
+  if (heroGlobe) {
+    if (isNarrow) {
+      // Mobile: paint a stylized dark globe. Skip MapLibre entirely.
+      heroGlobe.classList.add('nw-hero-globe-static');
+    } else {
+      // Desktop: dynamic-import MapLibre + boot a decorative globe in the
+      // background. The headline paints first; the globe arrives 50–500ms later.
+      void bootDecorativeGlobe(heroGlobe, prefersReducedMotion);
+    }
   }
 
-  setupSubscribeForm('landing-subscribe', 'landing-sub-status');
-  setupSubscribeForm('brief-subscribe', 'brief-sub-status');
+  // ── Hero headline dim after 2s so globe stays legible ──
+  const heroContent = main.querySelector<HTMLElement>('#nw-hero-content');
+  if (heroContent && !prefersReducedMotion) {
+    setTimeout(() => heroContent.classList.add('is-dim'), 2400);
+  }
 
-  // Smooth scroll for nav "Subscribe" link
-  page.querySelector('.landing-nav-subscribe')?.addEventListener('click', (e) => {
+  // ── Scroll-reveal sections ──
+  const reveals = main.querySelectorAll<HTMLElement>('.nw-reveal');
+  if (prefersReducedMotion) {
+    reveals.forEach((el) => el.classList.add('is-revealed'));
+  } else if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-revealed');
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+    );
+    reveals.forEach((el) => io.observe(el));
+  } else {
+    reveals.forEach((el) => el.classList.add('is-revealed'));
+  }
+
+  // ── Newsletter form ──
+  const form = main.querySelector<HTMLFormElement>('#nw-subscribe-form');
+  const statusEl = main.querySelector<HTMLElement>('#nw-subscribe-status');
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    document.getElementById('landing-subscribe')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const input = form.querySelector<HTMLInputElement>('input[type=email]');
+    const email = input?.value.trim() ?? '';
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      if (statusEl) {
+        statusEl.textContent = 'Enter a valid email.';
+        statusEl.dataset.state = 'err';
+      }
+      return;
+    }
+    if (statusEl) {
+      statusEl.textContent = 'Subscribing…';
+      statusEl.dataset.state = '';
+    }
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'landing-rebuild' }),
+      });
+      const data = (await res.json()) as { success?: boolean; error?: string };
+      if (statusEl) {
+        if (data.success) {
+          statusEl.textContent = "You're in. First brief tomorrow.";
+          statusEl.dataset.state = 'ok';
+          form.reset();
+          trackEvent('brief_signup', { source: 'landing-rebuild' });
+        } else {
+          statusEl.textContent = data.error || "That didn't work — try again.";
+          statusEl.dataset.state = 'err';
+        }
+      }
+    } catch {
+      if (statusEl) {
+        statusEl.textContent = 'Network error. Try again.';
+        statusEl.dataset.state = 'err';
+      }
+    }
   });
 
-  // ── Live CII ticker ────────────────────────────────────────────────────
-  const tickerStrip = document.getElementById('cii-ticker-strip');
-  if (tickerStrip) {
-    fetch('/api/cii')
-      .then((r) => r.json())
-      .then((data: { scores?: Array<{ countryCode: string; score: number; trend: string }> }) => {
-        const scores = data.scores || [];
-        if (scores.length === 0) {
-          tickerStrip.innerHTML =
-            '<span class="landing-ticker-loading">Intelligence data loading — check back shortly.</span>';
-          return;
-        }
-        // Sort by score desc, take top 12
-        const top = scores.sort((a, b) => b.score - a.score).slice(0, 12);
-        tickerStrip.innerHTML = top
-          .map((s) => {
-            const color = s.score >= 70 ? '#dc2626' : s.score >= 50 ? '#ff6600' : s.score >= 30 ? '#eab308' : '#22c55e';
-            const arrow = s.trend === 'rising' ? '↑' : s.trend === 'falling' ? '↓' : '→';
-            return `<a href="#/intel" class="landing-ticker-item" title="${s.countryCode}: CII ${s.score}">
-              <span class="landing-ticker-code">${s.countryCode}</span>
-              <span class="landing-ticker-score" style="color:${color}">${s.score}</span>
-              <span class="landing-ticker-arrow" style="color:${color}">${arrow}</span>
-            </a>`;
-          })
-          .join('');
-      })
-      .catch(() => {
-        tickerStrip.innerHTML = '<span class="landing-ticker-loading">Live data unavailable</span>';
-      });
-  }
-
-  // ── Portfolio demo ─────────────────────────────────────────────────────
-  const demoResult = document.getElementById('portfolio-demo-result');
-  if (demoResult) {
-    fetch('/api/public/exposure-demo')
-      .then((r) => r.json())
-      .then(
-        (data: {
-          overall_risk?: number;
-          risk_label?: string;
-          elevated_countries?: Array<{ country_code: string; exposure_pct: number; cii_score: number | null }>;
-          chokepoint_exposure?: Array<{ chokepoint_name: string; exposure_pct: number; status: string }>;
-        }) => {
-          if (!data.overall_risk && data.overall_risk !== 0) {
-            demoResult.innerHTML =
-              '<span class="landing-ticker-loading">Demo data loading — check back shortly.</span>';
-            return;
-          }
-          const riskColor =
-            (data.overall_risk ?? 0) >= 60 ? '#dc2626' : (data.overall_risk ?? 0) >= 40 ? '#ff6600' : '#22c55e';
-          const elevated = data.elevated_countries || [];
-          const chokepoints = data.chokepoint_exposure || [];
-
-          demoResult.innerHTML = `
-          <div class="landing-demo-grid">
-            <div class="landing-demo-risk">
-              <div class="landing-demo-risk-score" style="color:${riskColor}">${data.overall_risk}</div>
-              <div class="landing-demo-risk-label">${data.risk_label || 'N/A'}</div>
-              <div class="landing-demo-risk-note">Geopolitical Risk Score</div>
-            </div>
-            <div class="landing-demo-details">
-              ${
-                elevated.length > 0
-                  ? `<div class="landing-demo-section">
-                  <div class="landing-demo-section-title">ELEVATED-RISK COUNTRIES</div>
-                  ${elevated
-                    .slice(0, 4)
-                    .map(
-                      (c) =>
-                        `<div class="landing-demo-row"><span>${c.country_code}</span><span>CII ${c.cii_score ?? '?'}</span><span>${c.exposure_pct?.toFixed(1) ?? '?'}% exposed</span></div>`,
-                    )
-                    .join('')}
-                </div>`
-                  : ''
-              }
-              ${
-                chokepoints.length > 0
-                  ? `<div class="landing-demo-section">
-                  <div class="landing-demo-section-title">CHOKEPOINT DEPENDENCIES</div>
-                  ${chokepoints
-                    .slice(0, 3)
-                    .map(
-                      (c) =>
-                        `<div class="landing-demo-row"><span>${c.chokepoint_name}</span><span>${c.status}</span><span>${c.exposure_pct?.toFixed(1) ?? '?'}%</span></div>`,
-                    )
-                    .join('')}
-                </div>`
-                  : ''
-              }
-            </div>
-          </div>
-          <a href="#/portfolio" class="landing-demo-cta">Run your own portfolio →</a>
-        `;
-        },
-      )
-      .catch(() => {
-        demoResult.innerHTML = '<span class="landing-ticker-loading">Portfolio analysis unavailable</span>';
-      });
-  }
-
-  // Load today's brief preview
-  const briefEl = document.getElementById('landing-brief-preview');
-  if (briefEl) {
+  // ── Sample brief — pull today's brief if available ──
+  const briefHeadline = main.querySelector<HTMLElement>('#nw-brief-headline');
+  const briefExcerpt = main.querySelector<HTMLElement>('#nw-brief-excerpt');
+  const briefDate = main.querySelector<HTMLElement>('#nw-brief-date');
+  if (briefHeadline && briefExcerpt) {
     fetch('/api/v1/brief')
-      .then((r) => r.json())
-      .then((data) => {
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: BriefResponse | null) => {
+        if (!data) return;
+        if (data.headline) briefHeadline.textContent = data.headline;
         if (data.summary) {
-          // Show the brief with proper markdown rendering
-          let preview = data.summary as string;
-          // If it's HTML (old format), show as-is truncated
-          // If it's markdown (new format), convert basics
-          if (!preview.startsWith('<')) {
-            preview = preview
-              .replace(
-                /## (.*)/g,
-                '<h3 style="color:#ff6600;font-size:13px;letter-spacing:1px;margin:16px 0 8px;">$1</h3>',
-              )
-              .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-              .replace(/\n\n/g, '<br><br>')
-              .replace(/\n/g, '<br>');
-          }
-          // Show first ~800 chars (the fade overlay handles the cutoff)
-          briefEl.innerHTML = `<div class="brief-preview-text">${preview.slice(0, 1200)}</div>`;
-        } else {
-          briefEl.innerHTML =
-            '<p style="color:#666;text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.<br>Subscribe to get it in your inbox.</p>';
+          // Strip markdown/HTML to plain text and trim to ~340 chars
+          const text = stripToPlain(data.summary).slice(0, 340);
+          briefExcerpt.textContent = text + (data.summary.length > 340 ? '…' : '');
         }
+        if (data.date && briefDate) briefDate.textContent = formatBriefDate(data.date);
       })
       .catch(() => {
-        briefEl.innerHTML =
-          '<p style="color:#666;text-align:center;">The NexusWatch Brief publishes every morning at 5 AM ET.</p>';
+        // Fallback copy already present.
       });
   }
 
-  // Capture referral attribution from share link
+  // ── Referral capture (preserve from previous landing) ──
   const refParam = new URLSearchParams(window.location.search).get('ref');
   if (refParam && /^[\w-]{1,128}$/.test(refParam)) {
     localStorage.setItem('nw-referral', refParam);
-    // Clean the URL so users don't accidentally share their own ref link
     const cleanUrl = new URL(window.location.href);
     cleanUrl.searchParams.delete('ref');
     history.replaceState(null, '', cleanUrl.toString());
+  }
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function stripToPlain(input: string): string {
+  return input
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[#*_`>]/g, '')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatBriefDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
+  } catch {
+    return iso;
+  }
+}
+
+/**
+ * Decorative MapLibre globe for the hero. Non-interactive, slowly auto-
+ * rotating. Lazy-imports MapLibre so the marketing surface doesn't pay
+ * 1MB of map bundle until after first paint. Falls back silently to the
+ * static globe styling on any error.
+ */
+async function bootDecorativeGlobe(container: HTMLElement, reducedMotion: boolean): Promise<void> {
+  // Tag with the static fallback first so if MapLibre fails or is slow,
+  // the user always sees the dark globe stylization.
+  container.classList.add('nw-hero-globe-static');
+
+  try {
+    const maplibreMod = await import('maplibre-gl');
+    const maplibregl = maplibreMod.default;
+
+    // Inject MapLibre CSS — same pattern as MapView.
+    if (!document.querySelector('link[data-nw-maplibre-css]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css';
+      link.crossOrigin = 'anonymous';
+      link.dataset.nwMaplibreCss = '1';
+      document.head.appendChild(link);
+    }
+
+    const map = new maplibregl.Map({
+      container,
+      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      center: [10, 25],
+      zoom: 1.6,
+      pitch: 0,
+      bearing: 0,
+      attributionControl: false,
+      interactive: false,
+      maxZoom: 4,
+      minZoom: 1.2,
+      fadeDuration: 600,
+    });
+
+    // Once the style loads, switch to globe projection + atmosphere.
+    map.on('style.load', () => {
+      try {
+        map.setProjection({ type: 'globe' } as maplibregl.ProjectionSpecification);
+      } catch {
+        // mercator fallback is fine
+      }
+      try {
+        (map as unknown as { setFog: (opts: Record<string, unknown>) => void }).setFog({
+          color: 'rgba(0, 0, 0, 1)',
+          'high-color': 'rgba(20, 10, 5, 1)',
+          'horizon-blend': 0.12,
+          'space-color': 'rgba(0, 0, 0, 1)',
+          'star-intensity': 0.55,
+        });
+      } catch {
+        // fog not supported
+      }
+      // Now that real tiles are coming in, peel back the static painting.
+      container.classList.remove('nw-hero-globe-static');
+    });
+
+    // Slow ambient rotation, gated on reduced motion.
+    if (!reducedMotion) {
+      const speed = 0.04; // degrees per frame ≈ 0.05 deg/sec at 60fps roughly
+      let rafId: number | null = null;
+      const tick = () => {
+        const c = map.getCenter();
+        map.setCenter([c.lng + speed * 0.04, c.lat]);
+        rafId = requestAnimationFrame(tick);
+      };
+      map.on('load', () => {
+        rafId = requestAnimationFrame(tick);
+      });
+      // Pause on hidden tab to be neighborly.
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        } else if (!document.hidden && !rafId) {
+          rafId = requestAnimationFrame(tick);
+        }
+      });
+    }
+  } catch (err) {
+    // Map failed — the static fallback class is still on the container.
+    console.warn('Hero globe failed to boot, using static fallback', err);
   }
 }
