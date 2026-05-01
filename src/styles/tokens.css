@@ -271,6 +271,88 @@
   --color-accent-bg-soft: rgba(255, 102, 0, 0.08);
 }
 
+/* ============================================================================
+   .marketing-surface — opt-in editorial treatment.
+
+   Apply to the <main> of landing / /why-free / /about. Gives those pages:
+     - serif headlines via --font-serif (Source Serif 4)
+     - mono kept for eyebrows and meta-data only
+     - clamp-based marquee typography for hero copy
+     - generous whitespace via the editorial spacing tokens
+
+   The dashboard, Cinema mode, and data-dense surfaces do NOT add this class —
+   they stay full terminal. This class is additive: existing dark palette is
+   preserved, only typography + rhythm change.
+
+   The class only sets defaults; specific marketing components (Track C) can
+   override anything they need. We use child selectors instead of compound
+   selectors so consumers don't have to fight specificity.
+   ============================================================================ */
+
+.marketing-surface {
+  font-family: var(--font-serif);
+  font-size: var(--text-editorial-body);
+  line-height: var(--leading-loose);
+  letter-spacing: var(--tracking-base);
+  /* Generous breathing room — editorial pages get padding-section, not the
+     dashboard's tight rhythm. Consumers can override per section. */
+  padding-block: var(--space-section);
+}
+
+.marketing-surface h1,
+.marketing-surface h2,
+.marketing-surface h3,
+.marketing-surface h4 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text-primary);
+}
+
+.marketing-surface h1 {
+  font-size: var(--text-marquee);
+  line-height: var(--leading-marquee);
+  letter-spacing: var(--tracking-marquee);
+  font-weight: 600;
+}
+
+.marketing-surface h2 {
+  font-size: var(--text-editorial-headline);
+  line-height: var(--leading-tight);
+}
+
+.marketing-surface p {
+  font-family: var(--font-serif);
+  max-width: 68ch;
+}
+
+/* Eyebrows + meta-data — the only mono surfaces inside marketing.
+   Use class names that are unambiguous so editorial markup signals intent. */
+.marketing-surface .eyebrow,
+.marketing-surface .meta,
+.marketing-surface [data-meta],
+.marketing-surface time,
+.marketing-surface code,
+.marketing-surface kbd {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+/* Editorial section spacing — wraps groups of content with breathable margin. */
+.marketing-surface > section,
+.marketing-surface .editorial-section {
+  margin-block: var(--space-section);
+}
+
+.marketing-surface > section:first-child,
+.marketing-surface .editorial-section:first-child {
+  margin-top: 0;
+}
+
 :root[data-theme='dossier'],
 :root[data-theme='light'] {
   /* Dossier — ivory page on graphite ink, oxblood accent. Mirrors
