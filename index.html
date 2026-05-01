@@ -27,7 +27,14 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet" />
+    <!-- maplibre-gl.css is injected lazily by src/map/MapView.ts when the
+         globe boots. Loading it from index.html blocks paint on every
+         route (including landing, /pricing, etc.) for ~10KB the user
+         only needs on /#/intel. The MapView module appends the <link>
+         right before constructing the map. -->
+    <noscript
+      ><link href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css" rel="stylesheet"
+    /></noscript>
     <title>NexusWatch | Real-Time Geopolitical Intelligence Platform</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#ff6600" />
