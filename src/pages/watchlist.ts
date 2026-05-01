@@ -66,10 +66,9 @@ export function renderWatchlistPage(root: HTMLElement): void {
     if (list.length === 0) {
       const empty = createElement('div', { className: 'nw-watchlist-empty' });
       empty.innerHTML = `
-        <h3>No countries watched yet</h3>
-        <p>Add countries above to start building your personalized dashboard.</p>
-        <p style="margin-top:14px;font-size:12px;">
-          Quick pick:
+        <h3>Track countries here</h3>
+        <p>Get alerts and personalized briefs. Pick a country above, or jump in:</p>
+        <div class="nw-watchlist-quick-row">
           <button class="nw-wl-quick" data-code="UA">+ Ukraine</button>
           <button class="nw-wl-quick" data-code="IL">+ Israel</button>
           <button class="nw-wl-quick" data-code="TW">+ Taiwan</button>
@@ -77,7 +76,7 @@ export function renderWatchlistPage(root: HTMLElement): void {
           <button class="nw-wl-quick" data-code="RU">+ Russia</button>
           <button class="nw-wl-quick" data-code="CN">+ China</button>
           <button class="nw-wl-quick" data-code="SD">+ Sudan</button>
-        </p>
+        </div>
       `;
       content.appendChild(empty);
       empty.querySelectorAll('.nw-wl-quick').forEach((b) => {
@@ -112,11 +111,11 @@ export function renderWatchlistPage(root: HTMLElement): void {
         <div class="nw-watchlist-stat-label">AVG CII</div>
       </div>
       <div class="nw-watchlist-stat">
-        <div class="nw-watchlist-stat-num" style="color:${elevated > 0 ? '#dc2626' : '#22c55e'}">${elevated}</div>
+        <div class="nw-watchlist-stat-num ${elevated > 0 ? 'is-critical' : 'is-ok'}">${elevated}</div>
         <div class="nw-watchlist-stat-label">ELEVATED</div>
       </div>
       <div class="nw-watchlist-stat">
-        <div class="nw-watchlist-stat-num" style="color:${rising > 0 ? '#dc2626' : '#888'}">${rising}</div>
+        <div class="nw-watchlist-stat-num ${rising > 0 ? 'is-critical' : 'is-muted'}">${rising}</div>
         <div class="nw-watchlist-stat-label">RISING</div>
       </div>
     `;
@@ -124,13 +123,11 @@ export function renderWatchlistPage(root: HTMLElement): void {
 
     // Sort controls
     const sortBar = createElement('div', { className: 'nw-watchlist-sort' });
-    sortBar.style.cssText =
-      'display:flex;gap:8px;align-items:center;margin:0 0 12px;font-size:11px;color:var(--nw-text-muted)';
     sortBar.innerHTML = `
-      <span>Sort:</span>
-      <button class="nw-sort-btn${currentSort === 'cii' ? ' active' : ''}" data-sort="cii" style="background:none;border:1px solid ${currentSort === 'cii' ? 'var(--nw-accent)' : 'var(--nw-border)'};color:${currentSort === 'cii' ? 'var(--nw-accent)' : 'var(--nw-text-secondary)'};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)">CII Score</button>
-      <button class="nw-sort-btn${currentSort === 'trend' ? ' active' : ''}" data-sort="trend" style="background:none;border:1px solid ${currentSort === 'trend' ? 'var(--nw-accent)' : 'var(--nw-border)'};color:${currentSort === 'trend' ? 'var(--nw-accent)' : 'var(--nw-text-secondary)'};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)">Trend</button>
-      <button class="nw-sort-btn${currentSort === 'name' ? ' active' : ''}" data-sort="name" style="background:none;border:1px solid ${currentSort === 'name' ? 'var(--nw-accent)' : 'var(--nw-border)'};color:${currentSort === 'name' ? 'var(--nw-accent)' : 'var(--nw-text-secondary)'};padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)">Name</button>
+      <span class="nw-watchlist-sort-label">Sort</span>
+      <button class="nw-sort-btn${currentSort === 'cii' ? ' active' : ''}" data-sort="cii">CII Score</button>
+      <button class="nw-sort-btn${currentSort === 'trend' ? ' active' : ''}" data-sort="trend">Trend</button>
+      <button class="nw-sort-btn${currentSort === 'name' ? ' active' : ''}" data-sort="name">Name</button>
     `;
     content.appendChild(sortBar);
     sortBar.querySelectorAll('.nw-sort-btn').forEach((btn) => {
@@ -159,12 +156,9 @@ export function renderWatchlistPage(root: HTMLElement): void {
 
     // Batch actions bar (when 3+ countries)
     if (sortedList.length >= 3) {
-      const batchBar = createElement('div', {});
-      batchBar.style.cssText = 'display:flex;gap:8px;align-items:center;margin:0 0 12px;font-size:11px';
+      const batchBar = createElement('div', { className: 'nw-watchlist-batch' });
 
-      const exportBtn = createElement('button', {});
-      exportBtn.style.cssText =
-        'background:none;border:1px solid var(--nw-border);color:var(--nw-text-secondary);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)';
+      const exportBtn = createElement('button', { className: 'nw-watchlist-batch-btn' });
       exportBtn.textContent = 'Export watchlist CSV';
       exportBtn.addEventListener('click', () => {
         const rows = ['Country,Code,CII,Trend,Confidence,Alert Threshold'];
@@ -189,9 +183,7 @@ export function renderWatchlistPage(root: HTMLElement): void {
       });
       batchBar.appendChild(exportBtn);
 
-      const removeAllBtn = createElement('button', {});
-      removeAllBtn.style.cssText =
-        'background:none;border:1px solid var(--nw-border);color:var(--nw-text-muted);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--nw-font-mono)';
+      const removeAllBtn = createElement('button', { className: 'nw-watchlist-batch-btn is-muted' });
       removeAllBtn.textContent = 'Clear all';
       removeAllBtn.addEventListener('click', () => {
         if (!confirm(`Remove all ${sortedList.length} countries from your watchlist?`)) return;
@@ -212,17 +204,17 @@ export function renderWatchlistPage(root: HTMLElement): void {
 
       const card = createElement('div', { className: 'nw-watchlist-card' });
       const ciiScore = score?.score ?? 0;
-      const color = ciiScore >= 75 ? '#dc2626' : ciiScore >= 50 ? '#f97316' : ciiScore >= 25 ? '#eab308' : '#22c55e';
+      const tier = ciiScore >= 75 ? 'critical' : ciiScore >= 50 ? 'high' : ciiScore >= 25 ? 'med' : 'low';
       const trendArrow = score?.trend === 'rising' ? '↑' : score?.trend === 'falling' ? '↓' : '→';
-      const trendColor = score?.trend === 'rising' ? '#dc2626' : score?.trend === 'falling' ? '#22c55e' : '#888';
+      const trendKind = score?.trend ?? 'stable';
 
       card.innerHTML = `
         <div class="nw-watchlist-card-header">
-          <div class="nw-watchlist-card-title">${name}</div>
-          <button class="nw-watchlist-remove" data-code="${item.countryCode}" title="Remove">✕</button>
+          <div class="nw-watchlist-card-title" title="${name}">${name}</div>
+          <button class="nw-watchlist-remove" data-code="${item.countryCode}" title="Remove ${name} from watchlist" aria-label="Remove ${name}">✕</button>
         </div>
-        <div class="nw-watchlist-card-score" style="color:${color}">${ciiScore}</div>
-        <div class="nw-watchlist-card-trend" style="color:${trendColor}">${trendArrow} ${score?.trend ?? 'stable'}</div>
+        <div class="nw-watchlist-card-score nw-tier-${tier}">${ciiScore}</div>
+        <div class="nw-watchlist-card-trend nw-trend-${trendKind}">${trendArrow} ${trendKind}</div>
         <div class="nw-watchlist-card-conf">${score?.confidence?.toUpperCase() ?? 'NO DATA'} confidence ${score?.confidence === 'high' ? '(3+ sources)' : score?.confidence === 'medium' ? '(2 sources)' : score?.confidence === 'low' ? '(1 source)' : ''}</div>
         ${
           score && score.topSignals.length > 0
