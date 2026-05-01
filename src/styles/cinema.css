@@ -480,30 +480,32 @@
 
 /* ── Narration Overlay ── */
 
-/* Intel Brief — docks above the bottom ticker (36px) with an 8px gap so it
-   never collides with the M3.x earthquake pills. */
+/* Intel Brief — docks at the bottom of the left column, flush with the
+   Event Log above it (Event Log's bottom is set to 240px to make room).
+   Both panels share a 320px-wide left column for a clean two-pane sidebar.
+   Narration never overlaps Event Log; both fade together on idle. */
 .cinema-narration {
   position: fixed;
   bottom: 44px;
-  left: 16px;
-  width: 380px;
+  left: 0;
+  width: 320px;
   max-width: calc(100vw - 32px);
-  background: rgba(0, 0, 0, 0.75);
+  height: 180px;
+  background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
-  border-left: 2px solid #ff6600;
-  border-radius: 0 4px 4px 0;
-  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 102, 0, 0.3);
+  border-right: 1px solid rgba(255, 102, 0, 0.15);
+  padding: 14px 18px;
   z-index: var(--z-panel);
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
-  transform: translateX(-110%);
+  overflow-y: auto;
   opacity: 0;
-  transition:
-    transform var(--dur-slow, 400ms) var(--ease-out, ease),
-    opacity var(--dur-slow, 400ms) var(--ease-out, ease);
+  pointer-events: none;
+  transition: opacity var(--dur-slow, 400ms) var(--ease-out, ease);
 }
 .cinema-narration.visible {
-  transform: translateX(0);
   opacity: 1;
+  pointer-events: auto;
 }
 
 .cinema-narration-header {
@@ -573,7 +575,10 @@
   position: fixed;
   top: 100px;
   left: 0;
-  bottom: 44px;
+  /* bottom: 240px gives the Intel Brief / Narration panel below us a
+     180px tall slot + 16px breathing room before the bottom ticker (36px)
+     + the 8px gap (44px total). Together they form a two-pane left column. */
+  bottom: 240px;
   width: 320px;
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
