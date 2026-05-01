@@ -38,7 +38,15 @@ export class MapView {
       attributionControl: false,
       maxZoom: 18,
       minZoom: 0.8,
-      ...({ preserveDrawingBuffer: true } as Record<string, unknown>), // Required for canvas.toDataURL() screenshot export
+      // Prefer fade-in on tile load so empty-tile frames don't flash.
+      fadeDuration: 300,
+      // Parallelize tile sprite/icon image fetches. MapLibre default is
+      // 16 — we explicitly set it to make the boot path faster on
+      // connections that can support it. Lower-end mobile networks still
+      // benefit because the requests are HTTP/2 multiplexed. The option
+      // is accepted at runtime but not in the v5 MapOptions type, so we
+      // widen via a cast.
+      ...({ maxParallelImageRequests: 16, preserveDrawingBuffer: true } as Record<string, unknown>),
     });
 
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
