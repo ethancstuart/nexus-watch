@@ -50,7 +50,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
+  /* Notch-safe padding: clamp the original 16px / 24px against env() so
+     iOS landscape and rotated-tablet renders don't clip the brand mark. */
+  padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom, 16px)) max(24px, env(safe-area-inset-left));
   z-index: var(--z-hud);
   font-family: var(--font-mono);
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);

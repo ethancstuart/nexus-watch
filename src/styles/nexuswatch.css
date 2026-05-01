@@ -1466,6 +1466,12 @@ body.nw-historical-mode .nw-map-container::after {
   border-left: 1px solid #1a1a1a;
   z-index: 950;
   overflow-y: auto;
+  /* Notch-safe content padding for iOS landscape + iPad rotation. The
+     panel itself stays edge-pinned, but its inner content gets pushed
+     away from the dynamic island / home indicator. */
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
   animation: nw-slide-in-right 0.25s ease-out;
   display: flex;
   flex-direction: column;
@@ -1647,7 +1653,8 @@ body.nw-historical-mode .nw-map-container::after {
 /* Scenario banner (visual overlay) */
 .nw-scenario-banner {
   position: fixed;
-  top: 72px;
+  /* Stack below the AI bar (72px), but offset for iOS notch when present. */
+  top: calc(72px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: 560px;
@@ -6409,8 +6416,10 @@ body.nw-historical-mode .nw-map-container::after {
 /* PWA install banner */
 .nw-pwa-banner {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  /* Avoid the iOS home indicator + notch on landscape; the +20 baseline
+     is preserved when env() is unsupported. */
+  bottom: max(20px, env(safe-area-inset-bottom));
+  right: max(20px, env(safe-area-inset-right));
   z-index: 900;
   max-width: 360px;
   background: #0f0f0f;
