@@ -456,8 +456,7 @@ function renderResults(container: HTMLElement, report: PortfolioRiskReport): voi
     <tbody>
       ${topCountries
         .map((c) => {
-          const ciiTier =
-            c.ciiScore >= 75 ? 'critical' : c.ciiScore >= 50 ? 'high' : c.ciiScore >= 25 ? 'med' : 'low';
+          const ciiTier = c.ciiScore >= 75 ? 'critical' : c.ciiScore >= 50 ? 'high' : c.ciiScore >= 25 ? 'med' : 'low';
           return `<tr>
             <td>${c.countryName}</td>
             <td>${c.exposurePct}%</td>

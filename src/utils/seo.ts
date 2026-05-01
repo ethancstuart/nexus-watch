@@ -80,7 +80,9 @@ export function setPageSeo(seo: PageSeo): void {
  * replace the previous block instead of accumulating.
  */
 export function setJsonLd(id: string, data: Record<string, unknown>): void {
-  const existing = document.head.querySelector<HTMLScriptElement>(`script[type="application/ld+json"][data-seo="${id}"]`);
+  const existing = document.head.querySelector<HTMLScriptElement>(
+    `script[type="application/ld+json"][data-seo="${id}"]`,
+  );
   if (existing) existing.remove();
   const script = document.createElement('script');
   script.type = 'application/ld+json';

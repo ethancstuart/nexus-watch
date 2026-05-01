@@ -206,8 +206,7 @@ export function renderMethodology(root: HTMLElement): void {
             ${sorted
               .slice(0, 20)
               .map((s) => {
-                const tier =
-                  s.score >= 70 ? 'critical' : s.score >= 50 ? 'high' : s.score >= 30 ? 'med' : 'low';
+                const tier = s.score >= 70 ? 'critical' : s.score >= 50 ? 'high' : s.score >= 30 ? 'med' : 'low';
                 return `<tr>
                   <td>${s.countryName}</td>
                   <td class="nw-tier-${tier} method-cii-score">${s.score}</td>

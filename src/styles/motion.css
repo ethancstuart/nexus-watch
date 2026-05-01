@@ -115,22 +115,54 @@
   animation: nw-word-reveal var(--dur-marquee, 600ms) var(--ease-out, ease-out) both;
 }
 
-.word-stagger > *:nth-child(1)  { animation-delay:   0ms; }
-.word-stagger > *:nth-child(2)  { animation-delay:  50ms; }
-.word-stagger > *:nth-child(3)  { animation-delay: 100ms; }
-.word-stagger > *:nth-child(4)  { animation-delay: 150ms; }
-.word-stagger > *:nth-child(5)  { animation-delay: 200ms; }
-.word-stagger > *:nth-child(6)  { animation-delay: 250ms; }
-.word-stagger > *:nth-child(7)  { animation-delay: 300ms; }
-.word-stagger > *:nth-child(8)  { animation-delay: 350ms; }
-.word-stagger > *:nth-child(9)  { animation-delay: 400ms; }
-.word-stagger > *:nth-child(10) { animation-delay: 450ms; }
-.word-stagger > *:nth-child(11) { animation-delay: 500ms; }
-.word-stagger > *:nth-child(12) { animation-delay: 550ms; }
-.word-stagger > *:nth-child(13) { animation-delay: 600ms; }
-.word-stagger > *:nth-child(14) { animation-delay: 650ms; }
-.word-stagger > *:nth-child(15) { animation-delay: 700ms; }
-.word-stagger > *:nth-child(n+16) { animation-delay: 750ms; }
+.word-stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.word-stagger > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.word-stagger > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.word-stagger > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.word-stagger > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.word-stagger > *:nth-child(6) {
+  animation-delay: 250ms;
+}
+.word-stagger > *:nth-child(7) {
+  animation-delay: 300ms;
+}
+.word-stagger > *:nth-child(8) {
+  animation-delay: 350ms;
+}
+.word-stagger > *:nth-child(9) {
+  animation-delay: 400ms;
+}
+.word-stagger > *:nth-child(10) {
+  animation-delay: 450ms;
+}
+.word-stagger > *:nth-child(11) {
+  animation-delay: 500ms;
+}
+.word-stagger > *:nth-child(12) {
+  animation-delay: 550ms;
+}
+.word-stagger > *:nth-child(13) {
+  animation-delay: 600ms;
+}
+.word-stagger > *:nth-child(14) {
+  animation-delay: 650ms;
+}
+.word-stagger > *:nth-child(15) {
+  animation-delay: 700ms;
+}
+.word-stagger > *:nth-child(n + 16) {
+  animation-delay: 750ms;
+}
 
 /* ----------------------------------------------------------------------------
    Reduced motion — neutralize EVERY animation/transition for users who opted

@@ -21,18 +21,54 @@ export const config = { runtime: 'edge' };
  */
 
 const COUNTRY_NAMES: Record<string, string> = {
-  AF: 'Afghanistan', AR: 'Argentina', AU: 'Australia', BD: 'Bangladesh',
-  BF: 'Burkina Faso', BR: 'Brazil', CA: 'Canada', CD: 'DR Congo',
-  CN: 'China', CO: 'Colombia', DE: 'Germany', EG: 'Egypt',
-  ET: 'Ethiopia', FR: 'France', GB: 'United Kingdom', HT: 'Haiti',
-  IL: 'Israel', IN: 'India', IQ: 'Iraq', IR: 'Iran',
-  IT: 'Italy', JP: 'Japan', KP: 'North Korea', KR: 'South Korea',
-  LB: 'Lebanon', LY: 'Libya', ML: 'Mali', MM: 'Myanmar',
-  MX: 'Mexico', NG: 'Nigeria', PK: 'Pakistan', PL: 'Poland',
-  PS: 'Palestine', RO: 'Romania', RU: 'Russia', SA: 'Saudi Arabia',
-  SD: 'Sudan', SO: 'Somalia', SS: 'South Sudan', SY: 'Syria',
-  TD: 'Chad', TR: 'Turkey', TW: 'Taiwan', UA: 'Ukraine',
-  US: 'United States', VE: 'Venezuela', YE: 'Yemen', ZA: 'South Africa',
+  AF: 'Afghanistan',
+  AR: 'Argentina',
+  AU: 'Australia',
+  BD: 'Bangladesh',
+  BF: 'Burkina Faso',
+  BR: 'Brazil',
+  CA: 'Canada',
+  CD: 'DR Congo',
+  CN: 'China',
+  CO: 'Colombia',
+  DE: 'Germany',
+  EG: 'Egypt',
+  ET: 'Ethiopia',
+  FR: 'France',
+  GB: 'United Kingdom',
+  HT: 'Haiti',
+  IL: 'Israel',
+  IN: 'India',
+  IQ: 'Iraq',
+  IR: 'Iran',
+  IT: 'Italy',
+  JP: 'Japan',
+  KP: 'North Korea',
+  KR: 'South Korea',
+  LB: 'Lebanon',
+  LY: 'Libya',
+  ML: 'Mali',
+  MM: 'Myanmar',
+  MX: 'Mexico',
+  NG: 'Nigeria',
+  PK: 'Pakistan',
+  PL: 'Poland',
+  PS: 'Palestine',
+  RO: 'Romania',
+  RU: 'Russia',
+  SA: 'Saudi Arabia',
+  SD: 'Sudan',
+  SO: 'Somalia',
+  SS: 'South Sudan',
+  SY: 'Syria',
+  TD: 'Chad',
+  TR: 'Turkey',
+  TW: 'Taiwan',
+  UA: 'Ukraine',
+  US: 'United States',
+  VE: 'Venezuela',
+  YE: 'Yemen',
+  ZA: 'South Africa',
 };
 
 function flag(code: string): string {
@@ -144,7 +180,11 @@ async function fetchBrief(date: string): Promise<{ headline: string; tension: nu
       SELECT summary, content FROM daily_briefs WHERE brief_date = ${date} LIMIT 1
     `) as Array<{ summary: string | null; content: unknown }>;
     if (rows.length === 0) return { headline: 'Daily geopolitical intelligence brief.', tension: null };
-    let headline = (rows[0].summary || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 140);
+    let headline = (rows[0].summary || '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 140);
     let tension: number | null = null;
     try {
       const c =
@@ -196,7 +236,10 @@ export default async function handler(req: VercelRequest) {
     const { headline, tension } = await fetchBrief(safeDate);
     html = renderBriefCard(safeDate, headline, tension);
   } else if (type === 'country') {
-    const iso = (url.searchParams.get('iso') || 'US').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+    const iso = (url.searchParams.get('iso') || 'US')
+      .toUpperCase()
+      .replace(/[^A-Z]/g, '')
+      .slice(0, 2);
     const name = COUNTRY_NAMES[iso] || iso;
     const score = await fetchCountryScore(iso);
     html = renderCountryCard(iso, name, score);

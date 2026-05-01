@@ -60,9 +60,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     `) as unknown as BriefRow[];
 
     const updated =
-      rows.length > 0 && rows[0].generated_at
-        ? new Date(rows[0].generated_at).toISOString()
-        : new Date().toISOString();
+      rows.length > 0 && rows[0].generated_at ? new Date(rows[0].generated_at).toISOString() : new Date().toISOString();
 
     const entries = rows
       .map((row) => {
