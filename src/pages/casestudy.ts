@@ -1,7 +1,9 @@
 import '../styles/casestudy.css';
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 export function renderCaseStudy(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.caseStudy);
   root.textContent = '';
 
   const page = createElement('div', { className: 'cs' });

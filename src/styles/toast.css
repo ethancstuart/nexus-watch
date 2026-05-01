@@ -1,8 +1,10 @@
 /* Toast notifications */
 .toast {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  /* Respect iOS notch / home-indicator on landscape iPad and rotated mobile.
+     Falls back to the original 24px when env() is unsupported. */
+  bottom: max(24px, env(safe-area-inset-bottom));
+  right: max(24px, env(safe-area-inset-right));
   padding: 12px 20px;
   border-radius: 8px;
   font-size: 13px;

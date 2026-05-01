@@ -3,8 +3,10 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 export function renderReleaseNotes(container: HTMLElement): void {
+  setPageSeo(PAGE_SEO.releaseNotes);
   container.innerHTML = '';
   container.className = 'nw-releases-page';
 

@@ -6,6 +6,7 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 interface LayerStatus {
   layer: string;
@@ -57,6 +58,7 @@ const LAYER_DISPLAY_NAMES: Record<string, string> = {
 };
 
 export async function renderStatusPage(container: HTMLElement): Promise<void> {
+  setPageSeo(PAGE_SEO.status);
   container.innerHTML = '';
   container.className = 'nw-status-page';
 

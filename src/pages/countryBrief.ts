@@ -11,12 +11,18 @@ import { createElement } from '../utils/dom.ts';
 import { getCachedCII, getMonitoredCountries, getCIIDelta } from '../services/countryInstabilityIndex.ts';
 import { getEntitiesByCountry } from '../services/entityRegistry.ts';
 import { CII_RULE_VERSION } from '../services/ruleVersion.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 export function renderCountryBrief(root: HTMLElement, code: string): void {
+  const countryCode = code.toUpperCase();
+  setPageSeo({
+    ...PAGE_SEO.countryBrief,
+    title: `${countryCode} · Country Brief`,
+    description: `Printable country brief for ${countryCode}: CII score, 6-component breakdown, top signals, data gaps, rule version. Free.`,
+    canonicalPath: `/brief-country/${countryCode}`,
+  });
   root.innerHTML = '';
   root.className = 'nw-country-brief-page';
-
-  const countryCode = code.toUpperCase();
   const scores = getCachedCII();
   const score = scores.find((s) => s.countryCode === countryCode);
   const monitored = getMonitoredCountries().find((c) => c.code === countryCode);

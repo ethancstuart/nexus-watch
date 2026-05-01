@@ -3,8 +3,10 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 export function renderTermsPage(root: HTMLElement): void {
+  setPageSeo(PAGE_SEO.terms);
   root.innerHTML = '';
   root.className = 'nw-legal-page nw-page';
 
