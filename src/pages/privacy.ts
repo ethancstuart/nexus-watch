@@ -24,9 +24,9 @@ export function renderPrivacyPage(root: HTMLElement): void {
       <p>We collect your email and name from Google/GitHub login. We don't track you with third-party analytics. Your portfolio holdings never leave your browser. We use cookies only for authentication sessions. That's it.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">1. What We Collect</h2>
-      <p><strong>When you sign in:</strong> Your name, email address, and profile picture from your Google or GitHub account. This is used to identify your account, deliver briefs, and manage your subscription.</p>
+      <p><strong>When you sign in:</strong> Your name, email address, and profile picture from your Google or GitHub account. This is used to identify your account and deliver briefs.</p>
       <p><strong>When you subscribe to briefs:</strong> Your email address and delivery preferences (frequency, regions of interest).</p>
-      <p><strong>When you pay:</strong> Stripe handles all payment data (card numbers, billing addresses). We never see or store your payment details. We receive only: subscription status, tier, and customer ID from Stripe.</p>
+      <p><strong>NexusWatch is free for everyone.</strong> No payment processing. No card data ever touches our servers.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">2. What We Don't Collect</h2>
       <p><strong>No third-party tracking.</strong> No Google Analytics, no Facebook Pixel, no ad trackers. We have a lightweight, first-party event counter stored in your browser's localStorage for conversion analytics \u2014 this data never leaves your device.</p>

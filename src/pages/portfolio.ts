@@ -1,5 +1,5 @@
 /**
- * Portfolio Geopolitical Exposure Page (Pro Tier — $99/mo)
+ * Portfolio Geopolitical Exposure Page
  *
  * Input holdings → see your portfolio's geopolitical risk exposure
  * mapped to country CII scores. "Your portfolio has 23% exposure to

@@ -26,11 +26,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: 'Is NexusWatch really free?',
-    a: 'Yes. The Explorer tier gives you the full 3D globe with 45+ live layers, CII scores for 150+ countries, intelligence briefs 3x/week, and 3 AI analyst queries per day. No credit card required, no trial expiration. Paid tiers start at $19/mo (Insider) for daily briefs and full evidence chains.',
-  },
-  {
-    q: 'What are the paid tiers?',
-    a: 'Insider ($19/mo or $199/yr) adds daily briefs, full evidence chains, and 10 AI queries/day. Analyst ($29/mo or $299/yr) adds unlimited AI, scenario simulation, and 30-day history. Pro ($99/mo or $999/yr) adds portfolio exposure, API access, data export, and crisis playbooks. All paid tiers include a 14-day free trial.',
+    a: 'Yes. The whole thing — full 3D globe with 45+ live layers, CII scores for 150+ countries, intelligence briefs, AI analyst, alerts, evidence chains, scenario simulation, portfolio exposure, API access. Free for everyone. No credit card required.',
   },
   {
     q: 'How do I compare countries?',
@@ -38,7 +34,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: 'Can I use NexusWatch data in my reporting?',
-    a: 'Yes. You can cite NexusWatch CII scores with attribution. Our <a href="#/methodology">methodology page</a> documents exactly how scores are computed, and every score links to its evidence chain showing the source data, confidence level, and rule version. Pro tier users can export data as CSV/JSON.',
+    a: 'Yes. You can cite NexusWatch CII scores with attribution. Our <a href="#/methodology">methodology page</a> documents exactly how scores are computed, and every score links to its evidence chain showing the source data, confidence level, and rule version. You can also export data as CSV/JSON.',
   },
   {
     q: 'What is the evidence chain?',
@@ -46,7 +42,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: 'How do I get alerts?',
-    a: 'Go to your <a href="#/watchlist">Watchlist</a>, add countries, and set alert thresholds. Free users get 1 alert rule. Analyst users get 5. Pro users get unlimited alerts with delivery via email, Slack, Discord, or Telegram webhooks.',
+    a: 'Go to your <a href="#/watchlist">Watchlist</a>, add countries, and set alert thresholds. Delivery via email, Slack, Discord, or Telegram webhooks.',
   },
 ];
 

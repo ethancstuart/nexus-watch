@@ -1,8 +1,4 @@
 import { createElement } from '../utils/dom.ts';
-import { getUser } from '../services/auth.ts';
-function getCurrentTier(): string {
-  return 'free';
-}
 
 export function renderRoadmap(root: HTMLElement): void {
   root.textContent = '';
@@ -59,7 +55,7 @@ export function renderRoadmap(root: HTMLElement): void {
     {
       num: '3',
       title: 'Customize',
-      desc: 'Sign in to save preferences, sync across devices, and unlock premium features.',
+      desc: 'Sign in to save preferences and sync across devices.',
     },
   ];
   for (const s of stepItems) {
@@ -74,116 +70,6 @@ export function renderRoadmap(root: HTMLElement): void {
   }
   howSection.appendChild(steps);
   page.appendChild(howSection);
-
-  // Tier comparison
-  const tierSection = createElement('section', { className: 'roadmap-section' });
-  const tierTitle = createElement('h2', { className: 'landing-section-title', textContent: 'Tier Comparison' });
-  tierSection.appendChild(tierTitle);
-
-  const table = document.createElement('table');
-  table.className = 'roadmap-tier-table';
-
-  const thead = document.createElement('thead');
-  const headRow = document.createElement('tr');
-  for (const h of ['Feature', 'Guest', 'Free (Login)', 'Premium ($5/mo)']) {
-    const th = document.createElement('th');
-    th.textContent = h;
-    headRow.appendChild(th);
-  }
-  thead.appendChild(headRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-  const rows = [
-    ['Weather, Markets, News, Sports', '\u2713', '\u2713', '\u2713'],
-    ['Crypto Panel (Top 10 Coins)', '\u2713', '\u2713', '\u2713'],
-    ['Entertainment Panel (TMDB)', '\u2713', '\u2713', '\u2713'],
-    ['Predictions, Map & Ticker', '\u2713', '\u2713', '\u2713'],
-    ['AI Bar (Cmd+K) + AI Chat (BYO Key)', '\u2713', '\u2713', '\u2713'],
-    ['Daily AI Briefing + Pulse Bar', '\u2713', '\u2713', '\u2713'],
-    ['Notes & To-Do Panel', '\u2713', '\u2713', '\u2713'],
-    ['Price Alerts (up to 5)', '\u2713', '\u2713', '\u2713'],
-    ['PWA + Offline Mode', '\u2713', '\u2713', '\u2713'],
-    ['Export/Import Config', '\u2713', '\u2713', '\u2713'],
-    ['Theme Presets (Dark/Light/OLED)', '\u2713', '\u2713', '\u2713'],
-    ['Drag-and-Drop Widget Layout', '\u2713', '\u2713', '\u2713'],
-    ['Multiple Weather Locations', '\u2713', '\u2713', '\u2713'],
-    ['Saved Preferences & Sync', '\u2014', '\u2713', '\u2713'],
-    ['Cross-Device Sync', '\u2014', '\u2713', '\u2713'],
-    ['Custom News Sources', '\u2014', '\u2713', '\u2713'],
-    ['Dashboard Sharing', '\u2014', '\u2713', '\u2713'],
-    ['Hosted AI Chat (No Key Needed)', '\u2014', '\u2014', '\u2713'],
-    ['Unlimited Price Alerts', '\u2014', '\u2014', '\u2713'],
-    ['Faster Refresh Rates', '\u2014', '\u2014', '\u2713'],
-    ['Calendar Integration', '\u2014', '\u2014', '\u2713'],
-    ['25-Stock Watchlist', '\u2014', '\u2014', '\u2713'],
-    ['Multiple Dashboards', '\u2014', '\u2014', '\u2713'],
-  ];
-  for (const r of rows) {
-    const tr = document.createElement('tr');
-    for (let i = 0; i < r.length; i++) {
-      const td = document.createElement('td');
-      td.textContent = r[i];
-      if (i > 0) td.style.textAlign = 'center';
-      if (r[i] === '\u2713') td.style.color = 'var(--color-positive)';
-      if (r[i] === '\u2014') td.style.opacity = '0.3';
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  tierSection.appendChild(table);
-
-  // Premium CTA
-  const premiumCta = createElement('div', { className: 'roadmap-premium-cta' });
-  const user = getUser();
-  const currentTier = getCurrentTier();
-
-  if (user && currentTier === 'free') {
-    const ctaText = createElement('p', {
-      className: 'roadmap-cta-text',
-      textContent: 'Founding members lock in $3/mo for life. Upgrade now for unlimited alerts, calendar, and more.',
-    });
-    const ctaBtn = createElement('button', {
-      className: 'landing-btn landing-btn-primary',
-      textContent: 'Upgrade to Premium',
-    });
-    ctaBtn.addEventListener('click', async () => {
-      ctaBtn.textContent = '\u2026';
-      try {
-        const res = await fetch('/api/stripe/checkout?tier=insider', { method: 'POST' });
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          ctaBtn.textContent = 'Error — try again';
-          setTimeout(() => {
-            ctaBtn.textContent = 'Upgrade to Premium';
-          }, 2000);
-        }
-      } catch {
-        ctaBtn.textContent = 'Error — try again';
-        setTimeout(() => {
-          ctaBtn.textContent = 'Upgrade to Premium';
-        }, 2000);
-      }
-    });
-    premiumCta.appendChild(ctaText);
-    premiumCta.appendChild(ctaBtn);
-  } else {
-    const ctaText = createElement('p', {
-      className: 'roadmap-cta-text',
-      textContent: user ? 'You have Premium. Thank you for your support!' : 'Founding members lock in $3/mo for life.',
-    });
-    const ctaBtn = document.createElement('a');
-    ctaBtn.href = '#/app';
-    ctaBtn.className = 'landing-btn landing-btn-primary';
-    ctaBtn.textContent = 'Try the Dashboard';
-    premiumCta.appendChild(ctaText);
-    premiumCta.appendChild(ctaBtn);
-  }
-  tierSection.appendChild(premiumCta);
-  page.appendChild(tierSection);
 
   // Timeline
   const timelineSection = createElement('section', { className: 'roadmap-section' });
@@ -214,8 +100,8 @@ export function renderRoadmap(root: HTMLElement): void {
     {
       status: 'shipped',
       label: 'Shipped',
-      title: 'Auth & Tiers',
-      desc: 'Google/GitHub OAuth, 3-tier system (guest/free/premium)',
+      title: 'Auth',
+      desc: 'Google/GitHub OAuth, free for everyone',
     },
     {
       status: 'shipped',
@@ -245,7 +131,7 @@ export function renderRoadmap(root: HTMLElement): void {
       status: 'shipped',
       label: 'Shipped',
       title: 'Notes & Alerts',
-      desc: 'Quick-capture notes panel with to-dos, price alerts with browser notifications, tier-gated limits',
+      desc: 'Quick-capture notes panel with to-dos, price alerts with browser notifications',
     },
     {
       status: 'shipped',
@@ -280,8 +166,8 @@ export function renderRoadmap(root: HTMLElement): void {
     {
       status: 'shipped',
       label: 'Shipped',
-      title: 'Premium & Launch',
-      desc: 'Stripe payments with founding member pricing, Google Calendar (premium), advanced alert conditions, OG image generation, billing portal, self-healing session tier',
+      title: 'Launch',
+      desc: 'Google Calendar integration, advanced alert conditions, OG image generation',
     },
     {
       status: 'active',

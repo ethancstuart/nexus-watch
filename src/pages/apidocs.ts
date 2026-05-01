@@ -104,11 +104,10 @@ export function renderApiDocsPage(container: HTMLElement): void {
   // Rate limits + SLA
   const limits = createElement('section', { className: 'nw-apidocs-section' });
   limits.innerHTML = `
-    <h2>Rate Limits & SLA</h2>
+    <h2>Rate Limits</h2>
     <ul>
-      <li><strong>Free tier:</strong> 100 requests/day (read-only, public endpoints)</li>
-      <li><strong>Pro tier ($99/mo):</strong> 10,000 requests/day with webhooks</li>
-      <li><strong>Enterprise ($299+):</strong> Unlimited, SLA-backed, custom support</li>
+      <li><strong>Default:</strong> 1,000 requests/day per API key, with webhooks</li>
+      <li><strong>Need more?</strong> Email <a href="mailto:hello@nexuswatch.dev">hello@nexuswatch.dev</a> for higher limits</li>
     </ul>
     <p>Data freshness: CII scores update every 5 minutes. Snapshots recorded daily.</p>
   `;
