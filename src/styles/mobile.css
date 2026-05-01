@@ -1,6 +1,331 @@
-/* ── Mobile Responsive ── */
+/* =============================================================================
+   NexusWatch Mobile Responsive — single source of truth for mobile reflow.
 
-/* Sidebar backdrop — dark overlay behind mobile sidebar, tap to close */
+   Imported globally from main.css so every public route inherits the rules.
+   Page-specific overrides live in this file under section headers. Existing
+   per-page mobile media queries (in landing.css, briefs.css, etc.) stay where
+   they are — this file complements them with site-wide patterns.
+
+   Breakpoints (per CLAUDE.md):
+     >= 1200  : full desktop / cinema-eligible
+     1024–1200: small laptop / large tablet
+     768–1024 : tablet portrait — drawer sidebars, single-column reflow
+     <  768   : phone landscape / large phone
+     <  640   : phone portrait — minimal chrome
+     <  480   : small phone — single-col grids, full-bleed cards
+     <  360   : iPhone SE / "extra-small" — emergency-only rules
+
+   Owners by section:
+     1. Global primitives (buttons, forms, tables, modals, safe area)  —  this file
+     2. Dashboard / Intel map drawer behavior                          —  this file
+     3. Cinema mode mobile gate                                         —  Track B1 (TODO comment in CinemaMode.ts)
+     4. Landing visual rebuild                                         —  Track C
+   ============================================================================= */
+
+/* =============================================================================
+   1. GLOBAL PRIMITIVES — apply at every viewport, just stronger on mobile.
+   ============================================================================= */
+
+/* Eliminate the iOS 300ms tap delay AND the blue tap-highlight flash on every
+   interactive element. We provide our own :active feedback below. */
+a,
+button,
+input,
+select,
+textarea,
+[role='button'],
+.nw-btn,
+.nw-feed-filter,
+.nw-feed-watch-btn,
+.nw-feed-card-cta,
+.nw-sitrep-btn,
+.nw-drawer-toggle,
+.landing-cta-primary,
+.landing-cta-secondary,
+.landing-nav-link,
+.nw-nav-link {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Page-level: prevent horizontal scroll regardless of the rogue child. */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* iOS form-zoom defense: any input/textarea/select with font-size <16px will
+   make iOS Safari zoom on focus. Force ≥16px on mobile. Desktop CSS may set
+   smaller values for visual density; we override below 768px. */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea,
+  .nw-settings-page input,
+  .nw-settings-page select,
+  .nw-settings-page textarea,
+  .nw-search-input {
+    font-size: 16px !important;
+    min-height: 48px;
+    padding: 12px 14px;
+  }
+
+  /* Buttons — 44px minimum on mobile (Apple HIG / WCAG 2.5.5 AAA). */
+  button,
+  [role='button'],
+  .nw-btn,
+  .nw-feed-filter,
+  .nw-feed-watch-btn,
+  .landing-cta-primary,
+  .landing-cta-secondary {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Submit / primary CTA on mobile = full width by default (forms). */
+  form button[type='submit'],
+  .nw-form-submit {
+    width: 100%;
+  }
+}
+
+/* Active state — provide the feedback we removed by killing tap-highlight. */
+@media (hover: none) {
+  a:active,
+  button:active,
+  [role='button']:active,
+  .nw-btn:active,
+  .nw-feed-filter:active,
+  .nw-feed-watch-btn:active,
+  .landing-cta-primary:active,
+  .landing-cta-secondary:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition:
+      opacity 0.1s,
+      transform 0.1s;
+  }
+}
+
+/* Safe-area for iOS notch / home-indicator on fixed top/bottom chrome. */
+@media (max-width: 1024px) {
+  .nw-topbar,
+  .landing-nav,
+  .nw-nav {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  .nw-statusbar,
+  .nw-bottom-ticker,
+  .pulse-bar {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+  }
+}
+
+/* Body / paragraph readability on phone. Below 768px, force readable size +
+   line length. Page-specific CSS may override per-section. */
+@media (max-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+
+  p,
+  li,
+  .nw-card-body,
+  .nw-feed-card-body,
+  .nw-card-text {
+    max-width: 65ch;
+  }
+}
+
+/* Generic table → horizontal-scroll wrapper. Wrap any data table you don't
+   want triggering page-level horizontal scroll in <div class="nw-table-scroll">. */
+.nw-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Provide a subtle hint that scrolling is possible */
+  scrollbar-width: thin;
+}
+
+@media (max-width: 768px) {
+  /* Bare tables inside common page wrappers reflow into the scroll container. */
+  .nw-page table,
+  .nw-feed-page table,
+  .nw-compare-page table,
+  .nw-portfolio-page table,
+  .nw-watchlist-page table {
+    display: block;
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Card-row utility — convert a table-of-data into stacked cards on phone.
+   Markup pattern:
+     <div class="nw-card-rows">
+       <article class="nw-card-row">
+         <div class="nw-card-row-key">Country</div>
+         <div class="nw-card-row-value">United States</div>
+         …
+       </article>
+     </div>
+*/
+@media (max-width: 640px) {
+  .nw-card-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .nw-card-row {
+    background: var(--color-surface, #0a0a0a);
+    border: 1px solid var(--color-border, #1a1a1a);
+    border-radius: var(--radius-md, 4px);
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .nw-card-row-key {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-tertiary, #888);
+  }
+
+  .nw-card-row-value {
+    font-size: 14px;
+    color: var(--color-text-primary, #fff);
+  }
+}
+
+/* Modals / dialogs — full-screen below 640px. Don't try to centre a 600px-wide
+   modal on a 360px screen. */
+@media (max-width: 640px) {
+  .nw-modal,
+  .nw-dialog,
+  .nw-login-modal,
+  .nw-alert-builder,
+  .nw-brief-panel,
+  .nw-investigations-panel,
+  [role='dialog'][aria-modal='true'] {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding-top: max(16px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+    overflow-y: auto;
+  }
+}
+
+/* Form layout — stack vertically on phone. */
+@media (max-width: 640px) {
+  .nw-form,
+  form.nw-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .nw-form-row,
+  .nw-field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+/* Toasts — bottom-anchored on mobile, top-anchored on desktop. */
+@media (max-width: 640px) {
+  .nw-toast,
+  .nw-toast-container {
+    top: auto !important;
+    bottom: max(16px, env(safe-area-inset-bottom)) !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: calc(100vw - 16px);
+    max-width: none !important;
+  }
+}
+
+/* Generic page padding fluidization — `.nw-page` and `*-page` containers. */
+@media (max-width: 768px) {
+  .nw-page,
+  .nw-feed-page,
+  .nw-compare-page,
+  .nw-accuracy-page,
+  .nw-status-page,
+  .nw-roadmap-page,
+  .nw-api-docs-page,
+  .nw-methodology-page,
+  .nw-entities-page,
+  .nw-audit-page,
+  .nw-settings-page,
+  .nw-release-notes-page,
+  .nw-country-brief-page,
+  .nw-portfolio-page,
+  .nw-watchlist-page {
+    padding-left: clamp(16px, 4vw, 32px);
+    padding-right: clamp(16px, 4vw, 32px);
+  }
+}
+
+/* Auto-fit grids — convert any 2-3 col card grid into responsive auto-fit. */
+@media (max-width: 768px) {
+  .nw-grid-auto,
+  .nw-cards-grid,
+  .nw-features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  }
+}
+
+/* =============================================================================
+   2. NAV — secondary nav links collapse, primary CTA stays.
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .landing-nav {
+    padding: 12px 16px;
+  }
+
+  /* Hide secondary nav links on phone — keep logo + primary CTA. The landing
+     rebuild (Track C) may add a hamburger; meanwhile we degrade gracefully. */
+  .landing-nav-links > .landing-nav-link:not(.primary):not(.cta) {
+    display: none;
+  }
+
+  .landing-nav-links {
+    gap: 12px;
+  }
+
+  /* Same for the unified .nw-nav. */
+  .nw-nav-links > .nw-nav-link:not(.primary):not(.cta) {
+    display: none;
+  }
+}
+
+/* =============================================================================
+   3. DASHBOARD / INTEL MAP — drawer sidebars, drawer backdrops, AI terminal,
+                              compact HUD elements.
+   ============================================================================= */
+
+/* Sidebar backdrop — dark overlay behind mobile sidebar, tap to close. */
 .nw-sidebar-backdrop {
   display: none;
   position: fixed;
@@ -16,15 +341,16 @@
   pointer-events: auto;
 }
 
-/* Tablet (< 1024px): sidebar collapses to overlay, theater bar emoji-only */
+/* Tablet (< 1024px): sidebar collapses to overlay, theater bar emoji-only. */
 @media (max-width: 1024px) {
-  /* Theater bar: show emoji only, hide text names */
+  /* Theater bar: show emoji only, hide text names. */
   .nw-theater-name {
     display: none;
   }
   .nw-theater-pill {
-    min-width: 32px;
-    padding: 4px 8px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 12px;
     text-align: center;
   }
   .nw-sidebar {
@@ -39,6 +365,8 @@
     transform: translateX(-100%);
     transition: transform 0.3s ease;
     background: #000;
+    /* iOS notch */
+    padding-top: env(safe-area-inset-top);
   }
   .nw-sidebar.mobile-open {
     transform: translateX(0);
@@ -46,7 +374,7 @@
   .nw-map-container {
     width: 100% !important;
   }
-  /* Show tension index in compact form on tablet (was: display:none) */
+  /* Show tension index in compact form on tablet (was: display:none). */
   .nw-topbar-center {
     flex: 0 0 auto;
   }
@@ -56,13 +384,43 @@
   .nw-topbar-center .nw-tension-sparkline {
     display: none;
   }
+
+  /* Country panel (left drawer) — slides from left, layer panel slides
+     from right. Either may be open at a time; both can close. */
+  .nw-country-panel {
+    position: fixed !important;
+    left: 0;
+    top: 32px;
+    bottom: 0;
+    width: 320px !important;
+    z-index: 101;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  .nw-country-panel.mobile-open {
+    transform: translateX(0);
+  }
+  .nw-layer-panel {
+    position: fixed !important;
+    right: 0;
+    top: 32px;
+    bottom: 0;
+    width: min(360px, 90vw) !important;
+    z-index: 101;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+  .nw-layer-panel.mobile-open {
+    transform: translateX(0);
+  }
 }
 
-/* Phone (< 640px): minimal chrome */
+/* Phone (< 640px): minimal chrome. */
 @media (max-width: 640px) {
   .nw-topbar {
     padding: 0 8px;
     font-size: 10px;
+    padding-top: max(0px, env(safe-area-inset-top));
   }
   .nw-topbar-left .nw-logo {
     font-size: 11px !important;
@@ -71,19 +429,21 @@
     gap: 2px !important;
   }
   .nw-sitrep-btn {
-    font-size: 8px !important;
-    padding: 2px 4px !important;
+    font-size: 9px !important;
+    padding: 4px 6px !important;
     letter-spacing: 0.5px !important;
+    min-height: 32px;
   }
-  /* Hide non-essential topbar buttons on phone */
+  /* Hide non-essential topbar buttons on phone — keep LAYERS + SITREP. */
   .nw-sitrep-btn:not(.nw-essential) {
     display: none;
   }
-  /* Always show LAYERS toggle on phone (essential for mobile UX) */
+  /* Always show LAYERS toggle on phone (essential for mobile UX). */
   .nw-drawer-toggle {
     display: flex !important;
-    font-size: 9px !important;
-    padding: 3px 6px !important;
+    font-size: 10px !important;
+    padding: 6px 10px !important;
+    min-height: 36px;
   }
   .nw-drawer-toggle .nw-drawer-count {
     display: none; /* Hide count badge on phone to save space */
@@ -94,14 +454,21 @@
   .nw-statusbar {
     font-size: 8px;
     padding: 0 8px;
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
   }
-  /* Sidebar 85% width on phone — lets user see map edge behind it */
+  /* Sidebar 90% width on phone — lets user see map edge behind it. */
   .nw-sidebar {
-    width: 85% !important;
+    width: 90% !important;
     max-width: 360px !important;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
   }
-  /* Cinema mode adjustments */
+  .nw-country-panel,
+  .nw-layer-panel {
+    width: 90vw !important;
+    max-width: 360px !important;
+  }
+
+  /* Cinema mode adjustments (visual only — Track B1 owns the gate). */
   .cinema-profile-bar {
     top: 8px;
     gap: 2px;
@@ -123,7 +490,7 @@
   .cinema-hud-bottomleft {
     font-size: 9px;
   }
-  /* Alert builder responsive */
+  /* Alert builder responsive (already a modal; redundancy preserved). */
   .nw-alert-builder {
     width: calc(100vw - 16px) !important;
   }
@@ -135,7 +502,7 @@
   }
 }
 
-/* Mobile sidebar toggle button */
+/* Mobile sidebar toggle button — present in DOM, only visible <1024px. */
 .nw-mobile-sidebar-toggle {
   display: none;
 }
@@ -144,47 +511,128 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 22px;
+    width: 44px;
+    height: 44px;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 14px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 18px;
     cursor: pointer;
     transition: all 0.15s ease;
+    touch-action: manipulation;
   }
   .nw-mobile-sidebar-toggle:hover {
     border-color: rgba(255, 255, 255, 0.3);
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 255, 255, 1);
   }
 }
 
-/* Touch-friendly targets */
+/* Touch-friendly targets on coarse pointers. */
 @media (pointer: coarse) {
   .nw-sitrep-btn,
   .cinema-profile-pill,
   .cinema-ticker-pill,
   .cinema-mute-btn,
   .cinema-exit-btn {
-    min-height: 36px;
-    min-width: 36px;
+    min-height: 44px;
+    min-width: 44px;
   }
   .nw-timeline-slider::-webkit-slider-thumb {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
   }
   .nw-timeline-range,
   .nw-timeline-play,
   .nw-timeline-step,
   .nw-timeline-speed {
-    min-height: 32px;
-    min-width: 32px;
-    font-size: 11px;
+    min-height: 40px;
+    min-width: 40px;
+    font-size: 12px;
   }
   .nw-theater-pill {
-    min-height: 32px;
-    padding: 6px 12px;
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+}
+
+/* AI Terminal — collapse to floating launcher + full-screen modal on mobile.
+   The terminal element is `.nw-ai-terminal` (existing class). When it has
+   `.nw-mobile-launcher` (added by JS — see CSS-only fallback below), it
+   becomes a 56×56 FAB. The class `nw-mobile-open` makes it full-screen. */
+@media (max-width: 768px) {
+  .nw-ai-terminal {
+    /* Floating-action-button shape on mobile. */
+    position: fixed !important;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: 56px !important;
+    height: 56px !important;
+    min-height: 56px;
+    min-width: 56px;
+    border-radius: 50%;
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.6));
+    z-index: 200;
+    overflow: hidden;
+    transition:
+      width 0.25s ease,
+      height 0.25s ease,
+      border-radius 0.25s ease,
+      inset 0.25s ease;
+  }
+  .nw-ai-terminal.nw-mobile-open {
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    border-radius: 0;
+    padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+  }
+  /* Hide terminal contents in collapsed FAB state. */
+  .nw-ai-terminal:not(.nw-mobile-open) > *:not(.nw-ai-terminal-launcher) {
+    display: none !important;
+  }
+  /* The launcher button itself — visible only when collapsed. */
+  .nw-ai-terminal-launcher {
+    width: 56px;
+    height: 56px;
+    background: var(--color-accent, #ff6600);
+    color: #000;
+    border: none;
+    border-radius: 50%;
+    font-family: var(--font-mono, monospace);
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .nw-ai-terminal.nw-mobile-open .nw-ai-terminal-launcher {
+    display: none;
+  }
+}
+
+/* Bottom ticker (M3.x earthquakes) — hide on phones (not mission-critical). */
+@media (max-width: 640px) {
+  .nw-bottom-ticker,
+  .nw-quake-ticker,
+  .nw-event-ticker {
+    display: none !important;
+  }
+}
+
+/* Tension Index + LIVE indicator — single compact pill on mobile. */
+@media (max-width: 640px) {
+  .nw-tension-pill,
+  .nw-live-indicator {
+    font-size: 10px;
+    padding: 2px 6px;
+    min-height: 28px;
+  }
+  .nw-tension-trend,
+  .nw-tension-history {
+    display: none;
   }
 }
 
@@ -221,15 +669,15 @@
 /* ── HUD mobile ── */
 @media (max-width: 640px) {
   .nw-hud-top-left {
-    top: 40px;
+    top: calc(40px + env(safe-area-inset-top, 0px));
     left: 8px;
   }
   .nw-hud-top-right {
-    top: 40px;
+    top: calc(40px + env(safe-area-inset-top, 0px));
     right: 8px;
   }
   .nw-hud-bottom-left {
-    bottom: 80px;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
     left: 8px;
   }
   .nw-hud-classification {
@@ -260,11 +708,11 @@
     max-height: 240px;
   }
   .nw-data-table {
-    font-size: 9px;
+    font-size: 11px;
   }
   .nw-data-table th,
   .nw-data-table td {
-    padding: 4px 6px;
+    padding: 6px 8px;
   }
 }
 
@@ -273,7 +721,7 @@
   .nw-crisis-overlay {
     min-width: auto;
     width: calc(100% - 32px);
-    top: 8px;
+    top: max(8px, env(safe-area-inset-top));
   }
 }
 
@@ -302,6 +750,69 @@
     min-width: 140px;
   }
   .nw-more-btn {
-    font-size: 8px !important;
+    font-size: 10px !important;
+    min-height: 36px;
+  }
+}
+
+/* =============================================================================
+   4. PERSONA / WELCOME GRID — single col below 480px.
+   ============================================================================= */
+
+@media (max-width: 480px) {
+  .nw-persona-grid,
+  .nw-welcome-personas {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* =============================================================================
+   5. BRIEFS / BRIEF READER — stack TOC above content on mobile.
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .nw-brief-layout,
+  .nw-briefs-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .nw-brief-toc,
+  .nw-briefs-sidebar {
+    order: 2;
+    max-height: none;
+    position: static;
+  }
+  .nw-brief-content {
+    order: 1;
+  }
+}
+
+/* =============================================================================
+   6. COMPARE PAGE — side-by-side mini-tables get scroll containers.
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .nw-compare-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .nw-compare-card .nw-compare-components {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* =============================================================================
+   7. WATCHLIST / PORTFOLIO — table ⇒ card pattern on phone.
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .nw-watchlist-table,
+  .nw-portfolio-table {
+    /* If page wraps the table in .nw-table-scroll the table renders normally.
+       For pages without the wrapper, we coerce the table itself to scroll
+       horizontally rather than overflow the viewport. */
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
   }
 }

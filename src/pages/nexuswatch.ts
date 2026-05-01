@@ -100,7 +100,7 @@ import '../styles/alert-builder.css';
 import '../styles/timeline.css';
 import '../styles/brief.css';
 import '../styles/user-menu.css';
-import '../styles/mobile.css';
+// mobile.css is now imported globally from main.css.
 // Old timeline slider replaced by TimelineBar
 import { openBriefPanel } from '../ui/briefPanel.ts';
 import { createUserMenu } from '../ui/userMenu.ts';

@@ -149,9 +149,26 @@ export class MapLayerManager {
     } catch {
       // ignore
     }
-    // Default: curated set for clean first impression (Chairman D-1, Apr 19).
-    // 6 layers that make the globe feel alive without overwhelming new users.
-    // Returning users get their saved preferences from localStorage instead.
+    // Default first-load layer set — varies by viewport.
+    // Mobile (<= 768px): 2 layers only. The MapLibre globe is GPU-heavy on
+    //   phones and 6 simultaneous data layers tank first paint. Users can
+    //   open the LAYERS drawer and toggle more once the map is interactive.
+    // Desktop: 6 curated layers (Chairman D-1, Apr 19) — clean first
+    //   impression without overwhelming new users.
+    // Returning users (any viewport) get their saved preferences from
+    // localStorage instead.
+    const isMobile =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 768px)').matches;
+
+    if (isMobile) {
+      return [
+        'earthquakes', // USGS seismic — pulsing circles
+        'acled', // Active conflicts — red clusters
+      ];
+    }
+
     return [
       'earthquakes', // USGS seismic — pulsing circles
       'acled', // Active conflicts — red clusters
