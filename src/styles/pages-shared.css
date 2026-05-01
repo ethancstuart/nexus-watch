@@ -138,3 +138,177 @@
   color: var(--nw-text-secondary);
   line-height: 1.7;
 }
+
+/* =============================================================================
+   FAQ page — terminal aesthetic, dense list of <details> items.
+   Tokens only. Eyebrow → H1 → meta lede → details list rhythm.
+   ============================================================================= */
+
+.nw-faq-page {
+  min-height: 100vh;
+  animation: nw-fade-in 0.3s ease;
+}
+
+.nw-faq {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-section-tight) var(--space-6);
+}
+
+.nw-faq-header {
+  margin-bottom: var(--space-12);
+}
+
+.nw-faq-back {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  margin-bottom: var(--space-6);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.nw-faq-back:hover,
+.nw-faq-back:focus-visible {
+  color: var(--color-accent);
+  outline: none;
+}
+
+.nw-faq-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: var(--space-2);
+}
+
+.nw-faq-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-3);
+}
+
+.nw-faq-lede {
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.nw-faq-link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.nw-faq-link:hover {
+  text-decoration: underline;
+}
+
+.nw-faq-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.nw-faq-item {
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-4) 0;
+}
+
+.nw-faq-item:first-child {
+  border-top: 1px solid var(--color-border);
+}
+
+.nw-faq-q {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  list-style: none;
+  line-height: var(--leading-snug);
+}
+
+.nw-faq-q::-webkit-details-marker {
+  display: none;
+}
+
+.nw-faq-q:hover .nw-faq-icon,
+details[open] .nw-faq-icon {
+  color: var(--color-accent);
+}
+
+.nw-faq-icon {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--color-text-tertiary);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.nw-faq-a {
+  font-size: var(--text-base);
+  line-height: var(--leading-loose);
+  color: var(--color-text-secondary);
+  margin: var(--space-3) 0 var(--space-1);
+  max-width: 64ch;
+}
+
+.nw-faq-a a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.nw-faq-a a:hover,
+.nw-faq-a a:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.nw-faq-a kbd {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+}
+
+.nw-faq-footer {
+  margin-top: var(--space-12);
+  text-align: center;
+}
+
+.nw-faq-cta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.nw-faq-cta:hover,
+.nw-faq-cta:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+@media (max-width: 640px) {
+  .nw-faq {
+    padding: var(--space-8) var(--space-4);
+  }
+  .nw-faq-title {
+    font-size: var(--text-xl);
+  }
+}

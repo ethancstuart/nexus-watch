@@ -65,14 +65,22 @@ export function renderCountryBrief(root: HTMLElement, code: string): void {
 
   // Executive Summary
   const summary = createElement('div', { className: 'nw-brief-summary' });
+  const tier = score.score >= 75 ? 'critical' : score.score >= 50 ? 'high' : score.score >= 25 ? 'med' : 'low';
+  // Local color reference is still useful for the inline component bars below.
   const scoreColor =
-    score.score >= 75 ? '#dc2626' : score.score >= 50 ? '#f97316' : score.score >= 25 ? '#eab308' : '#22c55e';
+    score.score >= 75
+      ? 'var(--color-tension-critical)'
+      : score.score >= 50
+        ? 'var(--color-tension-high)'
+        : score.score >= 25
+          ? 'var(--color-tension-med)'
+          : 'var(--color-tension-low)';
   const label = score.score >= 75 ? 'CRITICAL' : score.score >= 50 ? 'HIGH' : score.score >= 25 ? 'ELEVATED' : 'STABLE';
 
   summary.innerHTML = `
     <div class="nw-brief-score-block">
-      <div class="nw-brief-score-value" style="color: ${scoreColor}">${score.score}</div>
-      <div class="nw-brief-score-label" style="color: ${scoreColor}">${label}</div>
+      <div class="nw-brief-score-value nw-tier-${tier}">${score.score}</div>
+      <div class="nw-brief-score-label nw-tier-${tier}">${label}</div>
       <div class="nw-brief-score-scale">of 100 — Country Instability Index</div>
     </div>
     <div class="nw-brief-summary-meta">

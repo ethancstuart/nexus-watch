@@ -51,11 +51,12 @@ function resolveCountryInput(input: string): string | null {
   return null;
 }
 
+/** Map a CII score 0–100 to a tension-tier CSS variable. Stays semantic. */
 function scoreColor(score: number): string {
-  if (score >= 75) return '#dc2626';
-  if (score >= 50) return '#f97316';
-  if (score >= 25) return '#eab308';
-  return '#22c55e';
+  if (score >= 75) return 'var(--color-tension-critical)';
+  if (score >= 50) return 'var(--color-tension-high)';
+  if (score >= 25) return 'var(--color-tension-med)';
+  return 'var(--color-tension-low)';
 }
 
 export async function renderComparePage(root: HTMLElement): Promise<void> {
@@ -96,9 +97,9 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
              value="${codes.map((c) => (COUNTRY_NAMES[c] ? `${COUNTRY_NAMES[c]} (${c})` : c)).join(', ')}">
       <datalist id="nw-compare-countries">${datalistOptions}</datalist>
       <button class="nw-compare-submit">Compare</button>
-      <button class="nw-compare-share" style="font-family:var(--nw-font-mono);font-size:11px;padding:6px 12px;background:transparent;border:1px solid var(--nw-border);color:var(--nw-text-secondary);border-radius:4px;cursor:pointer">Share</button>
+      <button class="nw-compare-share">Share</button>
     </div>
-    <div class="nw-compare-validation" style="font-size:11px;color:var(--nw-text-muted);margin:6px 0 0;min-height:16px"></div>
+    <div class="nw-compare-validation" role="status" aria-live="polite"></div>
     <div class="nw-compare-presets">
       <span class="nw-compare-preset-label">Presets:</span>
       <button class="nw-compare-preset" data-codes="UA,RU,PL,DE">Russia\u2013NATO</button>
@@ -127,7 +128,7 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
   const load = async (codesToLoad: string[]) => {
     if (codesToLoad.length < 1) return;
     window.history.replaceState(null, '', `#/compare?codes=${codesToLoad.join(',')}`);
-    content.innerHTML = '<div class="nw-compare-loading">Loading CII data...</div>';
+    content.innerHTML = renderCompareLoading(codesToLoad.length);
 
     try {
       const res = await fetch('/api/v2/cii?apikey=public-compare', { method: 'GET' });
@@ -165,7 +166,16 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
 
       renderComparison(content, display);
     } catch {
-      content.innerHTML = '<div class="nw-compare-empty">Comparison data unavailable.</div>';
+      content.innerHTML = `
+        <div class="nw-state nw-state-error" role="alert">
+          <p class="nw-state-title">Couldn't load comparison data</p>
+          <p class="nw-state-body">Comparison data is temporarily unavailable. Check the
+            <a class="nw-faq-link" href="#/status">status page</a> or try again.</p>
+          <button class="nw-state-cta nw-compare-retry" type="button">Try again</button>
+        </div>
+      `;
+      const retry = content.querySelector('.nw-compare-retry');
+      retry?.addEventListener('click', () => void load(codesToLoad));
     }
   };
 
@@ -191,21 +201,22 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
 
   submit.addEventListener('click', () => {
     const { codes: parsed, errors } = parseInput();
+    validation.classList.remove('is-warn', 'is-ok', 'is-muted');
     if (errors.length > 0) {
-      validation.style.color = 'var(--nw-amber, #e5a913)';
+      validation.classList.add('is-warn');
       validation.textContent = `Unknown: ${errors.join(', ')}. Use country names or ISO codes.`;
     } else if (parsed.length === 0) {
-      validation.style.color = 'var(--nw-text-muted)';
+      validation.classList.add('is-muted');
       validation.textContent = 'Enter at least one country name or code.';
       return;
     } else {
       const originalTokens = input.value.split(',').filter((t) => t.trim());
       if (originalTokens.length > 6) {
-        validation.style.color = 'var(--nw-amber, #e5a913)';
+        validation.classList.add('is-warn');
         validation.textContent = '6 country maximum \u2014 showing first 6.';
       } else {
+        validation.classList.add('is-ok');
         validation.textContent = parsed.map((c) => `${COUNTRY_NAMES[c] || c} (${c}) \u2713`).join('  ');
-        validation.style.color = 'var(--nw-cyan, #00d4aa)';
       }
     }
     if (parsed.length > 0) void load(parsed);
@@ -238,12 +249,30 @@ export async function renderComparePage(root: HTMLElement): Promise<void> {
     void load(codes);
   } else {
     content.innerHTML = `
-      <div class="nw-compare-empty" style="text-align:center;padding:32px 16px">
-        <p style="font-size:15px;color:var(--nw-text-secondary);margin:0 0 8px">Type a country name above or pick a preset to start comparing.</p>
-        <p style="font-size:12px;color:var(--nw-text-muted)">Compare 2\u20136 countries side by side \u2014 CII scores, 6-component breakdown, trend direction, and confidence levels.</p>
+      <div class="nw-state">
+        <p class="nw-state-title">Add countries to compare them</p>
+        <p class="nw-state-body">
+          Type 2\u20136 country names above or pick a preset. You'll see CII scores,
+          a 6-component breakdown, trend direction, and confidence levels.
+        </p>
       </div>
     `;
   }
+}
+
+function renderCompareLoading(count: number): string {
+  const skel = Array.from({ length: Math.max(2, Math.min(count, 6)) })
+    .map(
+      () => `
+      <div class="nw-compare-skel-col">
+        <div class="nw-skel" style="height:14px;width:70%;margin:0 auto var(--space-2)"></div>
+        <div class="nw-skel" style="height:48px;width:60%;margin:0 auto var(--space-2)"></div>
+        <div class="nw-skel" style="height:10px;width:40%;margin:0 auto"></div>
+      </div>
+    `,
+    )
+    .join('');
+  return `<div class="nw-compare-skel" aria-busy="true" aria-live="polite">${skel}</div>`;
 }
 
 function renderComparison(container: HTMLElement, rows: CiiApiRow[]): void {

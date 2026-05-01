@@ -1,8 +1,13 @@
 /**
  * FAQ Page (/#/faq)
  *
- * 10 answers drawn from Nadia Torres' (Head of CX) predicted support tickets.
- * Deflects ~60% of launch-day support volume.
+ * Answers drawn from predicted support tickets — deflects launch-day volume
+ * and surfaces NexusWatch's trust + transparency posture.
+ *
+ * Visual treatment is the dense terminal aesthetic: page H1 is large and
+ * tight, eyebrow above the title, mono accents in metadata only. The list
+ * uses <details> as the hierarchy element. Tokens come from
+ * src/styles/tokens.css — no hardcoded hex or px in this file.
  */
 
 import { createElement } from '../utils/dom.ts';
@@ -55,40 +60,35 @@ export function renderFaqPage(root: HTMLElement): void {
   const page = createElement('div', { className: 'nw-faq' });
   page.setAttribute('role', 'main');
   page.id = 'main-content';
-  page.style.cssText =
-    'max-width:700px;margin:0 auto;padding:48px 24px;font-family:var(--nw-font-body, Inter, sans-serif)';
 
-  const header = createElement('header', {});
+  const header = createElement('header', { className: 'nw-faq-header' });
   header.innerHTML = `
-    <a href="#/" style="font-size:12px;color:var(--nw-text-muted);text-decoration:none">\u2190 Home</a>
-    <h1 style="font-size:28px;font-weight:700;color:var(--nw-text, #ededed);margin:16px 0 8px">Frequently Asked Questions</h1>
-    <p style="font-size:14px;color:var(--nw-text-secondary, #999);margin:0 0 32px;line-height:1.5">
-      Can't find your answer? Email <a href="mailto:hello@nexuswatch.dev" style="color:var(--nw-accent, #ff6600)">hello@nexuswatch.dev</a>
+    <a href="#/" class="nw-faq-back">\u2190 Home</a>
+    <div class="nw-faq-eyebrow">SUPPORT</div>
+    <h1 class="nw-faq-title">Frequently Asked Questions</h1>
+    <p class="nw-faq-lede">
+      Can't find your answer? Email <a class="nw-faq-link" href="mailto:hello@nexuswatch.dev">hello@nexuswatch.dev</a>
     </p>
   `;
   page.appendChild(header);
 
-  const list = createElement('div', {});
+  const list = createElement('div', { className: 'nw-faq-list' });
   for (const item of FAQ_ITEMS) {
     const details = document.createElement('details');
-    details.style.cssText = 'border-bottom:1px solid var(--nw-border, #222);padding:16px 0';
+    details.className = 'nw-faq-item';
 
     const summary = document.createElement('summary');
-    summary.style.cssText =
-      'font-size:15px;font-weight:600;color:var(--nw-text, #ededed);cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center';
-    summary.innerHTML = `<span>${item.q}</span><span style="color:var(--nw-text-muted);font-size:18px;transition:transform 0.2s">+</span>`;
+    summary.className = 'nw-faq-q';
+    summary.innerHTML = `<span>${item.q}</span><span class="nw-faq-icon" aria-hidden="true">+</span>`;
 
-    const answer = createElement('div', {});
-    answer.style.cssText =
-      'font-size:14px;color:var(--nw-text-secondary, #999);line-height:1.6;margin:12px 0 0;padding:0 0 0 0';
+    const answer = createElement('div', { className: 'nw-faq-a' });
     answer.innerHTML = item.a;
 
     details.appendChild(summary);
     details.appendChild(answer);
 
-    // Toggle +/- icon
     details.addEventListener('toggle', () => {
-      const icon = summary.querySelector('span:last-child') as HTMLElement;
+      const icon = summary.querySelector('.nw-faq-icon') as HTMLElement | null;
       if (icon) icon.textContent = details.open ? '\u2212' : '+';
     });
 
@@ -96,10 +96,9 @@ export function renderFaqPage(root: HTMLElement): void {
   }
   page.appendChild(list);
 
-  const footer = createElement('div', {});
-  footer.style.cssText = 'margin:40px 0 0;text-align:center';
+  const footer = createElement('div', { className: 'nw-faq-footer' });
   footer.innerHTML = `
-    <a href="#/intel" style="color:var(--nw-accent);font-size:14px;text-decoration:none">Open the Intel Map \u2192</a>
+    <a href="#/intel" class="nw-faq-cta">Open the Intel Map \u2192</a>
   `;
   page.appendChild(footer);
 

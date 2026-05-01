@@ -42,7 +42,7 @@ function buildFeed(): FeedCard[] {
   // High CII countries
   for (const s of scores.filter((s) => s.score >= 70).slice(0, 8)) {
     const name = monitored.find((c) => c.code === s.countryCode)?.name || s.countryCode;
-    const color = s.score >= 85 ? '#dc2626' : '#f97316';
+    const color = s.score >= 85 ? 'var(--color-signal-critical)' : 'var(--color-tension-high)';
     cards.push({
       id: `high-${s.countryCode}`,
       type: 'high-cii',
@@ -71,7 +71,7 @@ function buildFeed(): FeedCard[] {
       countryCode: s.countryCode,
       title: `${name} — trajectory rising`,
       body: `CII at ${s.score}, up from previous cycle. ${s.topSignals[0] || 'Check evidence for drivers.'}`,
-      accentColor: '#eab308',
+      accentColor: 'var(--color-tension-med)',
       icon: '↗',
       cta: { label: 'See components', href: `#/audit/${s.countryCode}` },
     });
@@ -80,7 +80,7 @@ function buildFeed(): FeedCard[] {
   // Verified signals
   const signals = getVerifiedSignals();
   for (const sig of signals.slice(0, 10)) {
-    const color = sig.level === 'confirmed' ? '#22c55e' : '#eab308';
+    const color = sig.level === 'confirmed' ? 'var(--color-signal-ok)' : 'var(--color-tension-med)';
     cards.push({
       id: `sig-${sig.id}`,
       type: 'verified-signal',
@@ -106,7 +106,7 @@ function buildFeed(): FeedCard[] {
       countryCode: c.countryCode,
       title: `${c.countryName} — sources disagree`,
       body: c.summary,
-      accentColor: '#f97316',
+      accentColor: 'var(--color-tension-high)',
       icon: '⚠',
       cta: { label: 'See both sides', href: `#/audit/${c.countryCode}` },
     });
@@ -123,7 +123,7 @@ function buildFeed(): FeedCard[] {
       countryCode: cas.to.code,
       title: `${cas.from.name} → ${cas.to.name}`,
       body: cas.description,
-      accentColor: '#a855f7',
+      accentColor: 'var(--color-signal-info)',
       icon: '↯',
       cta: { label: 'Inspect receiving country', href: `#/audit/${cas.to.code}` },
     });
@@ -172,7 +172,21 @@ export function renderFeedPage(root: HTMLElement): void {
   let currentFilter: string = 'all';
 
   function render(): void {
-    const cards = buildFeed();
+    let cards: FeedCard[];
+    try {
+      cards = buildFeed();
+    } catch {
+      stream.innerHTML = `
+        <div class="nw-state nw-state-error" role="alert">
+          <p class="nw-state-title">Couldn't build the feed</p>
+          <p class="nw-state-body">Intelligence sources are temporarily unavailable. Check the
+            <a class="nw-feed-card-cta" href="#/status">status page</a> or try again.</p>
+          <button class="nw-state-cta nw-feed-retry" type="button">Try again</button>
+        </div>
+      `;
+      stream.querySelector('.nw-feed-retry')?.addEventListener('click', () => render());
+      return;
+    }
     const filtered =
       currentFilter === 'all'
         ? cards
@@ -190,12 +204,14 @@ export function renderFeedPage(root: HTMLElement): void {
         contradiction: 'No source contradictions detected. Data sources are in agreement.',
         cascade: 'No cross-border cascade events detected.',
         watchlist:
-          'No watchlist updates yet. <a href="#/watchlist" style="color:var(--nw-accent)">Add countries to your watchlist</a> to see personalized intelligence here.',
+          'No watchlist updates yet. <a class="nw-feed-card-cta" href="#/watchlist">Add countries to your watchlist</a> to see personalized intelligence here.',
       };
+      const showResetCta = currentFilter !== 'all';
       stream.innerHTML = `
-        <div class="nw-feed-empty">
-          <p style="font-size:14px;color:var(--nw-text-secondary);margin:0 0 8px">${emptyMessages[currentFilter] || emptyMessages.all}</p>
-          ${currentFilter !== 'all' ? '<p style="font-size:12px;color:var(--nw-text-muted)">Try <button class="nw-feed-reset-filter" style="background:none;border:none;color:var(--nw-accent);cursor:pointer;font-size:12px;text-decoration:underline;padding:0">showing all cards</button> for a broader view.</p>' : ''}
+        <div class="nw-state">
+          <p class="nw-state-title">Quiet feed</p>
+          <p class="nw-state-body">${emptyMessages[currentFilter] || emptyMessages.all}</p>
+          ${showResetCta ? '<button class="nw-state-cta nw-feed-reset-filter" type="button">Show all cards</button>' : ''}
         </div>
       `;
       const resetBtn = stream.querySelector('.nw-feed-reset-filter');
