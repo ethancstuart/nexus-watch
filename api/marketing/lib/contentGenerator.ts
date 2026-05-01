@@ -108,7 +108,7 @@ Single post ≤280 chars. Include nexuswatch.dev.`;
 LinkedIn: write at 50/50 analyst/friend ratio.
 "We built X because Y" logic — lead with the problem, not the product.
 One concrete example of NexusWatch solving it.
-Soft close with nexuswatch.dev/pricing. 100–200 words.
+Soft close with nexuswatch.dev. 100–200 words.
 Avoid hype opener phrases and false humility.`;
   }
 

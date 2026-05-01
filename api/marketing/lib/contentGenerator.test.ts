@@ -29,10 +29,10 @@ describe('buildPostTypePrompt', () => {
     expect(prompt).toContain('≤280');
   });
 
-  it('cta linkedin: returns CTA LinkedIn instructions with pricing link', () => {
+  it('cta linkedin: returns CTA LinkedIn instructions with site link', () => {
     const prompt = buildPostTypePrompt('cta', 'linkedin');
     expect(prompt).toContain('POST TYPE: CTA');
-    expect(prompt).toContain('nexuswatch.dev/pricing');
+    expect(prompt).toContain('nexuswatch.dev');
     expect(prompt).not.toContain('excited to share');
   });
 

@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       elevated_countries: elevated,
       chokepoint_exposure: chokepoint_exposure.slice(0, 5),
       unmapped_symbols,
-      cta: 'Run your own portfolio at nexuswatch.dev/#/portfolio (Pro tier)',
+      cta: 'Run your own portfolio at nexuswatch.dev/#/portfolio',
     });
   } catch (err) {
     console.error('[exposure-demo]', err instanceof Error ? err.message : err);

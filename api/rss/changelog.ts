@@ -44,7 +44,7 @@ const ENTRIES: Entry[] = [
       'Multi-source verification engine (CONFIRMED/CORROBORATED)',
       '7 scenario simulations with cascade visualization',
       'AI analyst with per-sentence confidence tagging',
-      'Portfolio geopolitical exposure (Pro tier)',
+      'Portfolio geopolitical exposure',
       'Time-travel scrubber (90-day history)',
       'Crisis playbooks (auto-triggered)',
       'Prediction ledger (public accuracy tracking)',
