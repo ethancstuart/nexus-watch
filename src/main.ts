@@ -164,6 +164,23 @@ router
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/about', () => {
+    import('./pages/about.ts')
+      .then((m) => {
+        void transition(appRoot);
+        m.renderAbout(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/why-free', () => {
+    import('./pages/whyFree.ts')
+      .then((m) => {
+        void transition(appRoot);
+        m.renderWhyFree(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/case-study', () => {
+    // Legacy route — preserve access to the old technical case study.
     import('./pages/casestudy.ts')
       .then((m) => {
         void transition(appRoot);
