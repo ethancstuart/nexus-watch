@@ -148,3 +148,23 @@
   border-style: solid;
   border-color: var(--color-border-subtle);
 }
+
+/* =============================================================================
+   Shared CII tier helpers — used wherever a CII score is rendered (compare
+   cards, watchlist cards, country briefs, methodology table, portfolio
+   exposure table). Loaded globally via base.css so any data-dense page can
+   apply them without re-importing.
+   ============================================================================= */
+
+.nw-tier-critical {
+  color: var(--color-tension-critical);
+}
+.nw-tier-high {
+  color: var(--color-tension-high);
+}
+.nw-tier-med {
+  color: var(--color-tension-med);
+}
+.nw-tier-low {
+  color: var(--color-tension-low);
+}

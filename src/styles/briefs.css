@@ -300,110 +300,215 @@
 }
 
 /* ── Methodology Page ── */
+.method-article {
+  padding-top: var(--space-12);
+}
+.method-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: var(--space-2);
+}
+.method-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2);
+}
+.method-lede {
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-12);
+  max-width: 64ch;
+}
+.method-link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.method-link:hover,
+.method-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+.method-code {
+  background: var(--color-surface-elevated);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+.method-cta-row {
+  text-align: center;
+  padding: var(--space-8) 0;
+}
+.method-cta {
+  display: inline-block;
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-accent-bg-soft);
+  border: 1px solid var(--color-accent-border);
+  color: var(--color-accent);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-eyebrow);
+  border-radius: var(--radius-md);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.method-cta:hover,
+.method-cta:focus-visible {
+  background: var(--color-accent-dim);
+  outline: none;
+}
 .method-components {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin: 16px 0;
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
 }
 .method-component {
-  background: #0a0a0a;
-  border: 1px solid #1a1a1a;
-  border-radius: 4px;
-  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
 }
 .method-component-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 .method-component-name {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   font-weight: 700;
-  color: #ff6600;
-  letter-spacing: 1px;
+  color: var(--color-accent);
+  letter-spacing: var(--tracking-wide);
 }
 .method-component-range {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: #666;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
 }
 .method-component p {
-  font-size: 13px;
-  line-height: 1.7;
-  color: #aaa;
-  margin: 0 0 6px;
+  font-size: var(--text-sm);
+  line-height: var(--leading-loose);
+  color: var(--color-text);
+  margin: 0 0 var(--space-2);
 }
 .method-formula {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: #666;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
   background: var(--color-bg);
-  padding: 6px 10px;
-  border-radius: 3px;
-  margin-top: 6px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-2);
 }
 .method-levels {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 12px 0;
-  font-size: 13px;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  font-size: var(--text-sm);
 }
 .method-level {
-  padding: 8px 12px;
-  background: #0a0a0a;
-  border-radius: 3px;
-  color: #ccc;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+.method-level-tag {
+  font-weight: 700;
+  margin-right: var(--space-1);
+}
+.method-level-tag.is-critical {
+  color: var(--color-tension-critical);
+}
+.method-level-tag.is-high {
+  color: var(--color-tension-high);
+}
+.method-level-tag.is-med {
+  color: var(--color-tension-med);
+}
+.method-level-tag.is-low {
+  color: var(--color-tension-low);
 }
 .method-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  margin: var(--space-3) 0;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
 }
 .method-table td,
 .method-table th {
-  padding: 8px 10px;
-  border-bottom: 1px solid #1a1a1a;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
   text-align: left;
-  color: #aaa;
+  color: var(--color-text);
 }
 .method-table th {
-  color: #666;
-  font-size: 10px;
-  letter-spacing: 1px;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
 }
-.method-table tr:hover td {
-  background: #0a0a0a;
+.method-table tr:nth-child(even) td {
+  background: var(--color-bg-2);
 }
 .method-cii-table {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .method-cii-table td:first-child {
-  color: #ccc;
+  color: var(--color-text-primary);
+}
+.method-cii-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.method-cii-meta {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: center;
+  margin-top: var(--space-2);
 }
 .method-list {
   list-style: none;
   padding: 0;
-  margin: 12px 0;
+  margin: var(--space-3) 0;
 }
 .method-list li {
-  font-size: 13px;
-  line-height: 1.7;
-  color: #aaa;
-  padding: 6px 0 6px 16px;
-  border-left: 2px solid #1a1a1a;
-  margin-bottom: 8px;
+  font-size: var(--text-sm);
+  line-height: var(--leading-loose);
+  color: var(--color-text);
+  padding: var(--space-2) 0 var(--space-2) var(--space-4);
+  border-left: 2px solid var(--color-border);
+  margin-bottom: var(--space-2);
 }
 .method-live-cii {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: #888;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+@media (max-width: 768px) {
+  .method-article {
+    overflow-x: hidden;
+  }
+  .method-table-wrap {
+    overflow-x: auto;
+  }
+  .method-cii-table {
+    min-width: 640px;
+  }
 }
 
 /* Responsive */

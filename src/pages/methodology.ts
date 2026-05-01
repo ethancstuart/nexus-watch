@@ -21,18 +21,19 @@ export function renderMethodology(root: HTMLElement): void {
       </div>
     </nav>
 
-    <article class="brief-article" style="padding-top:48px;">
-      <h1 style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#ff6600;letter-spacing:2px;margin:0 0 8px;">Methodology</h1>
-      <p style="color:#888;font-size:14px;margin:0 0 32px;">How NexusWatch scores global risk — data sources, trust layer, and verification methodology.</p>
+    <article class="brief-article method-article">
+      <div class="method-eyebrow">METHODOLOGY</div>
+      <h1 class="method-title">How NexusWatch scores risk</h1>
+      <p class="method-lede">Data sources, trust layer, and verification methodology behind every CII score.</p>
 
       <h2 class="brief-section-header">The Trust Layer</h2>
       <p>Every NexusWatch number is <strong>auditable</strong>. Click any CII score in the platform and you'll see the exact data points that computed it — which ACLED events, which USGS quakes, which GDELT articles. Alongside, we publish:</p>
-      <ul style="color:#ccc;line-height:1.8;padding-left:20px;">
+      <ul class="method-list">
         <li><strong>Confidence levels</strong> (HIGH/MEDIUM/LOW) based on source count, freshness, and data volume</li>
         <li><strong>Verification badges</strong> — events are CONFIRMED (3+ sources), CORROBORATED (2), UNVERIFIED (1), or CONTESTED</li>
         <li><strong>Explicit data gaps</strong> — we show you what we DON'T have, not just what we do</li>
         <li><strong>Source freshness</strong> — live/recent/stale/offline indicators on every feed</li>
-        <li><strong>Prediction ledger</strong> — public accuracy tracking at <a href="#/accuracy" style="color:#ff6600;">/#/accuracy</a></li>
+        <li><strong>Prediction ledger</strong> — public accuracy tracking at <a class="method-link" href="#/accuracy">/#/accuracy</a></li>
       </ul>
 
       <h2 class="brief-section-header">What is CII?</h2>
@@ -42,7 +43,7 @@ export function renderMethodology(root: HTMLElement): void {
 
       <h2 class="brief-section-header">Data Sources (12 primary)</h2>
       <p>Every CII component and every layer displays which sources contributed. Current primary sources:</p>
-      <ul style="color:#ccc;line-height:1.8;padding-left:20px;">
+      <ul class="method-list">
         <li><strong>ACLED</strong> — armed conflict events, fatality counts (hourly refresh)</li>
         <li><strong>USGS</strong> — earthquake hazards feed (60s refresh)</li>
         <li><strong>NASA FIRMS</strong> — active fire hotspots via MODIS/VIIRS (10min)</li>
@@ -122,10 +123,10 @@ export function renderMethodology(root: HTMLElement): void {
 
       <h2 class="brief-section-header">Threat Levels</h2>
       <div class="method-levels">
-        <div class="method-level"><span style="color:#f87171;">&#x1f534; Critical</span> — CII ≥ 70. Active crisis requiring immediate attention.</div>
-        <div class="method-level"><span style="color:#fb923c;">&#x1f7e0; High</span> — CII 50–69. Elevated instability across multiple domains.</div>
-        <div class="method-level"><span style="color:#fbbf24;">&#x1f7e1; Elevated</span> — CII 30–49. Notable risk factors present.</div>
-        <div class="method-level"><span style="color:#4ade80;">&#x1f7e2; Low</span> — CII < 30. Stable conditions with manageable risk.</div>
+        <div class="method-level"><span class="method-level-tag is-critical">&#x1f534; Critical</span> — CII ≥ 70. Active crisis requiring immediate attention.</div>
+        <div class="method-level"><span class="method-level-tag is-high">&#x1f7e0; High</span> — CII 50–69. Elevated instability across multiple domains.</div>
+        <div class="method-level"><span class="method-level-tag is-med">&#x1f7e1; Elevated</span> — CII 30–49. Notable risk factors present.</div>
+        <div class="method-level"><span class="method-level-tag is-low">&#x1f7e2; Low</span> — CII < 30. Stable conditions with manageable risk.</div>
       </div>
 
       <h2 class="brief-section-header">Data Sources</h2>
@@ -141,7 +142,12 @@ export function renderMethodology(root: HTMLElement): void {
       <p>The daily NexusWatch Brief includes CII trajectory analysis — identifying which countries are rising, falling, or volatile over the past week.</p>
 
       <h2 class="brief-section-header">Live CII Scores</h2>
-      <div id="method-live-cii" class="method-live-cii">Loading live scores...</div>
+      <div id="method-live-cii" class="method-live-cii" aria-busy="true" aria-live="polite">
+        <div class="nw-skel" style="height:18px;width:100%;margin-bottom:var(--space-2)"></div>
+        <div class="nw-skel" style="height:14px;width:80%;margin-bottom:var(--space-2)"></div>
+        <div class="nw-skel" style="height:14px;width:90%;margin-bottom:var(--space-2)"></div>
+        <div class="nw-skel" style="height:14px;width:70%"></div>
+      </div>
 
       <h2 class="brief-section-header">Limitations & Future Work</h2>
       <ul class="method-list">
@@ -152,10 +158,10 @@ export function renderMethodology(root: HTMLElement): void {
       </ul>
 
       <h2 class="brief-section-header">Open Source</h2>
-      <p>The CII computation is fully open source. The algorithm runs in <code style="background:#1a1a1a;padding:2px 6px;border-radius:3px;font-size:13px;">api/cron/compute-cii.ts</code> and can be inspected on <a href="https://github.com/ethancstuart/nexus-watch" target="_blank" style="color:#ff6600;">GitHub</a>.</p>
+      <p>The CII computation is fully open source. The algorithm runs in <code class="method-code">api/cron/compute-cii.ts</code> and can be inspected on <a class="method-link" href="https://github.com/ethancstuart/nexus-watch" target="_blank" rel="noopener">GitHub</a>.</p>
 
-      <div style="text-align:center;padding:32px 0;">
-        <a href="#/intel" style="display:inline-block;padding:10px 24px;background:#ff660018;border:1px solid #ff660040;color:#ff6600;text-decoration:none;font-size:11px;letter-spacing:2px;font-family:'JetBrains Mono',monospace;border-radius:4px;">EXPLORE CII ON THE LIVE MAP →</a>
+      <div class="method-cta-row">
+        <a href="#/intel" class="method-cta">EXPLORE CII ON THE LIVE MAP →</a>
       </div>
     </article>
 
@@ -179,8 +185,14 @@ export function renderMethodology(root: HTMLElement): void {
           score: number;
           components: Record<string, number>;
         }>;
+        ciiEl.removeAttribute('aria-busy');
         if (scores.length === 0) {
-          ciiEl.textContent = 'No CII data available.';
+          ciiEl.innerHTML = `
+            <div class="nw-state">
+              <p class="nw-state-title">No CII scores available</p>
+              <p class="nw-state-body">Live scores will appear here once the cron job completes its next cycle.</p>
+            </div>
+          `;
           return;
         }
 
@@ -194,11 +206,11 @@ export function renderMethodology(root: HTMLElement): void {
             ${sorted
               .slice(0, 20)
               .map((s) => {
-                const level =
-                  s.score >= 70 ? '#f87171' : s.score >= 50 ? '#fb923c' : s.score >= 30 ? '#fbbf24' : '#4ade80';
+                const tier =
+                  s.score >= 70 ? 'critical' : s.score >= 50 ? 'high' : s.score >= 30 ? 'med' : 'low';
                 return `<tr>
                   <td>${s.countryName}</td>
-                  <td style="color:${level};font-weight:700;">${s.score}</td>
+                  <td class="nw-tier-${tier} method-cii-score">${s.score}</td>
                   <td>${s.components.conflict ?? 0}</td>
                   <td>${s.components.disasters ?? 0}</td>
                   <td>${s.components.sentiment ?? 0}</td>
@@ -209,11 +221,20 @@ export function renderMethodology(root: HTMLElement): void {
               })
               .join('')}
           </table>
-          <p style="color:#555;font-size:11px;text-align:center;margin-top:8px;">Showing top 20 of ${scores.length} monitored countries. Updated every 5 minutes.</p>
+          <p class="method-cii-meta">Showing top 20 of ${scores.length} monitored countries. Updated every 5 minutes.</p>
         `;
       })
       .catch(() => {
-        ciiEl.textContent = 'Failed to load CII data.';
+        ciiEl.removeAttribute('aria-busy');
+        ciiEl.innerHTML = `
+          <div class="nw-state nw-state-error" role="alert">
+            <p class="nw-state-title">Couldn't load live CII</p>
+            <p class="nw-state-body">Live data is temporarily unavailable. Check the
+              <a class="method-link" href="#/status">status page</a> or try again.</p>
+            <button class="nw-state-cta method-cii-retry" type="button">Try again</button>
+          </div>
+        `;
+        ciiEl.querySelector('.method-cii-retry')?.addEventListener('click', () => renderMethodology(root));
       });
   }
 }

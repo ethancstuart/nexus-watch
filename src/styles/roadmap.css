@@ -1,23 +1,25 @@
 /* Roadmap page */
 .roadmap-header {
   text-align: center;
-  padding: 64px 24px 32px;
+  padding: var(--space-section-tight) var(--space-6) var(--space-8);
 }
 
 .roadmap-title {
-  font-size: 42px;
-  font-weight: 300;
-  letter-spacing: 0.06em;
-  color: var(--color-text);
-  margin-bottom: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
 }
 
 .roadmap-subtitle {
-  font-size: 16px;
-  color: var(--color-text-muted);
-  max-width: 440px;
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+  max-width: 56ch;
   margin: 0 auto;
-  line-height: 1.5;
+  line-height: var(--leading-base);
 }
 
 .roadmap-section {
@@ -43,15 +45,16 @@
 .roadmap-step-num {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff6600, #8b5cf6);
-  color: #fff;
-  font-size: 16px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 12px;
+  margin: 0 auto var(--space-3);
 }
 
 .roadmap-step-title {
@@ -143,8 +146,8 @@
 }
 
 .roadmap-dot-shipped {
-  background: var(--color-positive);
-  border-color: var(--color-positive);
+  background: var(--color-signal-ok);
+  border-color: var(--color-signal-ok);
 }
 
 .roadmap-dot-in-progress {
@@ -181,7 +184,7 @@
 
 .roadmap-badge-shipped {
   background: rgba(34, 197, 94, 0.12);
-  color: var(--color-positive);
+  color: var(--color-signal-ok);
 }
 
 .roadmap-badge-in-progress {
