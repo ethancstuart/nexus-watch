@@ -6,12 +6,23 @@
     <link rel="alternate" type="application/rss+xml" title="NexusWatch Intelligence Brief" href="/api/feed" />
     <link rel="alternate" type="application/rss+xml" title="NexusWatch CII Daily Updates" href="/rss/cii" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Critical-path resource hints. Order: preconnect first for hosts hit
+         on first paint, dns-prefetch for hosts hit only after data fetches.
+         Don't add hints for hosts that won't be touched on the active route —
+         that wastes a TCP/TLS handshake. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- MapLibre tile basemaps — only used on /#/intel route, but preconnect
+         is cheap and saves ~100ms when a user lands on root and clicks Intel. -->
     <link rel="preconnect" href="https://basemaps.cartocdn.com" crossorigin />
+    <!-- unpkg hosts maplibre-gl.css; preconnect avoids a render-blocking
+         DNS+TLS round-trip on initial paint. -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin />
     <link rel="dns-prefetch" href="https://basemaps.cartocdn.com" />
     <link rel="dns-prefetch" href="https://api.acleddata.com" />
     <link rel="dns-prefetch" href="https://earthquake.usgs.gov" />
+    <link rel="dns-prefetch" href="https://api.gdeltproject.org" />
+    <link rel="dns-prefetch" href="https://firms.modaps.eosdis.nasa.gov" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
       rel="stylesheet"
