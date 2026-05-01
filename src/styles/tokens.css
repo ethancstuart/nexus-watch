@@ -79,10 +79,17 @@
   --color-tension-high: #ff6600;
   --color-tension-critical: #dc2626;
 
-  /* Data change indicators (markets / tickers) */
+  /* Data change indicators (markets / tickers).
+     --color-positive / --color-negative are static fallbacks for the same
+     palette used by applyTheme() in src/styles/tokens.ts. Duplicated here
+     so toast.css and other static stylesheets paint correctly even if
+     runtime theme application is delayed (slow hydration, FOUC). Keep in
+     sync with terminalTokens in tokens.ts. */
   --color-up: #00ff00;
   --color-down: #ff3333;
   --color-flat: #888888;
+  --color-positive: #00ff00;
+  --color-negative: #ff3333;
 
   /* ---------------------------------------------------------------------------
      TYPOGRAPHY — font stacks + scale.
@@ -269,6 +276,14 @@
   --color-accent-dim: rgba(255, 102, 0, 0.15);
   --color-accent-border: rgba(255, 102, 0, 0.3);
   --color-accent-bg-soft: rgba(255, 102, 0, 0.08);
+
+  /* Semantic positive/negative — duplicated from tokens.ts for static
+     fallback (toast.css consumes these before applyTheme() runs). */
+  --color-positive: #00ff00;
+  --color-negative: #ff3333;
+  --color-up: #00ff00;
+  --color-down: #ff3333;
+  --color-flat: #888888;
 }
 
 /* ============================================================================
@@ -384,4 +399,12 @@
   --color-accent-dim: rgba(154, 27, 27, 0.15);
   --color-accent-border: rgba(154, 27, 27, 0.35);
   --color-accent-bg-soft: #f6e4e2;
+
+  /* Semantic positive/negative — duplicated from tokens.ts dossierTokens
+     (sourced from email-tokens up/down) for static fallback. Keep in sync. */
+  --color-positive: #1f7a4c;
+  --color-negative: #b8341c;
+  --color-up: #1f7a4c;
+  --color-down: #b8341c;
+  --color-flat: #6b7280;
 }
