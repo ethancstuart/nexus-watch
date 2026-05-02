@@ -27,10 +27,10 @@ const CACHE_TTL = 24 * 60 * 60 * 1000;
 const cache = new Map<string, { ts: number; data: TradeFlow[] }>();
 
 interface OECDataRow {
-  'Country ID': string;
-  Country: string;
+  'Importer Country Official ID'?: string;
+  'Importer Country Official'?: string;
   'Trade Value': number;
-  [k: string]: string | number;
+  [k: string]: string | number | undefined;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -56,8 +56,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //   - dimension hierarchies are "Exporter Official" / "Importer Official"
     //   - leaf level is "Exporter Country Official" / "Importer Country Official"
     //   - country IDs are lowercase 3-letter codes (usa, chn, deu, ...).
-    const url = `https://api-v2.oec.world/tesseract/data.jsonrecords?cube=trade_i_baci_a_92&drilldowns=Importer+Country+Official&measures=Trade+Value&Year=${year}&Exporter+Country+Official=${reporter}&parents=true&sort=Trade+Value:desc&limit=10`;
-    const upstream = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    //
+    // Important: OEC's tesseract treats spaces literally — URLSearchParams
+    // would encode them as %20 which the server accepts. Build the query
+    // manually so the dimension names stay readable.
+    const params = [
+      'cube=trade_i_baci_a_92',
+      'drilldowns=Importer%20Country%20Official',
+      'measures=Trade%20Value',
+      `Year=${year}`,
+      `Exporter%20Country%20Official=${encodeURIComponent(reporter)}`,
+      'parents=true',
+      'sort=Trade%20Value:desc',
+      'limit=10',
+    ].join('&');
+    const url = `https://api-v2.oec.world/tesseract/data.jsonrecords?${params}`;
+    const upstream = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { 'User-Agent': 'NexusWatch/1.0 (https://nexuswatch.dev)' },
+    });
     if (!upstream.ok) throw new Error(`OEC HTTP ${upstream.status}`);
     const json = (await upstream.json()) as { data?: OECDataRow[] };
     const rows = json.data || [];
