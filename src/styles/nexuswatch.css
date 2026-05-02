@@ -6723,3 +6723,169 @@ body.nw-historical-mode .nw-map-container::after {
   resize: vertical;
   min-height: 40px;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Country-detail enriched sections (W6, 2026-05-02)
+   ───────────────────────────────────────────────────────────── */
+.nw-detail-section {
+  margin: 8px 0 0;
+  border-top: 1px solid var(--nw-border-subtle, #1a1a1a);
+  padding: 8px 0 0;
+}
+.nw-detail-section[open] {
+  padding-bottom: 8px;
+}
+.nw-detail-section-summary {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-family: var(--nw-font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  color: var(--nw-text-muted, #757575);
+  user-select: none;
+}
+.nw-detail-section-summary::-webkit-details-marker {
+  display: none;
+}
+.nw-detail-section-summary::after {
+  content: '▾';
+  margin-left: 6px;
+  color: var(--nw-text-muted, #757575);
+  transition: transform 120ms ease;
+}
+.nw-detail-section[open] .nw-detail-section-summary::after {
+  transform: rotate(180deg);
+}
+.nw-detail-section-summary:hover {
+  color: var(--nw-text, #ededed);
+}
+.nw-detail-section-title {
+  font-weight: 700;
+}
+.nw-detail-section-count {
+  font-size: 9px;
+  color: var(--nw-accent, #ff6600);
+  background: var(--nw-accent-dim, rgba(255, 102, 0, 0.12));
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+.nw-detail-section-body {
+  padding: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nw-detail-empty {
+  font-size: 11px;
+  color: var(--nw-text-muted, #757575);
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.nw-detail-entity-row,
+.nw-detail-trade-row,
+.nw-detail-alliance-row,
+.nw-detail-energy-row,
+.nw-detail-headline-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--nw-border-subtle, #1a1a1a);
+}
+.nw-detail-entity-row:last-child,
+.nw-detail-trade-row:last-child,
+.nw-detail-alliance-row:last-child,
+.nw-detail-energy-row:last-child,
+.nw-detail-headline-row:last-child {
+  border-bottom: none;
+}
+
+.nw-detail-entity-type {
+  font-family: var(--nw-font-mono, monospace);
+  font-size: 9px;
+  color: var(--nw-text-muted, #757575);
+  text-transform: uppercase;
+  width: 78px;
+  flex-shrink: 0;
+}
+.nw-detail-entity-label {
+  color: var(--nw-text, #ededed);
+}
+
+.nw-detail-trade-name {
+  color: var(--nw-text, #ededed);
+  flex: 1;
+}
+.nw-detail-trade-share {
+  font-family: var(--nw-font-mono, monospace);
+  font-weight: 700;
+  color: var(--nw-accent, #ff6600);
+}
+
+.nw-detail-alliance-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+.nw-detail-alliance-label {
+  font-family: var(--nw-font-mono, monospace);
+  font-size: 9px;
+  color: var(--nw-text-muted, #757575);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.nw-detail-alliance-items {
+  color: var(--nw-text, #ededed);
+  font-size: 11px;
+}
+.nw-detail-alliance-row.is-dispute .nw-detail-alliance-items {
+  color: #f97316;
+}
+
+.nw-detail-energy-row {
+  justify-content: space-between;
+  font-family: var(--nw-font-mono, monospace);
+}
+.nw-detail-energy-row span:first-child {
+  color: var(--nw-text-secondary, #999);
+}
+.nw-detail-energy-row span:last-child {
+  color: var(--nw-text, #ededed);
+  font-weight: 700;
+}
+.nw-detail-energy-note {
+  margin-top: 6px;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--nw-text-muted, #757575);
+}
+
+.nw-detail-headline-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+.nw-detail-headline-row:hover {
+  background: var(--nw-accent-dim, rgba(255, 102, 0, 0.06));
+}
+.nw-detail-headline-source {
+  font-family: var(--nw-font-mono, monospace);
+  font-size: 9px;
+  color: var(--nw-accent, #ff6600);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.nw-detail-headline-title {
+  color: var(--nw-text, #ededed);
+  font-size: 11px;
+  line-height: 1.4;
+}

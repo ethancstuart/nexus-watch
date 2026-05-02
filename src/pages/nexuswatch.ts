@@ -2440,6 +2440,9 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
     panel.appendChild(compRow);
   }
 
+  // ── W6 enriched country sections (Top Entities / Trade / Alliances / Energy / Headlines) ──
+  appendCountryEnrichedSections(panel, score.countryCode, score.countryName);
+
   // Summary gaps
   if (ev.summaryGaps.length > 0) {
     const gapSection = createElement('div', { className: 'nw-detail-gaps-section' });
@@ -2455,6 +2458,186 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
   }
 
   container.appendChild(panel);
+}
+
+// ── Country panel enrichment helpers (W6) ──
+
+function makeDetails(title: string, count?: string | number, expanded = false): HTMLDetailsElement {
+  const d = document.createElement('details');
+  d.className = 'nw-detail-section';
+  if (expanded) d.open = true;
+  const s = document.createElement('summary');
+  s.className = 'nw-detail-section-summary';
+  s.innerHTML = `<span class="nw-detail-section-title">${title}</span>${count !== undefined ? `<span class="nw-detail-section-count">${count}</span>` : ''}`;
+  d.appendChild(s);
+  return d;
+}
+
+function escapeText(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function appendCountryEnrichedSections(panel: HTMLElement, code: string, name: string): void {
+  // 1) Top Entities (sync — from static graph) ────────────────────────
+  void (async () => {
+    try {
+      const { getConnectedNodes } = await import('../data/entityGraph.ts');
+      const sub = getConnectedNodes(code);
+      const entities = sub.nodes.filter((n) => n.id !== code).slice(0, 10);
+      if (entities.length === 0) return;
+      const det = makeDetails('TOP ENTITIES', entities.length, true);
+      const list = document.createElement('div');
+      list.className = 'nw-detail-section-body';
+      for (const ent of entities) {
+        const row = document.createElement('div');
+        row.className = 'nw-detail-entity-row';
+        row.innerHTML = `<span class="nw-detail-entity-type">${escapeText(ent.type)}</span><span class="nw-detail-entity-label">${escapeText(ent.label)}</span>`;
+        list.appendChild(row);
+      }
+      det.appendChild(list);
+      panel.appendChild(det);
+    } catch (e) {
+      console.warn('[country-panel] entity graph load failed', e);
+    }
+  })();
+
+  // 2) Trade Exposure (async — /api/trade-flows) ───────────────────────
+  const tradeDet = makeDetails('TRADE EXPOSURE', '…', false);
+  const tradeBody = document.createElement('div');
+  tradeBody.className = 'nw-detail-section-body';
+  tradeBody.textContent = 'Loading trading partners…';
+  tradeDet.appendChild(tradeBody);
+  panel.appendChild(tradeDet);
+  void (async () => {
+    try {
+      const res = await fetch(`/api/trade-flows?reporter=${encodeURIComponent(code)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        flows?: Array<{ partnerCode: string; partnerName: string; share: number; exportValue: number }>;
+        status?: string;
+      };
+      const flows = data.flows || [];
+      const summary = tradeDet.querySelector('.nw-detail-section-count');
+      if (summary) summary.textContent = String(flows.length);
+      tradeBody.innerHTML = '';
+      if (flows.length === 0) {
+        tradeBody.innerHTML = `<div class="nw-detail-empty">No trade data yet${data.status ? ` (${escapeText(data.status)})` : ''}.</div>`;
+        return;
+      }
+      for (const f of flows) {
+        const row = document.createElement('div');
+        row.className = 'nw-detail-trade-row';
+        row.innerHTML = `<span class="nw-detail-trade-name">${escapeText(f.partnerName || f.partnerCode)}</span><span class="nw-detail-trade-share">${f.share.toFixed(1)}%</span>`;
+        tradeBody.appendChild(row);
+      }
+    } catch (e) {
+      tradeBody.innerHTML = `<div class="nw-detail-empty">Trade data unavailable.</div>`;
+      console.warn('[country-panel] trade-flows failed', e);
+    }
+  })();
+
+  // 3) Alliances & Conflicts (sync) ────────────────────────────────────
+  void (async () => {
+    try {
+      const { getAllianceInfo } = await import('../data/countryAlliances.ts');
+      const a = getAllianceInfo(code);
+      if (!a) return;
+      const totalCount = a.alliances.length + a.defense.length + a.disputes.length;
+      if (totalCount === 0) return;
+      const det = makeDetails('ALLIANCES & CONFLICTS', totalCount, false);
+      const body = document.createElement('div');
+      body.className = 'nw-detail-section-body';
+      const renderRow = (label: string, items: string[], cls = '') => {
+        if (items.length === 0) return;
+        const row = document.createElement('div');
+        row.className = `nw-detail-alliance-row ${cls}`;
+        row.innerHTML = `<span class="nw-detail-alliance-label">${label}</span><span class="nw-detail-alliance-items">${items.map(escapeText).join(' · ')}</span>`;
+        body.appendChild(row);
+      };
+      renderRow('Memberships', a.alliances);
+      renderRow('Defense', a.defense);
+      renderRow('Disputes', a.disputes, 'is-dispute');
+      det.appendChild(body);
+      panel.appendChild(det);
+    } catch (e) {
+      console.warn('[country-panel] alliance lookup failed', e);
+    }
+  })();
+
+  // 4) Energy mix (async — /api/energy) ────────────────────────────────
+  const energyDet = makeDetails('ENERGY MIX', '…', false);
+  const energyBody = document.createElement('div');
+  energyBody.className = 'nw-detail-section-body';
+  energyBody.textContent = 'Loading energy snapshot…';
+  energyDet.appendChild(energyBody);
+  panel.appendChild(energyDet);
+  void (async () => {
+    try {
+      const res = await fetch('/api/energy');
+      const data = (await res.json()) as {
+        prices?: { wti?: number; brent?: number; henryHub?: number };
+        source?: string;
+        asOf?: string;
+      };
+      const p = data.prices || {};
+      const summary = energyDet.querySelector('.nw-detail-section-count');
+      if (summary) summary.textContent = data.source || 'EIA';
+      const rows: string[] = [];
+      if (p.wti !== undefined)
+        rows.push(`<div class="nw-detail-energy-row"><span>WTI Crude</span><span>$${p.wti.toFixed(2)}</span></div>`);
+      if (p.brent !== undefined)
+        rows.push(`<div class="nw-detail-energy-row"><span>Brent</span><span>$${p.brent.toFixed(2)}</span></div>`);
+      if (p.henryHub !== undefined)
+        rows.push(
+          `<div class="nw-detail-energy-row"><span>Henry Hub Gas</span><span>$${p.henryHub.toFixed(2)}/MMBtu</span></div>`,
+        );
+      energyBody.innerHTML =
+        rows.length > 0
+          ? rows.join('') +
+            `<div class="nw-detail-energy-note">Global benchmark prices. Country-specific energy mix coming once ENTSO-E key is provisioned.</div>`
+          : '<div class="nw-detail-empty">Energy snapshot unavailable.</div>';
+    } catch (e) {
+      energyBody.innerHTML = '<div class="nw-detail-empty">Energy snapshot unavailable.</div>';
+      console.warn('[country-panel] energy failed', e);
+    }
+  })();
+
+  // 5) Headlines (last 24h, async — /api/news-feed) ────────────────────
+  const newsDet = makeDetails('HEADLINES — 24h', '…', false);
+  const newsBody = document.createElement('div');
+  newsBody.className = 'nw-detail-section-body';
+  newsBody.textContent = 'Loading headlines…';
+  newsDet.appendChild(newsBody);
+  panel.appendChild(newsDet);
+  void (async () => {
+    try {
+      const res = await fetch(`/api/news-feed?country=${encodeURIComponent(name)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        articles?: Array<{ title: string; source: string; link: string; pubDate?: string }>;
+      };
+      const articles = (data.articles || []).slice(0, 8);
+      const summary = newsDet.querySelector('.nw-detail-section-count');
+      if (summary) summary.textContent = String(articles.length);
+      newsBody.innerHTML = '';
+      if (articles.length === 0) {
+        newsBody.innerHTML = '<div class="nw-detail-empty">No recent headlines.</div>';
+        return;
+      }
+      for (const art of articles) {
+        const row = document.createElement('a');
+        row.className = 'nw-detail-headline-row';
+        row.href = art.link;
+        row.target = '_blank';
+        row.rel = 'noopener noreferrer';
+        row.innerHTML = `<span class="nw-detail-headline-source">${escapeText(art.source || '')}</span><span class="nw-detail-headline-title">${escapeText(art.title)}</span>`;
+        newsBody.appendChild(row);
+      }
+    } catch (e) {
+      newsBody.innerHTML = '<div class="nw-detail-empty">Headlines unavailable.</div>';
+      console.warn('[country-panel] news-feed failed', e);
+    }
+  })();
 }
 
 // ── Sitrep Overlay ──
