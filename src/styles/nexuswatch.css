@@ -6889,3 +6889,146 @@ body.nw-historical-mode .nw-map-container::after {
   font-size: 11px;
   line-height: 1.4;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Country detail — quality / source / age badges (P1.5)
+   ───────────────────────────────────────────────────────────── */
+.nw-detail-meta-quality {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 10px;
+  font-family: var(--nw-font-mono, monospace);
+  margin: 4px 0 8px;
+}
+.nw-detail-grade {
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+}
+.nw-detail-grade-a {
+  color: #22c55e;
+}
+.nw-detail-grade-b {
+  color: #00d4aa;
+}
+.nw-detail-grade-c {
+  color: #e5a913;
+}
+.nw-detail-grade-d {
+  color: #dc2626;
+}
+
+.nw-detail-sources {
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+.nw-detail-age-is-fresh {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+}
+.nw-detail-age-is-recent {
+  color: #eab308;
+  background: rgba(234, 179, 8, 0.08);
+}
+.nw-detail-age-is-stale {
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.08);
+}
+.nw-detail-age-is-old {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.nw-detail-tier {
+  color: var(--nw-text-muted, #757575);
+  margin-left: auto;
+}
+
+/* P1.4 audit retry pattern */
+.nw-audit-retry-btn {
+  background: var(--nw-accent, #ff6600);
+  color: var(--nw-accent-text, #000);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-family: var(--nw-font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.nw-audit-retry-btn:hover {
+  background: var(--nw-accent-hover, #ff7722);
+}
+.nw-audit-status-link {
+  color: var(--nw-accent, #ff6600);
+  text-decoration: none;
+  align-self: center;
+  font-size: 11px;
+  font-family: var(--nw-font-mono, monospace);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.nw-audit-status-link:hover {
+  text-decoration: underline;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Consolidated empty-state styling (P2.2, 2026-05-02)
+   Shared base. Existing class names continue to work; this gives
+   them a single visual contract.
+   ───────────────────────────────────────────────────────────── */
+.nw-empty-state,
+.nw-brief-empty,
+.nw-watchlist-empty,
+.nw-placeholder,
+.nw-state-empty,
+.nw-audit-empty,
+.nw-cctv-empty,
+.nw-detail-empty {
+  font-family: var(--nw-font-body, Inter, sans-serif);
+  font-size: 13px;
+  color: var(--nw-text-muted, #757575);
+  line-height: 1.6;
+  padding: 16px 20px;
+  border: 1px dashed var(--nw-border, #222);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  text-align: center;
+  margin: 12px 0;
+}
+
+.nw-empty-state strong,
+.nw-brief-empty strong,
+.nw-watchlist-empty strong,
+.nw-audit-empty strong {
+  color: var(--nw-text, #ededed);
+  font-weight: 600;
+}
+
+.nw-empty-state a,
+.nw-brief-empty a,
+.nw-watchlist-empty a,
+.nw-audit-empty a {
+  color: var(--nw-accent, #ff6600);
+  text-decoration: none;
+}
+
+.nw-empty-state a:hover,
+.nw-brief-empty a:hover,
+.nw-watchlist-empty a:hover,
+.nw-audit-empty a:hover {
+  text-decoration: underline;
+}
+
+/* Some surfaces use empty-state inside very tight cells (e.g.
+   layer drawer rows, dossier cards). Override padding there. */
+.nw-detail-empty,
+.nw-cctv-empty {
+  padding: 10px 12px;
+  font-size: 11px;
+  margin: 6px 0;
+}

@@ -41,7 +41,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const reporter = String(req.query.reporter || '')
     .toLowerCase()
     .slice(0, 3);
-  const year = parseInt(String(req.query.year || new Date().getFullYear() - 1), 10);
+  // Default to 2022 — OEC's BACI cube has spotty 2023 coverage as of 2026-05.
+  // Caller can override via ?year=.
+  const year = parseInt(String(req.query.year || 2022), 10);
   if (!reporter) return res.status(400).json({ error: 'reporter (ISO3 country code) required' });
   const key = `${reporter}:${year}`;
 
@@ -67,7 +69,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `Year=${year}`,
       `Exporter%20Country%20Official=${encodeURIComponent(reporter)}`,
       'parents=true',
-      'sort=Trade%20Value:desc',
+      // OEC tesseract uses dot-syntax ("Trade Value.desc"), not colon.
+      'sort=Trade%20Value.desc',
       'limit=10',
     ].join('&');
     const url = `https://api-v2.oec.world/tesseract/data.jsonrecords?${params}`;

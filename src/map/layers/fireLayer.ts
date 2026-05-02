@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import type { MapDataLayer } from './LayerDefinition.ts';
+import type { MapDataLayer, LayerFilterSchema } from './LayerDefinition.ts';
 import { firePopup } from '../PopupCard.ts';
 import type { FireHotspot } from '../../types/index.ts';
 import { fetchFireHotspots } from '../../services/fires.ts';
@@ -67,6 +67,39 @@ export class FireLayer implements MapDataLayer {
 
   getFeatureCount(): number {
     return this.data.length;
+  }
+
+  getFilterSchema(): LayerFilterSchema {
+    return {
+      controls: [
+        {
+          id: 'frp',
+          label: 'Min fire radiative power (MW)',
+          defaultValue: '0',
+          options: [
+            { value: '0', label: 'All' },
+            { value: '20', label: '≥20' },
+            { value: '50', label: '≥50' },
+            { value: '100', label: '≥100' },
+          ],
+        },
+      ],
+    };
+  }
+
+  applyFilter(filters: Record<string, string>): void {
+    if (!this.map) return;
+    const minFrp = parseFloat(filters.frp || '0');
+    try {
+      if (this.map.getLayer('fires-points')) {
+        this.map.setFilter('fires-points', ['>=', ['get', 'frp'], minFrp]);
+      }
+      if (this.map.getLayer('fires-heat')) {
+        this.map.setFilter('fires-heat', ['>=', ['get', 'frp'], minFrp]);
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   private renderLayer(): void {

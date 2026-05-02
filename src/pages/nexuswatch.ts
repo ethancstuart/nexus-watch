@@ -1,5 +1,6 @@
 import '../styles/nexuswatch.css';
 import { createElement } from '../utils/dom.ts';
+import { cachedFetch } from '../utils/cachedFetch.ts';
 import { getCiiWatchlist, addCiiWatch } from '../services/ciiWatchlist.ts';
 import { MapView } from '../map/MapView.ts';
 import { MapLayerManager } from '../map/MapLayerManager.ts';
@@ -1247,7 +1248,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       if (!layer.isEnabled()) continue;
       const item = createElement('span', { className: 'nw-statusbar-item' });
       const dot = createElement('span', { className: 'nw-statusbar-dot' });
-      dot.style.background = '#ff6600';
+      dot.style.background = 'var(--nw-accent, #ff6600)';
       const text = createElement('span', {});
       text.textContent = `${layer.name}: ${layer.getFeatureCount()}`;
       item.appendChild(dot);
@@ -1700,10 +1701,10 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
       const trendEl = createElement('span', { className: 'nw-country-trend' });
       if (s.trend === 'rising') {
         trendEl.textContent = '\u2191';
-        trendEl.style.color = '#dc2626';
+        trendEl.style.color = 'var(--color-signal-critical, #dc2626)';
       } else if (s.trend === 'falling') {
         trendEl.textContent = '\u2193';
-        trendEl.style.color = '#22c55e';
+        trendEl.style.color = 'var(--color-signal-ok, #22c55e)';
       }
 
       // Brief link
@@ -1767,7 +1768,7 @@ function renderIntelTab(container: HTMLElement, mapView: MapView, layerMgr: MapL
     for (const match of watchMatches.slice(0, 10)) {
       const row = createElement('div', { className: 'nw-alert-row' });
       const dot = createElement('span', { className: 'nw-alert-dot' });
-      dot.style.background = '#ff6600';
+      dot.style.background = 'var(--nw-accent, #ff6600)';
       const tag = createElement('span', { className: 'nw-watch-tag' });
       tag.textContent = match.watchLabel;
       const text = createElement('span', { className: 'nw-alert-text' });
@@ -2209,10 +2210,10 @@ function createCountryRow(score: CIIScore, mapView: MapView): HTMLElement {
   const trendEl = createElement('span', { className: 'nw-country-trend' });
   if (score.trend === 'rising') {
     trendEl.textContent = '↑';
-    trendEl.style.color = '#dc2626';
+    trendEl.style.color = 'var(--color-signal-critical, #dc2626)';
   } else if (score.trend === 'falling') {
     trendEl.textContent = '↓';
-    trendEl.style.color = '#22c55e';
+    trendEl.style.color = 'var(--color-signal-ok, #22c55e)';
   }
 
   const labelEl = createElement('span', { className: 'nw-country-label' });
@@ -2289,7 +2290,7 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
   if (detailDelta !== null && Math.abs(detailDelta) >= 0.5) {
     const dSign = detailDelta > 0 ? '+' : '';
     const dSpan = createElement('span', {});
-    dSpan.style.cssText = `font-size:14px;margin-left:6px;color:${detailDelta > 0 ? '#dc2626' : '#22c55e'}`;
+    dSpan.style.cssText = `font-size:14px;margin-left:6px;color:${detailDelta > 0 ? 'var(--color-signal-critical, #dc2626)' : 'var(--color-signal-ok, #22c55e)'}`;
     dSpan.textContent = `${dSign}${detailDelta}`;
     scoreBadge.appendChild(dSpan);
   }
@@ -2303,26 +2304,27 @@ function showCountryDetail(container: HTMLElement, score: CIIScore): void {
   panel.appendChild(header);
   panel.appendChild(scoreBadge);
 
-  // Data quality + tier + freshness
-  const qualityLine = createElement('div', { className: 'nw-detail-meta' });
+  // Data quality + tier + freshness — inline single-line badge.
+  // 2026-05-02 P1.5: source-count + age badge styled via class, not inline.
+  const qualityLine = createElement('div', { className: 'nw-detail-meta nw-detail-meta-quality' });
   const grade = score.dataQuality || 'C';
-  const gradeColor = grade === 'A' ? '#22c55e' : grade === 'B' ? '#00d4aa' : grade === 'C' ? '#e5a913' : '#dc2626';
   const tierLabel = score.tier === 'core' ? 'CORE' : score.tier === 'extended' ? 'EXTENDED' : 'MONITOR';
-  qualityLine.innerHTML = `<span style="color:${gradeColor};font-weight:700;">Grade ${grade}</span> · ${ev.totalSourceCount} sources · ${ev.totalDataPoints} data points · <span style="opacity:0.6;">${tierLabel}</span>`;
-  panel.appendChild(qualityLine);
-
-  // Updated timestamp
-  const freshness = createElement('div', { className: 'nw-detail-meta' });
-  freshness.style.opacity = '0.5';
-  freshness.style.fontSize = '10px';
   const lastComputed = (score as unknown as { _computedAt?: number })._computedAt;
-  if (lastComputed) {
-    const ago = Math.round((Date.now() - lastComputed) / 60000);
-    freshness.textContent = `Updated ${ago < 1 ? 'just now' : ago < 60 ? `${ago}m ago` : `${Math.round(ago / 60)}h ago`}`;
-  } else {
-    freshness.textContent = 'Updated within last 5 minutes';
-  }
-  panel.appendChild(freshness);
+  const ageStr = lastComputed
+    ? (() => {
+        const ago = Math.round((Date.now() - lastComputed) / 60000);
+        return ago < 1 ? 'just now' : ago < 60 ? `${ago}m ago` : `${Math.round(ago / 60)}h ago`;
+      })()
+    : 'last 5m';
+  // Freshness color from age (green <10m, yellow <60m, orange <360m, red beyond).
+  const ageMin = lastComputed ? (Date.now() - lastComputed) / 60000 : 5;
+  const ageClass = ageMin < 10 ? 'is-fresh' : ageMin < 60 ? 'is-recent' : ageMin < 360 ? 'is-stale' : 'is-old';
+  qualityLine.innerHTML = `
+    <span class="nw-detail-grade nw-detail-grade-${grade.toLowerCase()}">Grade ${grade}</span>
+    <span class="nw-detail-sources nw-detail-age-${ageClass}">${ev.totalSourceCount} sources · ${ageStr}</span>
+    <span class="nw-detail-tier">${ev.totalDataPoints} data points · ${tierLabel}</span>
+  `;
+  panel.appendChild(qualityLine);
 
   // Action buttons
   const actions = createElement('div', { className: 'nw-detail-actions' });
@@ -2510,12 +2512,10 @@ function appendCountryEnrichedSections(panel: HTMLElement, code: string, name: s
   panel.appendChild(tradeDet);
   void (async () => {
     try {
-      const res = await fetch(`/api/trade-flows?reporter=${encodeURIComponent(code)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
+      const data = await cachedFetch<{
         flows?: Array<{ partnerCode: string; partnerName: string; share: number; exportValue: number }>;
         status?: string;
-      };
+      }>(`/api/trade-flows?reporter=${encodeURIComponent(code)}`);
       const flows = data.flows || [];
       const summary = tradeDet.querySelector('.nw-detail-section-count');
       if (summary) summary.textContent = String(flows.length);
@@ -2573,12 +2573,11 @@ function appendCountryEnrichedSections(panel: HTMLElement, code: string, name: s
   panel.appendChild(energyDet);
   void (async () => {
     try {
-      const res = await fetch('/api/energy');
-      const data = (await res.json()) as {
+      const data = await cachedFetch<{
         prices?: { wti?: number; brent?: number; henryHub?: number };
         source?: string;
         asOf?: string;
-      };
+      }>('/api/energy');
       const p = data.prices || {};
       const summary = energyDet.querySelector('.nw-detail-section-count');
       if (summary) summary.textContent = data.source || 'EIA';
@@ -2611,11 +2610,9 @@ function appendCountryEnrichedSections(panel: HTMLElement, code: string, name: s
   panel.appendChild(newsDet);
   void (async () => {
     try {
-      const res = await fetch(`/api/news-feed?country=${encodeURIComponent(name)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
+      const data = await cachedFetch<{
         articles?: Array<{ title: string; source: string; link: string; pubDate?: string }>;
-      };
+      }>(`/api/news-feed?country=${encodeURIComponent(name)}`);
       const articles = (data.articles || []).slice(0, 8);
       const summary = newsDet.querySelector('.nw-detail-section-count');
       if (summary) summary.textContent = String(articles.length);
@@ -2654,7 +2651,7 @@ function showSitrep(container: HTMLElement, text: string, generatedAt: string): 
   header.appendChild(title);
   if (generatedAt) {
     const time = createElement('span', {});
-    time.style.color = '#444444';
+    time.style.color = 'var(--nw-text-muted, #444444)';
     time.style.fontSize = '9px';
     time.textContent = new Date(generatedAt).toLocaleTimeString();
     header.appendChild(time);

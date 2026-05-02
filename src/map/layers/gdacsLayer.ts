@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import type { MapDataLayer } from './LayerDefinition.ts';
+import type { MapDataLayer, LayerFilterSchema } from './LayerDefinition.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
 import { renderPopupCard } from '../PopupCard.ts';
 
@@ -82,6 +82,37 @@ export class GdacsLayer implements MapDataLayer {
   }
   getFeatureCount(): number {
     return this.data.length;
+  }
+
+  getFilterSchema(): LayerFilterSchema {
+    return {
+      controls: [
+        {
+          id: 'severity',
+          label: 'Severity',
+          defaultValue: 'all',
+          options: [
+            { value: 'all', label: 'All' },
+            { value: 'green', label: 'Green' },
+            { value: 'orange', label: 'Orange' },
+            { value: 'red', label: 'Red' },
+          ],
+        },
+      ],
+    };
+  }
+
+  applyFilter(filters: Record<string, string>): void {
+    if (!this.map) return;
+    const sev = filters.severity || 'all';
+    const filt: maplibregl.FilterSpecification = sev === 'all' ? ['has', 'severity'] : ['==', ['get', 'severity'], sev];
+    try {
+      ['gdacs-glow', 'gdacs-markers', 'gdacs-labels'].forEach((id) => {
+        if (this.map?.getLayer(id)) this.map.setFilter(id, filt);
+      });
+    } catch {
+      /* ignore */
+    }
   }
 
   private renderLayer(): void {

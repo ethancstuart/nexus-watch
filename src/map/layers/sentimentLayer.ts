@@ -1,5 +1,5 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import type { MapDataLayer } from './LayerDefinition.ts';
+import type { MapDataLayer, LayerFilterSchema } from './LayerDefinition.ts';
 import type { GdeltArticle } from '../../types/index.ts';
 
 export class SentimentLayer implements MapDataLayer {
@@ -47,6 +47,40 @@ export class SentimentLayer implements MapDataLayer {
   }
   getFeatureCount(): number {
     return 0; // derived layer
+  }
+
+  getFilterSchema(): LayerFilterSchema {
+    return {
+      controls: [
+        {
+          id: 'show',
+          label: 'Show',
+          defaultValue: 'both',
+          options: [
+            { value: 'both', label: 'Both' },
+            { value: 'negative', label: 'Negative only' },
+            { value: 'positive', label: 'Positive only' },
+          ],
+        },
+      ],
+    };
+  }
+
+  applyFilter(filters: Record<string, string>): void {
+    if (!this.map) return;
+    const show = filters.show || 'both';
+    const showNeg = show === 'both' || show === 'negative';
+    const showPos = show === 'both' || show === 'positive';
+    try {
+      if (this.map.getLayer('sentiment-neg-heat')) {
+        this.map.setLayoutProperty('sentiment-neg-heat', 'visibility', showNeg ? 'visible' : 'none');
+      }
+      if (this.map.getLayer('sentiment-pos-heat')) {
+        this.map.setLayoutProperty('sentiment-pos-heat', 'visibility', showPos ? 'visible' : 'none');
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   private renderFromData(articles: GdeltArticle[]): void {

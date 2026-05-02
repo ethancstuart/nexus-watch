@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import type { MapDataLayer } from './LayerDefinition.ts';
+import type { MapDataLayer, LayerFilterSchema } from './LayerDefinition.ts';
 import { newsPopup } from '../PopupCard.ts';
 import type { GdeltArticle } from '../../types/index.ts';
 import { fetchGdeltArticles } from '../../services/gdelt.ts';
@@ -76,6 +76,40 @@ export class NewsLayer implements MapDataLayer {
 
   getFeatureCount(): number {
     return this.data.length;
+  }
+
+  getFilterSchema(): LayerFilterSchema {
+    return {
+      controls: [
+        {
+          id: 'tone',
+          label: 'Tone filter',
+          defaultValue: 'all',
+          options: [
+            { value: 'all', label: 'All' },
+            { value: 'negative', label: 'Negative' },
+            { value: 'neutral', label: 'Neutral' },
+            { value: 'positive', label: 'Positive' },
+          ],
+        },
+      ],
+    };
+  }
+
+  applyFilter(filters: Record<string, string>): void {
+    if (!this.map) return;
+    const tone = filters.tone || 'all';
+    let toneFilter: maplibregl.FilterSpecification = ['>=', ['get', 'count'], 0];
+    if (tone === 'negative') toneFilter = ['<', ['get', 'tone'], -1];
+    else if (tone === 'neutral') toneFilter = ['all', ['>=', ['get', 'tone'], -1], ['<=', ['get', 'tone'], 1]];
+    else if (tone === 'positive') toneFilter = ['>', ['get', 'tone'], 1];
+    try {
+      ['news-glow', 'news-core', 'news-labels'].forEach((id) => {
+        if (this.map?.getLayer(id)) this.map.setFilter(id, toneFilter);
+      });
+    } catch {
+      /* ignore */
+    }
   }
 
   private renderLayer(): void {

@@ -149,7 +149,18 @@ export function renderBriefs(root: HTMLElement): void {
     .then((data: { briefs?: BriefListItem[] }) => {
       allBriefs = data.briefs ?? [];
       if (allBriefs.length === 0) {
-        listEl.innerHTML = renderSampleHero();
+        // 2026-05-02 P2.4: try Haiku-synthesized samples; fall back to static.
+        listEl.innerHTML = renderSampleHero(SAMPLE_BRIEFS);
+        void fetch('/api/briefs-sample')
+          .then((r) => r.json())
+          .then((data: { samples?: SampleBrief[] }) => {
+            if (data.samples && data.samples.length > 0) {
+              listEl.innerHTML = renderSampleHero(data.samples);
+            }
+          })
+          .catch(() => {
+            /* keep static fallback */
+          });
         return;
       }
       renderBriefList();
@@ -217,16 +228,18 @@ const SAMPLE_BRIEFS: SampleBrief[] = [
   },
 ];
 
-function renderSampleHero(): string {
-  const cards = SAMPLE_BRIEFS.map(
-    (b) => `
+function renderSampleHero(samples: SampleBrief[] = SAMPLE_BRIEFS): string {
+  const cards = samples
+    .map(
+      (b) => `
     <article class="dossier-sample-card">
       <span class="dossier-sample-theme" style="color:${b.themeColor};border-color:${b.themeColor}">${b.theme}</span>
       <h3 class="dossier-sample-title">${escapeHtml(b.title)}</h3>
       <p class="dossier-sample-excerpt">${escapeHtml(b.excerpt)}</p>
     </article>
   `,
-  ).join('');
+    )
+    .join('');
 
   return `
     <div class="dossier-sample-hero">

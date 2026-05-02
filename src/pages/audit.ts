@@ -73,27 +73,49 @@ export async function renderAuditPage(root: HTMLElement, country?: string): Prom
   const input = picker.querySelector('.nw-audit-input') as HTMLInputElement;
   const submit = picker.querySelector('.nw-audit-submit') as HTMLButtonElement;
 
-  const load = async () => {
+  // 2026-05-02 P1.4: retry-with-backoff. The audit endpoint can briefly
+  // 5xx if it's mid-cron — auto-retry up to 3 times with backoff before
+  // surfacing the empty state. Also exposes a Try again button so the
+  // user can manually re-fetch.
+  const load = async (attempt = 0): Promise<void> => {
     const code = input.value.trim().toUpperCase();
     if (!code) return;
 
     window.history.replaceState(null, '', `#/audit/${code}`);
-    content.innerHTML = '<div class="nw-audit-loading">Loading evidence chain...</div>';
+    if (attempt === 0) {
+      content.innerHTML = '<div class="nw-audit-loading">Loading evidence chain...</div>';
+    } else {
+      content.innerHTML = `<div class="nw-audit-loading">Retrying… (attempt ${attempt + 1} of 3)</div>`;
+    }
 
     try {
       const res = await fetch(`/api/v2/audit?country=${code}&days=30&limit=100`);
-      if (!res.ok) throw new Error('audit fetch failed');
+      if (!res.ok) throw new Error(`audit fetch failed: HTTP ${res.status}`);
       const data = (await res.json()) as { country: string; count: number; entries: AuditEntry[] };
       renderAuditContent(content, code, data.entries);
-    } catch {
-      content.innerHTML =
-        '<div class="nw-audit-empty">Evidence chain unavailable. The audit log table may not be populated yet.</div>';
+    } catch (err) {
+      // Exponential backoff: 600ms, 1.8s, 5.4s
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 600 * Math.pow(3, attempt)));
+        return load(attempt + 1);
+      }
+      console.error('[audit] all retries failed', err);
+      content.innerHTML = `
+        <div class="nw-audit-empty">
+          <p><strong>Evidence chain unavailable.</strong> The audit log table may not be populated yet, or the API is briefly unreachable.</p>
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="nw-audit-retry-btn" type="button">Try again</button>
+            <a href="#/status" class="nw-audit-status-link">Status page →</a>
+          </div>
+        </div>
+      `;
+      content.querySelector('.nw-audit-retry-btn')?.addEventListener('click', () => void load(0));
     }
   };
 
-  submit.addEventListener('click', load);
+  submit.addEventListener('click', () => void load());
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') load();
+    if (e.key === 'Enter') void load();
   });
 
   if (country) void load();

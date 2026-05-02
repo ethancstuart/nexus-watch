@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import type { MapDataLayer } from './LayerDefinition.ts';
+import type { MapDataLayer, LayerFilterSchema } from './LayerDefinition.ts';
 import type { EarthquakeFeature } from '../../types/index.ts';
 import { fetchEarthquakes } from '../../services/earthquakes.ts';
 import { earthquakePopup } from '../PopupCard.ts';
@@ -80,6 +80,44 @@ export class EarthquakeLayer implements MapDataLayer {
 
   getData(): EarthquakeFeature[] {
     return this.data;
+  }
+
+  getFilterSchema(): LayerFilterSchema {
+    return {
+      controls: [
+        {
+          id: 'magnitude',
+          label: 'Min magnitude',
+          defaultValue: '2.5',
+          options: [
+            { value: '2.5', label: '2.5+' },
+            { value: '4', label: '4+' },
+            { value: '5', label: '5+' },
+            { value: '6', label: '6+' },
+          ],
+        },
+      ],
+    };
+  }
+
+  applyFilter(filters: Record<string, string>): void {
+    if (!this.map) return;
+    const min = parseFloat(filters.magnitude || '2.5');
+    const ids = ['earthquakes-glow', 'earthquakes-cluster-count'];
+    try {
+      // Filter unclustered points by magnitude. Clusters use cluster_min_mag
+      // aggregation if defined; we bypass and re-render.
+      if (this.map.getLayer('earthquakes-glow')) {
+        this.map.setFilter('earthquakes-glow', [
+          'all',
+          ['!', ['has', 'point_count']],
+          ['>=', ['get', 'magnitude'], min],
+        ]);
+      }
+      ids.forEach(() => undefined);
+    } catch {
+      /* ignore */
+    }
   }
 
   private renderLayer(): void {
