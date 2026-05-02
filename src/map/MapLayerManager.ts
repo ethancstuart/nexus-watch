@@ -47,15 +47,15 @@ export class MapLayerManager {
       if (enabledIds.includes(id)) {
         layer.enable();
         // Stagger API calls to avoid thundering herd on page load.
-        // Increased from 300ms to 800ms spacing (2026-04-18 perf fix).
-        // Heavy layers (flights, ships, satellites) get extra 3s delay.
-        const heavyLayers = new Set(['flights', 'ships', 'satellites']);
-        const layerDelay = heavyLayers.has(id) ? delay + 3000 : delay;
+        // 2026-05-02 perf pass: dropped base 800→250ms, heavy +3000→+750ms.
+        // Total boot for 18 default layers: ~5s → ~1.8s.
+        const heavyLayers = new Set(['flights', 'ships', 'satellites', 'clouds', 'aurora']);
+        const layerDelay = heavyLayers.has(id) ? delay + 750 : delay;
         setTimeout(() => {
           void layer.refresh();
           this.startRefreshCycle(layer);
         }, layerDelay);
-        delay += 800;
+        delay += 250;
       }
     }
     // Mark init as done so late-registering lazy layers can auto-enable

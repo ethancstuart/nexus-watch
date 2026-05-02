@@ -10,7 +10,17 @@ import { initSentry, captureError } from './services/sentry.ts';
 applyTheme();
 applyDensity();
 initDataToasts();
-void initSentry();
+
+// 2026-05-02: defer Sentry init off the critical path. Saves ~400KB parse cost
+// from first paint. We still capture errors that fire before idle via the
+// captured-errors queue handled inside services/sentry.ts.
+type IdleCb = (cb: () => void) => unknown;
+const idle: IdleCb =
+  (window as unknown as { requestIdleCallback?: IdleCb }).requestIdleCallback ||
+  ((cb: () => void) => setTimeout(cb, 1500));
+idle(() => {
+  void initSentry();
+});
 // Cmd+K / Ctrl+K opens the command palette from anywhere
 registerCommandPalette();
 // PWA install banner (shows on supported browsers after 15s)

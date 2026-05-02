@@ -11,12 +11,13 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { gatedInterval } from '../utils/intervals.ts';
 import type { MapView } from '../map/MapView.ts';
 
 export class CommandHud {
   private container: HTMLElement;
   private map: MapView;
-  private clockInterval: ReturnType<typeof setInterval> | null = null;
+  private clockGate: { clear: () => void } | null = null;
   private coordsHandler: (() => void) | null = null;
 
   constructor(mapContainer: HTMLElement, mapView: MapView) {
@@ -71,7 +72,8 @@ export class CommandHud {
       tsEl.textContent = utc;
     };
     updateClock();
-    this.clockInterval = setInterval(updateClock, 1000);
+    // 2026-05-02 perf pass: clock now visibility-gated. Pauses on tab hidden.
+    this.clockGate = gatedInterval(updateClock, 1000);
 
     // Update coordinates on mouse move
     const coordsEl = hud.querySelector('.nw-hud-coords') as HTMLElement;
@@ -89,7 +91,8 @@ export class CommandHud {
   }
 
   destroy(): void {
-    if (this.clockInterval) clearInterval(this.clockInterval);
+    this.clockGate?.clear();
+    this.clockGate = null;
     if (this.coordsHandler) this.coordsHandler();
     this.container.querySelector('.nw-hud')?.remove();
   }

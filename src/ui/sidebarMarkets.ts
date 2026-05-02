@@ -1,6 +1,7 @@
 import { createElement } from '../utils/dom.ts';
 import { fetchStocks } from '../services/stocks.ts';
 import { fetchCryptoData } from '../services/crypto.ts';
+import { gatedInterval } from '../utils/intervals.ts';
 import type { StockQuote, CryptoCoin } from '../types/index.ts';
 
 const DEFAULT_WATCHLIST = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'SPY', 'QQQ', 'DIA'];
@@ -11,21 +12,21 @@ export function createMarketsTab(): {
   stopDataCycle: () => void;
 } {
   const el = createElement('div', { className: 'nw-markets-tab' });
-  let stockInterval: ReturnType<typeof setInterval> | null = null;
-  let cryptoInterval: ReturnType<typeof setInterval> | null = null;
+  let stockGate: { clear: () => void } | null = null;
+  let cryptoGate: { clear: () => void } | null = null;
 
   function startDataCycle() {
     fetchAndRenderStocks();
     fetchAndRenderCrypto();
-    stockInterval = setInterval(fetchAndRenderStocks, 60_000);
-    cryptoInterval = setInterval(fetchAndRenderCrypto, 120_000);
+    stockGate = gatedInterval(fetchAndRenderStocks, 60_000);
+    cryptoGate = gatedInterval(fetchAndRenderCrypto, 120_000);
   }
 
   function stopDataCycle() {
-    if (stockInterval) clearInterval(stockInterval);
-    if (cryptoInterval) clearInterval(cryptoInterval);
-    stockInterval = null;
-    cryptoInterval = null;
+    stockGate?.clear();
+    cryptoGate?.clear();
+    stockGate = null;
+    cryptoGate = null;
   }
 
   async function fetchAndRenderStocks() {

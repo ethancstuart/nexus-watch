@@ -5,6 +5,7 @@
  */
 
 import { createElement } from '../utils/dom.ts';
+import { gatedInterval } from '../utils/intervals.ts';
 
 interface NewsItem {
   title: string;
@@ -16,7 +17,7 @@ interface NewsItem {
 export class NewsTicker {
   private container: HTMLElement;
   private tickerEl: HTMLElement | null = null;
-  private refreshInterval: ReturnType<typeof setInterval> | null = null;
+  private refreshGate: { clear: () => void } | null = null;
   private items: NewsItem[] = [];
 
   constructor(parent: HTMLElement) {
@@ -35,7 +36,7 @@ export class NewsTicker {
     this.container.appendChild(this.tickerEl);
 
     void this.loadNews();
-    this.refreshInterval = setInterval(() => void this.loadNews(), 120000);
+    this.refreshGate = gatedInterval(() => void this.loadNews(), 120000);
   }
 
   private async loadNews(): Promise<void> {
@@ -101,7 +102,8 @@ export class NewsTicker {
   }
 
   destroy(): void {
-    if (this.refreshInterval) clearInterval(this.refreshInterval);
+    this.refreshGate?.clear();
+    this.refreshGate = null;
     this.tickerEl?.remove();
   }
 }
