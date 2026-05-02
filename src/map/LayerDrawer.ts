@@ -327,9 +327,103 @@ export function createLayerDrawer(
         row.appendChild(opacitySlider);
         row.appendChild(exportBtn);
         row.appendChild(exportGeoBtn);
-        catBody.appendChild(row);
+
+        // 2026-05-02 W4: chevron + expandable filter strip for layers that
+        // implement getFilterSchema().
+        const schema = layer.getFilterSchema?.();
+        if (schema && schema.controls.length > 0) {
+          const chevron = createElement('button', { className: 'nw-drawer-filter-chev' });
+          chevron.type = 'button';
+          chevron.textContent = '▾';
+          chevron.title = 'Layer filters';
+          row.appendChild(chevron);
+
+          const filterStrip = createElement('div', { className: 'nw-drawer-filter-strip' });
+          filterStrip.style.display = 'none';
+
+          // Load persisted filter state for this layer
+          const filterState = loadLayerFilters(layer.id, schema);
+
+          for (const control of schema.controls) {
+            const block = createElement('div', { className: 'nw-drawer-filter-block' });
+            const lbl = createElement('span', { className: 'nw-drawer-filter-label', textContent: control.label });
+            block.appendChild(lbl);
+            const chipRow = createElement('div', { className: 'nw-drawer-filter-chips' });
+            for (const opt of control.options) {
+              const chip = createElement('button', { className: 'nw-drawer-filter-chip' });
+              chip.type = 'button';
+              chip.textContent = opt.label;
+              if (filterState[control.id] === opt.value) chip.classList.add('is-active');
+              chip.addEventListener('click', () => {
+                filterState[control.id] = opt.value;
+                saveLayerFilters(layer.id, filterState);
+                chipRow.querySelectorAll('.nw-drawer-filter-chip').forEach((c) => c.classList.remove('is-active'));
+                chip.classList.add('is-active');
+                layer.applyFilter?.(filterState);
+                document.dispatchEvent(
+                  new CustomEvent('dashview:layer-filter-change', {
+                    detail: { layerId: layer.id, filters: filterState },
+                  }),
+                );
+              });
+              chipRow.appendChild(chip);
+            }
+            block.appendChild(chipRow);
+            filterStrip.appendChild(block);
+          }
+
+          chevron.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const expanded = filterStrip.style.display !== 'none';
+            filterStrip.style.display = expanded ? 'none' : '';
+            chevron.textContent = expanded ? '▾' : '▴';
+          });
+
+          // Apply persisted filters on first render
+          if (Object.keys(filterState).length > 0) {
+            layer.applyFilter?.(filterState);
+          }
+
+          catBody.appendChild(row);
+          catBody.appendChild(filterStrip);
+        } else {
+          catBody.appendChild(row);
+        }
       }
       drawerBody.appendChild(catBody);
+    }
+  }
+
+  // ── Filter state persistence (W4) ──
+  const FILTER_STORE_KEY = 'dashview:map-layer-filters';
+  function loadLayerFilters(
+    layerId: string,
+    schema: { controls: Array<{ id: string; defaultValue: string }> },
+  ): Record<string, string> {
+    const all = readAllFilters();
+    const stored = all[layerId] || {};
+    const result: Record<string, string> = {};
+    for (const ctrl of schema.controls) {
+      result[ctrl.id] = stored[ctrl.id] ?? ctrl.defaultValue;
+    }
+    return result;
+  }
+  function saveLayerFilters(layerId: string, state: Record<string, string>): void {
+    const all = readAllFilters();
+    all[layerId] = state;
+    try {
+      localStorage.setItem(FILTER_STORE_KEY, JSON.stringify(all));
+    } catch {
+      /* quota — ignore */
+    }
+  }
+  function readAllFilters(): Record<string, Record<string, string>> {
+    try {
+      const raw = localStorage.getItem(FILTER_STORE_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, Record<string, string>>) : {};
+    } catch {
+      return {};
     }
   }
 

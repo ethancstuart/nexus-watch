@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import type { MapDataLayer } from './LayerDefinition.ts';
+import type { MapDataLayer, LayerFilterSchema } from './LayerDefinition.ts';
 import { fetchWithRetry } from '../../utils/fetch.ts';
 import { renderPopupCard } from '../PopupCard.ts';
 import { cacheLayerData, getCachedLayerData } from '../../utils/layerCache.ts';
@@ -93,6 +93,90 @@ export class AcledLayer implements MapDataLayer {
   }
   getFeatureCount(): number {
     return this.data.length;
+  }
+
+  /**
+   * 2026-05-02 W4: per-layer filter schema. Two axes:
+   *   - time: rolling window for events to display (1h/24h/7d/30d/all)
+   *   - severity: minimum fatality threshold to display
+   */
+  getFilterSchema(): LayerFilterSchema {
+    return {
+      controls: [
+        {
+          id: 'time',
+          label: 'Time window',
+          defaultValue: 'all',
+          options: [
+            { value: '24h', label: '24h' },
+            { value: '7d', label: '7d' },
+            { value: '30d', label: '30d' },
+            { value: 'all', label: 'All' },
+          ],
+        },
+        {
+          id: 'severity',
+          label: 'Min fatalities',
+          defaultValue: '0',
+          options: [
+            { value: '0', label: 'All' },
+            { value: '1', label: '≥1' },
+            { value: '5', label: '≥5' },
+            { value: '20', label: '≥20' },
+          ],
+        },
+      ],
+    };
+  }
+
+  applyFilter(filters: Record<string, string>): void {
+    if (!this.map) return;
+    const time = filters.time || 'all';
+    const minFatal = parseInt(filters.severity || '0', 10);
+    const cutoffMs =
+      time === 'all' ? 0 : Date.now() - (time === '24h' ? 86400e3 : time === '7d' ? 7 * 86400e3 : 30 * 86400e3);
+    const filterExpr: maplibregl.FilterSpecification = [
+      'all',
+      ['>=', ['get', 'fatalities'], minFatal],
+      cutoffMs > 0 ? ['>=', ['to-number', ['slice', ['get', 'date'], 0, 10]], 0] : ['>=', ['get', 'fatalities'], 0],
+    ];
+    // For time we re-render the geojson source filtered, since 'date' is a
+    // string and MapLibre filter expression handling for date math is brittle.
+    if (cutoffMs > 0 && this.data.length > 0) {
+      const filtered = this.data.filter((e) => new Date(e.date).getTime() >= cutoffMs && e.fatalities >= minFatal);
+      const src = this.map.getSource('acled') as { setData?: (d: unknown) => void } | undefined;
+      const heatSrc = this.map.getSource('acled-heat') as { setData?: (d: unknown) => void } | undefined;
+      const fc = {
+        type: 'FeatureCollection',
+        features: filtered.map((e) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+          properties: {
+            id: e.id,
+            type: e.type,
+            subType: e.subType,
+            actor1: e.actor1,
+            actor2: e.actor2,
+            country: e.country,
+            region: e.region,
+            fatalities: e.fatalities,
+            date: e.date,
+            notes: e.notes,
+            color: TYPE_COLORS[e.type] || '#ef4444',
+          },
+        })),
+      };
+      src?.setData?.(fc);
+      heatSrc?.setData?.(fc);
+    } else {
+      // No time filter — push the severity filter through MapLibre directly
+      // so re-rendering is cheap.
+      try {
+        if (this.map.getLayer('acled-points')) this.map.setFilter('acled-points', filterExpr);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   private renderLayer(): void {

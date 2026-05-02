@@ -205,7 +205,7 @@ const SAMPLE_BRIEFS: SampleBrief[] = [
     theme: 'CONFLICT',
     title: 'Sahel instability index +6.2 points in 30 days',
     excerpt:
-      'ACLED logged 247 conflict events across Mali, Burkina Faso, Niger — a 41% MoM rise. UCDP corroborates 89 of those. Three coup-vulnerability indicators flashing yellow.',
+      'ACLED logged 247 conflict events across Mali, Burkina Faso, Niger — a 41% MoM rise. GDELT cross-reference confirms the surge. Three coup-vulnerability indicators flashing yellow.',
     themeColor: '#dc2626',
   },
   {

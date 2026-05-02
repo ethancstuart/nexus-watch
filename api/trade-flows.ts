@@ -37,8 +37,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  // OEC uses lowercase 3-letter codes (e.g. 'usa', 'chn', 'deu')
   const reporter = String(req.query.reporter || '')
-    .toUpperCase()
+    .toLowerCase()
     .slice(0, 3);
   const year = parseInt(String(req.query.year || new Date().getFullYear() - 1), 10);
   if (!reporter) return res.status(400).json({ error: 'reporter (ISO3 country code) required' });
@@ -50,11 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // OEC tesseract — cube `trade_i_baci_a_92` exposes Exporter/Importer
-    // dimensions (verified via /tesseract/cubes/trade_i_baci_a_92 schema).
-    // Drilldown by Importer to get top destination countries from the
-    // reporter's exports.
-    const url = `https://api-v2.oec.world/tesseract/data.jsonrecords?cube=trade_i_baci_a_92&drilldowns=Importer+Country&measures=Trade+Value&Year=${year}&Exporter+Country=${reporter}&parents=true&sort=Trade+Value:desc&limit=10`;
+    // OEC tesseract v2 — cube `trade_i_baci_a_92`. Verified via
+    // /tesseract/cubes/trade_i_baci_a_92 schema:
+    //   - dimension hierarchies are "Exporter Official" / "Importer Official"
+    //   - leaf level is "Exporter Country Official" / "Importer Country Official"
+    //   - country IDs are lowercase 3-letter codes (usa, chn, deu, ...).
+    const url = `https://api-v2.oec.world/tesseract/data.jsonrecords?cube=trade_i_baci_a_92&drilldowns=Importer+Country+Official&measures=Trade+Value&Year=${year}&Exporter+Country+Official=${reporter}&parents=true&sort=Trade+Value:desc&limit=10`;
     const upstream = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!upstream.ok) throw new Error(`OEC HTTP ${upstream.status}`);
     const json = (await upstream.json()) as { data?: OECDataRow[] };
@@ -62,8 +64,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const total = rows.reduce((sum, r) => sum + (Number(r['Trade Value']) || 0), 0);
 
     const flows: TradeFlow[] = rows.slice(0, 10).map((r) => ({
-      partnerCode: String(r['Importer Country ID'] || r['Country ID'] || ''),
-      partnerName: String(r['Importer Country'] || r['Country'] || ''),
+      partnerCode: String(r['Importer Country Official ID'] || '').toUpperCase(),
+      partnerName: String(r['Importer Country Official'] || ''),
       exportValue: Number(r['Trade Value']) || 0,
       importValue: 0,
       share: total > 0 ? Math.round((Number(r['Trade Value']) / total) * 1000) / 10 : 0,
