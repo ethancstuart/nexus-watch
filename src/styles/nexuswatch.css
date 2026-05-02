@@ -5704,12 +5704,20 @@ body.nw-historical-mode .nw-map-container::after {
   background: rgba(5, 5, 5, 0.97);
   border: 1px solid #ff660025;
   border-radius: 8px;
-  width: 720px;
-  max-height: 80vh;
+  width: min(960px, calc(100vw - 32px));
+  max-height: 86vh;
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(12px);
   overflow: hidden;
+}
+.nw-cctv-grid {
+  max-height: 70vh;
+}
+@media (min-width: 1100px) {
+  .nw-cctv-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 .nw-cctv-header {
   display: flex;
@@ -5785,12 +5793,58 @@ body.nw-historical-mode .nw-map-container::after {
   border-color: #ff660040;
 }
 .nw-cctv-card-preview {
-  height: 80px;
+  aspect-ratio: 16 / 9;
+  height: auto;
   background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 50%, #0f0f0f 100%);
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+.nw-cctv-card-preview img,
+.nw-cctv-card-preview iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 0;
+  display: block;
+}
+.nw-cctv-card-fallback {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  color: #555;
+}
+.nw-cctv-card-tier {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.nw-cctv-tier-live {
+  background: #dc2626;
+  color: #fff;
+}
+.nw-cctv-tier-thumbnail {
+  background: rgba(229, 169, 19, 0.92);
+  color: #000;
+}
+.nw-cctv-tier-external {
+  background: rgba(102, 102, 102, 0.85);
+  color: #fff;
+}
+.nw-cctv-card-skeleton {
+  pointer-events: none;
 }
 .nw-cctv-card-static {
   position: absolute;

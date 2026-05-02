@@ -1,289 +1,65 @@
 /**
- * Public Webcams — Strategic Locations
+ * CCTV Panel — 50+ live and refreshing webcam feeds at strategic locations.
  *
- * Curated grid of public webcam feeds from strategic locations:
- * ports, chokepoints, capital cities, space. Opens as a modal overlay
- * with clickable camera cards. All feeds are external public sources.
+ * Loads catalog from /api/webcam-catalog (Windy-backed, 1h KV cache).
+ * Three honesty tiers per card:
+ *   - LIVE       → real iframe video stream (NASA ISS, Iceland aurora, Etna, etc.)
+ *   - 30s        → real-frame thumbnail that auto-refreshes every 30s (Windy)
+ *   - EXTERNAL   → link-out only (rare; we prefer thumbnail tier when available)
  *
- * Note: NexusWatch does not operate these cameras. Links open external sites.
+ * Filter chips: All / Chokepoints / Ports / Cities / Weather / Space.
+ * Click "Fly to" → globe pans/zooms to the camera location.
+ * Click "Open feed" → opens the vendor's live page in a new tab.
+ *
+ * 2026-05-02 W2 rewrite: was 35 EarthCam-heavy cards with empty preview boxes
+ * and a single "OPEN FEED" link. Now real previews on every card.
  */
 
 import { createElement } from '../utils/dom.ts';
 import type { MapView } from '../map/MapView.ts';
 
-interface CameraFeed {
+interface CatalogCam {
+  id: string;
   name: string;
-  type: string;
+  type: 'chokepoint' | 'port' | 'city' | 'space' | 'weather' | 'landscape';
   lat: number;
   lon: number;
-  url: string;
   region: string;
+  status: 'live' | 'thumbnail' | 'external';
+  thumbnail: string | null;
+  embedUrl: string | null;
+  viewerUrl: string;
+  source: string;
 }
 
-// Curated list of 35+ verified public webcam feeds at strategic locations
-const CAMERAS: CameraFeed[] = [
-  // ═══ CHOKEPOINTS ═══
-  {
-    name: 'Istanbul Bosphorus',
-    type: 'chokepoint',
-    lat: 41.05,
-    lon: 29.03,
-    url: 'https://www.earthcam.com/world/turkey/istanbul/',
-    region: 'Europe',
-  },
-  {
-    name: 'Panama Canal — Gatun Locks',
-    type: 'chokepoint',
-    lat: 9.27,
-    lon: -79.92,
-    url: 'https://www.pancanal.com/eng/photo/camera-702.html',
-    region: 'Americas',
-  },
-  {
-    name: 'Panama Canal — Miraflores',
-    type: 'chokepoint',
-    lat: 9.02,
-    lon: -79.59,
-    url: 'https://www.pancanal.com/eng/photo/camera-702.html',
-    region: 'Americas',
-  },
-  {
-    name: 'Gibraltar Strait (Tarifa)',
-    type: 'chokepoint',
-    lat: 36.01,
-    lon: -5.6,
-    url: 'https://www.earthcam.com/world/spain/tarifa/',
-    region: 'Europe',
-  },
-  {
-    name: 'Suez Canal (Port Said)',
-    type: 'chokepoint',
-    lat: 31.26,
-    lon: 32.3,
-    url: 'https://www.earthcam.com/world/egypt/portsaid/',
-    region: 'Middle East',
-  },
+interface CatalogResponse {
+  cams: CatalogCam[];
+  generatedAt: string;
+  note?: string;
+  error?: string;
+}
 
-  // ═══ PORTS ═══
-  {
-    name: 'Port of Rotterdam',
-    type: 'port',
-    lat: 51.9,
-    lon: 4.5,
-    url: 'https://www.portofrotterdam.com/en/online/webcams',
-    region: 'Europe',
-  },
-  {
-    name: 'Port of Houston',
-    type: 'port',
-    lat: 29.73,
-    lon: -95.27,
-    url: 'https://www.earthcam.com/usa/texas/houston/',
-    region: 'Americas',
-  },
-  {
-    name: 'Port of Los Angeles',
-    type: 'port',
-    lat: 33.74,
-    lon: -118.27,
-    url: 'https://www.earthcam.com/usa/california/losangeles/port/',
-    region: 'Americas',
-  },
-  {
-    name: 'Port of Singapore',
-    type: 'port',
-    lat: 1.26,
-    lon: 103.84,
-    url: 'https://www.sentosa.com.sg/en/things-to-do/attractions/sentosa-webcam/',
-    region: 'Asia',
-  },
-  {
-    name: 'Port of Dubai (Jebel Ali)',
-    type: 'port',
-    lat: 25.0,
-    lon: 55.06,
-    url: 'https://www.earthcam.com/world/unitedarabemirates/dubai/',
-    region: 'Middle East',
-  },
-
-  // ═══ CAPITALS & CITIES ═══
-  {
-    name: 'Times Square, NYC',
-    type: 'city',
-    lat: 40.76,
-    lon: -73.99,
-    url: 'https://www.earthcam.com/usa/newyork/timessquare/',
-    region: 'Americas',
-  },
-  {
-    name: 'Tokyo — Shibuya Crossing',
-    type: 'city',
-    lat: 35.66,
-    lon: 139.7,
-    url: 'https://www.earthcam.com/world/japan/tokyo/',
-    region: 'Asia',
-  },
-  {
-    name: 'London — Abbey Road',
-    type: 'city',
-    lat: 51.53,
-    lon: -0.18,
-    url: 'https://www.earthcam.com/world/england/london/',
-    region: 'Europe',
-  },
-  {
-    name: 'Jerusalem — Western Wall',
-    type: 'city',
-    lat: 31.78,
-    lon: 35.23,
-    url: 'https://www.aish.com/w/ww/',
-    region: 'Middle East',
-  },
-  {
-    name: 'Moscow — Red Square',
-    type: 'city',
-    lat: 55.75,
-    lon: 37.62,
-    url: 'https://www.earthcam.com/world/russia/moscow/',
-    region: 'Europe',
-  },
-  {
-    name: 'Sydney — Harbour Bridge',
-    type: 'city',
-    lat: -33.85,
-    lon: 151.21,
-    url: 'https://www.earthcam.com/world/australia/sydney/',
-    region: 'Asia',
-  },
-  {
-    name: 'Berlin — Brandenburg Gate',
-    type: 'city',
-    lat: 52.52,
-    lon: 13.38,
-    url: 'https://www.earthcam.com/world/germany/berlin/',
-    region: 'Europe',
-  },
-  {
-    name: 'Buenos Aires — Obelisco',
-    type: 'city',
-    lat: -34.6,
-    lon: -58.38,
-    url: 'https://www.earthcam.com/world/argentina/buenosaires/',
-    region: 'Americas',
-  },
-  {
-    name: 'Cairo — Pyramids of Giza',
-    type: 'city',
-    lat: 29.98,
-    lon: 31.13,
-    url: 'https://www.earthcam.com/world/egypt/cairo/',
-    region: 'Middle East',
-  },
-  {
-    name: 'Dublin — Temple Bar',
-    type: 'city',
-    lat: 53.35,
-    lon: -6.26,
-    url: 'https://www.earthcam.com/world/ireland/dublin/',
-    region: 'Europe',
-  },
-  {
-    name: 'Mexico City — Zócalo',
-    type: 'city',
-    lat: 19.43,
-    lon: -99.13,
-    url: 'https://www.earthcam.com/world/mexico/mexicocity/',
-    region: 'Americas',
-  },
-  {
-    name: 'Mumbai — Marine Drive',
-    type: 'city',
-    lat: 18.94,
-    lon: 72.82,
-    url: 'https://www.earthcam.com/world/india/mumbai/',
-    region: 'Asia',
-  },
-  {
-    name: 'Rome — Trevi Fountain',
-    type: 'city',
-    lat: 41.9,
-    lon: 12.48,
-    url: 'https://www.earthcam.com/world/italy/rome/',
-    region: 'Europe',
-  },
-  {
-    name: 'Seoul — Gangnam',
-    type: 'city',
-    lat: 37.5,
-    lon: 127.03,
-    url: 'https://www.earthcam.com/world/southkorea/seoul/',
-    region: 'Asia',
-  },
-
-  // ═══ SPACE ═══
-  {
-    name: 'ISS Live Earth View',
-    type: 'space',
-    lat: 0,
-    lon: 0,
-    url: 'https://eol.jsc.nasa.gov/ESRS/HDEV/',
-    region: 'Space',
-  },
-  {
-    name: 'Kennedy Space Center',
-    type: 'space',
-    lat: 28.57,
-    lon: -80.65,
-    url: 'https://www.kennedyspacecenter.com/launches/live-webcams',
-    region: 'Space',
-  },
-
-  // ═══ WEATHER / NATURE ═══
-  {
-    name: 'Mount Etna Volcano',
-    type: 'weather',
-    lat: 37.75,
-    lon: 14.99,
-    url: 'https://www.skylinewebcams.com/en/webcam/italia/sicilia/catania/vulcano-etna.html',
-    region: 'Europe',
-  },
-  {
-    name: 'Mount Fuji',
-    type: 'weather',
-    lat: 35.36,
-    lon: 138.73,
-    url: 'https://www.earthcam.com/world/japan/mtfuji/',
-    region: 'Asia',
-  },
-  {
-    name: 'Niagara Falls',
-    type: 'weather',
-    lat: 43.08,
-    lon: -79.07,
-    url: 'https://www.earthcam.com/usa/newyork/niagarafalls/',
-    region: 'Americas',
-  },
-  {
-    name: 'Northern Lights (Iceland)',
-    type: 'weather',
-    lat: 64.15,
-    lon: -21.94,
-    url: 'https://livefromiceland.is/webcams/northern-lights/',
-    region: 'Europe',
-  },
-  {
-    name: 'Great Barrier Reef',
-    type: 'weather',
-    lat: -18.29,
-    lon: 147.7,
-    url: 'https://www.earthcam.com/world/australia/greatbarrierreef/',
-    region: 'Asia',
-  },
+const REFRESH_MS = 30_000;
+const FILTER_OPTIONS: Array<{ id: string; label: string; types: CatalogCam['type'][] | null }> = [
+  { id: 'all', label: 'ALL', types: null },
+  { id: 'chokepoint', label: 'CHOKEPOINTS', types: ['chokepoint'] },
+  { id: 'port', label: 'PORTS', types: ['port'] },
+  { id: 'city', label: 'CITIES', types: ['city'] },
+  { id: 'weather', label: 'WEATHER', types: ['weather', 'landscape'] },
+  { id: 'space', label: 'SPACE', types: ['space'] },
 ];
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 export class CctvPanel {
   private panel: HTMLElement | null = null;
   private mapView: MapView;
+  private catalog: CatalogCam[] = [];
+  private loadState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
+  private filter = 'all';
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(mapView: MapView) {
     this.mapView = mapView;
@@ -291,11 +67,19 @@ export class CctvPanel {
 
   toggle(container: HTMLElement): void {
     if (this.panel) {
-      this.panel.remove();
-      this.panel = null;
+      this.close();
       return;
     }
     this.show(container);
+  }
+
+  private close(): void {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    this.panel?.remove();
+    this.panel = null;
   }
 
   private show(container: HTMLElement): void {
@@ -307,14 +91,12 @@ export class CctvPanel {
           PUBLIC WEBCAMS — STRATEGIC LOCATIONS
         </span>
         <div class="nw-cctv-filters">
-          <button class="nw-cctv-filter active" data-filter="all">ALL</button>
-          <button class="nw-cctv-filter" data-filter="chokepoint">CHOKEPOINTS</button>
-          <button class="nw-cctv-filter" data-filter="port">PORTS</button>
-          <button class="nw-cctv-filter" data-filter="city">CITIES</button>
-          <button class="nw-cctv-filter" data-filter="space">SPACE</button>
-          <button class="nw-cctv-filter" data-filter="weather">NATURE</button>
+          ${FILTER_OPTIONS.map(
+            (f) =>
+              `<button class="nw-cctv-filter${f.id === 'all' ? ' active' : ''}" data-filter="${f.id}">${f.label}</button>`,
+          ).join('')}
         </div>
-        <button class="nw-cctv-close">✕</button>
+        <button class="nw-cctv-close" aria-label="Close webcam panel">✕</button>
       </div>
       <div class="nw-cctv-disclaimer">External public feeds — NexusWatch does not operate these cameras.</div>
       <div class="nw-cctv-grid" id="cctv-grid"></div>
@@ -322,60 +104,112 @@ export class CctvPanel {
 
     container.appendChild(this.panel);
 
-    this.panel.querySelector('.nw-cctv-close')?.addEventListener('click', () => {
-      this.panel?.remove();
-      this.panel = null;
-    });
+    this.panel.querySelector('.nw-cctv-close')?.addEventListener('click', () => this.close());
 
     this.panel.querySelectorAll('.nw-cctv-filter').forEach((btn) => {
       btn.addEventListener('click', () => {
         this.panel?.querySelectorAll('.nw-cctv-filter').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        this.renderGrid((btn as HTMLElement).dataset.filter || 'all');
+        this.filter = (btn as HTMLElement).dataset.filter || 'all';
+        this.renderGrid();
       });
     });
 
-    this.renderGrid('all');
+    void this.loadCatalog();
+
+    // Refresh thumbnails every 30s by appending a cache-buster query param
+    this.refreshTimer = setInterval(() => this.refreshThumbnails(), REFRESH_MS);
   }
 
-  private renderGrid(filter: string): void {
-    const grid = this.panel?.querySelector('#cctv-grid');
+  private async loadCatalog(): Promise<void> {
+    this.loadState = 'loading';
+    this.renderGrid();
+    try {
+      const res = await fetch('/api/webcam-catalog');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as CatalogResponse;
+      this.catalog = data.cams || [];
+      this.loadState = 'ready';
+    } catch (err) {
+      console.error('[cctv] catalog load failed', err);
+      this.loadState = 'error';
+    }
+    this.renderGrid();
+  }
+
+  private filtered(): CatalogCam[] {
+    if (this.filter === 'all') return this.catalog;
+    const opt = FILTER_OPTIONS.find((f) => f.id === this.filter);
+    if (!opt || !opt.types) return this.catalog;
+    return this.catalog.filter((c) => opt.types!.includes(c.type));
+  }
+
+  private renderGrid(): void {
+    const grid = this.panel?.querySelector('#cctv-grid') as HTMLElement | null;
     if (!grid) return;
 
-    const filtered = filter === 'all' ? CAMERAS : CAMERAS.filter((c) => c.type === filter);
+    if (this.loadState === 'loading') {
+      grid.innerHTML = Array.from({ length: 8 })
+        .map(
+          () => `
+        <div class="nw-cctv-card nw-cctv-card-skeleton">
+          <div class="nw-cctv-card-preview"><div class="nw-skel" style="width:100%;height:100%"></div></div>
+          <div class="nw-cctv-card-info"><div class="nw-skel" style="width:60%;height:12px"></div></div>
+        </div>
+      `,
+        )
+        .join('');
+      return;
+    }
 
-    if (filtered.length === 0) {
+    if (this.loadState === 'error') {
+      grid.innerHTML =
+        '<div class="nw-cctv-empty">Catalog failed to load. <button class="nw-cctv-retry">Try again</button></div>';
+      grid.querySelector('.nw-cctv-retry')?.addEventListener('click', () => void this.loadCatalog());
+      return;
+    }
+
+    const cams = this.filtered();
+    if (cams.length === 0) {
       grid.innerHTML = '<div class="nw-cctv-empty">No cameras in this category.</div>';
       return;
     }
 
-    grid.innerHTML = filtered
-      .map(
-        (cam) => `
-      <div class="nw-cctv-card" data-lat="${cam.lat}" data-lon="${cam.lon}" data-url="${escapeAttr(cam.url)}">
-        <div class="nw-cctv-card-preview">
-          <div class="nw-cctv-card-static">
-            <span class="nw-cctv-card-type">${escapeHtml(cam.type.toUpperCase())}</span>
+    grid.innerHTML = cams
+      .map((cam) => {
+        const tierLabel = cam.status === 'live' ? 'LIVE' : cam.status === 'thumbnail' ? '30s' : 'EXTERNAL';
+        const tierClass = `nw-cctv-tier-${cam.status}`;
+        const previewHtml =
+          cam.status === 'live' && cam.embedUrl
+            ? `<iframe src="${escapeHtml(cam.embedUrl)}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; encrypted-media" title="${escapeHtml(cam.name)}"></iframe>`
+            : cam.thumbnail
+              ? `<img src="${escapeHtml(cam.thumbnail)}" alt="${escapeHtml(cam.name)}" loading="lazy" referrerpolicy="no-referrer" />`
+              : `<div class="nw-cctv-card-fallback">${escapeHtml(cam.type.toUpperCase())}</div>`;
+
+        return `
+        <div class="nw-cctv-card" data-cam-id="${escapeHtml(cam.id)}" data-lat="${cam.lat}" data-lon="${cam.lon}" data-url="${escapeHtml(cam.viewerUrl)}">
+          <div class="nw-cctv-card-preview">
+            ${previewHtml}
+            <span class="nw-cctv-card-tier ${tierClass}">${tierLabel}</span>
+          </div>
+          <div class="nw-cctv-card-info">
+            <span class="nw-cctv-card-name">${escapeHtml(cam.name)}</span>
+            <span class="nw-cctv-card-region">${escapeHtml(cam.region)} · ${escapeHtml(cam.source)}</span>
+          </div>
+          <div class="nw-cctv-card-actions">
+            <button class="nw-cctv-card-view" type="button">OPEN FEED</button>
+            ${cam.lat || cam.lon ? '<button class="nw-cctv-card-flyto" type="button">FLY TO</button>' : ''}
           </div>
         </div>
-        <div class="nw-cctv-card-info">
-          <span class="nw-cctv-card-name">${escapeHtml(cam.name)}</span>
-          <span class="nw-cctv-card-region">${escapeHtml(cam.region)}</span>
-        </div>
-        <div class="nw-cctv-card-actions">
-          <button class="nw-cctv-card-view">OPEN FEED</button>
-          ${cam.lat || cam.lon ? '<button class="nw-cctv-card-flyto">FLY TO</button>' : ''}
-        </div>
-      </div>
-    `,
-      )
+      `;
+      })
       .join('');
 
     grid.querySelectorAll('.nw-cctv-card').forEach((card) => {
       const el = card as HTMLElement;
       el.querySelector('.nw-cctv-card-view')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        window.open(el.dataset.url, '_blank');
+        window.open(el.dataset.url, '_blank', 'noopener,noreferrer');
       });
       el.querySelector('.nw-cctv-card-flyto')?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -386,16 +220,17 @@ export class CctvPanel {
     });
   }
 
-  destroy(): void {
-    this.panel?.remove();
-    this.panel = null;
+  private refreshThumbnails(): void {
+    const grid = this.panel?.querySelector('#cctv-grid') as HTMLElement | null;
+    if (!grid) return;
+    // Append a cache-buster query param so the browser fetches a new frame.
+    grid.querySelectorAll<HTMLImageElement>('.nw-cctv-card-preview img').forEach((img) => {
+      const orig = img.src.split('#')[0].split('?')[0];
+      img.src = `${orig}#t=${Date.now()}`;
+    });
   }
-}
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  destroy(): void {
+    this.close();
+  }
 }
