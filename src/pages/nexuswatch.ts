@@ -1345,7 +1345,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
         healthValue.textContent = `${health.score}%`;
         (healthValue as HTMLElement).style.color = health.color;
       }
-      healthSlot.title = `DATA CONFIDENCE: ${health.score}% (${health.label}) — ${health.breakdown.layersFresh}/${health.breakdown.layersTotal} layers fresh, ${health.breakdown.highConfidenceCountries}/${health.breakdown.totalCountries} countries HIGH confidence`;
+      healthSlot.title = `DATA CONFIDENCE: ${health.score}% (${health.label}) — ${health.breakdown.layersFresh}/${health.breakdown.layersTotal} layers fresh, ${health.breakdown.mediumOrBetterCountries}/${health.breakdown.totalCountries} countries with medium-or-better confidence (${health.breakdown.highConfidenceCountries} high)`;
 
       layerDrawer.refresh();
       if (activeTab === 'intel') debouncedSidebarRender();
