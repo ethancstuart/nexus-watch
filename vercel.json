@@ -30,6 +30,7 @@
     { "source": "/faq", "destination": "/index.html" },
     { "source": "/terms", "destination": "/index.html" },
     { "source": "/privacy", "destination": "/index.html" },
+    { "source": "/security", "destination": "/index.html" },
     { "source": "/settings", "destination": "/index.html" }
   ],
   "crons": [
@@ -72,7 +73,10 @@
     { "path": "/api/cron/source-noaa-storms", "schedule": "0 * * * *" },
     { "path": "/api/cron/source-copernicus", "schedule": "0 12 * * *" },
     { "path": "/api/cron/source-vdem", "schedule": "0 3 1 * *" },
-    { "path": "/api/cron/scheduled-emails", "schedule": "0 * * * *" }
+    { "path": "/api/cron/scheduled-emails", "schedule": "0 * * * *" },
+    { "path": "/api/cron/cron-health", "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/cache-warm", "schedule": "*/45 * * * *" },
+    { "path": "/api/cron/cost-summary", "schedule": "0 9 * * 1" }
   ],
   "headers": [
     {

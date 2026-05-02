@@ -68,7 +68,7 @@ export function renderLanding(root: HTMLElement): void {
         <h1 class="nw-hero-headline word-stagger" aria-label="The world, watched.">
           <span>The</span> <span>world,</span> <span>watched<span class="nw-hero-period">.</span></span>
         </h1>
-        <p class="nw-hero-sub">45+ live data layers. 86 countries scored. Daily AI briefs. Free.</p>
+        <p class="nw-hero-sub">45+ live data layers. 158 countries scored. Daily AI briefs. Free.</p>
         <a href="#/intel" class="nw-hero-cta" data-cta="hero-primary">
           Open the dashboard <span class="nw-hero-cta-arrow" aria-hidden="true">→</span>
         </a>

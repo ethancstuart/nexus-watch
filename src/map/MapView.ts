@@ -52,12 +52,15 @@ export class MapView {
     }
     const saved = this.loadViewport();
 
+    // Cinema mode keeps the dramatic 3D pitch; everywhere else uses
+    // a flat globe so the country fills are readable on first paint.
+    const isCinema = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('cinema') === '1';
     this.map = new maplibregl.Map({
       container: this.container,
       style: getMapStyleUrl(),
       center: saved?.center || [0, 20],
       zoom: saved?.zoom || 1.5,
-      pitch: 0,
+      pitch: isCinema ? 10 : 0,
       bearing: 0,
       attributionControl: false,
       maxZoom: 18,

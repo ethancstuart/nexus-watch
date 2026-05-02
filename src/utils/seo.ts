@@ -95,7 +95,7 @@ export const PAGE_SEO = {
   landing: {
     title: 'Real-Time Geopolitical Intelligence',
     description:
-      '45+ live data layers on a 3D globe. 86 countries scored. Daily AI briefs and dark vessel detection. Open-source. Free.',
+      '45+ live data layers on a 3D globe. 158 countries scored. Daily AI briefs and dark vessel detection. Open-source. Free.',
     canonicalPath: '/',
   },
   intel: {
@@ -125,7 +125,7 @@ export const PAGE_SEO = {
   compare: {
     title: 'Compare Countries',
     description:
-      'Side-by-side instability scoring across 86 countries: conflict, disasters, sentiment, infrastructure, governance, market exposure. Free.',
+      'Side-by-side instability scoring across 158 countries: conflict, disasters, sentiment, infrastructure, governance, market exposure. Free.',
     canonicalPath: '/compare',
   },
   watchlist: {
@@ -167,7 +167,7 @@ export const PAGE_SEO = {
   portfolio: {
     title: 'Portfolio Geopolitical Exposure',
     description:
-      "Map your portfolio's geopolitical risk exposure to country instability scores across 86 countries. Holdings → CII-weighted exposure. Free.",
+      "Map your portfolio's geopolitical risk exposure to country instability scores across 158 countries. Holdings → CII-weighted exposure. Free.",
     canonicalPath: '/portfolio',
   },
   entities: {

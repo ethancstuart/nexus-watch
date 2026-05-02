@@ -366,6 +366,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/security', () => {
+    import('./pages/security.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        m.renderSecurity(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/admin/social-queue', () => {
     import('./pages/socialQueue.ts')
       .then(async (m) => {
