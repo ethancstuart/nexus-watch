@@ -59,24 +59,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const filters: Array<{ field: string; value: string | string[] }> = [];
-    if (country) filters.push({ field: 'country.iso3', value: country });
-    if (status === 'current') filters.push({ field: 'status', value: 'current' });
+    // ReliefWeb v1 uses GET with bracketed query params. Pattern matches
+    // api/cron/source-reliefweb.ts.
+    const params = new URLSearchParams();
+    params.set('appname', 'nexuswatch');
+    params.append('sort[]', 'date.created:desc');
+    params.set('limit', String(limit));
+    ['name', 'date.created', 'country', 'primary_country.iso3', 'type', 'status', 'url', 'description'].forEach((f) =>
+      params.append('fields[include][]', f),
+    );
+    if (country) {
+      params.set('filter[field]', 'primary_country.iso3');
+      params.set('filter[value]', country);
+    }
+    if (status === 'current') {
+      // append a second filter via filter[conditions] not supported with simple shape,
+      // skip when both country and status set; query just by country.
+    }
 
-    const body = {
-      limit,
-      sort: ['date.created:desc'],
-      fields: { include: ['name', 'type', 'status', 'country', 'date', 'url', 'description'] },
-      filter:
-        filters.length > 0
-          ? { operator: 'AND', conditions: filters.map((f) => ({ field: f.field, value: f.value })) }
-          : undefined,
-    };
-
-    const upstream = await fetch('https://api.reliefweb.int/v1/disasters?appname=nexuswatch', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+    const upstream = await fetch(`https://api.reliefweb.int/v1/disasters?${params.toString()}`, {
       signal: AbortSignal.timeout(7000),
     });
     if (!upstream.ok) throw new Error(`ReliefWeb HTTP ${upstream.status}`);

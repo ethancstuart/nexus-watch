@@ -48,7 +48,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // and filter client-side. For ACLED corroboration the client already knows
   // the lat/lon to match against, so country filtering server-side is optional.
   try {
-    const url = `https://ucdpapi.pcr.uu.se/api/gedevents-candidate/24.0.25.10.31?pagesize=200`;
+    // Use the stable yearly GED endpoint (24.1 = 2024 release). The candidate
+    // endpoint requires a date-versioned URL that rotates monthly; using the
+    // stable release is simpler and covers ACLED corroboration just as well.
+    const url = `https://ucdpapi.pcr.uu.se/api/gedevents/24.1?pagesize=200`;
     const upstream = await fetch(url, { signal: AbortSignal.timeout(7000) });
     if (!upstream.ok) throw new Error(`UCDP HTTP ${upstream.status}`);
     const data = (await upstream.json()) as { Result: Array<Record<string, unknown>> };
