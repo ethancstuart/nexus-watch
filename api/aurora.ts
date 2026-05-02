@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { rateLimit, applyRateLimitHeaders } from './_lib/rateLimit.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 8 };
 
@@ -18,6 +19,10 @@ const TTL = 5 * 60 * 1000;
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const rl = await rateLimit(req, { key: 'aurora', limit: 60, windowSec: 60 });
+  applyRateLimitHeaders(res, rl);
+  if (!rl.ok) return res.status(429).json({ error: 'rate-limited', retryAfterSec: rl.retryAfterSec });
 
   if (cached && Date.now() - cachedAt < TTL) {
     return res

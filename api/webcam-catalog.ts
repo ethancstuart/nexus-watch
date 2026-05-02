@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { kvCached } from './_lib/kvCache.js';
+import { rateLimit, applyRateLimitHeaders } from './_lib/rateLimit.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -43,9 +45,7 @@ interface WindyWebcam {
   categories?: { id: string; name: string }[];
 }
 
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
-let cached: CatalogCam[] | null = null;
-let cachedAt = 0;
+const CACHE_TTL_SEC = 60 * 60; // 1 hour
 
 // Always-included live-iframe showpiece cams (no Windy needed)
 const LIVE_IFRAME_CAMS: CatalogCam[] = [
@@ -189,45 +189,50 @@ async function fetchWindyCatalog(apiKey: string): Promise<CatalogCam[]> {
   return out;
 }
 
+interface CatalogPayload {
+  cams: CatalogCam[];
+  generatedAt: string;
+  sources?: { live: number; windy: number };
+  note?: string;
+  error?: string;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  const rl = await rateLimit(req, { key: 'webcam-catalog', limit: 60, windowSec: 60 });
+  applyRateLimitHeaders(res, rl);
+  if (!rl.ok) return res.status(429).json({ error: 'rate-limited', retryAfterSec: rl.retryAfterSec });
+
   const apiKey = process.env.WINDY_WEBCAM_KEY;
 
-  // Serve from module cache if fresh
-  if (cached && Date.now() - cachedAt < CACHE_TTL) {
-    return res
-      .setHeader('Cache-Control', 'public, max-age=900, s-maxage=900')
-      .json({ cams: cached, generatedAt: new Date(cachedAt).toISOString(), cached: true });
-  }
+  // 2026-05-02 L1: KV-backed cache. Survives cold starts so we don't burn
+  // Windy's 10k/day quota on every Vercel function instance.
+  const payload = await kvCached<CatalogPayload>('nw:webcam-catalog:v1', CACHE_TTL_SEC, async () => {
+    if (!apiKey) {
+      return {
+        cams: LIVE_IFRAME_CAMS,
+        generatedAt: new Date().toISOString(),
+        note: 'WINDY_WEBCAM_KEY not configured — showing 5 live-iframe cams only.',
+      };
+    }
+    try {
+      const windyCams = await fetchWindyCatalog(apiKey);
+      return {
+        cams: [...LIVE_IFRAME_CAMS, ...windyCams],
+        generatedAt: new Date().toISOString(),
+        sources: { live: LIVE_IFRAME_CAMS.length, windy: windyCams.length },
+      };
+    } catch (err) {
+      console.error('webcam-catalog error:', err instanceof Error ? err.message : err);
+      return {
+        cams: LIVE_IFRAME_CAMS,
+        generatedAt: new Date().toISOString(),
+        error: 'Windy upstream failed — showing fallback only.',
+      };
+    }
+  });
 
-  if (!apiKey) {
-    cached = LIVE_IFRAME_CAMS;
-    cachedAt = Date.now();
-    return res.setHeader('Cache-Control', 'public, max-age=300').json({
-      cams: LIVE_IFRAME_CAMS,
-      generatedAt: new Date().toISOString(),
-      note: 'WINDY_WEBCAM_KEY not configured — showing 5 live-iframe cams only.',
-    });
-  }
-
-  try {
-    const windyCams = await fetchWindyCatalog(apiKey);
-    const merged = [...LIVE_IFRAME_CAMS, ...windyCams];
-    cached = merged;
-    cachedAt = Date.now();
-    return res.setHeader('Cache-Control', 'public, max-age=900, s-maxage=900').json({
-      cams: merged,
-      generatedAt: new Date().toISOString(),
-      sources: { live: LIVE_IFRAME_CAMS.length, windy: windyCams.length },
-    });
-  } catch (err) {
-    console.error('webcam-catalog error:', err instanceof Error ? err.message : err);
-    return res.setHeader('Cache-Control', 'public, max-age=60').json({
-      cams: LIVE_IFRAME_CAMS,
-      generatedAt: new Date().toISOString(),
-      error: 'Windy upstream failed — showing fallback only.',
-    });
-  }
+  return res.setHeader('Cache-Control', 'public, max-age=900, s-maxage=900').json(payload);
 }

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { rateLimit, applyRateLimitHeaders } from './_lib/rateLimit.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -36,6 +37,10 @@ interface OECDataRow {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const rl = await rateLimit(req, { key: 'trade-flows', limit: 60, windowSec: 60 });
+  applyRateLimitHeaders(res, rl);
+  if (!rl.ok) return res.status(429).json({ error: 'rate-limited', retryAfterSec: rl.retryAfterSec });
 
   // OEC uses lowercase 3-letter codes (e.g. 'usa', 'chn', 'deu')
   const reporter = String(req.query.reporter || '')

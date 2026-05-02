@@ -39,4 +39,26 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
+  // 2026-05-02 L4 secret-leak guard:
+  // Block any reference to secret-shaped env vars from src/. They must
+  // only be read from api/ (server-side). Forgetting this would let Vite
+  // inline the secret into the client bundle.
+  {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.object.name='process'][object.property.name='env'][property.name=/_KEY$|_TOKEN$|_SECRET$|_PASSWORD$/]",
+          message:
+            'Server-only secrets must not be read from src/. Read in api/* and forward via a typed response. (Vite inlines process.env into the client bundle.)',
+        },
+        {
+          selector: "MemberExpression[object.name='env'][property.name=/_KEY$|_TOKEN$|_SECRET$|_PASSWORD$/]",
+          message: 'Same as above — secret-shaped env access is forbidden in src/.',
+        },
+      ],
+    },
+  },
 );

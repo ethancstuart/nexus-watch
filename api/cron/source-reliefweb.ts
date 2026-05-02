@@ -16,7 +16,12 @@ export const config = { runtime: 'nodejs', maxDuration: 60 };
  * Schedule: daily at 4 AM UTC (0 4 * * *)
  */
 
-const RELIEFWEB_API = 'https://api.reliefweb.int/v1/disasters';
+// 2026-05-02 L3: v1 was decommissioned 2026-04. v2 requires an approved
+// appname (registration pending — see docs/reliefweb-registration.md).
+// Until that lands, the cron returns early without hitting upstream so
+// it doesn't generate daily 410 errors in logs.
+const RELIEFWEB_API = 'https://api.reliefweb.int/v2/disasters';
+const RELIEFWEB_APPNAME_APPROVED = false;
 
 // ISO3 → ISO2 mapping for CII countries
 const ISO3_TO_ISO2: Record<string, string> = {
@@ -109,6 +114,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = neon(dbUrl);
 
   const result = { ingested: 0, countries: new Set<string>(), errors: [] as string[] };
+
+  if (!RELIEFWEB_APPNAME_APPROVED) {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        skipped: 'awaiting-upstream-registration',
+        message: 'ReliefWeb v2 appname not yet approved. See docs/reliefweb-registration.md.',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
 
   try {
     // Fetch recent disasters (last 30 days)

@@ -31,6 +31,16 @@ export class Router {
   }
 
   start(): void {
+    // 2026-05-02 L5: support direct path-based URLs (e.g. /intel, /briefs)
+    // arriving via Vercel rewrites that point at index.html. Convert to
+    // the existing hash-routing model on first paint so the rest of the
+    // app keeps working unchanged.
+    if (window.location.pathname !== '/' && !window.location.hash) {
+      const path = window.location.pathname.replace(/\/$/, '');
+      // Use replaceState so the "back" button doesn't return to a weirdly
+      // empty path-based URL the SPA didn't actually render.
+      window.history.replaceState(null, '', '/#' + path);
+    }
     window.addEventListener('hashchange', () => this.resolve());
     this.resolve();
   }

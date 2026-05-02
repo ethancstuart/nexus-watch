@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { rateLimit, applyRateLimitHeaders } from './_lib/rateLimit.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 8 };
 
@@ -47,6 +48,10 @@ interface RWHit {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const rl = await rateLimit(req, { key: 'reliefweb', limit: 60, windowSec: 60 });
+  applyRateLimitHeaders(res, rl);
+  if (!rl.ok) return res.status(429).json({ error: 'rate-limited', retryAfterSec: rl.retryAfterSec });
 
   const country = String(req.query.country || '').toUpperCase();
   const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit || '20'), 10)));

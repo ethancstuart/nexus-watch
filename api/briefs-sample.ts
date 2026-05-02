@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { kvCached } from './_lib/kvCache.js';
+import { rateLimit, applyRateLimitHeaders } from './_lib/rateLimit.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 25 };
 
@@ -46,8 +48,7 @@ const STATIC_FALLBACK: SampleBrief[] = [
   },
 ];
 
-const CACHE_TTL = 6 * 60 * 60 * 1000;
-let cached: { ts: number; samples: SampleBrief[]; source: string } | null = null;
+const CACHE_TTL_SEC = 6 * 60 * 60; // 6 hours
 
 interface CIIScore {
   countryCode: string;
@@ -151,42 +152,41 @@ ${moversText}`;
   }
 }
 
+interface CachedPayload {
+  samples: SampleBrief[];
+  source: string;
+  generatedAt: string;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return res
-      .setHeader('Cache-Control', 'public, max-age=21600, s-maxage=21600')
-      .json({ samples: cached.samples, generatedAt: new Date(cached.ts).toISOString(), source: cached.source });
-  }
+  // 30 req/min — generous for normal browsing; blocks scripted abuse.
+  const rl = await rateLimit(req, { key: 'briefs-sample', limit: 30, windowSec: 60 });
+  applyRateLimitHeaders(res, rl);
+  if (!rl.ok) return res.status(429).json({ error: 'rate-limited', retryAfterSec: rl.retryAfterSec });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return res.setHeader('Cache-Control', 'public, max-age=300').json({
-      samples: STATIC_FALLBACK,
-      generatedAt: new Date().toISOString(),
-      source: 'static-fallback',
-    });
-  }
-
   const host = req.headers.host || 'nexuswatch.dev';
-  const movers = await fetchTopMovers(host);
-  const synthesized = await callHaiku(apiKey, movers);
 
-  if (synthesized && synthesized.length === 3) {
-    cached = { ts: Date.now(), samples: synthesized, source: 'haiku-synthesis' };
-    return res.setHeader('Cache-Control', 'public, max-age=21600, s-maxage=21600').json({
-      samples: synthesized,
-      generatedAt: new Date().toISOString(),
-      source: 'haiku-synthesis',
-    });
-  }
-
-  cached = { ts: Date.now(), samples: STATIC_FALLBACK, source: 'static-fallback' };
-  return res.setHeader('Cache-Control', 'public, max-age=900').json({
-    samples: STATIC_FALLBACK,
-    generatedAt: new Date().toISOString(),
-    source: 'static-fallback',
+  // 2026-05-02 L1: KV-backed cache. Survives cold starts so we don't
+  // burn Anthropic spend on every Vercel function instance.
+  const payload = await kvCached<CachedPayload>('nw:briefs-sample:v1', CACHE_TTL_SEC, async () => {
+    if (!apiKey) {
+      return {
+        samples: STATIC_FALLBACK,
+        source: 'static-fallback',
+        generatedAt: new Date().toISOString(),
+      };
+    }
+    const movers = await fetchTopMovers(host);
+    const synthesized = await callHaiku(apiKey, movers);
+    if (synthesized && synthesized.length === 3) {
+      return { samples: synthesized, source: 'haiku-synthesis', generatedAt: new Date().toISOString() };
+    }
+    return { samples: STATIC_FALLBACK, source: 'static-fallback', generatedAt: new Date().toISOString() };
   });
+
+  return res.setHeader('Cache-Control', 'public, max-age=21600, s-maxage=21600').json(payload);
 }
