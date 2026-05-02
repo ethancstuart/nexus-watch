@@ -42,8 +42,10 @@ export class MapView {
     // controls (zoom, attribution, popups) render styled. See top-level
     // comment on ensureMaplibreStylesheet for why this isn't in index.html.
     ensureMaplibreStylesheet();
-    // Clear stale viewport from pre-globe era
-    const GLOBE_VERSION = 'globe-v2';
+    // 2026-05-02: bumped to globe-v3 so existing users get the new
+    // wide-angle default zoom (was 3.8, now 1.5 — shows the full globe
+    // on first load instead of a continental crop).
+    const GLOBE_VERSION = 'globe-v3';
     if (localStorage.getItem('nw:globe-version') !== GLOBE_VERSION) {
       localStorage.removeItem(VIEWPORT_KEY);
       localStorage.setItem('nw:globe-version', GLOBE_VERSION);
@@ -54,8 +56,8 @@ export class MapView {
       container: this.container,
       style: getMapStyleUrl(),
       center: saved?.center || [0, 20],
-      zoom: saved?.zoom || 3.8,
-      pitch: 10,
+      zoom: saved?.zoom || 1.5,
+      pitch: 0,
       bearing: 0,
       attributionControl: false,
       maxZoom: 18,
@@ -112,22 +114,11 @@ export class MapView {
       saveTimeout = setTimeout(() => this.saveViewport(), 1000);
     });
 
-    // Center on user's location if no saved viewport
-    if (!saved && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          this.map?.flyTo({
-            center: [pos.coords.longitude, pos.coords.latitude],
-            zoom: 3.5,
-            duration: 2000,
-          });
-        },
-        () => {
-          // Geolocation denied — stay at default center
-        },
-        { timeout: 5000 },
-      );
-    }
+    // 2026-05-02: removed auto-geolocate-to-user behavior on first load.
+    // It produced a permission prompt before the user understood what
+    // the platform was, and yanked the camera away from the globe overview
+    // — disorienting for new visitors. Users can fly to their region via
+    // the search bar or country panel.
 
     // Auto-rotate globe slowly on first load (stops on user interaction)
     this.rotating = true;

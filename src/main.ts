@@ -151,40 +151,40 @@ function show404(root: HTMLElement) {
 router
   .on('/', () => {
     import('./pages/landing.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderLanding(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/intel', () => {
     import('./pages/nexuswatch.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderNexusWatch(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/app', () => {
     import('./pages/nexuswatch.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderNexusWatch(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/about', () => {
     import('./pages/about.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderAbout(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/why-free', () => {
     import('./pages/whyFree.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderWhyFree(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
@@ -192,200 +192,200 @@ router
   .on('/case-study', () => {
     // Legacy route — preserve access to the old technical case study.
     import('./pages/casestudy.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderCaseStudy(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/roadmap', () => {
     import('./pages/roadmap.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderRoadmap(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/briefs', () => {
     import('./pages/briefs.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderBriefs(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/methodology', () => {
     import('./pages/methodology.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderMethodology(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/accuracy', () => {
     import('./pages/accuracy.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         void m.renderAccuracyPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/portfolio', () => {
     import('./pages/portfolio.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderPortfolioPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/api', () => {
     import('./pages/apidocs.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderApiDocsPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderReleaseNotes(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/status', () => {
     import('./pages/status.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         void m.renderStatusPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/audit', () => {
     import('./pages/audit.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         void m.renderAuditPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/audit/:country', (params) => {
     import('./pages/audit.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         void m.renderAuditPage(appRoot, params?.country);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/compare', () => {
     import('./pages/compare.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         void m.renderComparePage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/entities', () => {
     import('./pages/entities.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderEntitiesPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/entities/:id', (params) => {
     import('./pages/entities.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderEntitiesPage(appRoot, params?.id);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/brief-country/:code', (params) => {
     import('./pages/countryBrief.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderCountryBrief(appRoot, params?.code || '');
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/watchlist', () => {
     import('./pages/watchlist.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderWatchlistPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/feed', () => {
     import('./pages/feed.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderFeedPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/welcome', () => {
     import('./pages/welcome.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderWelcomePage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/settings', () => {
     import('./pages/settings.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderSettings(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/faq', () => {
     import('./pages/faq.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderFaqPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/terms', () => {
     import('./pages/terms.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderTermsPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/privacy', () => {
     import('./pages/privacy.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderPrivacyPage(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/admin/social-queue', () => {
     import('./pages/socialQueue.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderSocialQueue(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/admin/marketing', () => {
     import('./pages/adminMarketing.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderAdminMarketing(appRoot);
       })
       .catch((err) => showRouteError(appRoot, err));
   })
   .on('/brief/:date', (params) => {
     import('./pages/briefs.ts')
-      .then((m) => {
-        void transition(appRoot);
+      .then(async (m) => {
+        await transition(appRoot);
         m.renderBrief(appRoot, params?.date || '');
       })
       .catch((err) => showRouteError(appRoot, err));

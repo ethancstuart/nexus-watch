@@ -38,26 +38,17 @@ export interface PlatformHealthState {
 }
 
 export function computePlatformHealth(): PlatformHealthState {
-  // Layer freshness component. Treat layers without provenance as
-  // "operational" by default — many static/reference layers (chokepoints,
-  // ports, cables) never call updateProvenance() but are always healthy.
-  // Only layers that explicitly registered AND went stale should drag
-  // the score down.
   const provenance = getAllProvenance();
   let layersFresh = 0;
+  let layersStale = 0;
+  let layersOffline = 0;
   let layersTotal = 0;
   for (const [, prov] of provenance) {
     layersTotal++;
     const f = computeFreshness(prov);
-    // Count anything not explicitly stale/offline as healthy. Most layers
-    // refresh on intervals between 1 min and 1 hour; "recent" is a
-    // generous window that covers normal cadence.
     if (f === 'live' || f === 'recent') layersFresh++;
-    else if (f === 'stale') {
-      // Stale (within 24h) still counts as half-healthy — the layer is
-      // serving cached data, not crashing.
-      layersFresh += 0.5;
-    }
+    else if (f === 'stale') layersStale++;
+    else layersOffline++;
   }
 
   // CII confidence components — high vs medium-or-better.
@@ -74,33 +65,47 @@ export function computePlatformHealth(): PlatformHealthState {
   }
   const totalCountries = scores.length;
 
-  // Composite designed so a healthy live platform reads 90%+:
-  //   - layerPct counts only registered layers reporting fresh-or-aged
-  //   - ciiMedPct dominates over ciiHighPct because medium IS the honest
-  //     baseline for most countries (HIGH requires 4+ live sources,
-  //     which only the major economies hit consistently)
+  // 2026-05-02 W5 v2: "Default healthy, deduct for problems" model.
   //
-  // Weights: 40% layers + 45% CII medium-or-better + 15% CII high.
-  const layerPct = layersTotal > 0 ? (layersFresh / layersTotal) * 100 : 100; // assume healthy until told otherwise
-  const ciiHighPct = totalCountries > 0 ? (highConfidence / totalCountries) * 100 : 0;
-  const ciiMedPct = totalCountries > 0 ? (mediumOrBetter / totalCountries) * 100 : 0;
-  let score = Math.round(layerPct * 0.4 + ciiMedPct * 0.45 + ciiHighPct * 0.15);
+  // Rationale: the previous composite made every quiet layer or
+  // low-confidence country drag the score down to 40%, which read as
+  // "broken" to users even when the platform was fully operational.
+  // This is honest about real degradation but doesn't punish quiet
+  // refresh cycles or sparse-source countries.
+  //
+  // Baseline: 95. Deduct only for measurable problems.
+  let score = 95;
+  let deductions = 0;
 
-  // Operational floor: if we have at least 5 layers reporting fresh AND
-  // at least 100 countries scored with medium-or-better confidence, the
-  // platform is genuinely operational — no honest reading should drop
-  // below 80%. Below the floor we let the composite speak for itself.
-  if (layersFresh >= 5 && mediumOrBetter >= 100) {
-    score = Math.max(score, 80);
+  // 1) No CII data loaded at all = the platform isn't actually serving
+  //    intelligence yet.
+  if (totalCountries === 0) deductions += 25;
+
+  // 2) Most layers in offline/error state = real outage.
+  if (layersTotal > 0) {
+    const offlineRatio = layersOffline / layersTotal;
+    if (offlineRatio > 0.5) deductions += 25;
+    else if (offlineRatio > 0.25) deductions += 10;
   }
-  // Excellence floor: when we have broad coverage AND most countries
-  // have at least medium confidence, we're operating at peak — 90%+.
-  if (layersFresh >= 8 && totalCountries > 0 && mediumOrBetter / totalCountries >= 0.7) {
-    score = Math.max(score, 92);
+
+  // 3) Most layers stale (refresh hasn't fired in a while) = mild
+  //    degradation but data still usable.
+  if (layersTotal >= 3) {
+    const staleRatio = (layersStale + layersOffline) / layersTotal;
+    if (staleRatio > 0.6) deductions += 8;
   }
-  // Hard cap so we never display 100% (would feel dishonest given any
-  // real-world platform has imperfect ground truth).
-  score = Math.min(score, 98);
+
+  // 4) Very poor CII coverage = data is loaded but most countries lack
+  //    confidence-grade evidence chains.
+  if (totalCountries > 0) {
+    const medRatio = mediumOrBetter / totalCountries;
+    if (medRatio < 0.2) deductions += 10;
+    else if (medRatio < 0.4) deductions += 5;
+  }
+
+  score -= deductions;
+  // Floor at 30 even for catastrophic state (display rather than hide).
+  score = Math.max(30, Math.min(98, score));
 
   let label: string;
   let color: string;
