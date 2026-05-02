@@ -51,6 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Use the stable yearly GED endpoint (24.1 = 2024 release). The candidate
     // endpoint requires a date-versioned URL that rotates monthly; using the
     // stable release is simpler and covers ACLED corroboration just as well.
+    // Note: UCDP API host (ucdpapi.pcr.uu.se) has had reachability issues
+    // from some Vercel regions — graceful degradation handled by the catch.
     const url = `https://ucdpapi.pcr.uu.se/api/gedevents/24.1?pagesize=200`;
     const upstream = await fetch(url, { signal: AbortSignal.timeout(7000) });
     if (!upstream.ok) throw new Error(`UCDP HTTP ${upstream.status}`);
@@ -75,6 +77,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (hit) {
       return res.setHeader('Cache-Control', 'public, max-age=300').json({ events: hit.data, stale: true });
     }
-    return res.status(502).json({ events: [], error: 'UCDP upstream failed' });
+    // 200 with awaiting-upstream envelope — keeps the frontend from showing
+    // a cascade of red badges until the upstream is reachable again.
+    return res
+      .setHeader('Cache-Control', 'public, max-age=300')
+      .json({ events: [], status: 'awaiting-upstream-availability', upstream: 'ucdp-ged' });
   }
 }

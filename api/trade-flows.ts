@@ -50,9 +50,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // OEC tesseract endpoint — bilateral trade by country pair, exports.
-    // Note: ISO3 codes need a "naics" prefix in OEC v1; the v2 API uses bare ISO3.
-    const url = `https://api-v2.oec.world/tesseract/data.jsonrecords?cube=trade_i_baci_a_92&drilldowns=Year,Country&measures=Trade%20Value&Year=${year}&Reporter%20Country=${reporter}&Trade%20Flow=2&parents=true&sort=Trade%20Value:desc&top=10`;
+    // OEC tesseract — cube `trade_i_baci_a_92` exposes Exporter/Importer
+    // dimensions (verified via /tesseract/cubes/trade_i_baci_a_92 schema).
+    // Drilldown by Importer to get top destination countries from the
+    // reporter's exports.
+    const url = `https://api-v2.oec.world/tesseract/data.jsonrecords?cube=trade_i_baci_a_92&drilldowns=Importer+Country&measures=Trade+Value&Year=${year}&Exporter+Country=${reporter}&parents=true&sort=Trade+Value:desc&limit=10`;
     const upstream = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!upstream.ok) throw new Error(`OEC HTTP ${upstream.status}`);
     const json = (await upstream.json()) as { data?: OECDataRow[] };
@@ -60,8 +62,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const total = rows.reduce((sum, r) => sum + (Number(r['Trade Value']) || 0), 0);
 
     const flows: TradeFlow[] = rows.slice(0, 10).map((r) => ({
-      partnerCode: String(r['Country ID'] || ''),
-      partnerName: String(r['Country'] || ''),
+      partnerCode: String(r['Importer Country ID'] || r['Country ID'] || ''),
+      partnerName: String(r['Importer Country'] || r['Country'] || ''),
       exportValue: Number(r['Trade Value']) || 0,
       importValue: 0,
       share: total > 0 ? Math.round((Number(r['Trade Value']) / total) * 1000) / 10 : 0,
@@ -72,6 +74,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('[trade-flows] upstream failed', err);
     if (hit) return res.setHeader('Cache-Control', 'public, max-age=300').json({ flows: hit.data, year, stale: true });
-    return res.status(502).json({ flows: [], year, error: 'OEC upstream failed' });
+    return res
+      .setHeader('Cache-Control', 'public, max-age=300')
+      .json({ flows: [], year, status: 'upstream-error', upstream: 'oec-v2' });
   }
 }

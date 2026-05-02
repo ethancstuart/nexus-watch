@@ -77,9 +77,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // skip when both country and status set; query just by country.
     }
 
-    const upstream = await fetch(`https://api.reliefweb.int/v1/disasters?${params.toString()}`, {
+    // ReliefWeb v1 was decommissioned 2026-04. v2 requires an approved
+    // appname (humans review at https://apidoc.reliefweb.int/parameters#appname).
+    // Until "nexuswatch" is approved we return a clean awaiting-upstream
+    // envelope so consumers don't show errors.
+    const upstream = await fetch(`https://api.reliefweb.int/v2/disasters?${params.toString()}`, {
       signal: AbortSignal.timeout(7000),
+      headers: { 'User-Agent': 'NexusWatch/1.0 (https://nexuswatch.dev)' },
     });
+    if (upstream.status === 403) {
+      return res
+        .setHeader('Cache-Control', 'public, max-age=86400')
+        .json({ events: [], status: 'awaiting-upstream-registration', upstream: 'reliefweb-v2' });
+    }
     if (!upstream.ok) throw new Error(`ReliefWeb HTTP ${upstream.status}`);
     const data = (await upstream.json()) as { data?: RWHit[] };
 
@@ -106,6 +116,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (hit) {
       return res.setHeader('Cache-Control', 'public, max-age=300').json({ events: hit.data, stale: true });
     }
-    return res.status(502).json({ events: [], error: 'ReliefWeb upstream failed' });
+    return res
+      .setHeader('Cache-Control', 'public, max-age=300')
+      .json({ events: [], status: 'upstream-error', upstream: 'reliefweb-v2' });
   }
 }
