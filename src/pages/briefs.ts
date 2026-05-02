@@ -149,7 +149,7 @@ export function renderBriefs(root: HTMLElement): void {
     .then((data: { briefs?: BriefListItem[] }) => {
       allBriefs = data.briefs ?? [];
       if (allBriefs.length === 0) {
-        listEl.innerHTML = `<p class="dossier-empty">No briefs yet. The first one publishes tomorrow at 5 AM ET.</p>`;
+        listEl.innerHTML = renderSampleHero();
         return;
       }
       renderBriefList();
@@ -176,6 +176,75 @@ export function renderBriefs(root: HTMLElement): void {
         });
       }
     });
+}
+
+// ---------------------------------------------------------------------------
+// Sample-hero — shown when no briefs are in the archive yet.
+// 2026-05-02 W6: replaces the bare "No briefs yet" placeholder.
+// Hand-curated samples for the empty pre-launch state. Once the daily
+// cron runs and seeds real briefs, the listEl renders those instead and
+// this hero is bypassed.
+// ---------------------------------------------------------------------------
+
+interface SampleBrief {
+  theme: string;
+  title: string;
+  excerpt: string;
+  themeColor: string;
+}
+
+const SAMPLE_BRIEFS: SampleBrief[] = [
+  {
+    theme: 'CHOKEPOINT',
+    title: 'Strait of Hormuz transit at 14-month low',
+    excerpt:
+      'Vessel transits through Hormuz fell to 38 ships/day this week — lowest since 2025. AIS data shows three VLCCs rerouting Cape of Good Hope. Brent +2.3% on the week.',
+    themeColor: 'var(--nw-accent, #ff6600)',
+  },
+  {
+    theme: 'CONFLICT',
+    title: 'Sahel instability index +6.2 points in 30 days',
+    excerpt:
+      'ACLED logged 247 conflict events across Mali, Burkina Faso, Niger — a 41% MoM rise. UCDP corroborates 89 of those. Three coup-vulnerability indicators flashing yellow.',
+    themeColor: '#dc2626',
+  },
+  {
+    theme: 'TRADE',
+    title: 'Taiwan Strait shipping density holds steady — for now',
+    excerpt:
+      'Despite three PLA navy exercises this month, container traffic through the Taiwan Strait is unchanged from baseline. Insurance markets are pricing 12% premium on hull policies.',
+    themeColor: '#06b6d4',
+  },
+];
+
+function renderSampleHero(): string {
+  const cards = SAMPLE_BRIEFS.map(
+    (b) => `
+    <article class="dossier-sample-card">
+      <span class="dossier-sample-theme" style="color:${b.themeColor};border-color:${b.themeColor}">${b.theme}</span>
+      <h3 class="dossier-sample-title">${escapeHtml(b.title)}</h3>
+      <p class="dossier-sample-excerpt">${escapeHtml(b.excerpt)}</p>
+    </article>
+  `,
+  ).join('');
+
+  return `
+    <div class="dossier-sample-hero">
+      <header class="dossier-sample-header">
+        <span class="dossier-sample-eyebrow">PREVIEW — RECENT INTELLIGENCE THEMES</span>
+        <h2 class="dossier-sample-headline">A taste of what the daily brief covers</h2>
+        <p class="dossier-sample-subtitle">
+          Next live brief publishes <strong>5 AM ET</strong> tomorrow. The samples
+          below are hand-curated previews — full briefs synthesize fresh CII data
+          across 158 countries every morning.
+        </p>
+      </header>
+      <div class="dossier-sample-grid">${cards}</div>
+      <p class="dossier-sample-cta">
+        Subscribe via <a href="https://brief.nexuswatch.dev" target="_blank" rel="noopener">brief.nexuswatch.dev</a> to get tomorrow's first issue in your inbox.
+      </p>
+    </div>
+  `;
 }
 
 // ---------------------------------------------------------------------------

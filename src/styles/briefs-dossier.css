@@ -474,3 +474,101 @@
     padding: 16px 20px;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Sample-hero — shown when archive is empty (W6, 2026-05-02)
+   ───────────────────────────────────────────────────────────── */
+.briefs-dossier .dossier-sample-hero {
+  padding: 32px 0 48px;
+}
+
+.briefs-dossier .dossier-sample-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.briefs-dossier .dossier-sample-eyebrow {
+  display: inline-block;
+  font-family: var(--nw-font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--nw-text-muted, #757575);
+  margin-bottom: 12px;
+}
+
+.briefs-dossier .dossier-sample-headline {
+  font-size: 26px;
+  margin: 0 0 12px;
+  color: var(--nw-text, #ededed);
+  font-weight: 600;
+}
+
+.briefs-dossier .dossier-sample-subtitle {
+  max-width: 580px;
+  margin: 0 auto;
+  font-size: 14px;
+  color: var(--nw-text-secondary, #999);
+  line-height: 1.6;
+}
+
+.briefs-dossier .dossier-sample-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 0 0 24px;
+}
+
+.briefs-dossier .dossier-sample-card {
+  padding: 18px 20px;
+  background: var(--nw-surface, #111);
+  border: 1px solid var(--nw-border, #222);
+  border-radius: 8px;
+  transition: border-color 200ms ease;
+}
+
+.briefs-dossier .dossier-sample-card:hover {
+  border-color: var(--nw-accent, #ff6600);
+}
+
+.briefs-dossier .dossier-sample-theme {
+  display: inline-block;
+  font-family: var(--nw-font-mono, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 2px 8px;
+  border: 1px solid;
+  border-radius: 2px;
+  margin-bottom: 12px;
+}
+
+.briefs-dossier .dossier-sample-title {
+  font-size: 16px;
+  margin: 0 0 8px;
+  color: var(--nw-text, #ededed);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.briefs-dossier .dossier-sample-excerpt {
+  font-size: 13px;
+  color: var(--nw-text-secondary, #999);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.briefs-dossier .dossier-sample-cta {
+  text-align: center;
+  font-size: 13px;
+  color: var(--nw-text-muted, #757575);
+  margin: 16px 0 0;
+}
+
+.briefs-dossier .dossier-sample-cta a {
+  color: var(--nw-accent, #ff6600);
+  text-decoration: none;
+}
+
+.briefs-dossier .dossier-sample-cta a:hover {
+  text-decoration: underline;
+}
