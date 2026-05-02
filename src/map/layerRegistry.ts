@@ -69,4 +69,8 @@ export const LAZY_LAYERS: Record<string, LayerFactory> = {
     import('./layers/cyberAttackCampaignsLayer.ts').then((m) => new m.CyberAttackCampaignsLayer()),
   'dark-web-osint': () => import('./layers/darkWebOsintLayer.ts').then((m) => new m.DarkWebOsintLayer()),
   'submarine-military': () => import('./layers/submarineMilitaryLayer.ts').then((m) => new m.SubmarineMilitaryLayer()),
+
+  // 2026-05-02 W7a wow-factor layers
+  clouds: () => import('./layers/cloudsLayer.ts').then((m) => new m.CloudsLayer()),
+  aurora: () => import('./layers/auroraLayer.ts').then((m) => new m.AuroraLayer()),
 };
