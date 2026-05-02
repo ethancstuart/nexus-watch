@@ -166,16 +166,37 @@ export class MapLayerManager {
       return [
         'earthquakes', // USGS seismic — pulsing circles
         'acled', // Active conflicts — red clusters
+        'fires', // NASA FIRMS — orange hotspots
+        'news', // GDELT events — blue markers
       ];
     }
 
+    // 2026-05-02: bumped from 6 → 18 default desktop layers (Chairman D-11).
+    // Globe is now rich on first paint without overwhelming. Heavy layers
+    // (ships, satellites) get +750ms boot delay via initAll() stagger.
     return [
-      'earthquakes', // USGS seismic — pulsing circles
-      'acled', // Active conflicts — red clusters
-      'conflict-zones', // Shaded regions — geopolitical context
-      'chokepoint-status', // 6 strategic straits — infrastructure
-      'fires', // NASA FIRMS — orange hotspots
-      'news', // GDELT events — blue markers
+      // Hazards
+      'earthquakes',
+      'fires',
+      'gdacs',
+      'weather-alerts',
+      // Conflict & military
+      'acled',
+      'conflicts',
+      'frontlines',
+      'sanctions',
+      // Intelligence
+      'news',
+      'sentiment',
+      'predictions',
+      'internet-outages',
+      // Infrastructure
+      'chokepoints',
+      'ports',
+      'ships',
+      'pipelines',
+      'cables',
+      'satellites',
     ];
   }
 

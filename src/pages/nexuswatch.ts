@@ -90,6 +90,7 @@ import { animateCounter } from '../ui/animatedCounter.ts';
 import { identifyRegion } from '../utils/geo.ts';
 import { FloatingWidgetManager } from '../map/FloatingWidget.ts';
 import { createLayerDrawer } from '../map/LayerDrawer.ts';
+import { createQuickLayerBar } from '../ui/quickLayerBar.ts';
 // Cinema mode is lazy-loaded on first interaction to keep it out of the
 // initial dashboard bundle (~80KB+ savings). See cinemaLoader below.
 import type { CinemaMode } from '../cinema/CinemaMode.ts';
@@ -1039,6 +1040,12 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   const layerDrawer = createLayerDrawer(layerManager, getLayerData, () => mapView.getMap());
   drawerToggleSlot.appendChild(layerDrawer.toggleBtn);
   mapContainer.appendChild(layerDrawer.element);
+
+  // ── Quick-Filter Bar (W3) — always-visible chip strip over the globe ──
+  const quickBar = createQuickLayerBar(layerManager, {
+    onMoreClick: () => layerDrawer.toggleBtn.click(),
+  });
+  mapContainer.appendChild(quickBar.element);
 
   // ── Contextual AI narration on map click ──
   const mapInst = mapView.getMap();

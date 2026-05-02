@@ -7,5 +7,6 @@
 @import './toast.css';
 @import './nexuswatch.css';
 @import './map.css';
+@import './quick-layer-bar.css';
 /* Site-wide mobile reflow — must come last so it can override page CSS. */
 @import './mobile.css';
