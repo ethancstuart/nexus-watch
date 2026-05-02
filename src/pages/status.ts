@@ -95,6 +95,51 @@ export async function renderStatusPage(container: HTMLElement): Promise<void> {
     `;
   }
 
+  // 2026-05-02 C4: also surface API endpoint health from /api/status.
+  // The data-health view above shows layer freshness. This shows whether
+  // each public endpoint is actually reachable + within latency budget.
+  const apiSection = createElement('section', { className: 'nw-status-api-section' });
+  apiSection.innerHTML = `
+    <h2 class="nw-status-h2" style="margin-top:32px;font-size:18px">API Endpoints</h2>
+    <p class="nw-status-subtitle" style="font-size:13px;margin:4px 0 12px">
+      Real-time health of each public endpoint. Refreshes every minute.
+    </p>
+    <div class="nw-status-api-list" id="status-api-list">
+      <div class="nw-status-loading">Pinging endpoints…</div>
+    </div>
+  `;
+  container.appendChild(apiSection);
+
+  try {
+    const res = await fetch('/api/status');
+    if (!res.ok) throw new Error('api status fetch failed');
+    const data = (await res.json()) as {
+      overallHealth: 'ok' | 'degraded' | 'down';
+      endpoints: Array<{
+        path: string;
+        category: string;
+        status: 'ok' | 'degraded' | 'down';
+        latencyMs: number;
+        httpCode: number;
+      }>;
+    };
+    const apiList = apiSection.querySelector('#status-api-list') as HTMLElement;
+    apiList.innerHTML = '';
+    for (const ep of data.endpoints) {
+      const row = createElement('div', { className: 'nw-status-api-row' });
+      const dotColor = ep.status === 'ok' ? '#22c55e' : ep.status === 'degraded' ? '#eab308' : '#dc2626';
+      row.innerHTML = `
+        <span class="nw-status-dot" style="background:${dotColor}"></span>
+        <code style="font-size:12px;flex:1">${ep.path}</code>
+        <span style="font-size:11px;color:var(--nw-text-muted, #757575)">${ep.httpCode || '—'} · ${ep.latencyMs}ms</span>
+      `;
+      apiList.appendChild(row);
+    }
+  } catch {
+    const apiList = apiSection.querySelector('#status-api-list') as HTMLElement;
+    apiList.innerHTML = '<div class="nw-status-banner nw-status-banner-amber">API status unavailable.</div>';
+  }
+
   const footer = createElement('footer', { className: 'nw-status-footer' });
   footer.innerHTML = `
     <p><strong>How we compute health:</strong></p>

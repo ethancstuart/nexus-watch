@@ -7032,3 +7032,22 @@ body.nw-historical-mode .nw-map-container::after {
   font-size: 11px;
   margin: 6px 0;
 }
+
+/* C4 — API endpoint status rows on /status */
+.nw-status-api-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--nw-border-subtle, #1a1a1a);
+  font-family: var(--nw-font-mono, monospace);
+}
+.nw-status-api-row:last-child {
+  border-bottom: none;
+}
+.nw-status-api-list {
+  background: var(--nw-surface, #111);
+  border: 1px solid var(--nw-border, #222);
+  border-radius: 6px;
+  margin: 8px 0 24px;
+}

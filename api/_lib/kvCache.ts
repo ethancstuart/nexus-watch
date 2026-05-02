@@ -64,6 +64,19 @@ interface Envelope<T> {
 }
 
 /**
+ * Module-level fallback cache. Catches the case where KV itself is
+ * unreachable — instead of falling all the way through to compute()
+ * (which can be expensive: Anthropic, Windy, etc.) we serve from
+ * in-process memory if we have a recent value.
+ *
+ * 2026-05-02 C2: Upstash outage was burning Anthropic spend on every
+ * request. Module-level cache survives the outage on the same Vercel
+ * function instance (lifetime varies with Fluid Compute reuse).
+ */
+const moduleFallback = new Map<string, Envelope<unknown>>();
+const MODULE_FALLBACK_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour cap regardless of TTL
+
+/**
  * Read-through cache: if key present and fresh, return its value.
  * Otherwise run `compute()`, cache the result for `ttlSeconds`, and return it.
  */
@@ -92,17 +105,30 @@ export async function kvCached<T>(
             try {
               const fresh = await compute();
               await kvSetRawEx(key, JSON.stringify({ at: Date.now(), ttl: env.ttl, value: fresh }), env.ttl);
+              moduleFallback.set(key, { at: Date.now(), ttl: env.ttl, value: fresh });
             } catch {
               /* swallow — best-effort background refresh */
             }
           })();
+          moduleFallback.set(key, env as Envelope<unknown>);
           return env.value;
         }
 
-        if (ageSec <= env.ttl) return env.value;
+        if (ageSec <= env.ttl) {
+          moduleFallback.set(key, env as Envelope<unknown>);
+          return env.value;
+        }
         // Past TTL — fall through to recompute.
       } catch {
         // Corrupt cache — recompute.
+      }
+    } else {
+      // raw === null could mean: legitimate miss OR KV unreachable.
+      // If we have a recent module-fallback entry, serve from it instead
+      // of paying upstream cost on every request during a KV outage.
+      const fb = moduleFallback.get(key);
+      if (fb && Date.now() - fb.at < MODULE_FALLBACK_MAX_AGE_MS) {
+        return fb.value as T;
       }
     }
   }
@@ -112,6 +138,9 @@ export async function kvCached<T>(
   // Write is best-effort — if it fails, next call recomputes. Don't await
   // failures synchronously since the user already has their fresh value.
   void kvSetRawEx(key, JSON.stringify(envelope), ttlSeconds);
+  // Also populate the module fallback so we have it on the next call
+  // if KV happens to fail right after this write.
+  moduleFallback.set(key, envelope as Envelope<unknown>);
   return fresh;
 }
 
