@@ -14,9 +14,15 @@ import { createElement } from '../utils/dom.ts';
 import { getCachedCII, getMonitoredCountries } from '../services/countryInstabilityIndex.ts';
 import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 import { AgentTrajectory, injectAgentTrajectoryStyles } from '../ui/agentTrajectory.ts';
+import { CouncilTrajectory, injectCouncilStyles } from '../ui/councilTrajectory.ts';
 
 export function renderLiveBriefPage(root: HTMLElement, rawCode: string): void {
-  const code = (rawCode || '').toUpperCase();
+  // The router passes the path param as-is; if a query string was appended
+  // (e.g. /live-brief/UA?council=1) it lands inside rawCode. Split it out.
+  const [codePart, queryPart = ''] = (rawCode || '').split('?');
+  const code = codePart.toUpperCase();
+  const initialMode: 'solo' | 'council' = new URLSearchParams(queryPart).get('council') === '1' ? 'council' : 'solo';
+
   const monitored = getMonitoredCountries().find((c) => c.code === code);
   const ciiRow = getCachedCII().find((s) => s.countryCode === code);
   const name = monitored?.name ?? code;
@@ -33,6 +39,7 @@ export function renderLiveBriefPage(root: HTMLElement, rawCode: string): void {
 
   injectStyles();
   injectAgentTrajectoryStyles();
+  injectCouncilStyles();
 
   const wrap = createElement('div', { className: 'nw-lb-wrap' });
 
@@ -76,9 +83,13 @@ export function renderLiveBriefPage(root: HTMLElement, rawCode: string): void {
   const trajectoryMount = createElement('div', { className: 'nw-lb-trajectory' });
   wrap.appendChild(trajectoryMount);
 
-  // Rerun + share row
+  // Mode toggle + Rerun + share row
   const actions = createElement('div', { className: 'nw-lb-actions' });
   actions.innerHTML = `
+    <div class="nw-lb-mode-toggle" role="group" aria-label="Brief mode">
+      <button class="nw-lb-mode" data-mode="solo" aria-pressed="${initialMode === 'solo'}">Solo Agent</button>
+      <button class="nw-lb-mode" data-mode="council" aria-pressed="${initialMode === 'council'}">The Council (5 voices)</button>
+    </div>
     <button class="nw-lb-action" data-action="rerun" hidden>↻ Re-run brief</button>
     <button class="nw-lb-action" data-action="share">🔗 Copy share link</button>
     <span class="nw-lb-action-note">Each run is live — re-running may produce a different brief as data changes.</span>
@@ -87,11 +98,16 @@ export function renderLiveBriefPage(root: HTMLElement, rawCode: string): void {
 
   root.appendChild(wrap);
 
-  // Wire share
+  // Mode state
+  let mode: 'solo' | 'council' = initialMode;
+  const modeButtons = Array.from(actions.querySelectorAll<HTMLButtonElement>('[data-mode]'));
+  const rerunBtn = actions.querySelector<HTMLButtonElement>('[data-action="rerun"]');
   const shareBtn = actions.querySelector<HTMLButtonElement>('[data-action="share"]');
+
+  // Wire share
   if (shareBtn) {
     shareBtn.addEventListener('click', async () => {
-      const url = `https://nexuswatch.dev/#/live-brief/${code}`;
+      const url = `https://nexuswatch.dev/#/live-brief/${code}${mode === 'council' ? '?council=1' : ''}`;
       try {
         await navigator.clipboard.writeText(url);
         shareBtn.textContent = '✓ Link copied';
@@ -102,23 +118,48 @@ export function renderLiveBriefPage(root: HTMLElement, rawCode: string): void {
     });
   }
 
-  // Kick off the agent run
-  const rerunBtn = actions.querySelector<HTMLButtonElement>('[data-action="rerun"]');
+  // Mode toggle
+  for (const btn of modeButtons) {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.mode as 'solo' | 'council';
+      if (next === mode) return;
+      mode = next;
+      for (const b of modeButtons) b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false');
+      start();
+    });
+  }
+
   const query = buildQuery(name, code, ciiRow?.score);
   const context = buildContext(ciiRow);
 
   function start(): void {
     if (rerunBtn) rerunBtn.hidden = true;
     trajectoryMount.innerHTML = '';
-    const traj = new AgentTrajectory(trajectoryMount, {
-      onDone: () => {
-        if (rerunBtn) rerunBtn.hidden = false;
-      },
-      onError: () => {
-        if (rerunBtn) rerunBtn.hidden = false;
-      },
-    });
-    void traj.run(query, context);
+    if (mode === 'council') {
+      const traj = new CouncilTrajectory(trajectoryMount, {
+        onDone: () => {
+          if (rerunBtn) rerunBtn.hidden = false;
+        },
+        onError: () => {
+          if (rerunBtn) rerunBtn.hidden = false;
+        },
+      });
+      void traj.run({
+        question: `Brief us on ${name} (${code}). What's the current geopolitical posture, what should we watch in the next 7-14 days, and what would change the read?`,
+        context,
+        country_code: code,
+      });
+    } else {
+      const traj = new AgentTrajectory(trajectoryMount, {
+        onDone: () => {
+          if (rerunBtn) rerunBtn.hidden = false;
+        },
+        onError: () => {
+          if (rerunBtn) rerunBtn.hidden = false;
+        },
+      });
+      void traj.run(query, context);
+    }
   }
 
   rerunBtn?.addEventListener('click', start);
@@ -262,6 +303,32 @@ function injectStyles(): void {
       color: var(--color-text-muted, #666);
       font-style: italic;
       font-size: 0.7rem;
+    }
+    .nw-lb-mode-toggle {
+      display: inline-flex;
+      border: 1px solid var(--color-border, #2a2a2a);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .nw-lb-mode {
+      background: var(--color-surface-2, #0f0f0f);
+      color: var(--color-text-muted, #888);
+      border: none;
+      padding: 0.5rem 0.95rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nw-lb-mode + .nw-lb-mode { border-left: 1px solid var(--color-border, #2a2a2a); }
+    .nw-lb-mode[aria-pressed="true"] {
+      background: var(--color-accent, #ff6600);
+      color: #050505;
+      font-weight: 700;
+    }
+    .nw-lb-mode:hover:not([aria-pressed="true"]) {
+      color: var(--color-accent, #ff6600);
     }
   `;
   document.head.appendChild(style);

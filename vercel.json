@@ -3,6 +3,10 @@
   "build": {
     "env": {}
   },
+  "functions": {
+    "api/v2/council.ts": { "maxDuration": 60 },
+    "api/cron/export-parquet.ts": { "maxDuration": 300 }
+  },
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/feed.xml", "destination": "/api/feed" },
