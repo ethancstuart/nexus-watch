@@ -254,6 +254,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/live-brief/:code', (params) => {
+    import('./pages/liveBrief.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        m.renderLiveBriefPage(appRoot, params?.code ?? '');
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
       .then(async (m) => {

@@ -31,6 +31,7 @@ export function renderCountryBrief(root: HTMLElement, code: string): void {
   const toolbar = createElement('div', { className: 'nw-brief-toolbar no-print' });
   toolbar.innerHTML = `
     <a href="#/intel" class="nw-brief-back">← Back</a>
+    <a href="#/live-brief/${countryCode}" class="nw-brief-print" style="text-decoration:none;">▸ Run Live Agent Brief</a>
     <button class="nw-brief-print" onclick="window.print()">🖨 Print / Save as PDF</button>
     <span class="nw-brief-toolbar-note">Tip: use your browser's print dialog → Save as PDF</span>
   `;

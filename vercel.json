@@ -26,6 +26,7 @@
     { "source": "/why-free", "destination": "/index.html" },
     { "source": "/api-docs", "destination": "/index.html" },
     { "source": "/mcp", "destination": "/index.html" },
+    { "source": "/live-brief/:code", "destination": "/index.html" },
     { "source": "/whats-new", "destination": "/index.html" },
     { "source": "/status", "destination": "/index.html" },
     { "source": "/faq", "destination": "/index.html" },

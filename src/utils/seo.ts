@@ -212,6 +212,12 @@ export const PAGE_SEO = {
       'Connect Claude Code, Cursor, or any MCP client to NexusWatch. 9 geopolitical intelligence tools — country risk, scenarios, portfolio exposure. No auth. Free.',
     canonicalPath: '/mcp',
   },
+  liveBrief: {
+    title: 'Live Agent Brief',
+    description:
+      'Watch a NexusWatch AI agent gather live data and synthesize a geopolitical brief for any country — every tool call visible, every source named. Free.',
+    canonicalPath: '/live-brief',
+  },
   audit: {
     title: 'Public Audit Viewer',
     description:
