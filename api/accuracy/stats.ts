@@ -197,6 +197,155 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       LIMIT 10
     `) as unknown as Array<Record<string, unknown>>;
 
+    // --- Event-corroboration (does high-risk CII actually coincide with ACLED events?) ---
+    // A high-risk prediction is corroborated if the country saw 3+ ACLED events in the
+    // 7-day window after snapshot_date. We also surface "conviction misses": predictions
+    // with predicted_value >= 70 where ZERO events occurred — the honest signal of
+    // overconfidence.
+    let corroboration: Record<string, unknown> = {
+      enabled: false,
+      note: 'ACLED corroboration unavailable.',
+    };
+    try {
+      const corrOverview = (await sql`
+        SELECT
+          COUNT(*) as high_risk_total,
+          COUNT(*) FILTER (WHERE event_count >= 3) as corroborated,
+          COUNT(*) FILTER (WHERE event_count = 0) as zero_events,
+          AVG(event_count)::float as mean_events
+        FROM (
+          SELECT
+            a.id,
+            (
+              SELECT COUNT(*)::int FROM acled_events e
+              WHERE e.country = a.country_code
+                AND e.occurred_at >= a.snapshot_date::timestamptz
+                AND e.occurred_at <  (a.snapshot_date + INTERVAL '7 days')::timestamptz
+            ) AS event_count
+          FROM assessments a
+          WHERE a.predicted_value >= 65
+            AND a.snapshot_date IS NOT NULL
+            AND a.outcome_scored_at IS NOT NULL
+            AND a.prediction_kind = 'cii'
+        ) sub
+      `.catch(() => [] as unknown)) as unknown as Array<{
+        high_risk_total: number;
+        corroborated: number;
+        zero_events: number;
+        mean_events: number | null;
+      }>;
+
+      const co = Array.isArray(corrOverview) ? corrOverview[0] : undefined;
+      if (co && Number(co.high_risk_total) > 0) {
+        const total = Number(co.high_risk_total);
+        const corr = Number(co.corroborated);
+        const zero = Number(co.zero_events);
+
+        // Per-country event lift: high-risk predictions where window events > baseline.
+        const corrCountries = (await sql`
+          SELECT
+            a.country_code,
+            COUNT(*)::int as predictions,
+            AVG(
+              (SELECT COUNT(*)::int FROM acled_events e
+               WHERE e.country = a.country_code
+                 AND e.occurred_at >= a.snapshot_date::timestamptz
+                 AND e.occurred_at <  (a.snapshot_date + INTERVAL '7 days')::timestamptz)
+            )::float as mean_window_events,
+            AVG(
+              (SELECT COUNT(*)::int FROM acled_events e
+               WHERE e.country = a.country_code
+                 AND e.occurred_at >= (a.snapshot_date - INTERVAL '30 days')::timestamptz
+                 AND e.occurred_at <   a.snapshot_date::timestamptz)
+            )::float as mean_baseline_events
+          FROM assessments a
+          WHERE a.predicted_value >= 65
+            AND a.snapshot_date IS NOT NULL
+            AND a.outcome_scored_at IS NOT NULL
+            AND a.prediction_kind = 'cii'
+          GROUP BY a.country_code
+          HAVING COUNT(*) >= 3
+          ORDER BY COUNT(*) DESC
+          LIMIT 12
+        `.catch(() => [] as unknown)) as unknown as Array<{
+          country_code: string;
+          predictions: number;
+          mean_window_events: number | null;
+          mean_baseline_events: number | null;
+        }>;
+
+        // Conviction misses: very high-conviction predictions that saw zero events.
+        const convictionMisses = (await sql`
+          SELECT
+            a.country_code,
+            a.snapshot_date,
+            a.predicted_value,
+            a.predicted_confidence,
+            a.rationale
+          FROM assessments a
+          WHERE a.predicted_value >= 70
+            AND a.predicted_confidence = 'high'
+            AND a.snapshot_date IS NOT NULL
+            AND a.outcome_scored_at IS NOT NULL
+            AND a.prediction_kind = 'cii'
+            AND NOT EXISTS (
+              SELECT 1 FROM acled_events e
+              WHERE e.country = a.country_code
+                AND e.occurred_at >= a.snapshot_date::timestamptz
+                AND e.occurred_at <  (a.snapshot_date + INTERVAL '7 days')::timestamptz
+            )
+          ORDER BY a.snapshot_date DESC
+          LIMIT 8
+        `.catch(() => [] as unknown)) as unknown as Array<{
+          country_code: string;
+          snapshot_date: string;
+          predicted_value: number;
+          predicted_confidence: string;
+          rationale: string | null;
+        }>;
+
+        corroboration = {
+          enabled: true,
+          overview: {
+            high_risk_total: total,
+            corroborated: corr,
+            zero_events: zero,
+            corroboration_rate_pct: total > 0 ? Number(((corr / total) * 100).toFixed(1)) : 0,
+            zero_event_rate_pct: total > 0 ? Number(((zero / total) * 100).toFixed(1)) : 0,
+            mean_events_in_window: co.mean_events != null ? Number(Number(co.mean_events).toFixed(2)) : null,
+          },
+          countries: (Array.isArray(corrCountries) ? corrCountries : []).map((c) => {
+            const wnd = c.mean_window_events != null ? Number(c.mean_window_events) : 0;
+            const base = c.mean_baseline_events != null ? Number(c.mean_baseline_events) : 0;
+            const lift = base > 0 ? Number((wnd / (base / (30 / 7))).toFixed(2)) : null;
+            return {
+              country_code: c.country_code,
+              country_name: NAME_MAP[String(c.country_code)] || String(c.country_code),
+              predictions: Number(c.predictions),
+              mean_window_events: Number(wnd.toFixed(2)),
+              mean_baseline_window_events: Number((base / (30 / 7)).toFixed(2)),
+              event_lift: lift,
+            };
+          }),
+          conviction_misses: (Array.isArray(convictionMisses) ? convictionMisses : []).map((m) => ({
+            country_code: m.country_code,
+            country_name: NAME_MAP[String(m.country_code)] || String(m.country_code),
+            date: m.snapshot_date,
+            predicted: m.predicted_value != null ? Number(m.predicted_value) : null,
+            confidence: m.predicted_confidence,
+            rationale: m.rationale,
+          })),
+          methodology:
+            'High-risk predictions (predicted CII ≥ 65) are corroborated by ACLED if the country saw ≥ 3 events in the 7 days after the snapshot. Event lift = window event rate / baseline event rate (prior 30 days, normalized). Conviction misses = predicted ≥ 70 + high confidence + zero ACLED events in window.',
+        };
+      }
+    } catch (e) {
+      corroboration = {
+        enabled: false,
+        note: 'ACLED corroboration query failed: ' + (e instanceof Error ? e.message : 'unknown'),
+      };
+    }
+
     return res.json({
       overview: {
         total_predictions: total,
@@ -250,6 +399,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         predictions: Number(c.predictions),
         mae: c.mae != null ? Number(Number(c.mae).toFixed(2)) : null,
       })),
+      event_corroboration: corroboration,
       meta: {
         methodology:
           'V2 numeric scoring: predicted CII vs actual CII after 7-day horizon. Accurate = delta < 5 pts, Close = 5-10 pts, Miss = >10 pts.',
@@ -283,6 +433,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       biggest_misses: [],
       countries: [],
       cascade_predictions: [],
+      event_corroboration: { enabled: false, note: 'No data.' },
       meta: {
         methodology: 'V2 numeric scoring',
         source: 'NexusWatch Prediction Ledger',

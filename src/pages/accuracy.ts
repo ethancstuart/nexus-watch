@@ -64,12 +64,47 @@ interface CountryEntry {
   avg_actual: number | null;
 }
 
+interface CorrCountry {
+  country_code: string;
+  country_name: string;
+  predictions: number;
+  mean_window_events: number;
+  mean_baseline_window_events: number;
+  event_lift: number | null;
+}
+
+interface ConvictionMiss {
+  country_code: string;
+  country_name: string;
+  date: string;
+  predicted: number | null;
+  confidence: string;
+  rationale: string | null;
+}
+
+interface EventCorroboration {
+  enabled: boolean;
+  note?: string;
+  overview?: {
+    high_risk_total: number;
+    corroborated: number;
+    zero_events: number;
+    corroboration_rate_pct: number;
+    zero_event_rate_pct: number;
+    mean_events_in_window: number | null;
+  };
+  countries?: CorrCountry[];
+  conviction_misses?: ConvictionMiss[];
+  methodology?: string;
+}
+
 interface AccuracyData {
   overview: Overview;
   calibration: CalibrationBin[];
   weekly_trend: WeeklyPoint[];
   biggest_misses: MissEntry[];
   countries: CountryEntry[];
+  event_corroboration?: EventCorroboration;
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +205,9 @@ export async function renderAccuracyPage(container: HTMLElement): Promise<void> 
     renderWeeklyTrend(main, data.weekly_trend);
     renderBiggestMisses(main, data.biggest_misses);
     renderCountries(main, data.countries);
+    if (data.event_corroboration?.enabled) {
+      renderEventCorroboration(main, data.event_corroboration);
+    }
   }
 
   renderMethodology(main);
@@ -412,6 +450,124 @@ function renderCountries(main: HTMLElement, countries: CountryEntry[]): void {
   main.appendChild(section);
 }
 
+function renderEventCorroboration(main: HTMLElement, corr: EventCorroboration): void {
+  if (!corr.overview) return;
+  const o = corr.overview;
+  const corrPct = o.corroboration_rate_pct;
+  const zeroPct = o.zero_event_rate_pct;
+
+  const section = createElement('section', { className: 'acc-section' });
+  section.innerHTML = `
+    <h2 class="acc-section-title">EVENT CORROBORATION (ACLED)</h2>
+    <p class="acc-section-desc">
+      The hard test: when we said "high risk," did the country actually see conflict events?
+      Cross-checks the CII forecast against independent ACLED ground truth.
+    </p>
+    <div class="acc-stat-grid" style="margin-bottom: 1.25rem;">
+      <div class="acc-stat-card">
+        <div class="acc-stat-value" style="color: ${accColor(corrPct)}">${corrPct.toFixed(1)}%</div>
+        <div class="acc-stat-label">CORROBORATION RATE</div>
+        <div class="acc-stat-note">High-risk preds with ≥3 ACLED events</div>
+      </div>
+      <div class="acc-stat-card">
+        <div class="acc-stat-value" style="color: ${RED}">${zeroPct.toFixed(1)}%</div>
+        <div class="acc-stat-label">ZERO-EVENT RATE</div>
+        <div class="acc-stat-note">High-risk preds with no events</div>
+      </div>
+      <div class="acc-stat-card">
+        <div class="acc-stat-value">${o.mean_events_in_window != null ? o.mean_events_in_window.toFixed(1) : '—'}</div>
+        <div class="acc-stat-label">MEAN EVENTS / WINDOW</div>
+        <div class="acc-stat-note">7-day window after snapshot</div>
+      </div>
+      <div class="acc-stat-card">
+        <div class="acc-stat-value">${o.high_risk_total}</div>
+        <div class="acc-stat-label">HIGH-RISK PREDS</div>
+        <div class="acc-stat-note">predicted CII ≥ 65</div>
+      </div>
+    </div>
+    ${
+      corr.countries && corr.countries.length > 0
+        ? `
+      <h3 class="acc-sub-title">Per-country event lift</h3>
+      <p class="acc-section-desc">
+        Lift = avg events in the 7-day window divided by avg events in a baseline 7-day slice
+        (prior 30 days, normalized). >1.0 means high-risk predictions correctly anticipated above-baseline activity.
+      </p>
+      <table class="acc-table">
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th>Preds</th>
+            <th>Window events</th>
+            <th>Baseline events</th>
+            <th>Lift</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${corr.countries
+            .map((c) => {
+              const liftColor =
+                c.event_lift == null ? DIM : c.event_lift >= 1.5 ? GREEN : c.event_lift >= 0.8 ? YELLOW : RED;
+              return `
+                <tr>
+                  <td>${c.country_name}</td>
+                  <td class="acc-mono">${c.predictions}</td>
+                  <td class="acc-mono">${c.mean_window_events.toFixed(1)}</td>
+                  <td class="acc-mono">${c.mean_baseline_window_events.toFixed(1)}</td>
+                  <td class="acc-mono" style="color: ${liftColor}">${c.event_lift != null ? c.event_lift.toFixed(2) + '×' : '—'}</td>
+                </tr>
+              `;
+            })
+            .join('')}
+        </tbody>
+      </table>
+      `
+        : ''
+    }
+    ${
+      corr.conviction_misses && corr.conviction_misses.length > 0
+        ? `
+      <h3 class="acc-sub-title" style="margin-top: 2rem;">Conviction misses</h3>
+      <p class="acc-section-desc">
+        Predictions we made with high confidence and predicted CII ≥ 70 — where ACLED saw zero
+        events in the window. The most honest signal we surface: where the model was loudest and wrong.
+      </p>
+      <table class="acc-table">
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th>Date</th>
+            <th>Predicted</th>
+            <th>Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${corr.conviction_misses
+            .map(
+              (m) => `
+                <tr>
+                  <td>${m.country_name}</td>
+                  <td class="acc-mono">${m.date || '—'}</td>
+                  <td class="acc-mono">${m.predicted != null ? m.predicted.toFixed(1) : '—'}</td>
+                  <td class="acc-mono" style="color: ${RED}">${(m.confidence || '').toUpperCase()}</td>
+                </tr>
+              `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+      `
+        : ''
+    }
+    ${
+      corr.methodology
+        ? `<p class="acc-section-desc" style="margin-top: 1.25rem; font-style: italic;">${corr.methodology}</p>`
+        : ''
+    }
+  `;
+  main.appendChild(section);
+}
+
 function renderMethodology(main: HTMLElement): void {
   const section = createElement('section', { className: 'acc-section acc-methodology' });
   section.innerHTML = `
@@ -563,6 +719,14 @@ function injectStyles(): void {
       color: ${DIM};
       font-size: 0.75rem;
       margin: 0 0 1.5rem;
+    }
+    .acc-sub-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      color: ${TEXT};
+      margin: 1.5rem 0 0.5rem;
+      font-weight: 600;
+      text-transform: uppercase;
     }
 
     /* Stat grid */
