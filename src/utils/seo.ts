@@ -218,6 +218,12 @@ export const PAGE_SEO = {
       'Watch a NexusWatch AI agent gather live data and synthesize a geopolitical brief for any country — every tool call visible, every source named. Free.',
     canonicalPath: '/live-brief',
   },
+  whatIf: {
+    title: 'What-If Scenarios',
+    description:
+      'Counterfactual geopolitical scenarios — Strait of Hormuz, Taiwan blockade, Russia-NATO, and 11 more. Deterministic CII cascade + AI agent interpretation. Free.',
+    canonicalPath: '/what-if',
+  },
   audit: {
     title: 'Public Audit Viewer',
     description:

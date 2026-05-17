@@ -262,6 +262,22 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/what-if', () => {
+    import('./pages/whatIf.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        m.renderWhatIfPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
+  .on('/what-if/:id', (params) => {
+    import('./pages/whatIf.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        m.renderWhatIfPage(appRoot, params?.id);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
       .then(async (m) => {
