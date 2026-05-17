@@ -40,6 +40,7 @@
     { "source": "/cinematic", "destination": "/index.html" },
     { "source": "/lab", "destination": "/index.html" },
     { "source": "/audio", "destination": "/index.html" },
+    { "source": "/globe", "destination": "/index.html" },
     { "source": "/data/manifest.json", "destination": "/api/data/manifest" },
     { "source": "/podcast.xml", "destination": "/api/podcast.xml" },
     { "source": "/whats-new", "destination": "/index.html" },

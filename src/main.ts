@@ -302,6 +302,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/globe', () => {
+    import('./pages/globe.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        void m.renderGlobePage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
       .then(async (m) => {

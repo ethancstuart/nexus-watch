@@ -242,6 +242,12 @@ export const PAGE_SEO = {
       'Daily 90-second AI-narrated geopolitical brief, public podcast feed, plus a "call the analyst" voice agent. Subscribe in Apple/Spotify. Free.',
     canonicalPath: '/audio',
   },
+  globe: {
+    title: 'Time-Machine Globe',
+    description:
+      'WebGL Earth with atmospheric glow, day/night terminator, NASA clouds, pulsing crisis markers, and a draggable time scrubber. Free.',
+    canonicalPath: '/globe',
+  },
   audit: {
     title: 'Public Audit Viewer',
     description:
