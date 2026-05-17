@@ -279,15 +279,16 @@ async function renderForecastLeaderboard(main: HTMLElement): Promise<void> {
     ${horizons
       .map((h) => {
         const rows = data.rows.filter((r) => r.horizon_days === h);
+        const maxMae = Math.max(...rows.map((r) => r.mae), 0.1);
         return `
           <h3 class="acc-sub-title">${h}-day horizon</h3>
-          <table class="acc-table">
+          <table class="acc-table acc-tournament">
             <thead>
               <tr>
                 <th>#</th>
                 <th>Model</th>
                 <th>n</th>
-                <th>MAE</th>
+                <th>MAE (lower is better)</th>
                 <th>CRPS</th>
                 <th>Brier</th>
               </tr>
@@ -297,15 +298,29 @@ async function renderForecastLeaderboard(main: HTMLElement): Promise<void> {
                 .map((r) => {
                   const isEnsemble = r.model === 'ensemble';
                   const badge = isEnsemble
-                    ? `<span style="color:${ORANGE}; font-weight:700">${r.model}</span>`
+                    ? `<span style="color:${ORANGE}; font-weight:700">★ ${r.model}</span>`
                     : escape(r.model);
-                  const rankColor = r.rank_in_horizon === 1 ? GREEN : r.rank_in_horizon <= 3 ? YELLOW : DIM;
+                  const medal =
+                    r.rank_in_horizon === 1
+                      ? '🥇'
+                      : r.rank_in_horizon === 2
+                        ? '🥈'
+                        : r.rank_in_horizon === 3
+                          ? '🥉'
+                          : `<span style="opacity:0.6">${r.rank_in_horizon}</span>`;
+                  const barWidth = Math.max(2, Math.round((r.mae / maxMae) * 100));
+                  const barColor = maeColor(r.mae);
                   return `
-                    <tr>
-                      <td class="acc-mono" style="color:${rankColor}; font-weight:700">${r.rank_in_horizon}</td>
+                    <tr${isEnsemble ? ' class="acc-tournament-ensemble"' : ''}>
+                      <td class="acc-mono" style="text-align:center">${medal}</td>
                       <td>${badge}</td>
                       <td class="acc-mono">${r.sample_size}</td>
-                      <td class="acc-mono" style="color:${maeColor(r.mae)}">${r.mae.toFixed(2)}</td>
+                      <td class="acc-mono">
+                        <div class="acc-mae-bar">
+                          <span class="acc-mae-fill" style="width:${barWidth}%; background:${barColor}"></span>
+                          <span class="acc-mae-val">${r.mae.toFixed(2)}</span>
+                        </div>
+                      </td>
                       <td class="acc-mono">${r.crps.toFixed(3)}</td>
                       <td class="acc-mono">${r.brier.toFixed(3)}</td>
                     </tr>
@@ -845,6 +860,31 @@ function injectStyles(): void {
       margin: 1.5rem 0 0.5rem;
       font-weight: 600;
       text-transform: uppercase;
+    }
+    .acc-tournament tr.acc-tournament-ensemble td {
+      background: rgba(255, 102, 0, 0.06);
+    }
+    .acc-mae-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 180px;
+      max-width: 280px;
+    }
+    .acc-mae-fill {
+      display: inline-block;
+      height: 6px;
+      border-radius: 1px;
+      opacity: 0.75;
+      transition: width 0.4s ease-out;
+    }
+    .acc-mae-val {
+      color: ${TEXT};
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      min-width: 36px;
+      text-align: right;
     }
 
     /* Stat grid */

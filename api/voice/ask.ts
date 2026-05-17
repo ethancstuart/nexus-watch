@@ -1,32 +1,25 @@
 /**
- * /api/voice/ask — text-in, audio-out single-shot voice agent.
+ * /api/voice/ask — text-in, text-out analyst reply.
  *
  * Body: { text: string }
- * Returns: { audio_url, transcript, ms }
+ * Returns: { transcript, ms }
  *
- * Pipeline:
- *   1. Pass text to /api/ai-analyst's single-persona prompt (Claude Haiku
- *      for latency)
- *   2. Capture full text response (no tool-use to keep response <8s)
- *   3. Synthesize via OpenAI tts-1 (voice=onyx)
- *   4. Upload mp3 to Vercel Blob, return URL
+ * Browser-side speechSynthesis turns the transcript into audio — no
+ * OpenAI TTS dependency, no Blob storage required. Truly free per call.
  *
- * Rate-limit: 10/day per IP. Budget gate enforces $10/day cap.
+ * Rate-limit: 10/day per IP. Budget gate enforces the LLM cap.
  *
- * 2026-05 tier-up Phase 4.
+ * 2026-05 tier-up Phase 4 (polish: free-only).
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { uploadBlob, blobEnabled } from '../_lib/storage.js';
-import { checkBudget, estimateOpenAiTtsCost, recordSpend } from '../_lib/llm-budget.js';
+import { checkBudget } from '../_lib/llm-budget.js';
 import { singleAnthropic } from '../_lib/anthropic-fanout.js';
 import { rateLimit } from '../_lib/rateLimit.js';
 
-export const config = { runtime: 'nodejs', maxDuration: 30 };
+export const config = { runtime: 'nodejs', maxDuration: 20 };
 
-const SYSTEM = `You are the NexusWatch voice analyst. Reply to the user in 60 spoken words or fewer. Be terse, factual, and end with the single most important takeaway. Spell out numbers and acronyms ("C-I-I of seventy-three"). No markdown, no lists, no emojis — this is being read aloud.`;
-
-const OPENAI_TTS_URL = 'https://api.openai.com/v1/audio/speech';
+const SYSTEM = `You are the NexusWatch voice analyst. Reply in 60 spoken words or fewer. Be terse and factual. End with the single most important takeaway. Spell out numbers and acronyms ("C-I-I of seventy-three"). No markdown, no lists, no emojis — this is being read aloud.`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
@@ -46,13 +39,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (text.length > 500) return res.status(400).json({ error: 'text too long (max 500 chars)' });
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (!anthropicKey || !openaiKey) return res.status(500).json({ error: 'missing_env' });
-  if (!blobEnabled()) return res.status(503).json({ error: 'BLOB_READ_WRITE_TOKEN not configured' });
+  if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
 
   const t0 = Date.now();
-
-  // 1. Analyst response (Haiku for speed)
   const ai = await singleAnthropic(
     {
       label: 'voice-ask:analyst',
@@ -67,41 +56,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     },
     anthropicKey,
   );
-  if (!ai.ok || !ai.data) {
-    return res.status(502).json({ error: 'analyst_failed', detail: ai.error });
-  }
+  if (!ai.ok || !ai.data) return res.status(502).json({ error: 'analyst_failed', detail: ai.error });
+
   const transcript = extractText(ai.data);
   if (!transcript) return res.status(502).json({ error: 'empty_response' });
 
-  // 2. TTS via OpenAI
-  const ttsRes = await fetch(OPENAI_TTS_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'tts-1', voice: 'onyx', input: transcript, response_format: 'mp3' }),
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!ttsRes.ok) {
-    const txt = await ttsRes.text().catch(() => '');
-    return res.status(502).json({ error: 'tts_failed', status: ttsRes.status, body: txt.slice(0, 300) });
-  }
-  const mp3 = Buffer.from(await ttsRes.arrayBuffer());
-  await recordSpend(estimateOpenAiTtsCost(transcript.length), 'voice-ask:tts');
-
-  // 3. Upload — non-stable URL so each call gets its own blob
-  const path = `voice/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`;
-  const upload = await uploadBlob(path, mp3, {
-    contentType: 'audio/mpeg',
-    cacheMaxAge: 60,
-    stableUrl: false,
-  });
-
-  return res.json({
-    ok: true,
-    audio_url: upload.url,
-    transcript,
-    ms: Date.now() - t0,
-    bytes: mp3.length,
-  });
+  return res.json({ ok: true, transcript, ms: Date.now() - t0 });
 }
 
 interface AnthropicResponse {

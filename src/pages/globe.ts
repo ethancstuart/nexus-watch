@@ -82,7 +82,7 @@ export async function renderGlobePage(root: HTMLElement): Promise<void> {
   // Lazy import three.js scene
   try {
     const { GlobeScene } = await import('../globe/scene.ts');
-    const scene = new GlobeScene({ container: canvasMount, markers });
+    const scene = new GlobeScene({ container: canvasMount, hoverHost: stage, markers });
     scene.start();
   } catch (e) {
     canvasMount.innerHTML = `<div class="nw-globe-error">Globe failed to load: ${e instanceof Error ? e.message : String(e)}</div>`;
@@ -107,6 +107,7 @@ async function buildMarkers(): Promise<GlobeMarker[]> {
       lon: c.lon,
       intensity: Math.min(1, s.score / 100),
       label: `${s.countryName} · CII ${s.score}`,
+      href: `/live-brief/${s.countryCode}`,
     });
   }
 
@@ -114,16 +115,20 @@ async function buildMarkers(): Promise<GlobeMarker[]> {
   try {
     const res = await fetch('/api/crisis/active');
     if (res.ok) {
-      const data = (await res.json()) as { triggers?: Array<{ country_code: string; cii_score: number }> };
+      const data = (await res.json()) as {
+        triggers?: Array<{ country_code: string; cii_score: number; trigger_type: string; notes?: string | null }>;
+      };
       for (const t of data.triggers ?? []) {
         const c = coords.get(t.country_code);
         if (!c) continue;
+        const monitoredName = monitored.find((m) => m.code === t.country_code)?.name ?? t.country_code;
         markers.push({
           lat: c.lat,
           lon: c.lon,
           intensity: 1,
           pulse: true,
-          label: `${t.country_code} · crisis`,
+          label: `${monitoredName} · crisis trigger: ${t.trigger_type.replace(/_/g, ' ')}`,
+          href: `/live-brief/${t.country_code}?council=1`,
         });
       }
     }
@@ -238,6 +243,39 @@ function injectStyles(): void {
       display: grid; place-items: center;
       color: #dc2626;
       font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Hover tooltip for markers (mounted into the stage by GlobeScene) */
+    .nw-globe-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(10, 10, 10, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 102, 0, 0.55);
+      border-left-width: 2px;
+      padding: 0.45rem 0.7rem;
+      border-radius: 3px;
+      max-width: 280px;
+      z-index: 10;
+      font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      animation: nw-tooltip-in 0.12s ease-out;
+    }
+    @keyframes nw-tooltip-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .nw-globe-tooltip-label {
+      font-size: 0.78rem;
+      color: #f4f4f4;
+      letter-spacing: 0.01em;
+    }
+    .nw-globe-tooltip-hint {
+      margin-top: 0.25rem;
+      font-size: 0.65rem;
+      color: #ff6600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .nw-globe-fallback {

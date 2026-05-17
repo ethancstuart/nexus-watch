@@ -72,11 +72,14 @@ export interface GlobeMarker {
   intensity: number; // 0..1
   pulse?: boolean; // true → animated halo
   label?: string;
+  href?: string; // optional drilldown link (e.g. /#/live-brief/UA)
 }
 
 export interface GlobeSceneOptions {
   container: HTMLElement;
   markers?: GlobeMarker[];
+  /** Mount point for hover/focus tooltip overlay. Defaults to container. */
+  hoverHost?: HTMLElement;
 }
 
 export class GlobeScene {
@@ -90,6 +93,7 @@ export class GlobeScene {
   private atmosphere!: THREE.Mesh;
   private markerGroup: THREE.Group;
   private pulseGroup: THREE.Group;
+  private starField?: THREE.Points;
   private raf = 0;
   private last = performance.now();
   private autoRotate = 0.04; // rad/sec
@@ -98,6 +102,12 @@ export class GlobeScene {
   private isPointerDown = false;
   private prevPointerX = 0;
   private prevPointerY = 0;
+  private hoverHost: HTMLElement;
+  private tooltip: HTMLElement;
+  private markerData: GlobeMarker[] = [];
+  private raycaster = new THREE.Raycaster();
+  private pointerNdc = new THREE.Vector2();
+  private hoveringIdx: number | null = null;
 
   constructor(opts: GlobeSceneOptions) {
     this.container = opts.container;
@@ -120,19 +130,63 @@ export class GlobeScene {
     });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.domElement.style.cursor = 'grab';
     this.container.appendChild(this.renderer.domElement);
 
     this.markerGroup = new THREE.Group();
     this.pulseGroup = new THREE.Group();
     this.scene.add(this.markerGroup, this.pulseGroup);
 
+    // Starfield backdrop — gives the void real depth
+    this.buildStarfield();
+
     void this.buildEarth();
     void this.buildAtmosphere();
     if (opts.markers) this.setMarkers(opts.markers);
 
+    // Hover tooltip
+    this.hoverHost = opts.hoverHost ?? this.container;
+    this.tooltip = document.createElement('div');
+    this.tooltip.className = 'nw-globe-tooltip';
+    this.tooltip.setAttribute('aria-live', 'polite');
+    this.tooltip.style.display = 'none';
+    this.hoverHost.appendChild(this.tooltip);
+
     window.addEventListener('resize', this.handleResize);
     this.attachInteraction();
     this.timeUnsub = timeCursor.subscribe(() => this.updateSunForCursor());
+  }
+
+  private buildStarfield(): void {
+    const STAR_COUNT = 2400;
+    const positions = new Float32Array(STAR_COUNT * 3);
+    const colors = new Float32Array(STAR_COUNT * 3);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      // Uniform points on a 50-unit shell around the camera
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 40 + Math.random() * 10;
+      positions[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = r * Math.cos(phi);
+      const tint = 0.7 + Math.random() * 0.3;
+      colors[i * 3 + 0] = tint;
+      colors[i * 3 + 1] = tint * (0.92 + Math.random() * 0.08);
+      colors[i * 3 + 2] = tint * (0.85 + Math.random() * 0.12);
+    }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 0.08,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    this.starField = new THREE.Points(geom, mat);
+    this.scene.add(this.starField);
   }
 
   private async buildEarth(): Promise<void> {
@@ -194,8 +248,8 @@ export class GlobeScene {
   setMarkers(markers: GlobeMarker[]): void {
     this.markerGroup.clear();
     this.pulseGroup.clear();
+    this.markerData = markers;
     const baseGeom = new THREE.SphereGeometry(0.012, 12, 12);
-    const baseMat = new THREE.MeshBasicMaterial({ color: 0xff6600 });
     const pulseGeom = new THREE.SphereGeometry(0.025, 18, 18);
     const pulseMat = new THREE.MeshBasicMaterial({
       color: 0xff6600,
@@ -205,11 +259,14 @@ export class GlobeScene {
       blending: THREE.AdditiveBlending,
     });
 
-    for (const m of markers) {
+    markers.forEach((m, i) => {
       const pos = latLonToVec(m.lat, m.lon, 1.012);
-      const dot = new THREE.Mesh(baseGeom, baseMat.clone());
-      (dot.material as THREE.MeshBasicMaterial).color = new THREE.Color().setHSL(0.07, 1, 0.4 + 0.25 * m.intensity);
+      const dot = new THREE.Mesh(
+        baseGeom,
+        new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(0.07, 1, 0.4 + 0.25 * m.intensity) }),
+      );
       dot.position.copy(pos);
+      dot.userData.markerIndex = i;
       this.markerGroup.add(dot);
 
       if (m.pulse) {
@@ -218,7 +275,7 @@ export class GlobeScene {
         pulse.userData.phase = Math.random() * Math.PI * 2;
         this.pulseGroup.add(pulse);
       }
-    }
+    });
   }
 
   /**
@@ -286,18 +343,22 @@ export class GlobeScene {
       el.setPointerCapture(e.pointerId);
     });
     el.addEventListener('pointermove', (e) => {
-      if (!this.isPointerDown) return;
-      const dx = (e.clientX - this.prevPointerX) * 0.005;
-      const dy = (e.clientY - this.prevPointerY) * 0.005;
-      this.prevPointerX = e.clientX;
-      this.prevPointerY = e.clientY;
-      if (this.earth) {
-        this.earth.rotation.y += dx;
-        this.earth.rotation.x = Math.max(-1.2, Math.min(1.2, this.earth.rotation.x + dy));
-      }
-      if (this.clouds) {
-        this.clouds.rotation.y += dx;
-        this.clouds.rotation.x = this.earth?.rotation.x ?? 0;
+      if (this.isPointerDown) {
+        const dx = (e.clientX - this.prevPointerX) * 0.005;
+        const dy = (e.clientY - this.prevPointerY) * 0.005;
+        this.prevPointerX = e.clientX;
+        this.prevPointerY = e.clientY;
+        if (this.earth) {
+          this.earth.rotation.y += dx;
+          this.earth.rotation.x = Math.max(-1.2, Math.min(1.2, this.earth.rotation.x + dy));
+        }
+        if (this.clouds) {
+          this.clouds.rotation.y += dx;
+          this.clouds.rotation.x = this.earth?.rotation.x ?? 0;
+        }
+        this.hideTooltip();
+      } else {
+        this.handleHover(e.clientX, e.clientY);
       }
     });
     const release = (): void => {
@@ -305,6 +366,15 @@ export class GlobeScene {
     };
     el.addEventListener('pointerup', release);
     el.addEventListener('pointercancel', release);
+    el.addEventListener('pointerleave', () => this.hideTooltip());
+
+    el.addEventListener('click', (e) => {
+      // Click-through: if hovering a marker with href, navigate
+      const idx = this.pickMarker(e.clientX, e.clientY);
+      if (idx == null) return;
+      const m = this.markerData[idx];
+      if (m?.href) window.location.hash = m.href;
+    });
 
     el.addEventListener(
       'wheel',
@@ -315,6 +385,53 @@ export class GlobeScene {
       },
       { passive: false },
     );
+  }
+
+  private handleHover(clientX: number, clientY: number): void {
+    const idx = this.pickMarker(clientX, clientY);
+    if (idx === this.hoveringIdx) {
+      if (idx != null) this.positionTooltip(clientX, clientY);
+      return;
+    }
+    this.hoveringIdx = idx;
+    if (idx == null) {
+      this.hideTooltip();
+      this.renderer.domElement.style.cursor = 'grab';
+      return;
+    }
+    const m = this.markerData[idx];
+    if (!m) return;
+    this.renderer.domElement.style.cursor = m.href ? 'pointer' : 'help';
+    this.tooltip.innerHTML = `
+      <div class="nw-globe-tooltip-label">${escape(m.label ?? '')}</div>
+      ${m.href ? `<div class="nw-globe-tooltip-hint">click for live brief →</div>` : ''}
+    `;
+    this.tooltip.style.display = 'block';
+    this.positionTooltip(clientX, clientY);
+  }
+
+  private positionTooltip(clientX: number, clientY: number): void {
+    const hostRect = this.hoverHost.getBoundingClientRect();
+    this.tooltip.style.left = `${clientX - hostRect.left + 14}px`;
+    this.tooltip.style.top = `${clientY - hostRect.top + 14}px`;
+  }
+
+  private hideTooltip(): void {
+    this.tooltip.style.display = 'none';
+    this.hoveringIdx = null;
+    this.renderer.domElement.style.cursor = 'grab';
+  }
+
+  private pickMarker(clientX: number, clientY: number): number | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+    const hits = this.raycaster.intersectObjects(this.markerGroup.children, false);
+    if (hits.length === 0) return null;
+    const hit = hits[0].object as THREE.Mesh;
+    const idx = hit.userData.markerIndex;
+    return typeof idx === 'number' ? idx : null;
   }
 
   destroy(): void {
@@ -339,6 +456,10 @@ function latLonToVec(latDeg: number, lonDeg: number, radius: number): THREE.Vect
 function dayOfYearUtc(d: Date): number {
   const start = Date.UTC(d.getUTCFullYear(), 0, 0);
   return (d.getTime() - start) / 86_400_000;
+}
+
+function escape(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 async function loadTextureSafe(loader: THREE.TextureLoader, url: string): Promise<THREE.Texture | null> {

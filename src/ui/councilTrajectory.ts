@@ -33,12 +33,12 @@ interface PersonaCol {
 
 const PERSONA_ORDER = ['analyst', 'contrarian', 'historian', 'quant', 'on_the_ground'];
 
-const PLACEHOLDER_PERSONAS: Record<string, { label: string; oneLine: string }> = {
-  analyst: { label: 'Analyst', oneLine: 'Default read of the data.' },
-  contrarian: { label: 'Contrarian', oneLine: 'Argues the opposite is defensible.' },
-  historian: { label: 'Historian', oneLine: 'Anchors in pre-2020 precedent.' },
-  quant: { label: 'Quant', oneLine: 'Numeric bounds + probabilities.' },
-  on_the_ground: { label: 'On-the-Ground', oneLine: 'Only events in the last 30 days.' },
+const PLACEHOLDER_PERSONAS: Record<string, { label: string; oneLine: string; initial: string; hue: number }> = {
+  analyst: { label: 'Analyst', oneLine: 'Default read of the data.', initial: 'A', hue: 28 },
+  contrarian: { label: 'Contrarian', oneLine: 'Argues the opposite is defensible.', initial: 'C', hue: 348 },
+  historian: { label: 'Historian', oneLine: 'Anchors in pre-2020 precedent.', initial: 'H', hue: 200 },
+  quant: { label: 'Quant', oneLine: 'Numeric bounds + probabilities.', initial: 'Q', hue: 138 },
+  on_the_ground: { label: 'On-the-Ground', oneLine: 'Only events in the last 30 days.', initial: 'G', hue: 48 },
 };
 
 export class CouncilTrajectory {
@@ -78,15 +78,20 @@ export class CouncilTrajectory {
     this.bottomLineEl = this.root.querySelector('.nw-council-bottom-line')!;
 
     const grid = this.root.querySelector('.nw-council-grid')!;
-    for (const id of PERSONA_ORDER) {
+    PERSONA_ORDER.forEach((id, i) => {
       const meta = PLACEHOLDER_PERSONAS[id]!;
       const col = document.createElement('article');
       col.className = 'nw-council-col';
       col.dataset.persona = id;
+      col.style.setProperty('--col-i', String(i));
+      col.style.setProperty('--col-hue', String(meta.hue));
       col.innerHTML = `
         <header class="nw-council-col-header">
-          <div class="nw-council-col-label">${meta.label}</div>
-          <div class="nw-council-col-one-line">${meta.oneLine}</div>
+          <span class="nw-council-col-avatar" aria-hidden="true">${meta.initial}</span>
+          <div class="nw-council-col-meta">
+            <div class="nw-council-col-label">${meta.label}</div>
+            <div class="nw-council-col-one-line">${meta.oneLine}</div>
+          </div>
           <span class="nw-council-col-status" data-col-status>waiting</span>
         </header>
         <div class="nw-council-col-body" data-col-body></div>
@@ -100,7 +105,7 @@ export class CouncilTrajectory {
         status: col.querySelector('[data-col-status]')!,
         text: col.querySelector('[data-col-body]')!,
       });
-    }
+    });
   }
 
   async run(payload: CouncilRunPayload): Promise<void> {
@@ -308,6 +313,13 @@ export function injectCouncilStyles(): void {
       min-height: 280px;
       display: flex;
       flex-direction: column;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: nw-council-col-in 0.5s cubic-bezier(.16,.84,.44,1) forwards;
+      animation-delay: calc(var(--col-i, 0) * 0.08s + 0.1s);
+    }
+    @keyframes nw-council-col-in {
+      to { opacity: 1; transform: translateY(0); }
     }
     .nw-council-col:last-child { border-right: none; }
     @media (max-width: 900px) {
@@ -319,7 +331,24 @@ export function injectCouncilStyles(): void {
       padding-bottom: 0.65rem;
       margin-bottom: 0.65rem;
       border-bottom: 1px solid var(--color-border, #2a2a2a);
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      grid-template-rows: auto auto;
+      gap: 0.15rem 0.55rem;
     }
+    .nw-council-col-avatar {
+      grid-row: 1 / 3;
+      width: 28px; height: 28px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      background: hsl(var(--col-hue, 28), 80%, 14%);
+      color: hsl(var(--col-hue, 28), 90%, 65%);
+      border: 1px solid hsl(var(--col-hue, 28), 70%, 32%);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .nw-council-col-meta { min-width: 0; }
     .nw-council-col-label {
       font-size: 0.82rem;
       font-weight: 700;
@@ -329,13 +358,12 @@ export function injectCouncilStyles(): void {
     .nw-council-col-one-line {
       font-size: 0.68rem;
       color: var(--color-text-muted, #888);
-      margin-top: 0.2rem;
       line-height: 1.4;
     }
     .nw-council-col-status {
-      position: absolute;
-      top: 0;
-      right: 0;
+      grid-column: 2;
+      justify-self: end;
+      align-self: start;
       font-size: 0.6rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -375,8 +403,16 @@ export function injectCouncilStyles(): void {
     }
 
     .nw-council-synth {
-      padding: 1.1rem 1.25rem 1.25rem;
-      background: var(--color-surface-2, #0f0f0f);
+      padding: 1.2rem 1.4rem 1.4rem;
+      background:
+        radial-gradient(ellipse at top, rgba(255, 102, 0, 0.07), transparent 70%),
+        var(--color-surface-2, #0f0f0f);
+      border-top: 1px solid var(--color-border, #2a2a2a);
+      animation: nw-council-synth-in 0.4s ease-out;
+    }
+    @keyframes nw-council-synth-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
     .nw-council-synth-header {
       font-family: 'JetBrains Mono', monospace;
@@ -385,6 +421,16 @@ export function injectCouncilStyles(): void {
       text-transform: uppercase;
       color: var(--color-accent, #ff6600);
       margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .nw-council-synth-header::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--color-accent, #ff6600);
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(255, 102, 0, 0.18);
     }
     .nw-council-synth-body {
       font-family: 'Source Serif Pro', Georgia, serif;
@@ -395,13 +441,18 @@ export function injectCouncilStyles(): void {
       word-wrap: break-word;
     }
     .nw-council-bottom-line {
-      margin-top: 1.1rem;
-      padding: 0.8rem 1rem;
+      margin-top: 1.25rem;
+      padding: 0.85rem 1.1rem;
       border-left: 3px solid var(--color-accent, #ff6600);
-      background: rgba(255, 102, 0, 0.08);
+      background: linear-gradient(90deg, rgba(255, 102, 0, 0.14), rgba(255, 102, 0, 0.03));
       display: flex;
       gap: 0.85rem;
       align-items: center;
+      animation: nw-council-bl-in 0.35s ease-out;
+    }
+    @keyframes nw-council-bl-in {
+      from { opacity: 0; transform: translateX(-4px); }
+      to   { opacity: 1; transform: translateX(0); }
     }
     .nw-council-bl-label {
       font-family: 'JetBrains Mono', monospace;

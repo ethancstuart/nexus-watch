@@ -49,7 +49,6 @@ export class CallAnalyst {
   private input!: HTMLTextAreaElement;
   private sendBtn!: HTMLButtonElement;
   private micBtn!: HTMLButtonElement;
-  private audioEl!: HTMLAudioElement;
   private recognition: SpeechRecognitionLike | null = null;
   private listening = false;
 
@@ -80,10 +79,9 @@ export class CallAnalyst {
         </div>
       </div>
       <div class="nw-call-reply" hidden>
-        <div class="nw-call-reply-label">Transcript</div>
+        <div class="nw-call-reply-label">Analyst reply</div>
         <div class="nw-call-reply-text" data-reply></div>
       </div>
-      <audio data-audio preload="none"></audio>
     `;
     this.status = this.root.querySelector('[data-status]') as HTMLElement;
     this.transcript = this.root.querySelector('.nw-call-reply') as HTMLElement;
@@ -91,7 +89,6 @@ export class CallAnalyst {
     this.input = this.root.querySelector('[data-input]') as HTMLTextAreaElement;
     this.sendBtn = this.root.querySelector('[data-send]') as HTMLButtonElement;
     this.micBtn = this.root.querySelector('[data-mic]') as HTMLButtonElement;
-    this.audioEl = this.root.querySelector('[data-audio]') as HTMLAudioElement;
   }
 
   private initRecognition(): void {
@@ -168,16 +165,39 @@ export class CallAnalyst {
         this.opts.onError?.(msg);
         return;
       }
-      const data = (await res.json()) as { audio_url: string; transcript: string; ms: number };
+      const data = (await res.json()) as { transcript: string; ms: number };
       this.reply.textContent = data.transcript;
       this.transcript.hidden = false;
-      this.audioEl.src = data.audio_url;
-      this.setStatus(`replied in ${(data.ms / 1000).toFixed(1)}s · playing`, 'playing');
-      await this.audioEl.play();
+      // Free-to-ship: use the browser's own TTS rather than a paid cloud API.
+      // Falls back silently when speechSynthesis isn't available.
+      this.speak(data.transcript);
+      this.setStatus(`replied in ${(data.ms / 1000).toFixed(1)}s`, 'playing');
     } catch (e) {
       this.setStatus(`error: ${e instanceof Error ? e.message : 'failed'}`, 'error');
     } finally {
       this.sendBtn.disabled = false;
+    }
+  }
+
+  private speak(text: string): void {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      // Prefer a sober, English-language voice if one is available
+      const voices = window.speechSynthesis.getVoices();
+      const preferred =
+        voices.find((v) => /en-(US|GB)/i.test(v.lang) && /Daniel|Samantha|Alex/.test(v.name)) ??
+        voices.find((v) => /en-(US|GB)/i.test(v.lang)) ??
+        voices[0];
+      if (preferred) utter.voice = preferred;
+      utter.rate = 1.05;
+      utter.pitch = 0.95;
+      utter.onstart = () => this.setStatus('playing', 'playing');
+      utter.onend = () => this.setStatus('ready', 'ready');
+      window.speechSynthesis.speak(utter);
+    } catch {
+      /* swallow — caller already shows transcript */
     }
   }
 
