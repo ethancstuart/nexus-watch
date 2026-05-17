@@ -206,6 +206,12 @@ export const PAGE_SEO = {
       'NexusWatch Intelligence API v2 — verified geopolitical data with source attribution, confidence scores, and methodology metadata. Free.',
     canonicalPath: '/api',
   },
+  mcp: {
+    title: 'MCP Server for AI Agents',
+    description:
+      'Connect Claude Code, Cursor, or any MCP client to NexusWatch. 9 geopolitical intelligence tools — country risk, scenarios, portfolio exposure. No auth. Free.',
+    canonicalPath: '/mcp',
+  },
   audit: {
     title: 'Public Audit Viewer',
     description:

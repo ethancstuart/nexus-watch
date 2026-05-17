@@ -332,11 +332,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       description:
         'Geopolitical intelligence for AI agents — 9 tools covering country risk, scenarios, portfolio exposure, alerts, and prediction accuracy.',
       tools: TOOLS.map((t) => t.name),
-      connect:
-        'claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp --header "X-API-Key: nwk_pub_02e13b5a7ff73aed53e2ceb5"',
-      public_key: 'nwk_pub_02e13b5a7ff73aed53e2ceb5',
-      public_key_limit: '100 calls/hour',
-      docs: 'https://nexuswatch.dev/#/apidocs',
+      connect: 'claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp',
+      auth_required: false,
+      rate_limit: '100 calls/hour per IP (shared public pool)',
+      docs: 'https://nexuswatch.dev/#/mcp',
     });
   }
 
@@ -349,22 +348,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Extract API key — accept full keys, public MCP key, or forwarded auth
-  const apiKey =
+  // Public MCP server — no auth required for callers. Anyone can connect.
+  // The server uses the public key internally to authenticate against /api/v2/*.
+  // Callers may optionally pass a full API_V2_KEYS key for higher rate limits.
+  const callerKey =
     (req.headers['x-api-key'] as string) || (req.headers['authorization'] as string)?.replace('Bearer ', '') || '';
 
-  // Validate: accept any key in API_V2_KEYS or the public MCP key
   const fullKeys = (process.env.API_V2_KEYS || '').split(',').filter(Boolean);
-  const publicKey = process.env.NW_MCP_PUBLIC_KEY;
-  const isValidKey = fullKeys.includes(apiKey) || (publicKey != null && apiKey === publicKey);
+  const publicKey = process.env.NW_MCP_PUBLIC_KEY || '';
 
-  if (!apiKey || !isValidKey) {
-    return res
-      .status(401)
-      .json(
-        rpcError(null, -32600, 'API key required. Use the public key: nwk_pub_02e13b5a7ff73aed53e2ceb5 (100 calls/hr)'),
-      );
-  }
+  // Upstream calls use the caller's full key if valid, otherwise fall back
+  // to the server's public key so the connection works with no header set.
+  const apiKey = fullKeys.includes(callerKey) ? callerKey : publicKey;
 
   // Parse JSON-RPC
   const body = req.body as JsonRpcRequest | JsonRpcRequest[];

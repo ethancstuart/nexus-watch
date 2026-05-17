@@ -246,6 +246,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/mcp', () => {
+    import('./pages/mcp.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        m.renderMcpPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
       .then(async (m) => {
