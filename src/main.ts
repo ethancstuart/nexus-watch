@@ -286,6 +286,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/lab', () => {
+    import('./pages/lab.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        void m.renderLabPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
       .then(async (m) => {

@@ -34,6 +34,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.33.1-dev45.0",
     "@neondatabase/serverless": "^1.0.2",
     "@sentry/browser": "^10.49.0",
     "@types/d3": "^7.4.3",
@@ -41,6 +42,7 @@
     "@vercel/og": "^0.11.1",
     "d3": "^7.9.0",
     "maplibre-gl": "^5.21.1",
+    "parquetjs-lite": "^0.8.7",
     "resend": "^6.10.0",
     "rss-parser": "^3.13.0",
     "satellite.js": "^5.0.0",

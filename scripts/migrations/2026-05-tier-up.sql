@@ -22,6 +22,21 @@ COMMENT ON TABLE llm_spend_daily IS
   'Daily LLM spend totals across all endpoints. checkBudget() reads, recordSpend() writes.';
 
 -- ---------------------------------------------------------------------------
+-- Phase 1: Data Lab — parquet export manifest.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS data_exports (
+  name        TEXT PRIMARY KEY,         -- 'cii_daily_snapshots' | 'acled_events_90d' | 'crisis_triggers' | 'verified_signals'
+  blob_url    TEXT NOT NULL,
+  bytes       INT NOT NULL,
+  rows        INT NOT NULL,
+  exported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  schema_json JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
+COMMENT ON TABLE data_exports IS
+  'Parquet export manifest. Cron writes new rows after nightly bake; /api/data/manifest reads.';
+
+-- ---------------------------------------------------------------------------
 -- Phase 2: The Council (multi-persona agent runs).
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS council_runs (

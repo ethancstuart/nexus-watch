@@ -230,6 +230,12 @@ export const PAGE_SEO = {
       'A cinematic look at the world tonight — live crisis triggers, animated globe, scroll-driven narrative. The shareable face of NexusWatch. Free.',
     canonicalPath: '/cinematic',
   },
+  lab: {
+    title: 'Data Lab',
+    description:
+      'Run SQL against the NexusWatch public dataset in your browser. DuckDB-WASM, Parquet exports, one-click charts. No login. Free.',
+    canonicalPath: '/lab',
+  },
   audit: {
     title: 'Public Audit Viewer',
     description:

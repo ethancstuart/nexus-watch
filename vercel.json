@@ -30,6 +30,8 @@
     { "source": "/what-if", "destination": "/index.html" },
     { "source": "/what-if/:id", "destination": "/index.html" },
     { "source": "/cinematic", "destination": "/index.html" },
+    { "source": "/lab", "destination": "/index.html" },
+    { "source": "/data/manifest.json", "destination": "/api/data/manifest" },
     { "source": "/whats-new", "destination": "/index.html" },
     { "source": "/status", "destination": "/index.html" },
     { "source": "/faq", "destination": "/index.html" },
@@ -81,7 +83,8 @@
     { "path": "/api/cron/scheduled-emails", "schedule": "0 * * * *" },
     { "path": "/api/cron/cron-health", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/cache-warm", "schedule": "*/45 * * * *" },
-    { "path": "/api/cron/cost-summary", "schedule": "0 9 * * 1" }
+    { "path": "/api/cron/cost-summary", "schedule": "0 9 * * 1" },
+    { "path": "/api/cron/export-parquet", "schedule": "0 3 * * *" }
   ],
   "headers": [
     {
