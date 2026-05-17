@@ -134,6 +134,34 @@ const EXPORTS: ExportSpec[] = [
       LIMIT 5000
     `,
   },
+  {
+    name: 'forecasts_90d',
+    schema: {
+      id: { type: 'INT32' },
+      country_code: { type: 'UTF8' },
+      made_on: { type: 'UTF8' },
+      horizon_days: { type: 'INT32' },
+      model: { type: 'UTF8' },
+      p10: { type: 'DOUBLE', optional: true },
+      p25: { type: 'DOUBLE', optional: true },
+      p50: { type: 'DOUBLE', optional: true },
+      p75: { type: 'DOUBLE', optional: true },
+      p90: { type: 'DOUBLE', optional: true },
+      cii_now: { type: 'DOUBLE', optional: true },
+      actual: { type: 'DOUBLE', optional: true },
+      abs_error: { type: 'DOUBLE', optional: true },
+    },
+    query: `
+      SELECT id, country_code, made_on::text AS made_on, horizon_days, model,
+             p10::float AS p10, p25::float AS p25, p50::float AS p50,
+             p75::float AS p75, p90::float AS p90,
+             cii_now::float AS cii_now,
+             actual::float AS actual, abs_error::float AS abs_error
+      FROM forecasts
+      WHERE made_on > NOW() - INTERVAL '90 days'
+      ORDER BY made_on DESC, country_code, model
+    `,
+  },
 ];
 
 async function exportOne(

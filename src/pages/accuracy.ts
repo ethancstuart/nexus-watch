@@ -210,8 +210,126 @@ export async function renderAccuracyPage(container: HTMLElement): Promise<void> 
     }
   }
 
+  // Forecast Tournament leaderboard (always render — shows empty-state when no backtest yet)
+  await renderForecastLeaderboard(main);
+
   renderMethodology(main);
   renderCommitment(container);
+}
+
+interface LeaderboardRow {
+  model: string;
+  horizon_days: number;
+  sample_size: number;
+  mae: number;
+  crps: number;
+  brier: number;
+  rank_in_horizon: number;
+}
+
+async function renderForecastLeaderboard(main: HTMLElement): Promise<void> {
+  let data: {
+    rows: LeaderboardRow[];
+    updated_at: string | null;
+    coverage?: { ensemble_total: number; ensemble_scored: number; first_made: string | null };
+  } = {
+    rows: [],
+    updated_at: null,
+  };
+  try {
+    const res = await fetch('/api/accuracy/leaderboard');
+    if (res.ok) data = await res.json();
+  } catch {
+    /* fall through with empty rows */
+  }
+
+  const section = createElement('section', { className: 'acc-section' });
+  if (data.rows.length === 0) {
+    const firstMade = data.coverage?.first_made;
+    const total = data.coverage?.ensemble_total ?? 0;
+    section.innerHTML = `
+      <h2 class="acc-section-title">FORECAST TOURNAMENT</h2>
+      <p class="acc-section-desc">
+        Six ensemble base learners (persistence, Kalman, AR(1), Holt, ACLED-slope, neighbor) compete
+        weekly. The first backtest runs after 30 days of recorded forecasts.
+      </p>
+      <div class="acc-stat-card" style="padding: 1.25rem; text-align: left;">
+        <div style="font-size:0.75rem; color: ${DIM}; line-height: 1.6;">
+          ${
+            total > 0
+              ? `<strong>${total}</strong> forecasts recorded${firstMade ? ` since ${new Date(firstMade).toLocaleDateString()}` : ''}.
+               Leaderboard publishes after the first weekly backtest.`
+              : `No forecasts recorded yet. The daily forecast-record cron runs at 11:00 UTC.`
+          }
+        </div>
+      </div>
+    `;
+    main.appendChild(section);
+    return;
+  }
+
+  const horizons = Array.from(new Set(data.rows.map((r) => r.horizon_days))).sort((a, b) => a - b);
+  section.innerHTML = `
+    <h2 class="acc-section-title">FORECAST TOURNAMENT</h2>
+    <p class="acc-section-desc">
+      Six base learners + the ensemble compete on every scored forecast. MAE = mean absolute error,
+      CRPS = continuous ranked probability score, Brier = squared error of P(CII ≥ 65). Lower is better.
+      Window = last 60 days of scored forecasts. Ensemble weights are refit weekly from these residuals.
+    </p>
+    ${horizons
+      .map((h) => {
+        const rows = data.rows.filter((r) => r.horizon_days === h);
+        return `
+          <h3 class="acc-sub-title">${h}-day horizon</h3>
+          <table class="acc-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Model</th>
+                <th>n</th>
+                <th>MAE</th>
+                <th>CRPS</th>
+                <th>Brier</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows
+                .map((r) => {
+                  const isEnsemble = r.model === 'ensemble';
+                  const badge = isEnsemble
+                    ? `<span style="color:${ORANGE}; font-weight:700">${r.model}</span>`
+                    : escape(r.model);
+                  const rankColor = r.rank_in_horizon === 1 ? GREEN : r.rank_in_horizon <= 3 ? YELLOW : DIM;
+                  return `
+                    <tr>
+                      <td class="acc-mono" style="color:${rankColor}; font-weight:700">${r.rank_in_horizon}</td>
+                      <td>${badge}</td>
+                      <td class="acc-mono">${r.sample_size}</td>
+                      <td class="acc-mono" style="color:${maeColor(r.mae)}">${r.mae.toFixed(2)}</td>
+                      <td class="acc-mono">${r.crps.toFixed(3)}</td>
+                      <td class="acc-mono">${r.brier.toFixed(3)}</td>
+                    </tr>
+                  `;
+                })
+                .join('')}
+            </tbody>
+          </table>
+        `;
+      })
+      .join('')}
+    ${
+      data.updated_at
+        ? `<p class="acc-section-desc" style="margin-top:1.25rem;font-style:italic">Last backtest: ${new Date(
+            data.updated_at,
+          ).toLocaleString()}</p>`
+        : ''
+    }
+  `;
+  main.appendChild(section);
+}
+
+function escape(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ---------------------------------------------------------------------------

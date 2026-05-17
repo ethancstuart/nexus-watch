@@ -5,7 +5,9 @@
   },
   "functions": {
     "api/v2/council.ts": { "maxDuration": 60 },
-    "api/cron/export-parquet.ts": { "maxDuration": 300 }
+    "api/cron/export-parquet.ts": { "maxDuration": 300 },
+    "api/cron/forecast-record.ts": { "maxDuration": 300 },
+    "api/cron/forecast-backtest.ts": { "maxDuration": 180 }
   },
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
@@ -88,7 +90,9 @@
     { "path": "/api/cron/cron-health", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/cache-warm", "schedule": "*/45 * * * *" },
     { "path": "/api/cron/cost-summary", "schedule": "0 9 * * 1" },
-    { "path": "/api/cron/export-parquet", "schedule": "0 3 * * *" }
+    { "path": "/api/cron/export-parquet", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/forecast-record", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/forecast-backtest", "schedule": "0 6 * * 0" }
   ],
   "headers": [
     {
