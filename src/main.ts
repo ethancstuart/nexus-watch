@@ -278,6 +278,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/cinematic', () => {
+    import('./pages/cinematic.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        m.renderCinematicPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
       .then(async (m) => {

@@ -29,6 +29,7 @@
     { "source": "/live-brief/:code", "destination": "/index.html" },
     { "source": "/what-if", "destination": "/index.html" },
     { "source": "/what-if/:id", "destination": "/index.html" },
+    { "source": "/cinematic", "destination": "/index.html" },
     { "source": "/whats-new", "destination": "/index.html" },
     { "source": "/status", "destination": "/index.html" },
     { "source": "/faq", "destination": "/index.html" },

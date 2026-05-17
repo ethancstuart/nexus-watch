@@ -224,6 +224,12 @@ export const PAGE_SEO = {
       'Counterfactual geopolitical scenarios — Strait of Hormuz, Taiwan blockade, Russia-NATO, and 11 more. Deterministic CII cascade + AI agent interpretation. Free.',
     canonicalPath: '/what-if',
   },
+  cinematic: {
+    title: 'The World, As It Moves',
+    description:
+      'A cinematic look at the world tonight — live crisis triggers, animated globe, scroll-driven narrative. The shareable face of NexusWatch. Free.',
+    canonicalPath: '/cinematic',
+  },
   audit: {
     title: 'Public Audit Viewer',
     description:
