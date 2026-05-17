@@ -236,6 +236,12 @@ export const PAGE_SEO = {
       'Run SQL against the NexusWatch public dataset in your browser. DuckDB-WASM, Parquet exports, one-click charts. No login. Free.',
     canonicalPath: '/lab',
   },
+  audio: {
+    title: 'NexusWatch FM',
+    description:
+      'Daily 90-second AI-narrated geopolitical brief, public podcast feed, plus a "call the analyst" voice agent. Subscribe in Apple/Spotify. Free.',
+    canonicalPath: '/audio',
+  },
   audit: {
     title: 'Public Audit Viewer',
     description:

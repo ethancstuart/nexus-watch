@@ -294,6 +294,14 @@ router
       })
       .catch((err) => showRouteError(appRoot, err));
   })
+  .on('/audio', () => {
+    import('./pages/audio.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        void m.renderAudioPage(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/whats-new', () => {
     import('./pages/releaseNotes.ts')
       .then(async (m) => {
