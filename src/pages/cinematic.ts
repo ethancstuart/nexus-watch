@@ -43,9 +43,11 @@ export function renderCinematicPage(root: HTMLElement): void {
     <header class="nw-cin-hero-nav">
       <a href="#/" class="nw-cin-back">NexusWatch</a>
       <div class="nw-cin-hero-nav-links">
+        <a href="#/globe">Globe</a>
         <a href="#/intel">Intel</a>
-        <a href="#/briefs">Briefs</a>
         <a href="#/what-if">What If</a>
+        <a href="#/audio">FM</a>
+        <a href="#/lab">Data Lab</a>
         <a href="#/mcp">MCP</a>
       </div>
     </header>
@@ -58,7 +60,8 @@ export function renderCinematicPage(root: HTMLElement): void {
         Every score traceable. Every signal sourced.
       </p>
       <div class="nw-cin-hero-actions">
-        <a href="#/intel" class="nw-cin-btn nw-cin-btn-primary">Enter the map</a>
+        <a href="#/globe" class="nw-cin-btn nw-cin-btn-primary">Enter the globe</a>
+        <a href="#/intel" class="nw-cin-btn">Intel map</a>
         <a href="#crisis-story" class="nw-cin-btn">Scroll the story</a>
       </div>
     </div>
@@ -92,7 +95,9 @@ export function renderCinematicPage(root: HTMLElement): void {
         The accuracy ledger is public.
       </p>
       <div class="nw-cin-hero-actions">
-        <a href="#/intel" class="nw-cin-btn nw-cin-btn-primary">Open the platform</a>
+        <a href="#/globe" class="nw-cin-btn nw-cin-btn-primary">Open the globe</a>
+        <a href="#/audio" class="nw-cin-btn">Listen to FM</a>
+        <a href="#/lab" class="nw-cin-btn">Query the data</a>
         <a href="#/accuracy" class="nw-cin-btn">See the receipts</a>
       </div>
       <div class="nw-cin-credit">

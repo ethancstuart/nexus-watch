@@ -95,7 +95,45 @@ export async function renderAudioPage(root: HTMLElement): Promise<void> {
       return;
     }
     listMount.innerHTML = '';
-    for (const b of data.briefs) {
+
+    // Featured episode = the latest one. Larger card, prominent waveform.
+    const [latest, ...rest] = data.briefs;
+    const featuredCard = createElement('article', { className: 'nw-audio-featured' });
+    const latestTitle = new Date(latest.brief_date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+    const latestExcerpt = latest.script
+      ? latest.script
+          .replace(/\[HOST_[A-C]\]\s*/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 380)
+      : '';
+    const duration = latest.duration_sec
+      ? `${Math.floor(latest.duration_sec / 60)}:${String(latest.duration_sec % 60).padStart(2, '0')}`
+      : '';
+    featuredCard.innerHTML = `
+      <div class="nw-audio-featured-tag">Latest episode</div>
+      <h2 class="nw-audio-featured-title">${latestTitle}</h2>
+      ${duration ? `<div class="nw-audio-featured-meta">${duration} · ${data.briefs.length} episode${data.briefs.length === 1 ? '' : 's'} available</div>` : ''}
+      <div class="nw-audio-featured-player" data-featured-player></div>
+      ${latestExcerpt ? `<p class="nw-audio-featured-excerpt">${latestExcerpt}${latestExcerpt.length >= 380 ? '…' : ''}</p>` : ''}
+    `;
+    listMount.appendChild(featuredCard);
+    new WaveformPlayer(featuredCard.querySelector<HTMLElement>('[data-featured-player]')!, {
+      url: latest.blob_url,
+      duration: latest.duration_sec ?? undefined,
+    });
+
+    if (rest.length > 0) {
+      const archiveLabel = createElement('div', { className: 'nw-audio-archive-label' });
+      archiveLabel.textContent = `Archive · ${rest.length} earlier episode${rest.length === 1 ? '' : 's'}`;
+      listMount.appendChild(archiveLabel);
+    }
+
+    for (const b of rest) {
       const card = createElement('div', { className: 'nw-audio-card' });
       const title = new Date(b.brief_date).toLocaleDateString('en-US', {
         weekday: 'long',
@@ -207,6 +245,62 @@ function injectStyles(): void {
     }
     .nw-audio-card {
       display: flex; flex-direction: column; gap: 0.55rem;
+    }
+    .nw-audio-featured {
+      background:
+        radial-gradient(circle at top right, rgba(255, 102, 0, 0.1), transparent 60%),
+        var(--color-surface-2, #0f0f0f);
+      border: 1px solid rgba(255, 102, 0, 0.4);
+      border-left: 3px solid var(--color-accent, #ff6600);
+      border-radius: 6px;
+      padding: 1.5rem 1.5rem 1.75rem;
+      margin-bottom: 1rem;
+    }
+    .nw-audio-featured-tag {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-accent, #ff6600);
+      padding: 0.2rem 0.6rem;
+      background: rgba(255, 102, 0, 0.12);
+      border: 1px solid rgba(255, 102, 0, 0.3);
+      border-radius: 2px;
+      margin-bottom: 0.85rem;
+    }
+    .nw-audio-featured-title {
+      font-family: 'Source Serif Pro', Georgia, serif;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      margin: 0 0 0.5rem;
+      color: var(--color-text, #f6f6f6);
+      letter-spacing: -0.01em;
+    }
+    .nw-audio-featured-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--color-text-muted, #888);
+      margin-bottom: 1.1rem;
+    }
+    .nw-audio-featured-player { margin-bottom: 1rem; }
+    .nw-audio-featured-excerpt {
+      font-family: 'Source Serif Pro', Georgia, serif;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--color-text-muted, #bbb);
+      margin: 0;
+      padding-left: 1rem;
+      border-left: 1px solid rgba(255, 102, 0, 0.3);
+    }
+    .nw-audio-archive-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--color-text-muted, #666);
+      margin: 1.5rem 0 0.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--color-border, #2a2a2a);
     }
     .nw-audio-excerpt {
       font-family: 'Source Serif Pro', Georgia, serif;

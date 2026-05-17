@@ -99,9 +99,11 @@ export async function renderLabPage(root: HTMLElement): Promise<void> {
     <div class="nw-lab-actions">
       <button class="nw-lab-btn nw-lab-btn-primary" data-action="run">▸ Run query</button>
       <button class="nw-lab-btn" data-action="chart" disabled>↳ Render as chart</button>
+      <button class="nw-lab-btn" data-action="copy">⎘ Copy SQL</button>
       <button class="nw-lab-btn" data-action="share">🔗 Copy share URL</button>
       <span class="nw-lab-action-note" data-note></span>
     </div>
+    <kbd class="nw-lab-hotkey">⌘ Enter to run · ⌘ K to share</kbd>
   `;
   wrap.appendChild(editor);
 
@@ -116,6 +118,7 @@ export async function renderLabPage(root: HTMLElement): Promise<void> {
   const sqlEl = editor.querySelector<HTMLTextAreaElement>('.nw-lab-sql')!;
   const runBtn = editor.querySelector<HTMLButtonElement>('[data-action="run"]')!;
   const chartBtn = editor.querySelector<HTMLButtonElement>('[data-action="chart"]')!;
+  const copyBtn = editor.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
   const shareBtn = editor.querySelector<HTMLButtonElement>('[data-action="share"]')!;
   const noteEl = editor.querySelector<HTMLElement>('[data-note]')!;
   const statusEl = hero.querySelector<HTMLElement>('[data-status]')!;
@@ -217,6 +220,27 @@ export async function renderLabPage(root: HTMLElement): Promise<void> {
       setTimeout(() => (shareBtn.textContent = '🔗 Copy share URL'), 2000);
     } catch {
       shareBtn.textContent = url;
+    }
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(sqlEl.value);
+      copyBtn.textContent = '✓ SQL copied';
+      setTimeout(() => (copyBtn.textContent = '⎘ Copy SQL'), 2000);
+    } catch {
+      /* swallow */
+    }
+  });
+
+  // Keyboard shortcuts
+  sqlEl.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      runBtn.click();
+    } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      shareBtn.click();
     }
   });
 }
@@ -456,6 +480,21 @@ function injectStyles(): void {
       padding: 3rem 0;
       text-align: center;
     }
+    .nw-lab-results-loading {
+      animation: nw-lab-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes nw-lab-pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.55; }
+    }
+    .nw-lab-hotkey {
+      display: inline-block;
+      margin-top: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: var(--color-text-muted, #555);
+    }
     .nw-lab-results-error {
       font-family: 'JetBrains Mono', monospace;
       color: #dc2626;
@@ -482,6 +521,12 @@ function injectStyles(): void {
       border-bottom: 1px solid rgba(42, 42, 42, 0.5);
       color: var(--color-text, #ddd);
       font-variant-numeric: tabular-nums;
+    }
+    .nw-lab-table tbody tr:nth-child(even) td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+    .nw-lab-table tbody tr:hover td {
+      background: rgba(255, 102, 0, 0.06);
     }
     .nw-lab-trunc-note {
       color: var(--color-text-muted, #888);

@@ -13,31 +13,49 @@ import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 interface ToolRow {
   name: string;
   oneLine: string;
+  glyph: string;
 }
 
 const TOOLS: ToolRow[] = [
-  { name: 'get_country_risk', oneLine: 'CII score for one or all 158 countries (6-component breakdown + confidence).' },
-  { name: 'get_alerts', oneLine: 'Active alerts: countries over a CII threshold, 7-day movers, live crisis triggers.' },
+  {
+    name: 'get_country_risk',
+    glyph: '⊕',
+    oneLine: 'CII score for one or all 158 countries (6-component breakdown + confidence).',
+  },
+  {
+    name: 'get_alerts',
+    glyph: '▲',
+    oneLine: 'Active alerts: countries over a CII threshold, 7-day movers, live crisis triggers.',
+  },
   {
     name: 'run_scenario',
-    oneLine: 'What-if scenarios: hormuz-closure, taiwan-blockade, suez-disruption, russia-nato, +3 more.',
+    glyph: '∿',
+    oneLine: 'What-if scenarios: hormuz-closure, taiwan-blockade, suez-disruption, russia-nato, +10 more.',
   },
   {
     name: 'get_portfolio_exposure',
+    glyph: '◊',
     oneLine: 'Map a ticker portfolio to country exposure, chokepoint dependencies, CII-weighted risk.',
   },
-  { name: 'get_risk_factors', oneLine: 'Quant factors: z-scores, 7d/30d momentum, realized volatility per country.' },
+  {
+    name: 'get_risk_factors',
+    glyph: '⌖',
+    oneLine: 'Quant factors: z-scores, 7d/30d momentum, realized volatility per country.',
+  },
   {
     name: 'get_audit_trail',
+    glyph: '⊢',
     oneLine: 'Full CII computation history for a country — every rule, every source, every delta.',
   },
-  { name: 'get_active_crises', oneLine: 'All currently unresolved crisis triggers across the network.' },
+  { name: 'get_active_crises', glyph: '◉', oneLine: 'All currently unresolved crisis triggers across the network.' },
   {
     name: 'get_sanctions_attribution',
+    glyph: '⊘',
     oneLine: 'OFAC/UN sanctions cross-referenced with ACLED conflict + crisis events.',
   },
   {
     name: 'validate_predictions',
+    glyph: '✓',
     oneLine: 'Prediction accuracy by scenario: MAE and aligned/partial/diverging status.',
   },
 ];
@@ -87,12 +105,18 @@ export function renderMcpPage(root: HTMLElement): void {
 
       <div class="nw-mcp-installs">
         <div class="nw-mcp-install">
-          <div class="nw-mcp-install-label">Claude Code</div>
+          <div class="nw-mcp-install-row">
+            <div class="nw-mcp-install-label">Claude Code</div>
+            <button class="nw-mcp-copy" data-copy="claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp">Copy</button>
+          </div>
           <pre class="nw-mcp-code"><code>claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp</code></pre>
         </div>
 
         <div class="nw-mcp-install">
-          <div class="nw-mcp-install-label">Cursor · Windsurf · Continue (mcp.json)</div>
+          <div class="nw-mcp-install-row">
+            <div class="nw-mcp-install-label">Cursor · Windsurf · Continue (mcp.json)</div>
+            <button class="nw-mcp-copy" data-copy='{"mcpServers":{"nexus-watch":{"transport":"http","url":"https://nexuswatch.dev/api/mcp"}}}'>Copy</button>
+          </div>
           <pre class="nw-mcp-code"><code>{
   "mcpServers": {
     "nexus-watch": {
@@ -114,8 +138,11 @@ export function renderMcpPage(root: HTMLElement): void {
         ${TOOLS.map(
           (t) => `
             <div class="nw-mcp-tool">
-              <code class="nw-mcp-tool-name">${t.name}</code>
-              <div class="nw-mcp-tool-desc">${t.oneLine}</div>
+              <span class="nw-mcp-tool-glyph" aria-hidden="true">${t.glyph}</span>
+              <div class="nw-mcp-tool-text">
+                <code class="nw-mcp-tool-name">${t.name}</code>
+                <div class="nw-mcp-tool-desc">${t.oneLine}</div>
+              </div>
             </div>
           `,
         ).join('')}
@@ -165,6 +192,25 @@ export function renderMcpPage(root: HTMLElement): void {
   `;
 
   root.appendChild(main);
+
+  // Wire copy buttons
+  main.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const txt = btn.dataset.copy ?? '';
+      try {
+        await navigator.clipboard.writeText(txt);
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied';
+        btn.classList.add('is-copied');
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.classList.remove('is-copied');
+        }, 1800);
+      } catch {
+        btn.textContent = 'Press ⌘C';
+      }
+    });
+  });
 }
 
 let stylesInjected = false;
@@ -182,13 +228,40 @@ function injectStyles(): void {
       gap: 1.25rem;
       margin: 1.5rem 0 0.5rem;
     }
+    .nw-mcp-install-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.4rem;
+      gap: 0.75rem;
+    }
     .nw-mcp-install-label {
       font-family: var(--font-mono, 'JetBrains Mono', monospace);
       font-size: 0.7rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--color-text-muted, #888);
-      margin-bottom: 0.4rem;
+    }
+    .nw-mcp-copy {
+      background: transparent;
+      border: 1px solid var(--color-border, #2a2a2a);
+      color: var(--color-text-muted, #888);
+      padding: 0.25rem 0.65rem;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .nw-mcp-copy:hover {
+      border-color: var(--color-accent, #ff6600);
+      color: var(--color-accent, #ff6600);
+    }
+    .nw-mcp-copy.is-copied {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: #22c55e;
+      color: #22c55e;
     }
     .nw-mcp-code {
       background: var(--color-surface-2, #0f0f0f);
@@ -224,24 +297,42 @@ function injectStyles(): void {
       border-radius: 4px;
       padding: 0.85rem 1rem;
       display: grid;
-      grid-template-columns: minmax(200px, 240px) 1fr;
-      gap: 1rem;
-      align-items: baseline;
+      grid-template-columns: 38px 1fr;
+      gap: 0.85rem;
+      align-items: start;
+      transition: border-color 0.15s, transform 0.15s;
     }
+    .nw-mcp-tool:hover {
+      border-color: rgba(255, 102, 0, 0.45);
+      transform: translateY(-1px);
+    }
+    .nw-mcp-tool-glyph {
+      width: 32px; height: 32px;
+      display: grid; place-items: center;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 1.1rem;
+      color: var(--color-accent, #ff6600);
+      background: rgba(255, 102, 0, 0.08);
+      border: 1px solid rgba(255, 102, 0, 0.3);
+      border-radius: 4px;
+    }
+    .nw-mcp-tool-text { min-width: 0; }
     .nw-mcp-tool-name {
       font-family: var(--font-mono, 'JetBrains Mono', monospace);
       font-size: 0.8rem;
       color: var(--color-accent, #ff6600);
       background: transparent;
       padding: 0;
+      display: block;
+      margin-bottom: 0.2rem;
     }
     .nw-mcp-tool-desc {
-      font-size: 0.92rem;
+      font-size: 0.9rem;
       color: var(--color-text, #ccc);
       line-height: 1.5;
     }
     @media (max-width: 640px) {
-      .nw-mcp-tool { grid-template-columns: 1fr; gap: 0.25rem; }
+      .nw-mcp-install-row { flex-direction: column; align-items: flex-start; }
     }
 
     .nw-mcp-prompts {

@@ -69,10 +69,25 @@ function renderList(root: HTMLElement): void {
   for (const s of PRESET_SCENARIOS) {
     const card = createElement('a', { className: 'nw-wi-card' });
     card.setAttribute('href', `#/what-if/${s.id}`);
+    // Quick severity hint from simulation cascade (cheap — runs client-side)
+    const sim = simulateScenario(s.id);
+    const maxDelta = sim ? Math.max(0, ...sim.affectedCountries.map((c) => c.delta)) : 0;
+    const sevClass =
+      maxDelta >= 12 ? 'sev-critical' : maxDelta >= 7 ? 'sev-high' : maxDelta > 0 ? 'sev-medium' : 'sev-low';
+    const sevLabel = maxDelta >= 12 ? 'critical' : maxDelta >= 7 ? 'high' : maxDelta > 0 ? 'medium' : 'low';
+    const countriesAffected = sim?.affectedCountries.length ?? 0;
     card.innerHTML = `
-      <div class="nw-wi-card-id">${s.id}</div>
+      <div class="nw-wi-card-top">
+        <span class="nw-wi-sev ${sevClass}">${sevLabel}</span>
+        <span class="nw-wi-card-id">${s.id}</span>
+      </div>
       <div class="nw-wi-card-name">${escapeHtml(s.name)}</div>
       <div class="nw-wi-card-desc">${escapeHtml(s.description)}</div>
+      <div class="nw-wi-card-stats">
+        <span class="nw-wi-card-stat"><strong>${countriesAffected}</strong> countries</span>
+        ${maxDelta > 0 ? `<span class="nw-wi-card-stat">+${maxDelta} max Δ</span>` : ''}
+        ${s.chokepoints.length > 0 ? `<span class="nw-wi-card-stat">${s.chokepoints.length} chokepoint${s.chokepoints.length === 1 ? '' : 's'}</span>` : ''}
+      </div>
       <div class="nw-wi-card-cta">Run simulation →</div>
     `;
     grid.appendChild(card);
@@ -397,14 +412,50 @@ function injectStyles(): void {
       border-color: var(--color-accent, #ff6600);
       transform: translateY(-1px);
     }
+    .nw-wi-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.4rem;
+    }
     .nw-wi-card-id {
       font-family: var(--font-mono, 'JetBrains Mono', monospace);
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--color-text-muted, #666);
-      margin-bottom: 0.3rem;
     }
+    .nw-wi-sev {
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.5rem;
+      border-radius: 2px;
+      font-weight: 700;
+    }
+    .nw-wi-sev.sev-critical { background: rgba(220, 38, 38, 0.16); color: #fca5a5; border: 1px solid rgba(220, 38, 38, 0.5); }
+    .nw-wi-sev.sev-high     { background: rgba(255, 102, 0, 0.16); color: #ffb084; border: 1px solid rgba(255, 102, 0, 0.5); }
+    .nw-wi-sev.sev-medium   { background: rgba(234, 179, 8, 0.16); color: #fde68a; border: 1px solid rgba(234, 179, 8, 0.4); }
+    .nw-wi-sev.sev-low      { background: rgba(34, 197, 94, 0.16); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
+
+    .nw-wi-card-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0.65rem 0;
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-size: 0.7rem;
+      color: var(--color-text-muted, #999);
+    }
+    .nw-wi-card-stat {
+      padding: 0.18rem 0.5rem;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--color-border, #2a2a2a);
+      border-radius: 2px;
+    }
+    .nw-wi-card-stat strong { color: var(--color-text, #f0f0f0); font-weight: 700; }
     .nw-wi-card-name {
       font-family: 'Source Serif Pro', Georgia, serif;
       font-size: 1.1rem;

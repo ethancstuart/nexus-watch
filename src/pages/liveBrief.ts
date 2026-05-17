@@ -306,22 +306,26 @@ function injectStyles(): void {
     }
     .nw-lb-mode-toggle {
       display: inline-flex;
+      position: relative;
+      background: var(--color-surface-2, #0f0f0f);
       border: 1px solid var(--color-border, #2a2a2a);
-      border-radius: 3px;
-      overflow: hidden;
+      border-radius: 999px;
+      padding: 3px;
+      gap: 0;
     }
     .nw-lb-mode {
-      background: var(--color-surface-2, #0f0f0f);
+      background: transparent;
       color: var(--color-text-muted, #888);
       border: none;
-      padding: 0.5rem 0.95rem;
+      padding: 0.45rem 1.1rem;
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.72rem;
       letter-spacing: 0.05em;
       cursor: pointer;
-      transition: background 0.15s, color 0.15s;
+      border-radius: 999px;
+      transition: background 0.25s, color 0.25s;
+      z-index: 1;
     }
-    .nw-lb-mode + .nw-lb-mode { border-left: 1px solid var(--color-border, #2a2a2a); }
     .nw-lb-mode[aria-pressed="true"] {
       background: var(--color-accent, #ff6600);
       color: #050505;
