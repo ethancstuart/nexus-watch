@@ -236,7 +236,14 @@ export const CINEMA_PROFILES: CinemaProfile[] = [
 ];
 
 export function getProfile(id: string): CinemaProfile {
-  return CINEMA_PROFILES.find((p) => p.id === id) || CINEMA_PROFILES[0];
+  const found = CINEMA_PROFILES.find((p) => p.id === id);
+  if (!found) {
+    // Silent fallback was masking shared-view URL typos and stale profile ids.
+    // Log so the issue is visible in DevTools without breaking the app.
+    console.warn(`[cinema] Unknown profile id "${id}" — falling back to "${CINEMA_PROFILES[0].id}".`);
+    return CINEMA_PROFILES[0];
+  }
+  return found;
 }
 
 export function getProfileIds(): string[] {

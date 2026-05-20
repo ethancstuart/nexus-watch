@@ -57,12 +57,16 @@ export class CameraDirector {
     this.tourIndex = 0;
     this.enterOrbit();
 
-    // Listen for user interactions to pause
+    // Listen for user interactions to pause. dragstart catches MapLibre's
+    // keyboard nav (arrow keys) and pinch-zoom-after-touchstart paths that
+    // wouldn't fire mousedown.
     const map = this.mapView.getMap();
     if (map) {
       map.on('mousedown', this.boundPause);
       map.on('touchstart', this.boundPause);
       map.on('wheel', this.boundPause);
+      map.on('dragstart', this.boundPause);
+      map.on('boxzoomstart', this.boundPause);
     }
   }
 
@@ -78,6 +82,8 @@ export class CameraDirector {
       map.off('mousedown', this.boundPause);
       map.off('touchstart', this.boundPause);
       map.off('wheel', this.boundPause);
+      map.off('dragstart', this.boundPause);
+      map.off('boxzoomstart', this.boundPause);
     }
   }
 

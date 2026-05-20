@@ -44,6 +44,9 @@ export class CinemaMode {
   // Idle / chrome auto-hide state
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private idleHandlers: { type: string; fn: (e: Event) => void }[] = [];
+  // Window-resize handler that auto-exits cinema if the viewport shrinks
+  // below the supported minimum mid-session.
+  private resizeHandler: (() => void) | null = null;
 
   // Subsystems
   private cameraDirector: CameraDirector | null = null;
@@ -125,6 +128,29 @@ export class CinemaMode {
     } else {
       this.fastEnter();
     }
+
+    // If the viewport drops below the supported minimum mid-session, gracefully
+    // exit + show the mobile gate instead of leaving a broken layout up.
+    this.installResizeGuard();
+  }
+
+  private installResizeGuard(): void {
+    if (this.resizeHandler) return;
+    this.resizeHandler = () => {
+      if (!this.active) return;
+      if (typeof window !== 'undefined' && window.innerWidth < CINEMA_MIN_VIEWPORT_PX) {
+        this.exit();
+        this.showMobileGate();
+      }
+    };
+    window.addEventListener('resize', this.resizeHandler, { passive: true });
+  }
+
+  private removeResizeGuard(): void {
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+      this.resizeHandler = null;
+    }
   }
 
   exit(): void {
@@ -169,6 +195,7 @@ export class CinemaMode {
 
     // Tear down idle auto-hide listeners + timer
     this.teardownIdleAutoHide();
+    this.removeResizeGuard();
 
     // Remove cinema DOM
     this.profileBar?.remove();
@@ -376,9 +403,11 @@ export class CinemaMode {
     // Extract high-value events from specific layer types
     for (const item of data) {
       const d = item as Record<string, unknown>;
-      const lat = d.lat as number | undefined;
-      const lon = d.lon as number | undefined;
-      if (!lat || !lon) continue;
+      const lat = Number(d.lat);
+      const lon = Number(d.lon);
+      // Type-check instead of truthy-check — lat=0 / lon=0 are valid coords
+      // (Gulf of Guinea / prime meridian) and were being silently dropped.
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
 
       const target = this.classifyLayerEvent(layerId, d, lat, lon);
       if (!target) continue;
@@ -488,12 +517,13 @@ export class CinemaMode {
   // restores them. Persona/region top rows stay full opacity (navigational).
 
   private installIdleAutoHide(): void {
+    // Reduced-motion users keep chrome visible longer so the dim isn't
+    // jarring — CSS @media still skips the transition itself.
     const reduced =
       typeof window !== 'undefined' &&
       window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    void reduced; // CSS @media query handles reduced-motion; we keep the same
-    // class-based show/hide either way.
+    const idleMs = reduced ? CINEMA_IDLE_HIDE_MS * 3 : CINEMA_IDLE_HIDE_MS;
 
     const wake = (): void => {
       if (!this.active) return;
@@ -501,7 +531,7 @@ export class CinemaMode {
       if (this.idleTimer) clearTimeout(this.idleTimer);
       this.idleTimer = setTimeout(() => {
         if (this.active) this.config.app.classList.add('cinema-chrome-idle');
-      }, CINEMA_IDLE_HIDE_MS);
+      }, idleMs);
     };
 
     const events = ['mousemove', 'keydown', 'touchstart', 'wheel'] as const;

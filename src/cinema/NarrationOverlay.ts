@@ -34,6 +34,9 @@ export class NarrationOverlay {
   private active = false;
   private typewriterInterval: ReturnType<typeof setInterval> | null = null;
   private hideTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Incremented on every new showNarration() — older intervals bail out
+   *  when their captured token no longer matches. */
+  private narrationToken = 0;
   private focusHandler: ((e: Event) => void) | null = null;
   private lastAiCall = 0;
   private ttsEnabled = false;
@@ -156,11 +159,18 @@ export class NarrationOverlay {
     this.bodyEl.textContent = '';
     this.container.classList.add('visible');
 
+    // Per-call token: if a new narration starts before this one finishes,
+    // older interval callbacks bail out instead of appending to a body the
+    // new call already cleared.
+    this.narrationToken++;
+    const myToken = this.narrationToken;
+
     let charIndex = 0;
     const cursor = createElement('span', { className: 'cinema-narration-cursor' });
     this.bodyEl.appendChild(cursor);
 
     this.typewriterInterval = setInterval(() => {
+      if (myToken !== this.narrationToken) return; // superseded by a newer call
       if (!this.bodyEl || charIndex >= text.length) {
         if (this.typewriterInterval) clearInterval(this.typewriterInterval);
         this.typewriterInterval = null;
@@ -173,6 +183,7 @@ export class NarrationOverlay {
 
         // Hide after hold duration
         this.hideTimeout = setTimeout(() => {
+          if (myToken !== this.narrationToken) return;
           this.container?.classList.remove('visible');
         }, NARRATION_HOLD);
         return;

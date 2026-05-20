@@ -763,19 +763,10 @@
   border-radius: 2px;
 }
 
-/* Mobile: event log as bottom sheet */
-@media (max-width: 768px) {
-  .cinema-event-log {
-    top: auto;
-    bottom: 44px;
-    left: 0;
-    right: 0;
-    width: 100%;
-    height: 200px;
-    border-right: none;
-    border-top: 1px solid rgba(255, 102, 0, 0.15);
-  }
-}
+/* Cinema mode is gated to ≥1200px viewports (see CinemaMode.ts
+   CINEMA_MIN_VIEWPORT_PX), so the 768px mobile bottom-sheet rules were
+   dead. Removed to keep CSS honest — if cinema ever supports mobile,
+   restore them. */
 
 /* ── Exit Button ── */
 

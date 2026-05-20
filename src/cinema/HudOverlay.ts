@@ -144,6 +144,10 @@ export class HudOverlay {
     const label = tensionLabel(tension.global);
     const trendArrow = tension.trend === 'rising' ? '▲' : tension.trend === 'falling' ? '▼' : '—';
     this.tensionTrendEl.textContent = `${label} ${trendArrow}`;
+
+    // Spec-implied behavior: the ambient drone should track tension.
+    // Previously defined on AmbientAudio but never called.
+    this.audio?.updateTensionDrone(tension.global);
   }
 
   private updateMetrics(): void {
@@ -170,8 +174,13 @@ export class HudOverlay {
         }
       }
 
+      // Build via DOM nodes (was innerHTML) — defends against any future
+      // metric.label that contains user-supplied text. Same visual output.
       const stat = createElement('span', { className: 'cinema-hud-stat' });
-      stat.innerHTML = `<strong>${value}</strong> ${metric.label}`;
+      const strong = createElement('strong');
+      strong.textContent = String(value);
+      stat.appendChild(strong);
+      stat.appendChild(document.createTextNode(` ${metric.label}`));
       this.metricsEl.appendChild(stat);
     }
   }

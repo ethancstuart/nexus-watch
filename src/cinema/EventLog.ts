@@ -33,6 +33,10 @@ export class EventLog {
   private profile: CinemaProfile;
   private active = false;
   private eventHandler: ((e: Event) => void) | null = null;
+  /** Active severity filter — used so new entries respect the filter the
+   *  user already picked. Previously new entries always appeared even when
+   *  filtered out, polluting the visible list. */
+  private currentFilter: 'all' | 'critical' | 'elevated' | 'monitor' | 'info' = 'all';
 
   constructor(mapView: MapView, profile: CinemaProfile) {
     this.mapView = mapView;
@@ -66,7 +70,8 @@ export class EventLog {
       btn.addEventListener('click', () => {
         this.container?.querySelectorAll('.cinema-log-filter').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        const filter = (btn as HTMLElement).dataset.filter || 'all';
+        const filter = ((btn as HTMLElement).dataset.filter || 'all') as typeof this.currentFilter;
+        this.currentFilter = filter;
         this.applyFilter(filter);
       });
     });
@@ -190,6 +195,12 @@ export class EventLog {
 
     this.listEl.prepend(row);
 
+    // Respect the active filter so the just-prepended row stays hidden
+    // when it doesn't match the user's current selection.
+    if (this.currentFilter !== 'all' && entry.severity !== this.currentFilter) {
+      row.style.display = 'none';
+    }
+
     // Trim DOM
     while (this.listEl.children.length > MAX_ENTRIES) {
       this.listEl.lastChild?.remove();
@@ -205,9 +216,11 @@ export class EventLog {
 
     for (const item of data.slice(0, 3)) {
       const d = item as Record<string, unknown>;
-      const lat = Number(d.lat) || 0;
-      const lon = Number(d.lon) || 0;
-      if (!lat && !lon) continue;
+      const lat = Number(d.lat);
+      const lon = Number(d.lon);
+      // Type-check instead of truthy-check so events at lat=0 / lon=0
+      // (equator + prime meridian — Gulf of Guinea is a real place) survive.
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
 
       const classified = this.classifyEvent(layerId, d, data.length);
       if (!classified) continue;
