@@ -30,6 +30,7 @@ export class HudOverlay {
   }
 
   start(): void {
+    if (this.container) return; // idempotent: already mounted
     this.active = true;
     this.container = this.buildHUD();
     document.body.appendChild(this.container);

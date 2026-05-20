@@ -40,6 +40,7 @@ export class EventLog {
   }
 
   start(): void {
+    if (this.container) return; // idempotent: already mounted
     this.active = true;
     this.container = createElement('div', { className: 'cinema-event-log' });
     this.container.innerHTML = `
@@ -212,7 +213,9 @@ export class EventLog {
       if (!classified) continue;
 
       this.addEntry({
-        id: `${layerId}-${d.id || `${lat}-${lon}`}-${Date.now()}`,
+        // Stable id so the 5-min dedup window actually works — was including
+        // Date.now() which made every emission unique and the dedup useless.
+        id: `${layerId}-${d.id || `${lat.toFixed(2)}-${lon.toFixed(2)}`}`,
         text: classified.text,
         severity: classified.severity,
         timestamp: Date.now(),

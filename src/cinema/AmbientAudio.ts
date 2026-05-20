@@ -20,11 +20,14 @@ export class AmbientAudio {
   toggleMute(): boolean {
     this.muted = !this.muted;
     localStorage.setItem(STORAGE_KEY, String(this.muted));
-    if (this.masterGain) {
-      this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.3, this.ctx!.currentTime, 0.1);
-    }
+    // Init BEFORE adjusting gain — otherwise the first unmute on a fresh
+    // page is silent because masterGain doesn't exist yet, and the second
+    // toggle is what actually opens the gate.
     if (!this.muted && !this.ctx) {
       this.initAudio();
+    }
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.3, this.ctx.currentTime, 0.1);
     }
     return this.muted;
   }

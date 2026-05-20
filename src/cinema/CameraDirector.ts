@@ -30,12 +30,17 @@ export class CameraDirector {
   private queue: CameraTarget[] = [];
   private active = false;
   private orbitFrame: number | null = null;
+  private driftFrame: number | null = null;
   private holdTimeout: ReturnType<typeof setTimeout> | null = null;
   private stateTimeout: ReturnType<typeof setTimeout> | null = null;
   private pauseTimeout: ReturnType<typeof setTimeout> | null = null;
+  private flightWatchdog: ReturnType<typeof setTimeout> | null = null;
   private paused = false;
   private tourIndex = 0;
   private orbitStartTime = 0;
+  /** Incremented every time a fly/tour starts; lets us bail out of stale
+   *  .then() continuations after setProfile / interruption / stop. */
+  private flightToken = 0;
 
   // Event listeners for user interaction pause
   private boundPause: () => void;
@@ -64,11 +69,9 @@ export class CameraDirector {
   stop(): void {
     this.active = false;
     this.paused = false;
+    this.flightToken++; // invalidate any in-flight .then() continuations
     this.clearTimers();
-    if (this.orbitFrame) {
-      cancelAnimationFrame(this.orbitFrame);
-      this.orbitFrame = null;
-    }
+    this.cancelFrames();
 
     const map = this.mapView.getMap();
     if (map) {
@@ -81,6 +84,28 @@ export class CameraDirector {
   setProfile(profile: CinemaProfile): void {
     this.profile = profile;
     this.tourIndex = 0;
+    // Invalidate any flight in progress so the old .then() can't enter HOLDING
+    // with the previous profile's target after the profile has changed.
+    this.flightToken++;
+    this.clearTimers();
+    this.cancelFrames();
+    if (this.active && !this.paused) {
+      // Re-decide from the new profile's perspective
+      this.state = 'IDLE_ORBIT';
+      this.decideNext();
+    }
+  }
+
+  /** Cancel any RAF-driven loop (orbit or hold drift). */
+  private cancelFrames(): void {
+    if (this.orbitFrame !== null) {
+      cancelAnimationFrame(this.orbitFrame);
+      this.orbitFrame = null;
+    }
+    if (this.driftFrame !== null) {
+      cancelAnimationFrame(this.driftFrame);
+      this.driftFrame = null;
+    }
   }
 
   /** Add a target to the priority queue */
@@ -133,26 +158,26 @@ export class CameraDirector {
     if (this.holdTimeout) clearTimeout(this.holdTimeout);
     if (this.stateTimeout) clearTimeout(this.stateTimeout);
     if (this.pauseTimeout) clearTimeout(this.pauseTimeout);
+    if (this.flightWatchdog) clearTimeout(this.flightWatchdog);
     this.holdTimeout = null;
     this.stateTimeout = null;
     this.pauseTimeout = null;
+    this.flightWatchdog = null;
   }
 
   private onUserInteraction(): void {
     if (!this.active) return;
     this.paused = true;
+    this.flightToken++; // invalidate any pending flight continuation
 
-    // Stop orbit animation
-    if (this.orbitFrame) {
-      cancelAnimationFrame(this.orbitFrame);
-      this.orbitFrame = null;
-    }
+    // Stop orbit + drift animations
+    this.cancelFrames();
     this.clearTimers();
 
     // Resume after pause duration
-    if (this.pauseTimeout) clearTimeout(this.pauseTimeout);
     this.pauseTimeout = setTimeout(() => {
       this.paused = false;
+      this.pauseTimeout = null;
       if (this.active) this.decideNext();
     }, USER_PAUSE_DURATION);
   }
@@ -223,27 +248,40 @@ export class CameraDirector {
     const region = regions[index];
     this.tourIndex = index + 1;
 
-    this.mapView.flyToAsync(region.lng, region.lat, region.zoom, { duration: 3500, curve: 1.8, pitch: 30 }).then(() => {
-      if (!this.active || this.paused) return;
+    const myToken = ++this.flightToken;
+    this.armFlightWatchdog(myToken);
 
-      // Emit focus change for narration
-      document.dispatchEvent(
-        new CustomEvent('cinema:focus-change', {
-          detail: { lat: region.lat, lng: region.lng, label: region.name, source: 'tour' },
-        }),
-      );
-
-      // Hold for 6 seconds, then continue tour
-      this.holdTimeout = setTimeout(() => {
+    this.mapView
+      .flyToAsync(region.lng, region.lat, region.zoom, { duration: 3500, curve: 1.8, pitch: 30 })
+      .then(() => {
+        if (myToken !== this.flightToken) return; // stale — superseded
+        this.clearFlightWatchdog();
         if (!this.active || this.paused) return;
-        // Check queue again
-        if (this.queue.length > 0) {
-          this.flyToNext();
-        } else {
-          this.tourToRegion(regions, this.tourIndex);
-        }
-      }, 6000);
-    });
+
+        // Emit focus change for narration
+        document.dispatchEvent(
+          new CustomEvent('cinema:focus-change', {
+            detail: { lat: region.lat, lng: region.lng, label: region.name, source: 'tour' },
+          }),
+        );
+
+        // Hold for 6 seconds, then continue tour
+        this.holdTimeout = setTimeout(() => {
+          this.holdTimeout = null;
+          if (myToken !== this.flightToken) return;
+          if (!this.active || this.paused) return;
+          // Check queue again
+          if (this.queue.length > 0) {
+            this.flyToNext();
+          } else {
+            this.tourToRegion(regions, this.tourIndex);
+          }
+        }, 6000);
+      })
+      .catch(() => {
+        this.clearFlightWatchdog();
+        if (myToken === this.flightToken) this.decideNext();
+      });
   }
 
   private flyToNext(): void {
@@ -255,11 +293,11 @@ export class CameraDirector {
     const target = this.queue.shift()!;
     this.state = 'FLYING';
 
-    // Stop any orbit
-    if (this.orbitFrame) {
-      cancelAnimationFrame(this.orbitFrame);
-      this.orbitFrame = null;
-    }
+    // Stop any in-progress frames (orbit or stale drift)
+    this.cancelFrames();
+
+    const myToken = ++this.flightToken;
+    this.armFlightWatchdog(myToken);
 
     this.mapView
       .flyToAsync(target.lng, target.lat, target.zoom, {
@@ -268,14 +306,43 @@ export class CameraDirector {
         pitch: 40,
       })
       .then(() => {
+        if (myToken !== this.flightToken) return; // superseded
+        this.clearFlightWatchdog();
         if (!this.active || this.paused) return;
         this.enterHold(target);
+      })
+      .catch(() => {
+        this.clearFlightWatchdog();
+        if (myToken === this.flightToken) this.decideNext();
       });
+  }
+
+  /** Belt-and-braces: if `flyToAsync` never resolves (e.g. another flyTo
+   *  interrupts the camera mid-animation and we never see `moveend`), this
+   *  fires so the director doesn't get stuck in FLYING forever. */
+  private armFlightWatchdog(token: number): void {
+    this.clearFlightWatchdog();
+    this.flightWatchdog = setTimeout(() => {
+      this.flightWatchdog = null;
+      if (token !== this.flightToken) return;
+      if (this.state !== 'FLYING') return;
+      // Force-advance from a stuck flight
+      this.flightToken++;
+      this.decideNext();
+    }, 8000); // 3.5s fly + 4.5s slack
+  }
+
+  private clearFlightWatchdog(): void {
+    if (this.flightWatchdog) {
+      clearTimeout(this.flightWatchdog);
+      this.flightWatchdog = null;
+    }
   }
 
   private enterHold(target: CameraTarget): void {
     if (!this.active || this.paused) return;
     this.state = 'HOLDING';
+    const holdToken = this.flightToken; // pin the token for the duration of the hold
 
     // Emit focus change for narration
     document.dispatchEvent(
@@ -292,21 +359,29 @@ export class CameraDirector {
 
     const holdDuration = HOLD_DURATIONS[target.priority] ?? 5000;
 
-    // Subtle drift during hold
+    // Subtle drift during hold — uses the instance field so it can be
+    // cancelled by cancelFrames() on pause / stop / profile change.
     const map = this.mapView.getMap();
-    let driftFrame: number | null = null;
     if (map) {
-      const drift = () => {
-        if (!this.active || this.state !== 'HOLDING') return;
+      const drift = (): void => {
+        if (!this.active || this.paused || this.state !== 'HOLDING' || holdToken !== this.flightToken) {
+          this.driftFrame = null;
+          return;
+        }
         const center = map.getCenter();
         map.setCenter([center.lng + 0.001, center.lat]);
-        driftFrame = requestAnimationFrame(drift);
+        this.driftFrame = requestAnimationFrame(drift);
       };
-      driftFrame = requestAnimationFrame(drift);
+      this.driftFrame = requestAnimationFrame(drift);
     }
 
     this.holdTimeout = setTimeout(() => {
-      if (driftFrame) cancelAnimationFrame(driftFrame);
+      this.holdTimeout = null;
+      if (this.driftFrame !== null) {
+        cancelAnimationFrame(this.driftFrame);
+        this.driftFrame = null;
+      }
+      if (holdToken !== this.flightToken) return; // superseded mid-hold
       if (!this.active || this.paused) return;
       this.decideNext();
     }, holdDuration);

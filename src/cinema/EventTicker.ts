@@ -43,6 +43,7 @@ export class EventTicker {
   }
 
   start(): void {
+    if (this.container) return; // idempotent: already mounted
     this.active = true;
     this.container = createElement('div', { className: 'cinema-ticker' });
     this.track = createElement('div', { className: 'cinema-ticker-track' });
@@ -58,7 +59,8 @@ export class EventTicker {
           const severity =
             alert.severity === 'critical' ? 'critical' : alert.severity === 'elevated' ? 'elevated' : 'monitor';
           this.addEvent({
-            id: `alert-${alert.text.slice(0, 30)}-${Date.now()}`,
+            // Stable id — Date.now() was breaking the duplicate-suppression set
+            id: `alert-${alert.text.slice(0, 60)}`,
             text: alert.text,
             severity,
             lat: alert.lat ?? 0,

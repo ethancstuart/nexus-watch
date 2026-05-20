@@ -45,6 +45,7 @@ export class NarrationOverlay {
   }
 
   start(): void {
+    if (this.container) return; // idempotent: already mounted
     this.active = true;
 
     this.container = createElement('div', { className: 'cinema-narration' });
