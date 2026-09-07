@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { markdownToHtml, markdownToText } from '../_lib/markdown.js';
+import { shell, esc as shellEsc } from '../_lib/ssr-shell.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -71,93 +72,43 @@ function renderShell(opts: {
   title: string;
   description: string;
   imageUrl: string;
-  canonicalUrl: string;
+  /** Path only (e.g. `/brief/2026-09-07`) — shell() owns the origin. */
+  canonicalPath: string;
   spaRedirectUrl: string;
   /** Full brief, already rendered to semantic HTML. Empty when unavailable. */
   bodyHtml?: string;
 }): string {
-  const { date, title, description, imageUrl, canonicalUrl, spaRedirectUrl, bodyHtml } = opts;
+  const { date, title, description, imageUrl, canonicalPath, spaRedirectUrl, bodyHtml } = opts;
   const t = escapeHtml(title);
   const d = escapeHtml(description);
-  const img = escapeHtml(imageUrl);
-  const canonical = escapeHtml(canonicalUrl);
   const redirect = escapeHtml(spaRedirectUrl);
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${t}</title>
-  <meta name="description" content="${d}">
-  <link rel="canonical" href="${canonical}">
+  // ONE SSR shell (B4, 2026-09-07). This page carried the product's FOURTH
+  // private document shell — its own doctype, its own duplicated palette, its
+  // own masthead-less chrome — which is exactly the drift rule 8 exists to
+  // stop. The archive now wears api/_lib/ssr-shell.ts like /ledger and
+  // /call/:id; only the article-body styles it genuinely owns ride along.
+  const body = `
+<style>
+  .brief h2 { font-family: var(--serif, Georgia, serif); font-size: 22px; margin: 40px 0 12px; }
+  .brief h3 { font-size: 17px; margin: 28px 0 8px; }
+  .brief p, .brief li { font-size: 17px; line-height: 1.62; }
+  .brief ul, .brief ol { padding-left: 22px; }
+  .brief li { margin: 0 0 8px; }
+  .brief hr { border: 0; border-top: 1px solid var(--rule); margin: 40px 0; }
+  .more { margin-top: 48px; }
+</style>
+<div class="kicker">SITUATION BRIEF · ${shellEsc(date)}</div>
+<h1>${t}</h1>
+${bodyHtml ? `<div class="brief">${bodyHtml}</div>` : `<p class="lede">${d}</p>`}
+<p class="more"><a href="${redirect}">Open the brief archive →</a></p>`;
 
-  <!-- Open Graph -->
-  <meta property="og:type" content="article">
-  <meta property="og:title" content="${t}">
-  <meta property="og:description" content="${d}">
-  <meta property="og:image" content="${img}">
-  <meta property="og:url" content="${canonical}">
-  <meta property="og:site_name" content="NexusWatch">
-  <meta property="article:published_time" content="${escapeHtml(date)}T10:00:00Z">
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="${t}">
-  <meta name="twitter:description" content="${d}">
-  <meta name="twitter:image" content="${img}">
-
-  <!-- Structured data for search engines -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    "headline": ${JSON.stringify(title)},
-    "description": ${JSON.stringify(description)},
-    "image": ${JSON.stringify(imageUrl)},
-    "datePublished": "${escapeHtml(date)}T10:00:00Z",
-    "dateModified": "${escapeHtml(date)}T10:00:00Z",
-    "author": { "@type": "Organization", "name": "NexusWatch" },
-    "publisher": {
-      "@type": "Organization",
-      "name": "NexusWatch",
-      "logo": { "@type": "ImageObject", "url": "https://nexuswatch.dev/icon-512.png" }
-    },
-    "mainEntityOfPage": ${JSON.stringify(canonicalUrl)}
-  }
-  </script>
-
-  <!-- No meta refresh. Google treats a zero-second refresh as a redirect and
-       passes indexing to the target, which was a hash fragment and therefore
-       not indexable — so 132 briefs of real daily writing indexed as nothing.
-       The full brief is rendered below instead; this page IS the article. -->
-  <style>
-    body { background: #faf8f3; color: #12161c; font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; margin: 0; }
-    .wrap { max-width: 680px; margin: 64px auto; padding: 0 32px; }
-    .brief { text-align: left; }
-    .brief h2 { font-family: 'Tiempos Headline', Georgia, serif; font-size: 22px; margin: 40px 0 12px; }
-    .brief h3 { font-size: 17px; margin: 28px 0 8px; }
-    .brief p, .brief li { font-size: 17px; line-height: 1.62; color: #12161c; }
-    .brief ul, .brief ol { padding-left: 22px; }
-    .brief li { margin: 0 0 8px; }
-    .brief hr { border: 0; border-top: 1px solid #c9c3b4; margin: 40px 0; }
-    .more { margin-top: 48px; }
-    .kicker { font-family: 'JetBrains Mono', Menlo, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: #9a1b1b; text-transform: uppercase; margin-bottom: 12px; }
-    h1 { font-family: 'Tiempos Headline', Georgia, serif; font-size: 32px; font-weight: 600; margin: 0 0 16px 0; }
-    p { font-size: 15px; line-height: 1.6; color: #3b4252; margin: 0 0 24px 0; }
-    a { color: #9a1b1b; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; border: 1px solid #c9c3b4; padding: 12px 24px; border-radius: 4px; display: inline-block; }
-    a:hover { border-color: #9a1b1b; }
-  </style>
-</head>
-<body>
-  <article class="wrap">
-    <div class="kicker">SITUATION BRIEF · ${escapeHtml(date)}</div>
-    <h1>${t}</h1>
-    ${bodyHtml ? `<div class="brief">${bodyHtml}</div>` : `<p>${d}</p>`}
-    <p class="more"><a href="${redirect}">Open NexusWatch →</a></p>
-  </article>
-</body>
-</html>`;
+  return shell(body, {
+    title,
+    description,
+    canonicalPath,
+    ogImage: imageUrl,
+  });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -182,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         description:
           'NexusWatch publishes a daily three-minute geopolitical intelligence scan every morning at 5 AM ET.',
         imageUrl: 'https://nexuswatch.dev/api/brief/screenshot?size=og',
-        canonicalUrl: 'https://nexuswatch.dev/briefs',
+        canonicalPath: '/briefs',
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
       }),
     );
@@ -196,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         title: `NexusWatch Situation Brief · ${date}`,
         description: 'Daily geopolitical intelligence from NexusWatch.',
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
-        canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
+        canonicalPath: `/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
       }),
     );
@@ -250,7 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         title,
         description,
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
-        canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
+        canonicalPath: `/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
         bodyHtml,
       }),
@@ -264,7 +215,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         title: `NexusWatch Situation Brief · ${date}`,
         description: 'Daily geopolitical intelligence from NexusWatch.',
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
-        canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
+        canonicalPath: `/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
       }),
     );
