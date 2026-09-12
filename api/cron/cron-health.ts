@@ -144,12 +144,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       if (alerts.length > 0) ledgerIssue = { checkDate, alerts: alerts.map((a) => a.key) };
     } catch (err) {
-      console.error('[cron-health] ledger truth check failed:', err instanceof Error ? err.message : err);
+      // A check that cannot run is not a clean check. Paged with a stable key:
+      // one notification, reminders while it persists, and the first run that
+      // evaluates the ledger again stands it down through clearStaleAlerts.
+      // The previous version logged and moved on, and the run reported
+      // healthy while nothing was watching whether the resolver ran.
+      const why = err instanceof Error ? err.message : String(err);
+      console.error('[cron-health] ledger truth check failed:', why);
+      await raiseAlert({
+        key: 'ledger:check-failed',
+        severity: 'critical',
+        title: 'cron-health could not evaluate the ledger',
+        body:
+          `The ledger truth check threw and no verdict was reached: ${why.slice(0, 300)}\n\n` +
+          `Until it runs again, nothing is watching whether resolve-calls ran or skipped a row.`,
+      });
+      ledgerIssue = { checkDate: checkDateFor(runStartedAt), alerts: ['ledger:check-failed'] };
     }
   }
 
-  let downEndpoints = status.endpoints.filter((e) => e.status === 'down');
-  let degradedEndpoints = status.endpoints.filter((e) => e.status === 'degraded');
+  // Derived from "not ok", so a state /api/status has not taught this file
+  // about is an issue by default rather than a clean bill by omission. DOWN is
+  // the one state that pages without a second look; everything else that is
+  // not ok is treated as degraded and re-checked below.
+  const classify = (s: StatusPayload) => ({
+    down: s.endpoints.filter((e) => e.status === 'down'),
+    degraded: s.endpoints.filter((e) => e.status !== 'ok' && e.status !== 'down'),
+  });
+  let { down: downEndpoints, degraded: degradedEndpoints } = classify(status);
 
   // A SLOW reading has to survive a second look before it pages. Nothing is
   // down, something is merely slow: give the cold function a moment to warm
@@ -162,8 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const second = await fetchStatus(host);
       status = second;
-      downEndpoints = second.endpoints.filter((e) => e.status === 'down');
-      degradedEndpoints = second.endpoints.filter((e) => e.status === 'degraded');
+      ({ down: downEndpoints, degraded: degradedEndpoints } = classify(second));
       recheck = downEndpoints.length + degradedEndpoints.length === 0 ? 'cleared' : 'confirmed';
     } catch (err) {
       recheck = 'failed';

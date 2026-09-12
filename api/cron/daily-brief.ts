@@ -828,6 +828,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // === Generate AI brief (outputs markdown text) ===
     let briefText: string;
     let aiDebug: string | null = null;
+    // Set BY THE GATE that refused, at the branch that refused — never
+    // recovered afterwards from the label string. The fallback alarm reads
+    // this to tell "the gates did their job" from "the machinery failed".
+    let gateRefusal = false;
     let grounding: GroundingReport | null = null;
     // The model's declared subject. Cleared if a gate refuses the draft — a
     // subject describing a refused issue must never ship with the fallback.
@@ -1152,6 +1156,7 @@ ${(() => {
             if (!grounding.pass) {
               aiDebug = `grounding-failed: ${grounding.unsupported.length}/${grounding.draftNumerals.length} unsupported numerals [${grounding.unsupported.slice(0, 8).join(', ')}]`;
               console.error('[daily-brief] GROUNDING GATE REFUSED THE DRAFT:', aiDebug);
+              gateRefusal = true;
               declaredSubject = null;
               briefText = buildFallbackText(briefData);
             } else if (!structure.pass) {
@@ -1161,6 +1166,7 @@ ${(() => {
               // is refused the same way an ungrounded one is.
               aiDebug = `structure-failed: missing=[${structure.missing.join('; ')}] extra=[${structure.extra.join('; ')}]${structure.misordered ? ' misordered' : ''}${structure.missingChangeOurMind ? ' no-change-our-mind-clause' : ''}`;
               console.error('[daily-brief] STRUCTURE GATE REFUSED THE DRAFT:', aiDebug);
+              gateRefusal = true;
               declaredSubject = null;
               briefText = buildFallbackText(briefData);
             } else {
@@ -1346,13 +1352,13 @@ ${(() => {
     try {
       if (onFallback) {
         const cause = aiDebug ?? 'unknown';
-        // The GATE REFUSALS are the closed, known set — grounding and structure
-        // are the only two gates. Everything else that is not success is the
-        // machinery failing (credit, key, transport, an empty response) and
-        // pages CRITICAL by default. The first draft enumerated the failures
-        // instead and missed `ai-empty-response`, which already existed; an
-        // independent review caught it. A new failure label now fails closed.
-        const gateRefusal = cause.startsWith('grounding-failed') || cause.startsWith('structure-failed');
+        // gateRefusal was set by the gate that refused, so a refusal is a
+        // WARNING (the gates working) and anything else that is not success is
+        // the machinery failing — credit, key, transport, an empty response —
+        // and pages CRITICAL by default: a new failure label fails closed. The
+        // first draft enumerated failure prefixes and missed `ai-empty-response`;
+        // the second enumerated gate prefixes; both read a string where a flag
+        // belonged. Two independent reviews, one each.
         await raiseAlert({
           key: 'brief:fallback',
           severity: gateRefusal ? 'warning' : 'critical',
