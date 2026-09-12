@@ -390,11 +390,11 @@ const HEAL_FAILURE_THRESHOLD = 3;
 /**
  * Attempt a proxy cache-bust on a layer that's currently red.
  *
- * For layers whose probeUrl starts with `/api/` (i.e., our own
- * serverless proxies), this forces a refetch with a cache-bust
- * query param, bypassing any edge cache on the proxy route. For
- * layers that probe external URLs directly, this is a no-op — there's
- * nothing we can do server-side to flush a third-party cache.
+ * Only for layers whose active source is one of our own `/api/` proxies:
+ * it forces a refetch with a cache-bust query param, bypassing any edge
+ * cache on the proxy route. The caller, maybeHealLayer, declines external
+ * sources before calling — there is nothing we can do server-side to flush
+ * a third-party cache, and no row is written for not doing it.
  *
  * Returns the outcome shape the caller records in data_health_actions.
  * Never throws; captures errors into the returned object so the cron's

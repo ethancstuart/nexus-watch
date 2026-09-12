@@ -44,9 +44,15 @@ mkdir -p "$OUT"
 # read the pre-merge src/config/data-sources.ts from a sibling worktree on an
 # older branch. `git archive` puts the branch's own tree under the snapshot, so
 # every path Codex can reach from a reviewed file is the branch's.
+git rev-parse --verify -q "$BRANCH^{commit}" >/dev/null || { echo "no such branch: $BRANCH" >&2; exit 2; }
 rm -rf "$OUT/snapshot"
 mkdir -p "$OUT/snapshot"
 git archive "$BRANCH" | tar -x -C "$OUT/snapshot"
+# No symlinks in the snapshot: a reviewed path must be a plain file, and
+# nothing Codex reads from here may point outside it. (The review of this
+# change noticed that a materialised symlink plus a redirect into the
+# snapshot would have written wherever the branch pointed it.)
+find "$OUT/snapshot" -type l -delete
 
 if [ -n "$ONLY_FILE" ]; then
   FILES="$ONLY_FILE"
@@ -75,9 +81,9 @@ for f in $FILES; do
   BRIEF="$OUT/brief-$SAFE.txt"
   REVIEW="$OUT/review-$SAFE.txt"
   SNAP="$OUT/snapshot/$f"
-  mkdir -p "$(dirname "$SNAP")"
-  git show "$BRANCH:$f" > "$SNAP" 2>/dev/null || {
-    echo "  $f — SKIPPED (not present on $BRANCH)"; continue; }
+  # The archive above already holds the branch's copy, so this is an
+  # existence check and not a write.
+  [ -f "$SNAP" ] || { echo "  $f — SKIPPED (not present on $BRANCH)"; continue; }
   ABS="$(cd "$(dirname "$SNAP")" && pwd)/$(basename "$SNAP")"
 
   # MATERIALISE THE BRANCH VERSION, and do not trust the working tree.

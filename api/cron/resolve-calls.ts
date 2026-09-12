@@ -11,6 +11,13 @@ import { usgsCountUrl, type RegionBox } from '../_lib/seismicity.js';
 import { raiseAlert, clearAlert } from '../_lib/alert.js';
 
 /**
+ * Rows one run takes. Published beside `taken` so a reader who sees
+ * `taken === page_size` knows they are looking at a page, not a total; the
+ * total is `due`, counted without a bound.
+ */
+const DUE_PAGE_SIZE = 500;
+
+/**
  * EVIDENCE UNITS ARE PER KIND, and the column is an INTEGER — a fact this
  * file learned on 2026-09-06, the first FX resolution day, when it wrote the
  * measured move (e.g. "1.12") into evidence_count and threw
@@ -80,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       FROM calls
       WHERE status = 'pending' AND resolves_on <= CURRENT_DATE
       ORDER BY resolves_on ASC
-      LIMIT 500
+      LIMIT ${DUE_PAGE_SIZE}
     `) as unknown as DueCall[];
 
     // THE PAGE IS BOUNDED; THE COUNT MUST NOT BE. `due` in the response was
@@ -370,8 +377,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ok: true,
       /** Rows that were due — unbounded, never a page size. */
       due: dueTotal,
-      /** Rows this run took — bounded by the page. When short, `truncated` says so and an alarm is raised. */
+      /** Rows this run took — bounded by `page_size`. When short, `truncated` says so and an alarm is raised. */
       taken: due.length,
+      page_size: DUE_PAGE_SIZE,
       truncated,
       resolved: hits + misses,
       hits,

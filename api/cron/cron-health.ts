@@ -207,11 +207,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ),
     ...degradedEndpoints.map((e) => `SLOW  ${e.path} — ${e.latencyMs}ms`),
   ].join('\n');
-  // Keyed on WHICH endpoints are affected, not on the message. Latencies
-  // change every run ("3934ms"), so keying on the body would have deduped
-  // nothing and sent the flood anyway.
-  const affected = [...downEndpoints, ...degradedEndpoints].map((e) => e.path).sort();
-  const key = `endpoints:${affected.join(',')}`;
+  // Keyed on WHICH endpoints are affected AND HOW, not on the message.
+  // Latencies change every run ("3934ms"), so keying on the body would have
+  // deduped nothing and sent the flood anyway. The state is part of the key
+  // so an endpoint that goes from slow to down is a NEW condition and pages
+  // at once, instead of being swallowed by the slow alarm's reminder cadence;
+  // the slow alarm is then stood down as stale. An independent review found
+  // the key without the state.
+  const down = downEndpoints.map((e) => e.path).sort();
+  const slow = degradedEndpoints.map((e) => e.path).sort();
+  const key = `endpoints:down=${down.join(',')};slow=${slow.join(',')}`;
   const alert = await raiseAlert({
     key,
     title: `${issuesCount} endpoint issue(s) on nexuswatch.dev`,
