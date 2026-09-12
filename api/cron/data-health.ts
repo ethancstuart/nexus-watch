@@ -500,8 +500,12 @@ async function maybeHealLayer(
   row: ProbedRow,
   layer: LayerConfig,
   base: string | undefined,
-): Promise<void> {
-  if (row.status !== 'red' || row.consecutiveFailures < HEAL_FAILURE_THRESHOLD) return;
+): Promise<boolean> {
+  // Returns whether a heal was actually attempted, so the caller's count is
+  // a count of attempts and not of intentions: it used to increment before
+  // this function could decline, and would have reported an attempt for
+  // every external-probe layer that produced no action row.
+  if (row.status !== 'red' || row.consecutiveFailures < HEAL_FAILURE_THRESHOLD) return false;
 
   // NOTHING TO HEAL, NOTHING TO RECORD. A cache-bust only means something for
   // our own /api/ proxies; for a layer that probes a third party directly the
@@ -512,7 +516,7 @@ async function maybeHealLayer(
     layer.primary.name === row.activeSource
       ? layer.primary
       : (layer.fallbacks.find((f) => f.name === row.activeSource) ?? layer.primary);
-  if (!activeSource.probeUrl.startsWith('/api/')) return;
+  if (!activeSource.probeUrl.startsWith('/api/')) return false;
 
   // Rate-limit: one heal attempt per layer per hour. Prevents the
   // cron from spamming action rows on a persistently-down upstream.
@@ -524,7 +528,7 @@ async function maybeHealLayer(
         AND created_at > NOW() - INTERVAL '1 hour'
       LIMIT 1
     `) as unknown as Array<{ id: number }>;
-    if (recent.length > 0) return;
+    if (recent.length > 0) return false;
   } catch (err) {
     console.error('[data-health] heal rate-limit check failed (continuing):', err instanceof Error ? err.message : err);
   }
@@ -544,6 +548,7 @@ async function maybeHealLayer(
   } catch (err) {
     console.error('[data-health] heal audit insert failed (non-fatal):', err instanceof Error ? err.message : err);
   }
+  return true;
 }
 
 /**
@@ -659,14 +664,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
 
       // Track D.2 — attempt a heal action if this layer meets the
-      // criteria. maybeHealLayer runs its own status/threshold check
-      // internally AND self-rate-limits (one attempt per layer per
-      // hour). Counted in summary only when criteria are met here so
-      // the cron response reflects actual attempts, not skipped ones.
+      // criteria. maybeHealLayer runs its own status/threshold check, the
+      // "is there anything we can do" check, and the hourly rate-limit, and
+      // says whether it actually attempted one. The count follows its
+      // answer, so the cron response reflects attempts and not intentions.
       const layerConfig = layerConfigById.get(row.layer);
-      if (layerConfig && row.status === 'red' && row.consecutiveFailures >= HEAL_FAILURE_THRESHOLD) {
+      if (layerConfig && (await maybeHealLayer(sql, row, layerConfig, base))) {
         summary.heals_attempted++;
-        await maybeHealLayer(sql, row, layerConfig, base);
       }
     }
 

@@ -12,6 +12,7 @@ import {
   type ScoredCall,
 } from './_lib/calls.js';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
+import { nextResolutionFloor } from './_lib/ledger-truth.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -118,17 +119,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       resolved_at: string | null;
     }>;
 
+    const nextFloor = nextResolutionFloor(new Date());
     const totals = (await sql`
       SELECT
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
         COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind <> 'seismicity_window')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
-        -- A FUTURE date, or null — the same defect PR #37 fixed in the brief.
-        -- This value is printed on the public page as "first resolves …" and
-        -- read 2026-09-06 six days later, and it selects the cohort the due
-        -- projection below describes, which was therefore the held cohort
-        -- rather than the next one.
-        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on > CURRENT_DATE)::text AS next_resolves,
+        -- The next resolution EVENT, or null. This value is printed on the
+        -- public page as "first resolves …" — it read 2026-09-06 six days
+        -- later — and it selects the cohort the due projection below
+        -- describes. The floor is today until the resolver has settled today's
+        -- cohort and tomorrow after (ledger-truth.ts, nextResolutionFloor), so
+        -- a cohort due today but not yet attempted is still "next".
+        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on >= ${nextFloor}::date)::text AS next_resolves,
         MIN(made_on)::text AS first_call
       FROM calls
     `) as unknown as Array<{

@@ -2412,7 +2412,7 @@ function renderDossierInner(
  * the whole document is on the outer card. So a phone client that honoured
  * the declaration (iOS Mail, Apple Mail, Outlook iOS) turned every background
  * near-black via `body, table, td { !important }` while all 42 text elements
- * kept their inline graphite `color:#12161C` — black on black, reported by the
+ * kept their inline graphite text colour — black on black, reported by the
  * owner on 2026-09-12 as "the email is also black and you can't read
  * anything".
  *

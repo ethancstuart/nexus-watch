@@ -13,6 +13,7 @@ import {
   type ScoredCall,
 } from '../_lib/calls.js';
 import { assembleByKind } from '../_lib/ledger-by-kind.js';
+import { nextResolutionFloor } from '../_lib/ledger-truth.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -101,6 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // must never feed a published statistic.
 
     // The whole book, from the table — the source of every published count.
+    const nextFloor = nextResolutionFloor(new Date());
     const totalsRows = (await sql`
       SELECT
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
@@ -108,11 +110,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
         COUNT(*) FILTER (WHERE status = 'pending' AND kind = 'seismicity_window')::int AS calibration_open,
         COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind = 'seismicity_window')::int AS calibration_resolved,
-        -- A FUTURE date, or null. PR #37 fixed this in the brief's query and not
-        -- here: a bare MIN over pending rows picks up grace-held calls whose
-        -- date has passed, and this endpoint answered "next_resolves_on:
-        -- 2026-09-06" on 2026-09-12. Held rows are open; they are not "next".
-        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on > CURRENT_DATE)::text AS next_resolves_on,
+        -- The next resolution EVENT, or null. A bare MIN over pending rows picks
+        -- up grace-held calls whose date has passed: this endpoint answered
+        -- "next_resolves_on: 2026-09-06" on 2026-09-12. The floor is today
+        -- until the resolver has settled today's cohort and tomorrow after
+        -- (ledger-truth.ts, nextResolutionFloor), so a cohort due today but
+        -- not yet attempted is still next. No backticks in this comment: it
+        -- lives inside a template literal.
+        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on >= ${nextFloor}::date)::text AS next_resolves_on,
         MIN(made_on)::text AS first_call_on
       FROM calls
     `) as unknown as Array<{
