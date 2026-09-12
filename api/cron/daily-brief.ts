@@ -1220,8 +1220,16 @@ ${(() => {
         resolved_at: string | null;
       }>;
 
+      // "next resolves" must be a FUTURE date. A bare MIN(resolves_on) over
+      // pending rows picks up grace-held calls whose resolves_on has already
+      // passed (due but unresolvable, held under UNRESOLVABLE_GRACE_DAYS), so
+      // the published line read "next resolves 2026-09-05" two days after
+      // 09-05. Held rows still count as open; they just aren't "next" — the
+      // next resolution EVENT is the next scheduled resolves_on. The brief
+      // runs after the resolver, so anything due today has been attempted.
       const openRows = (await sql`
-        SELECT COUNT(*)::int AS n, MIN(resolves_on)::text AS next_resolves
+        SELECT COUNT(*)::int AS n,
+               (MIN(resolves_on) FILTER (WHERE resolves_on > CURRENT_DATE))::text AS next_resolves
         FROM calls WHERE status = 'pending' AND NOT (kind = ANY(${calKinds}))
       `) as unknown as Array<{ n: number; next_resolves: string | null }>;
 

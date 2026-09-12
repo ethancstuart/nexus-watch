@@ -393,6 +393,22 @@ describe('formatLedgerSummary — the standing line at the top of the brief', ()
     expect(line).not.toContain('%');
     expect(line).toContain('37 open');
   });
+
+  it('omits "next resolves" entirely when no future date exists', () => {
+    // The daily-brief query filters MIN(resolves_on) to FUTURE dates only —
+    // grace-held rows past their resolves_on must never surface as "next
+    // resolves <past date>" (the published line read "next resolves
+    // 2026-09-05" on 09-07). When every open call is past-due-held, the
+    // honest line is the bare open count, not a date.
+    const line = formatLedgerSummary({
+      resolvedToday: [mk('hit')],
+      scored: [],
+      openCount: 12,
+      nextResolvesOn: null,
+    });
+    expect(line).toContain('12 open');
+    expect(line).not.toContain('next resolves');
+  });
 });
 
 describe('fxThreshold — calibrated per currency, not a fixed percentage', () => {
