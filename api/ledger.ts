@@ -123,7 +123,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
         COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind <> 'seismicity_window')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
-        MIN(resolves_on) FILTER (WHERE status = 'pending')::text AS next_resolves,
+        -- A FUTURE date, or null — the same defect PR #37 fixed in the brief.
+        -- This value is printed on the public page as "first resolves …" and
+        -- read 2026-09-06 six days later, and it selects the cohort the due
+        -- projection below describes, which was therefore the held cohort
+        -- rather than the next one.
+        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on > CURRENT_DATE)::text AS next_resolves,
         MIN(made_on)::text AS first_call
       FROM calls
     `) as unknown as Array<{

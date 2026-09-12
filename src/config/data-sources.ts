@@ -132,8 +132,13 @@ export const DATA_SOURCES: LayerConfig[] = [
   {
     id: 'ucdp',
     primary: {
-      name: 'ucdp-api',
-      probeUrl: 'https://ucdpapi.pcr.uu.se/api/gedevents/25.1?pagesize=1',
+      name: 'ucdp-downloads',
+      // Probe what the collector calls. source-ucdp.ts never touches the GED
+      // API — it scrapes the downloads page for the CSV release, tokenless.
+      // The API endpoint this used to probe began answering 401 on
+      // 2026-09-12, which turned the layer red on the public status page for
+      // a path the product does not use.
+      probeUrl: 'https://ucdp.uu.se/downloads/',
       probeTimeoutMs: DEFAULT_TIMEOUT_MS,
       freshnessWindowSeconds: FRESH_30D,
     },

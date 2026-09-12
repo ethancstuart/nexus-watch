@@ -261,13 +261,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let row: BriefRow | null;
   try {
     const sql = neon(dbUrl);
+    // brief_date::text — the driver hands a DATE column back as a Date object,
+    // and renderFallbackSvg calls .replace() on it. Five 500s in the week of
+    // 2026-09-07 ("date.replace is not a function"), every one on the fallback
+    // path, which is the path the Map of the Day <img> and the OG cards take
+    // when there is no rendered screenshot. BriefRow declares a string; the
+    // cast makes that true instead of assumed.
     const rows = dateParam
       ? ((await sql`
-          SELECT brief_date, content FROM daily_briefs
+          SELECT brief_date::text AS brief_date, content FROM daily_briefs
           WHERE brief_date = ${dateParam} LIMIT 1
         `) as unknown as BriefRow[])
       : ((await sql`
-          SELECT brief_date, content FROM daily_briefs
+          SELECT brief_date::text AS brief_date, content FROM daily_briefs
           ORDER BY brief_date DESC LIMIT 1
         `) as unknown as BriefRow[]);
     row = rows[0] ?? null;

@@ -503,6 +503,17 @@ async function maybeHealLayer(
 ): Promise<void> {
   if (row.status !== 'red' || row.consecutiveFailures < HEAL_FAILURE_THRESHOLD) return;
 
+  // NOTHING TO HEAL, NOTHING TO RECORD. A cache-bust only means something for
+  // our own /api/ proxies; for a layer that probes a third party directly the
+  // "heal" was a no-op that still wrote a `succeeded` row every hour. ucdp did
+  // that 24 times a day from 2026-09-11 while its upstream answered 401 — an
+  // audit trail of nothing, filed as success.
+  const activeSource =
+    layer.primary.name === row.activeSource
+      ? layer.primary
+      : (layer.fallbacks.find((f) => f.name === row.activeSource) ?? layer.primary);
+  if (!activeSource.probeUrl.startsWith('/api/')) return;
+
   // Rate-limit: one heal attempt per layer per hour. Prevents the
   // cron from spamming action rows on a persistently-down upstream.
   try {
@@ -672,7 +683,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // keep and which we drop.
     await sql`DELETE FROM data_health_actions WHERE created_at < NOW() - INTERVAL '30 days'`;
 
-    return res.json(summary);
+    // THE CURRENT TABLE DESCRIBES THE CATALOGUE, NOT ITS HISTORY. A layer that
+    // leaves DATA_SOURCES stops being probed, and a row nobody probes is
+    // frozen at whatever it last read. When the Intel Map's thirty layers were
+    // deleted on 2026-09-06, twenty-four of them froze RED at 15:15 UTC that
+    // day — and /api/public/status, which reads this table whole, showed a wall
+    // of red for layers that no longer existed for six days. Derived from the
+    // catalogue on every run, so the next deletion cleans up after itself.
+    const catalogue = DATA_SOURCES.map((l) => l.id);
+    const pruned = (await sql`
+      DELETE FROM data_health_current WHERE NOT (layer = ANY(${catalogue})) RETURNING layer
+    `) as unknown as Array<{ layer: string }>;
+    if (pruned.length > 0) {
+      console.log(
+        `[data-health] pruned ${pruned.length} row(s) for layers no longer in DATA_SOURCES: ${pruned.map((p) => p.layer).join(', ')}`,
+      );
+    }
+
+    return res.json({ ...summary, pruned: pruned.map((p) => p.layer) });
   } catch (err) {
     console.error('data-health cron error:', err instanceof Error ? err.message : err);
     return res.status(500).json({ error: 'data-health cron failed' });

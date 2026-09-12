@@ -108,7 +108,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
         COUNT(*) FILTER (WHERE status = 'pending' AND kind = 'seismicity_window')::int AS calibration_open,
         COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind = 'seismicity_window')::int AS calibration_resolved,
-        MIN(resolves_on) FILTER (WHERE status = 'pending')::text AS next_resolves_on,
+        -- A FUTURE date, or null. PR #37 fixed this in the brief's query and not
+        -- here: a bare MIN over pending rows picks up grace-held calls whose
+        -- date has passed, and this endpoint answered "next_resolves_on:
+        -- 2026-09-06" on 2026-09-12. Held rows are open; they are not "next".
+        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on > CURRENT_DATE)::text AS next_resolves_on,
         MIN(made_on)::text AS first_call_on
       FROM calls
     `) as unknown as Array<{

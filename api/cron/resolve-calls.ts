@@ -238,7 +238,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               const why =
                 `resolver coverage ${coveredDays}/${req.minDays} days, ` +
                 `${observed}/${req.minMeasurements} measurements in [${call.made_on}, ${call.resolves_on}]`;
-              console.error(`[resolve-calls] call ${call.id} (${call.country_code}) unresolvable — ${why}`);
+              // warn, not error: an unresolvable settlement is the published
+              // rule doing its job, not a fault. Logged at error level it filled
+              // Vercel's error dashboard with ~280 "errors" in the week of
+              // 2026-09-07 and buried the two real ones.
+              console.warn(`[resolve-calls] call ${call.id} (${call.country_code}) unresolvable — ${why}`);
 
               // GRACE FIRST. Marking terminally on the resolution day removes the
               // call from the retry set forever, because this job only ever
