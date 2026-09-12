@@ -83,6 +83,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       LIMIT 500
     `) as unknown as DueCall[];
 
+    // THE PAGE IS BOUNDED; THE COUNT MUST NOT BE. `due` in the response was
+    // `due.length`, so on a day 520 calls were due it would have read 500 —
+    // the whole day's work, apparently — while twenty rows silently waited for
+    // tomorrow. A published count equal to a page size is the defect this
+    // repo has legislated against more than once, and cron-health's alarm
+    // body tells the operator to read this very response. Today's cohort is
+    // about a hundred rows; a resolver that is down for five days reaches
+    // the bound.
+    const dueTotalRows = (await sql`
+      SELECT COUNT(*)::int AS n FROM calls WHERE status = 'pending' AND resolves_on <= CURRENT_DATE
+    `) as unknown as Array<{ n: number }>;
+    const dueTotal = dueTotalRows[0]?.n ?? due.length;
+    if (dueTotal > due.length) {
+      console.warn(
+        `[resolve-calls] ${dueTotal} calls due but only ${due.length} taken this run — the rest wait for the next`,
+      );
+    }
+
     let hits = 0;
     let misses = 0;
     let unresolvable = 0;
@@ -330,7 +348,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       ok: true,
+      /** Rows this run took — bounded by the page. */
       due: due.length,
+      /** Rows that were due — unbounded. When these differ, `truncated` says so. */
+      due_total: dueTotal,
+      truncated: dueTotal > due.length,
       resolved: hits + misses,
       hits,
       misses,

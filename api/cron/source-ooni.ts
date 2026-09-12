@@ -251,7 +251,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
-  result.skipped = order.slice(next);
+  // APPEND, never assign: collect() has already recorded the countries whose
+  // late responses were not allowed to start their writes, and an assignment
+  // here threw exactly that evidence away. An independent review caught it.
+  result.skipped.push(...order.slice(next));
   result.elapsed_ms = Date.now() - startedAt;
 
   console.log(
