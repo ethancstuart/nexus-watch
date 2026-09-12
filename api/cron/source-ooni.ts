@@ -32,10 +32,13 @@ export const config = { runtime: 'nodejs', maxDuration: 180 };
  *   - BOUNDED CONCURRENCY instead of a serial walk with a courtesy delay.
  *   - A BACKFILL WINDOW, so a day missed by one run is picked up by the next.
  *     The upsert has always been idempotent; only the window was too narrow.
- *   - A DEADLINE with slack. When the budget is nearly spent the run stops
- *     starting countries and reports them as `skipped`, which is a fact in
- *     the log rather than a 504 in the dashboard — and with thinnest-first,
- *     what gets skipped is the well-covered tail with three runs left today.
+ *   - A DEADLINE with slack, governing work in flight as well as work not yet
+ *     started: each request's timeout is capped at the time remaining, and no
+ *     batch of writes begins past the deadline. What could not be done is
+ *     reported as `skipped` — a fact in the log rather than a 504 in the
+ *     dashboard — and with thinnest-first, what gets skipped is the
+ *     well-covered tail with three runs left today. The residual overrun is
+ *     one in-flight database write, which is milliseconds.
  */
 
 /** The countries the register watches. Membership is a product decision; ORDER is not — see thinnestFirst. */
@@ -165,10 +168,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     `) as unknown as Array<{ country_code: string; n: number }>;
     for (const c of counts) rowsInLookback.set(c.country_code, c.n);
   } catch (err) {
-    console.error(
-      '[source-ooni] coverage count failed; fetching in list order:',
-      err instanceof Error ? err.message : err,
-    );
+    const why = err instanceof Error ? err.message : String(err);
+    console.error('[source-ooni] coverage count failed; fetching in list order:', why);
+    // In the result too, not only the log: a run that silently lost its
+    // ordering would look identical to one that had it.
+    result.errors.push(`coverage-count: ${why} (fetched in list order)`);
   }
   const order = thinnestFirst(PROBE_COUNTRIES, rowsInLookback);
   result.order_head = order.slice(0, 8);
@@ -178,8 +182,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   async function collect(cc: string): Promise<void> {
     const url = `${OONI_API}/aggregation?probe_cc=${cc}&since=${since}&until=${today}&test_name=web_connectivity&axis_x=measurement_start_day`;
+    // The request budget is the smaller of the per-request timeout and what
+    // is left before the deadline, so a request started late cannot carry the
+    // run past the function's limit. The deadline governs work in flight,
+    // not only the decision to start it.
+    const budgetMs = Math.max(1_000, Math.min(REQUEST_TIMEOUT_MS, deadline - Date.now()));
     const r = await fetch(url, {
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(budgetMs),
       headers: { 'User-Agent': 'NexusWatch/1.0 (+https://nexuswatch.dev)' },
     });
     if (!r.ok) {
@@ -193,6 +202,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     for (const item of items) {
+      // A late response does not get to start a batch of writes past the
+      // deadline; the country is reported as skipped and the backfill window
+      // picks its days up on the next run.
+      if (Date.now() >= deadline) {
+        result.skipped.push(cc);
+        return;
+      }
       await sql`
         INSERT INTO ooni_measurements
           (country_code, test_name, measurement_date, anomaly_count, confirmed_blocked, total_measurements)
