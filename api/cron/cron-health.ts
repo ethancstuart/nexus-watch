@@ -1,24 +1,36 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { raiseAlert, clearStaleAlerts } from '../_lib/alert.js';
+import { checkDateFor, ledgerTruthVerdict, PAST_GRACE_DAYS } from '../_lib/ledger-truth.js';
 import { neon } from '@neondatabase/serverless';
 
-export const config = { runtime: 'nodejs', maxDuration: 30 };
+// 60, not 30: a degraded reading is now re-checked before it pages (below),
+// and that is a second /api/status round trip after a short wait.
+export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 /**
- * Cron health monitor.
+ * Cron health monitor. Runs every 30 minutes via vercel.json `crons`.
  *
- * Pings the production /api/status endpoint and posts a Discord alert
- * if any monitored endpoint is degraded or down. Runs every 30 minutes
- * via vercel.json `crons`.
+ * Two checks, both delivered through raiseAlert — Discord when configured,
+ * otherwise email to ADMIN_EMAILS through Resend:
  *
- * Also surfaces a "cron lag" warning: any cron whose last successful
- * run is more than 2x its expected interval (tracked via
- * dashview-cron-stats KV record). For now we infer health from /api/status.
+ *   1. ENDPOINTS. Pings /api/status. An endpoint that is DOWN pages at once.
+ *      An endpoint that is merely SLOW is re-checked before anyone is told:
+ *      between 2026-09-01 and 09-09 the slow reading was a cold start at a
+ *      quiet hour (03:00, 09:00, 20:00, 22:30 UTC) that had recovered by the
+ *      next tick, and each one cost two emails — the warning and its
+ *      all-clear. Nineteen of them in a week. A cold start is real for the
+ *      one visitor who hit it, but it is not something an operator can act on
+ *      at 3am, and the status page still records it. Sustained slowness
+ *      survives the re-check and pages.
  *
- * Silently no-ops if DISCORD_APPROVAL_WEBHOOK_URL is not set.
- *
- * 2026-05-02 G2.
+ *   2. LEDGER TRUTH. Whether the resolver ran and whether it skipped anything,
+ *      decided by api/_lib/ledger-truth.ts, which carries the reasoning and the
+ *      tests. The previous version of this check paged CRITICAL 23 times in
+ *      one week on calls that were held by the published grace rule.
  */
+
+/** How long to let a cold endpoint warm before believing it is slow. */
+const DEGRADED_RECHECK_DELAY_MS = 8000;
 
 interface StatusEndpoint {
   path: string;
@@ -32,6 +44,11 @@ interface StatusPayload {
   generatedAt: string;
   overallHealth: 'ok' | 'degraded' | 'down';
   endpoints: StatusEndpoint[];
+}
+
+async function fetchStatus(host: string): Promise<StatusPayload> {
+  const r = await fetch(`https://${host}/api/status`, { signal: AbortSignal.timeout(15000) });
+  return (await r.json()) as StatusPayload;
 }
 
 async function postDiscord(webhook: string, content: string, embeds: unknown[]): Promise<boolean> {
@@ -69,60 +86,112 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const host = req.headers.host || 'nexuswatch.dev';
   let status: StatusPayload;
   try {
-    const r = await fetch(`https://${host}/api/status`, { signal: AbortSignal.timeout(15000) });
-    status = (await r.json()) as StatusPayload;
+    status = await fetchStatus(host);
   } catch (err) {
     console.error('[cron-health] failed to fetch status', err);
     return res.status(502).json({ error: 'status fetch failed', message: String(err) });
   }
 
-  // LEDGER TRUTH — the assertion that matters most before 2026-09-05.
-  // resolve-calls runs unattended at 09:45 UTC. If it silently fails, calls sit
-  // past their resolution date and the product's entire pre-commitment claim
-  // quietly stops being true, with nothing on any surface saying so. Absence of
-  // resolution is exactly the failure that looks like nothing happening.
+  // LEDGER TRUTH. resolve-calls runs unattended at 09:45 UTC. If it silently
+  // fails, calls sit past their resolution date and the product's entire
+  // pre-commitment claim quietly stops being true, with nothing on any surface
+  // saying so. Absence of resolution is exactly the failure that looks like
+  // nothing happening.
   //
-  // Note the deliberate 1-day grace: a call whose window closes today is
-  // resolved by the 09:45 run, so only rows older than that are overdue.
-  // Calls left pending for want of resolver COVERAGE are expected and are
-  // reported separately rather than paged on — that disposition is published
-  // on /methodology.
-  let ledgerIssue: { overdue: number; oldest: string | null } | null = null;
+  // The decision lives in api/_lib/ledger-truth.ts, where it is tested against
+  // the week of 2026-09-07. In short: a day with calls due and nothing disposed
+  // of is a silent resolver (same-day); a pending call strictly more than
+  // PAST_GRACE_DAYS past its date is a skipped row. A call held under the
+  // published coverage rule satisfies neither, by construction — the previous
+  // query paged on exactly those, 23 times in a week.
+  let ledgerIssue: { checkDate: string; alerts: string[] } | null = null;
   const dbUrl = process.env.DATABASE_URL;
   if (dbUrl) {
     try {
       const sql = neon(dbUrl);
+      const checkDate = checkDateFor(runStartedAt);
       const rows = (await sql`
-        SELECT COUNT(*)::int AS overdue, MIN(resolves_on)::text AS oldest
-        FROM calls
-        WHERE status = 'pending' AND resolves_on < CURRENT_DATE - 1
-      `) as unknown as Array<{ overdue: number; oldest: string | null }>;
-      if ((rows[0]?.overdue ?? 0) === 0) {
-        // No call is overdue: stand down any ledger condition we raised.
-        await clearStaleAlerts('ledger:', [], runStartedAt);
-      }
-      if ((rows[0]?.overdue ?? 0) > 0) {
-        ledgerIssue = rows[0];
-        await raiseAlert({
-          // Keyed on the COUNT, not the message: the body names the oldest due
-          // date, which changes daily and would defeat deduplication.
-          key: `ledger:overdue:${rows[0].overdue}`,
-          title: `${rows[0].overdue} call(s) overdue for resolution`,
-          body:
-            `${rows[0].overdue} call(s) are still pending past their resolution date; the oldest was due ` +
-            `${rows[0].oldest}. resolve-calls runs 09:45 UTC daily. Either it is failing, or the resolver ` +
-            `has no coverage for those countries — check /api/cron/resolve-calls output for the ` +
-            `"unresolvable" and "errored" counts.`,
-          severity: 'critical',
-        });
-      }
+        SELECT
+          (SELECT COUNT(*)::int FROM calls WHERE resolves_on = ${checkDate}::date) AS due_on_check_date,
+          (SELECT COUNT(*)::int FROM calls
+             WHERE resolves_on = ${checkDate}::date AND status <> 'pending') AS due_disposed_on_check_date,
+          (SELECT COUNT(*)::int FROM calls
+             WHERE status = 'pending' AND resolves_on < CURRENT_DATE - ${PAST_GRACE_DAYS}::int) AS past_grace,
+          (SELECT MIN(resolves_on)::text FROM calls
+             WHERE status = 'pending' AND resolves_on < CURRENT_DATE - ${PAST_GRACE_DAYS}::int) AS oldest_past_grace
+      `) as unknown as Array<{
+        due_on_check_date: number;
+        due_disposed_on_check_date: number;
+        past_grace: number;
+        oldest_past_grace: string | null;
+      }>;
+      const r = rows[0];
+      const alerts = ledgerTruthVerdict({
+        checkDate,
+        dueOnCheckDate: r?.due_on_check_date ?? 0,
+        dueDisposedOnCheckDate: r?.due_disposed_on_check_date ?? 0,
+        pastGrace: r?.past_grace ?? 0,
+        oldestPastGrace: r?.oldest_past_grace ?? null,
+      });
+      for (const a of alerts) await raiseAlert(a);
+      // Whatever ledger condition is NOT in this run's verdict is stood down
+      // with an all-clear — derived from last_seen, so a key this run did not
+      // refresh is one this run did not observe.
+      await clearStaleAlerts(
+        'ledger:',
+        alerts.map((a) => a.key),
+        runStartedAt,
+      );
+      if (alerts.length > 0) ledgerIssue = { checkDate, alerts: alerts.map((a) => a.key) };
     } catch (err) {
-      console.error('[cron-health] ledger truth check failed:', err instanceof Error ? err.message : err);
+      // A check that cannot run is not a clean check. Paged with a stable key:
+      // one notification, reminders while it persists, and the first run that
+      // evaluates the ledger again stands it down through clearStaleAlerts.
+      // The previous version logged and moved on, and the run reported
+      // healthy while nothing was watching whether the resolver ran.
+      const why = err instanceof Error ? err.message : String(err);
+      console.error('[cron-health] ledger truth check failed:', why);
+      await raiseAlert({
+        key: 'ledger:check-failed',
+        severity: 'critical',
+        title: 'cron-health could not evaluate the ledger',
+        body:
+          `The ledger truth check threw and no verdict was reached: ${why.slice(0, 300)}\n\n` +
+          `Until it runs again, nothing is watching whether resolve-calls ran or skipped a row.`,
+      });
+      ledgerIssue = { checkDate: checkDateFor(runStartedAt), alerts: ['ledger:check-failed'] };
     }
   }
 
-  const downEndpoints = status.endpoints.filter((e) => e.status === 'down');
-  const degradedEndpoints = status.endpoints.filter((e) => e.status === 'degraded');
+  // Derived from "not ok", so a state /api/status has not taught this file
+  // about is an issue by default rather than a clean bill by omission. DOWN is
+  // the one state that pages without a second look; everything else that is
+  // not ok is treated as degraded and re-checked below.
+  const classify = (s: StatusPayload) => ({
+    down: s.endpoints.filter((e) => e.status === 'down'),
+    degraded: s.endpoints.filter((e) => e.status !== 'ok' && e.status !== 'down'),
+  });
+  let { down: downEndpoints, degraded: degradedEndpoints } = classify(status);
+
+  // A SLOW reading has to survive a second look before it pages. Nothing is
+  // down, something is merely slow: give the cold function a moment to warm
+  // and measure again. If the second reading is clean, the first was a cold
+  // start and the operator hears nothing. If the re-check itself fails, the
+  // first reading stands — a doubt about slowness must not hide an outage.
+  let recheck: 'not-needed' | 'cleared' | 'confirmed' | 'failed' = 'not-needed';
+  if (downEndpoints.length === 0 && degradedEndpoints.length > 0) {
+    await new Promise((resolve) => setTimeout(resolve, DEGRADED_RECHECK_DELAY_MS));
+    try {
+      const second = await fetchStatus(host);
+      status = second;
+      ({ down: downEndpoints, degraded: degradedEndpoints } = classify(second));
+      recheck = downEndpoints.length + degradedEndpoints.length === 0 ? 'cleared' : 'confirmed';
+    } catch (err) {
+      recheck = 'failed';
+      console.error('[cron-health] degraded re-check failed; keeping the first reading', err);
+    }
+  }
+
   const issuesCount = downEndpoints.length + degradedEndpoints.length;
 
   if (issuesCount === 0) {
@@ -136,6 +205,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ok: true,
       allHealthy: true,
       ledgerIssue,
+      recheck,
       clearedAlerts: cleared,
       generatedAt: status.generatedAt,
     });
@@ -169,6 +239,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       ok: true,
       issuesDetected: issuesCount,
+      recheck,
+      ledgerIssue,
       alert,
       issues: [...downEndpoints, ...degradedEndpoints],
     });
@@ -203,6 +275,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ok: true,
     alertSent: ok,
     issuesDetected: issuesCount,
+    recheck,
+    ledgerIssue,
     overallHealth: status.overallHealth,
   });
 }

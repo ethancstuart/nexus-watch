@@ -8,6 +8,8 @@ import {
   parseDeclaredSubject,
   isUsableSubject,
   chooseSubject,
+  fallbackSubject,
+  SUBJECT_MAX,
 } from './brief-structure.js';
 
 const goodDaily = [
@@ -164,5 +166,40 @@ describe('subject lines — declared, validated, clamped', () => {
     expect(chooseSubject('We are calling Thailand at 52% against a 70% base rate', body)).toBe(
       'We are calling Thailand at 52% against a 70% base rate',
     );
+  });
+});
+
+/**
+ * THE MECHANICAL EDITION'S SUBJECT IS THE RECORD, AND SAYS WHICH EDITION IT IS.
+ *
+ * From 2026-09-10 to 09-12 the API was out of credit and chooseSubject, handed a
+ * null declared subject and the fallback body, scraped Top Signal's first bold
+ * phrase — the lead news headline — and sent "Investigating a Murder: Public
+ * Records Uncover New Clues in Chinatown" to every subscriber three days in a
+ * row. The fallback text is built from BriefData, so its Top Signal is always
+ * a headline, so scraping on a fallback day is always wrong.
+ */
+describe('fallbackSubject — never a headline, always the ledger, always labelled', () => {
+  it('leads with the day’s record when calls settled', () => {
+    expect(fallbackSubject('2026-09-12', { resolved: 97, hits: 13 })).toBe(
+      '97 calls settled, 13 hit — mechanical edition, 2026-09-12',
+    );
+  });
+
+  it('says the ledger is unchanged when nothing settled, rather than inventing a number', () => {
+    expect(fallbackSubject('2026-09-12', { resolved: 0, hits: 0 })).toBe(
+      'The Ledger, unchanged — mechanical edition, 2026-09-12',
+    );
+    expect(fallbackSubject('2026-09-12', null)).toBe('The Ledger, unchanged — mechanical edition, 2026-09-12');
+  });
+
+  it('is never the scraped headline, even when one is available', () => {
+    const scraped = chooseSubject(null, goodDaily);
+    expect(scraped).toBe('Sudan ceasefire collapses in El Fasher');
+    expect(fallbackSubject('2026-09-12', { resolved: 97, hits: 13 })).not.toContain('Sudan');
+  });
+
+  it('fits the subject limit that clampSubject enforces', () => {
+    expect(fallbackSubject('2026-09-12', { resolved: 1000, hits: 1000 }).length).toBeLessThanOrEqual(SUBJECT_MAX);
   });
 });

@@ -183,6 +183,30 @@ export function chooseSubject(declared: string | null, body: string): string | n
   return isUsableSubject(scraped) ? clampSubject(scraped) : null;
 }
 
+/**
+ * The subject for a day the model's draft did not ship — the API failed, or a
+ * gate refused the draft — so there is no declared subject and nothing in the
+ * body worth scraping.
+ *
+ * WHY NOT SCRAPE ON THOSE DAYS. chooseSubject falls through to the first bold
+ * phrase in Top Signal, and on the mechanical edition that phrase is the lead
+ * news headline, verbatim. From 2026-09-10 to 09-12 the Anthropic account was
+ * out of credit, the news feed had not moved since the 7th, and four
+ * subscribers received "Investigating a Murder: Public Records Uncover New
+ * Clues in Chinatown" three mornings running as the subject of a forecast
+ * register's brief. One of them clicked it every day.
+ *
+ * The mechanical edition's only trustworthy numbers are the ledger's, so the
+ * subject is the record. And it names the edition, because on a site whose
+ * brand is publishing its misses, a refused draft is not something to dress up
+ * as an ordinary morning.
+ */
+export function fallbackSubject(date: string, record: { resolved: number; hits: number } | null): string {
+  const lead =
+    record && record.resolved > 0 ? `${record.resolved} calls settled, ${record.hits} hit` : 'The Ledger, unchanged';
+  return clampSubject(`${lead} — mechanical edition, ${date}`);
+}
+
 export function extractSubject(markdown: string): string | null {
   for (const section of ['Top Signal', "Today's Call", "This Week's Calls", 'The Week That Was']) {
     const idx = markdown.indexOf(section);

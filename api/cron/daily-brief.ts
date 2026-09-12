@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { channelsToAlert, formatAlertBody } from '../_lib/delivery-health.js';
+import { raiseAlert, clearAlert } from '../_lib/alert.js';
 import { groundDraft, type GroundingReport } from '../_lib/grounding.js';
 import {
   DAILY_SECTIONS,
@@ -8,6 +9,7 @@ import {
   validateBriefStructure,
   parseDeclaredSubject,
   chooseSubject,
+  fallbackSubject,
 } from '../_lib/brief-structure.js';
 import { formatLedgerSummary, CALIBRATION_KINDS, type Call, type LedgerSummaryRow } from '../_lib/calls.js';
 import { UNSUB_PLACEHOLDER } from '../_lib/unsubscribe-token.js';
@@ -826,6 +828,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // === Generate AI brief (outputs markdown text) ===
     let briefText: string;
     let aiDebug: string | null = null;
+    // Set BY THE GATE that refused, at the branch that refused — never
+    // recovered afterwards from the label string. The fallback alarm reads
+    // this to tell "the gates did their job" from "the machinery failed".
+    let gateRefusal = false;
     let grounding: GroundingReport | null = null;
     // The model's declared subject. Cleared if a gate refuses the draft — a
     // subject describing a refused issue must never ship with the fallback.
@@ -1150,6 +1156,7 @@ ${(() => {
             if (!grounding.pass) {
               aiDebug = `grounding-failed: ${grounding.unsupported.length}/${grounding.draftNumerals.length} unsupported numerals [${grounding.unsupported.slice(0, 8).join(', ')}]`;
               console.error('[daily-brief] GROUNDING GATE REFUSED THE DRAFT:', aiDebug);
+              gateRefusal = true;
               declaredSubject = null;
               briefText = buildFallbackText(briefData);
             } else if (!structure.pass) {
@@ -1159,6 +1166,7 @@ ${(() => {
               // is refused the same way an ungrounded one is.
               aiDebug = `structure-failed: missing=[${structure.missing.join('; ')}] extra=[${structure.extra.join('; ')}]${structure.misordered ? ' misordered' : ''}${structure.missingChangeOurMind ? ' no-change-our-mind-clause' : ''}`;
               console.error('[daily-brief] STRUCTURE GATE REFUSED THE DRAFT:', aiDebug);
+              gateRefusal = true;
               declaredSubject = null;
               briefText = buildFallbackText(briefData);
             } else {
@@ -1190,6 +1198,11 @@ ${(() => {
     //
     // Non-fatal by construction — a brief must still go out if the ledger
     // query fails, and it must never claim a record it does not have.
+    //
+    // Today's record, kept outside the try so the mechanical edition's subject
+    // can be built from it: on a day the model did not write, the ledger is the
+    // only number the subject may carry.
+    let ledgerRecord: { resolved: number; hits: number } | null = null;
     try {
       // Same derivation as the prompt queries above: the exclusion reads from
       // CALIBRATION_KINDS, never a literal — round three of the rule-2 review
@@ -1202,6 +1215,10 @@ ${(() => {
         WHERE resolved_at::date = CURRENT_DATE AND status IN ('hit','miss')
           AND NOT (kind = ANY(${calKinds}))
       `) as unknown as Array<{ country_code: string; status: string; probability: number }>;
+      ledgerRecord = {
+        resolved: resolvedToday.length,
+        hits: resolvedToday.filter((r) => r.status === 'hit').length,
+      };
 
       // kind and resolved_at are REQUIRED, not decorative: the summary scores
       // per kind and gates on the number of distinct resolution batches. The
@@ -1275,10 +1292,19 @@ ${(() => {
     // try/catch converts it to a 500. The logDelivery call below only fires
     // on success.
     // Update the placeholder row inserted by the atomic dedup guard above.
+    //
+    // THE SUBJECT DEPENDS ON WHICH EDITION SHIPPED. On a model day it is the
+    // declared line, or one scraped from Top Signal. On a mechanical day
+    // scraping is forbidden: the first bold phrase in the fallback's Top Signal
+    // is the lead news headline verbatim, and for three mornings in September
+    // 2026 that was a Chinatown murder story sent to every subscriber as the
+    // subject of this register. See fallbackSubject.
+    const onFallback = !(aiDebug ?? '').startsWith('ai-success');
+    const subject = onFallback ? fallbackSubject(today, ledgerRecord) : chooseSubject(declaredSubject, briefText);
     const archiveT0 = Date.now();
     await sql`
       UPDATE daily_briefs
-      SET content = ${JSON.stringify({ ...briefData, briefText, subject: chooseSubject(declaredSubject, briefText) })},
+      SET content = ${JSON.stringify({ ...briefData, briefText, subject })},
           summary = ${briefHtml}
       WHERE brief_date = ${today}
     `;
@@ -1313,6 +1339,46 @@ ${(() => {
         grounding_rate: grounding ? Math.round(grounding.unsupportedRate * 1000) / 1000 : null,
       },
     });
+
+    // === Say so when the model did not write today ===
+    // The archive row above records "success" whether the model wrote the
+    // issue or the mechanical edition went out instead, and nothing else
+    // watched the difference: from 2026-09-10 the Anthropic account was out of
+    // credit and the fallback shipped for three days before anyone looked.
+    // Keyed, so a run of fallback days is one alarm with reminders, and the
+    // first model day after it sends the all-clear. An API or credit failure
+    // is an operator problem and pages CRITICAL; a gate refusing the draft is
+    // the gates working, and is a WARNING worth knowing about.
+    try {
+      if (onFallback) {
+        const cause = aiDebug ?? 'unknown';
+        // gateRefusal was set by the gate that refused, so a refusal is a
+        // WARNING (the gates working) and anything else that is not success is
+        // the machinery failing — credit, key, transport, an empty response —
+        // and pages CRITICAL by default: a new failure label fails closed. The
+        // first draft enumerated failure prefixes and missed `ai-empty-response`;
+        // the second enumerated gate prefixes; both read a string where a flag
+        // belonged. Two independent reviews, one each.
+        await raiseAlert({
+          key: 'brief:fallback',
+          severity: gateRefusal ? 'warning' : 'critical',
+          title: `The brief shipped as the mechanical edition (${cause.split(':')[0]})`,
+          body:
+            `${today}: the model's draft did not ship and subscribers received the deterministic edition.\n\n` +
+            `Cause: ${cause.slice(0, 400)}\n\n` +
+            (gateRefusal
+              ? 'A gate refused the draft. Read the archived brief and the grounding/structure report in brief_delivery_log.'
+              : 'This is the machinery failing, not a gate refusal — check Anthropic credit and the key before the next 10:00 UTC run.'),
+        });
+      } else {
+        await clearAlert('brief:fallback', `${today}: the model wrote today's issue and it cleared every gate.`);
+      }
+    } catch (fallbackAlertErr) {
+      console.error(
+        '[daily-brief] fallback alert failed (non-fatal):',
+        fallbackAlertErr instanceof Error ? fallbackAlertErr.message : fallbackAlertErr,
+      );
+    }
 
     // === Record CII snapshots for prediction ledger (Phase 3) ===
     // Every daily brief records the CII scores at publication time.
@@ -1554,11 +1620,18 @@ ${(() => {
     // silent failures. Caught by running this query against production.
     //
     // Swallows its own errors — a broken alert must never break a brief.
+    //
+    // NO WINDOW. The streak must be the TRUE streak or the cadence breaks: a
+    // 45-day window clamped beehiiv's streak at exactly 45 — a repeat boundary
+    // (threshold 3, then every 7) — so shouldAlert said yes every single day
+    // and "every seven failures" became "every morning" from 2026-09-10. Any
+    // window reintroduces the same defect at its own edge: clamp on a boundary
+    // and it pages daily, clamp off one and it never pages again. The table
+    // grows about five rows a day, so reading all of it is cheap for years.
     try {
       const recent = (await sql`
         SELECT channel, brief_date::text AS brief_date, status, error
         FROM brief_delivery_log
-        WHERE brief_date > (CURRENT_DATE - INTERVAL '45 days')::text
       `) as Array<{ channel: string; brief_date: string; status: string; error: string | null }>;
 
       const broken = channelsToAlert(recent);

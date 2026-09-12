@@ -29,12 +29,49 @@ export interface AlertResult {
   detail: string;
 }
 
+export type Severity = 'critical' | 'warning' | 'info';
+
+/**
+ * How each severity is announced, EXHAUSTIVE by construction. A fourth
+ * severity added to the union above is a type error here until it is given a
+ * label — it cannot fall through to a yellow "[WARNING]" by omission, which is
+ * what the two ternaries this replaces would have done.
+ */
+const SEVERITY_LABEL: Record<Severity, { emoji: string; tag: string }> = {
+  critical: { emoji: '🔴', tag: 'CRITICAL' },
+  warning: { emoji: '🟡', tag: 'WARNING' },
+  info: { emoji: '🔵', tag: 'INFO' },
+};
+
+/**
+ * The label for a severity — DELIVERING even for a value this module has
+ * never heard of. Two reviews pulled opposite ways here: the first wanted a
+ * new severity to be a type error rather than a silent "[WARNING]", which the
+ * Record above makes true; the second pointed out that an untyped runtime
+ * caller passing a stray value would then throw inside delivery and turn an
+ * alert into an undelivered one — the exact failure this module exists to
+ * end. So the type is exhaustive and the runtime is forgiving but LOUD: an
+ * unknown value goes out as WARNING and the log says what it was.
+ */
+function labelFor(severity: string | undefined): { emoji: string; tag: string } {
+  const known = SEVERITY_LABEL[(severity ?? 'warning') as Severity];
+  if (known) return known;
+  console.error(`[alert] unknown severity ${JSON.stringify(severity)} — delivering as WARNING`);
+  return SEVERITY_LABEL.warning;
+}
+
 export interface AlertInput {
   /** Short, specific. Becomes the Discord heading and the email subject. */
   title: string;
   /** Plain text. Keep it readable in a phone notification. */
   body: string;
-  severity?: 'critical' | 'warning';
+  /**
+   * `info` is for a scheduled report that is not a problem — the weekly cost
+   * check. It exists so that report can ride the same delivery path as every
+   * alarm instead of a private Discord-only poster that, with the webhook
+   * never configured, delivered nothing for four months.
+   */
+  severity?: Severity;
   /**
    * STABLE identity of the condition — e.g. the sorted set of affected
    * endpoints. Two raises with the same key are the same ongoing problem, and
@@ -62,7 +99,7 @@ export interface AlertInput {
 export const ALERT_REMINDER_HOURS = 6;
 
 async function viaDiscord(webhook: string, a: AlertInput): Promise<AlertResult> {
-  const emoji = a.severity === 'critical' ? '🔴' : '🟡';
+  const emoji = labelFor(a.severity).emoji;
   const res = await fetch(webhook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -81,7 +118,7 @@ async function viaEmail(key: string, to: string[], a: AlertInput): Promise<Alert
     body: JSON.stringify({
       from: 'NexusWatch Alerts <brief@nexuswatch.dev>',
       to,
-      subject: `[${a.severity === 'critical' ? 'CRITICAL' : 'WARNING'}] ${a.title}`,
+      subject: `[${labelFor(a.severity).tag}] ${a.title}`,
       text: a.body,
     }),
     signal: AbortSignal.timeout(10000),
