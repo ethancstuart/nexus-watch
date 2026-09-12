@@ -360,3 +360,37 @@ describe('spliceLedgerLine', () => {
     expect(spliceLedgerLine('plain text', 'the line')).toContain('**The Ledger** — the line');
   });
 });
+
+/**
+ * THE EMAIL DECLARES ITSELF LIGHT, AND CARRIES NO DARK RULES.
+ *
+ * It used to declare `light dark` and ship a `prefers-color-scheme: dark` block
+ * whose selectors matched five classes present on ZERO elements. A phone in
+ * dark mode honoured the declaration, turned every background near-black, and
+ * left all 42 text elements at their inline graphite — black on black,
+ * reported by the owner 2026-09-12. Light is the identity; declaring anything
+ * else is a promise the markup cannot keep.
+ */
+describe('rendered brief — the email is light-only and says so', () => {
+  const rendered = renderDossierEmail({
+    briefText: buildFallbackText(base),
+    date: base.date,
+    time: base.utcTime,
+    markets: base.markets,
+  });
+
+  it('declares color-scheme light, and only light', () => {
+    expect(rendered.emailHtml).toContain('<meta name="color-scheme" content="light">');
+    expect(rendered.emailHtml).toContain('<meta name="supported-color-schemes" content="light">');
+    expect(rendered.emailHtml).not.toMatch(/content="light dark"/);
+  });
+
+  it('ships no dark-mode stylesheet at all', () => {
+    expect(rendered.emailHtml).not.toContain('prefers-color-scheme');
+    expect(rendered.emailHtml).not.toContain('#0E1116');
+  });
+
+  it('still paints the ivory ground explicitly, so no client has to guess', () => {
+    expect(rendered.emailHtml).toMatch(/<body[^>]*background:#FAF8F3/i);
+  });
+});

@@ -2412,31 +2412,28 @@ function renderDossierInner(
 }
 
 /**
- * The Apple Mail dark-mode override. Shipped inside a `<style>` block
- * scoped by `@media (prefers-color-scheme: dark)`. Gmail and most other
- * clients strip or ignore this, so light is canonical — dark is a bonus.
+ * THE EMAIL IS LIGHT-ONLY, AND SAYS SO. It used to declare
+ * `color-scheme: light dark` and ship a dark stylesheet — which targeted five
+ * `.dossier-text-*` classes that appear on ZERO elements. The only class in
+ * the whole document is on the outer card. So a phone client that honoured
+ * the declaration (iOS Mail, Apple Mail, Outlook iOS) turned every background
+ * near-black via `body, table, td { !important }` while all 42 text elements
+ * kept their inline graphite text colour — black on black, reported by the
+ * owner on 2026-09-12 as "the email is also black and you can't read
+ * anything".
+ *
+ * The identity is the LIGHT Intel Dossier — ivory page, graphite ink — so the
+ * honest declaration is `light`. Apple Mail then leaves the email alone in
+ * dark mode. Gmail applies its own inversion regardless of any declaration
+ * and that is outside a sender's control; a full inversion keeps contrast, so
+ * it stays readable. What must never happen again is the client darkening the
+ * ground while we keep the ink dark.
+ *
+ * If dark mode is ever wanted for real, the fix is to make the dark rules
+ * match the elements they mean to restyle (every inline `color:` needs a
+ * counterpart), verified by looking at a phone — not by adding the block back.
  */
-function renderDarkModeStyleBlock(): string {
-  return `
-    <style>
-      @media (prefers-color-scheme: dark) {
-        body, table, td {
-          background-color: #0E1116 !important;
-          color: #E8E6DE !important;
-        }
-        .dossier-card {
-          background-color: #161B22 !important;
-          border-color: #2A2F38 !important;
-        }
-        .dossier-text-primary { color: #E8E6DE !important; }
-        .dossier-text-secondary { color: #C2BCAB !important; }
-        .dossier-text-tertiary { color: #8B8478 !important; }
-        .dossier-accent { color: #D66A64 !important; }
-        .dossier-border { border-color: #2A2F38 !important; }
-      }
-    </style>
-  `;
-}
+const EMAIL_COLOR_SCHEME = 'light';
 
 /**
  * Main export — render a brief into all three delivery formats.
@@ -2457,10 +2454,9 @@ export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <meta name="supported-color-schemes" content="light dark">
+  <meta name="color-scheme" content="${EMAIL_COLOR_SCHEME}">
+  <meta name="supported-color-schemes" content="${EMAIL_COLOR_SCHEME}">
   <title>NexusWatch Situation Brief · ${escapeHtml(date)}</title>
-  ${renderDarkModeStyleBlock()}
 </head>
 <body ${styleAttr(
     style({
