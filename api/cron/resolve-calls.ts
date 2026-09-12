@@ -83,6 +83,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       LIMIT 500
     `) as unknown as DueCall[];
 
+    // THE PAGE IS BOUNDED; THE COUNT MUST NOT BE. `due` in the response was
+    // `due.length`, so on a day 520 calls were due it would have read 500 —
+    // the whole day's work, apparently — while twenty rows silently waited for
+    // tomorrow. A published count equal to a page size is the defect this
+    // repo has legislated against more than once, and cron-health's alarm
+    // body tells the operator to read this very response. Today's cohort is
+    // about a hundred rows; a resolver that is down for five days reaches
+    // the bound.
+    const dueTotalRows = (await sql`
+      SELECT COUNT(*)::int AS n FROM calls WHERE status = 'pending' AND resolves_on <= CURRENT_DATE
+    `) as unknown as Array<{ n: number }>;
+    const dueTotal = dueTotalRows[0]?.n ?? due.length;
+    if (dueTotal > due.length) {
+      console.warn(
+        `[resolve-calls] ${dueTotal} calls due but only ${due.length} taken this run — the rest wait for the next`,
+      );
+    }
+
     let hits = 0;
     let misses = 0;
     let unresolvable = 0;
@@ -243,8 +261,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               // GRACE FIRST. Marking terminally on the resolution day removes the
               // call from the retry set forever, because this job only ever
               // selects status='pending'. OONI's ingest lags ~24h and
-              // source-ooni.ts fetches only `since = yesterday`, so late evidence
-              // and manual backfills are both real.
+              // source-ooni.ts backfills a three-day window on every run (since
+              // 2026-09-12; it fetched one day before that), so late evidence
+              // is real and the grace window is what lets it count.
               const overdueBy = daysSinceResolution(call.resolves_on);
               if (overdueBy < UNRESOLVABLE_GRACE_DAYS) {
                 stillWaiting++;
@@ -329,7 +348,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       ok: true,
+      /** Rows this run took — bounded by the page. */
       due: due.length,
+      /** Rows that were due — unbounded. When these differ, `truncated` says so. */
+      due_total: dueTotal,
+      truncated: dueTotal > due.length,
       resolved: hits + misses,
       hits,
       misses,

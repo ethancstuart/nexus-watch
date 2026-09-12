@@ -105,9 +105,19 @@ All measured against production 2026-08-28/29.
   is why `ooni_measurements` holds one row per country-day and why the
   resolver's `COUNT(DISTINCT measurement_date)` currently equals `COUNT(*)`
   (742 = 742). `api/_lib/evidence-unit.test.ts` fails if that stops being true.
-- **A missed collector run is a permanent hole.** `source-ooni.ts:73` fetches
+- ~~**A missed collector run is a permanent hole.** `source-ooni.ts:73` fetches
   only `since = yesterday`, so nothing backfills. ML was last seen 2026-07-05
-  and TD 2026-08-02.
+  and TD 2026-08-02.~~ — **Retracted in place 2026-09-12**, and the finding
+  underneath was worse than "no backfill": the collector walked forty countries
+  serially inside a 60 s budget with the thin ones at positions 30–40, so a
+  slow OONI day timed out (twice in the week of 09-07, HTTP 504) before
+  reaching exactly the countries the register most needs. SO lost five of
+  seven days that week and NE all seven; the resolver then settled their calls
+  as unresolvable *for want of coverage our own collector had skipped*. Now
+  `source-ooni.ts` fetches a three-day window, orders countries thinnest-first
+  from the table, runs four requests at once, and stops with slack before the
+  budget rather than timing out — reporting what it skipped. Verified by the
+  per-country coverage query in the week-of-09-07 sweep, not inferred.
 
 ---
 
