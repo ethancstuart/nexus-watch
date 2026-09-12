@@ -748,34 +748,11 @@ async function probeLayer(
 
   const source = pickSource(layer, prevState.circuit_state, prevState.consecutive_failures);
 
-  // No fallback available while open — record the outage without probing.
-  if (!source) {
-    const next = advanceBreaker(
-      {
-        circuitState: prevState.circuit_state,
-        consecutiveFailures: prevState.consecutive_failures,
-        halfOpenSuccesses: prevState.half_open_successes,
-      },
-      false,
-    );
-    return {
-      layer: layer.id,
-      status: 'red',
-      score: 0,
-      lastSuccess: prevState.last_success,
-      lastFailure: new Date().toISOString(),
-      error: 'no fallback available',
-      fallbackUsed: null,
-      latencyMs: null,
-      recordCount: null,
-      freshnessSeconds: null,
-      consecutiveFailures: next.consecutiveFailures,
-      halfOpenSuccesses: next.halfOpenSuccesses,
-      circuitState: next.circuitState,
-      activeSource: null,
-    };
-  }
-
+  // pickSource never returns null since 2026-09-12: a single-source layer is
+  // probed through its primary while open, so the "record the outage without
+  // probing" branch that used to sit here — and that stranded UCDP at 150
+  // consecutive failures of a probe never sent — has no input left. Deleted
+  // rather than kept as a defensive dead branch.
   const probe = await probeSource(source, fetch, base);
   const score = computeScore(probe, source.freshnessWindowSeconds);
   const status = statusFromScore(score);
