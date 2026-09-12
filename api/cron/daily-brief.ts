@@ -1346,17 +1346,23 @@ ${(() => {
     try {
       if (onFallback) {
         const cause = aiDebug ?? 'unknown';
-        const infra = cause.startsWith('ai-failed') || cause.startsWith('ai-error') || cause === 'no-api-key';
+        // The GATE REFUSALS are the closed, known set — grounding and structure
+        // are the only two gates. Everything else that is not success is the
+        // machinery failing (credit, key, transport, an empty response) and
+        // pages CRITICAL by default. The first draft enumerated the failures
+        // instead and missed `ai-empty-response`, which already existed; an
+        // independent review caught it. A new failure label now fails closed.
+        const gateRefusal = cause.startsWith('grounding-failed') || cause.startsWith('structure-failed');
         await raiseAlert({
           key: 'brief:fallback',
-          severity: infra ? 'critical' : 'warning',
+          severity: gateRefusal ? 'warning' : 'critical',
           title: `The brief shipped as the mechanical edition (${cause.split(':')[0]})`,
           body:
             `${today}: the model's draft did not ship and subscribers received the deterministic edition.\n\n` +
             `Cause: ${cause.slice(0, 400)}\n\n` +
-            (infra
-              ? 'This is an API failure, not a gate refusal — check Anthropic credit and the key before the next 10:00 UTC run.'
-              : 'A gate refused the draft. Read the archived brief and the grounding/structure report in brief_delivery_log.'),
+            (gateRefusal
+              ? 'A gate refused the draft. Read the archived brief and the grounding/structure report in brief_delivery_log.'
+              : 'This is the machinery failing, not a gate refusal — check Anthropic credit and the key before the next 10:00 UTC run.'),
         });
       } else {
         await clearAlert('brief:fallback', `${today}: the model wrote today's issue and it cleared every gate.`);
@@ -1609,18 +1615,17 @@ ${(() => {
     //
     // Swallows its own errors — a broken alert must never break a brief.
     //
-    // THE WINDOW MUST BE WIDER THAN ANY STREAK CAN GROW. It was 45 days, which
-    // clamped beehiiv's streak at exactly 45 — and 45 sits on a repeat boundary
-    // (threshold 3, then every 7), so shouldAlert said yes every single day and
-    // the "every seven failures" cadence became "every morning" from 2026-09-10.
-    // A streak that reads its true length reaches a boundary once a week, as
-    // designed. 400 days is a bound on the query, not a fact about streaks;
-    // the table grows about five rows a day.
+    // NO WINDOW. The streak must be the TRUE streak or the cadence breaks: a
+    // 45-day window clamped beehiiv's streak at exactly 45 — a repeat boundary
+    // (threshold 3, then every 7) — so shouldAlert said yes every single day
+    // and "every seven failures" became "every morning" from 2026-09-10. Any
+    // window reintroduces the same defect at its own edge: clamp on a boundary
+    // and it pages daily, clamp off one and it never pages again. The table
+    // grows about five rows a day, so reading all of it is cheap for years.
     try {
       const recent = (await sql`
         SELECT channel, brief_date::text AS brief_date, status, error
         FROM brief_delivery_log
-        WHERE brief_date > (CURRENT_DATE - INTERVAL '400 days')::text
       `) as Array<{ channel: string; brief_date: string; status: string; error: string | null }>;
 
       const broken = channelsToAlert(recent);

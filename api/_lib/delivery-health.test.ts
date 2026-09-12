@@ -144,8 +144,8 @@ describe('formatAlertBody', () => {
  * cadence if the streak it is handed is the TRUE streak. The caller's query
  * once looked back 45 days, so a channel broken for longer than that reported
  * a streak of exactly 45 every morning — and 45 is a boundary — so beehiiv
- * paged daily from 2026-09-10 until the window was widened. This pins the
- * arithmetic so the next person widening or narrowing that window sees why.
+ * paged daily from 2026-09-10 until the window was removed. This pins the
+ * arithmetic so the next person tempted to add a window sees why not.
  */
 describe('a clamped streak defeats the cadence', () => {
   it('45 is a repeat boundary and 46 is not', () => {

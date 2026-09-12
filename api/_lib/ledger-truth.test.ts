@@ -18,13 +18,14 @@ import { UNRESOLVABLE_GRACE_DAYS } from './calls.js';
  */
 describe('the week the old check paged 23 times', () => {
   it('finds nothing wrong when held calls are the only pending-past-date rows', () => {
-    // 09-12 at 14:00 UTC: 109 due today (102 FX + 7 held censorship), 102 disposed,
-    // and no pending call more than 7 days past its date.
+    // 09-12 at 14:00 UTC: 104 due today (97 FX + 7 held censorship), 97 of
+    // those disposed the same day, and no pending call more than 7 days past
+    // its date. Read from production.
     expect(
       ledgerTruthVerdict({
         checkDate: '2026-09-12',
-        dueOnCheckDate: 109,
-        disposedOnCheckDate: 102,
+        dueOnCheckDate: 104,
+        dueDisposedOnCheckDate: 97,
         pastGrace: 0,
         oldestPastGrace: null,
       }),
@@ -36,8 +37,8 @@ describe('the week the old check paged 23 times', () => {
     expect(
       ledgerTruthVerdict({
         checkDate: '2026-09-11',
-        dueOnCheckDate: 105,
-        disposedOnCheckDate: 98,
+        dueOnCheckDate: 104,
+        dueDisposedOnCheckDate: 97,
         pastGrace: 0,
         oldestPastGrace: null,
       }),
@@ -50,7 +51,7 @@ describe('the two conditions that ARE worth a page', () => {
     const v = ledgerTruthVerdict({
       checkDate: '2026-09-13',
       dueOnCheckDate: 72,
-      disposedOnCheckDate: 0,
+      dueDisposedOnCheckDate: 0,
       pastGrace: 0,
       oldestPastGrace: null,
     });
@@ -59,12 +60,39 @@ describe('the two conditions that ARE worth a page', () => {
     expect(v[0]?.title).toContain('2026-09-13');
   });
 
+  it('is judged on the due cohort alone — a settlement elsewhere cannot vouch for it', () => {
+    // The input is the due cohort's own disposal count, so there is no field
+    // through which an unrelated disposal could satisfy the check. This pins
+    // that the reading is cohort-scoped: 70 due, none of them disposed, is
+    // silence whatever else the book did that day.
+    const v = ledgerTruthVerdict({
+      checkDate: '2026-09-13',
+      dueOnCheckDate: 70,
+      dueDisposedOnCheckDate: 0,
+      pastGrace: 0,
+      oldestPastGrace: null,
+    });
+    expect(v.map((a) => a.key)).toEqual([SILENT_KEY]);
+  });
+
+  it('a partial run is not silence — one disposed call proves the resolver wrote', () => {
+    expect(
+      ledgerTruthVerdict({
+        checkDate: '2026-09-13',
+        dueOnCheckDate: 70,
+        dueDisposedOnCheckDate: 1,
+        pastGrace: 0,
+        oldestPastGrace: null,
+      }),
+    ).toEqual([]);
+  });
+
   it('a day with nothing due is not silence — there was nothing to do', () => {
     expect(
       ledgerTruthVerdict({
         checkDate: '2026-09-13',
         dueOnCheckDate: 0,
-        disposedOnCheckDate: 0,
+        dueDisposedOnCheckDate: 0,
         pastGrace: 0,
         oldestPastGrace: null,
       }),
@@ -75,7 +103,7 @@ describe('the two conditions that ARE worth a page', () => {
     const v = ledgerTruthVerdict({
       checkDate: '2026-09-13',
       dueOnCheckDate: 70,
-      disposedOnCheckDate: 65,
+      dueDisposedOnCheckDate: 65,
       pastGrace: 3,
       oldestPastGrace: '2026-09-04',
     });
@@ -88,7 +116,7 @@ describe('the two conditions that ARE worth a page', () => {
     const v = ledgerTruthVerdict({
       checkDate: '2026-09-13',
       dueOnCheckDate: 70,
-      disposedOnCheckDate: 0,
+      dueDisposedOnCheckDate: 0,
       pastGrace: 12,
       oldestPastGrace: '2026-09-01',
     });

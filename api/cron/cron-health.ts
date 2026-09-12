@@ -113,14 +113,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const rows = (await sql`
         SELECT
           (SELECT COUNT(*)::int FROM calls WHERE resolves_on = ${checkDate}::date) AS due_on_check_date,
-          (SELECT COUNT(*)::int FROM calls WHERE resolved_at::date = ${checkDate}::date) AS disposed_on_check_date,
+          (SELECT COUNT(*)::int FROM calls
+             WHERE resolves_on = ${checkDate}::date AND status <> 'pending') AS due_disposed_on_check_date,
           (SELECT COUNT(*)::int FROM calls
              WHERE status = 'pending' AND resolves_on < CURRENT_DATE - ${PAST_GRACE_DAYS}::int) AS past_grace,
           (SELECT MIN(resolves_on)::text FROM calls
              WHERE status = 'pending' AND resolves_on < CURRENT_DATE - ${PAST_GRACE_DAYS}::int) AS oldest_past_grace
       `) as unknown as Array<{
         due_on_check_date: number;
-        disposed_on_check_date: number;
+        due_disposed_on_check_date: number;
         past_grace: number;
         oldest_past_grace: string | null;
       }>;
@@ -128,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const alerts = ledgerTruthVerdict({
         checkDate,
         dueOnCheckDate: r?.due_on_check_date ?? 0,
-        disposedOnCheckDate: r?.disposed_on_check_date ?? 0,
+        dueDisposedOnCheckDate: r?.due_disposed_on_check_date ?? 0,
         pastGrace: r?.past_grace ?? 0,
         oldestPastGrace: r?.oldest_past_grace ?? null,
       });
@@ -253,6 +254,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ok: true,
     alertSent: ok,
     issuesDetected: issuesCount,
+    recheck,
+    ledgerIssue,
     overallHealth: status.overallHealth,
   });
 }

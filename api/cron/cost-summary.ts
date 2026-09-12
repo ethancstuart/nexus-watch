@@ -83,8 +83,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     body,
   });
 
-  return res.status(200).json({
-    ok: true,
+  // A report nobody received is not ok. The previous version returned 200
+  // `ok: true` with `alertingDisabled: true` for nineteen Mondays; a cron that
+  // fails to deliver must say so where Vercel can see it.
+  return res.status(result.delivered ? 200 : 502).json({
+    ok: result.delivered,
     delivered: result.delivered,
     channel: result.channel,
     detail: result.detail,

@@ -19,9 +19,12 @@
  * THE TWO CONDITIONS THAT ARE WORTH A PAGE:
  *
  *   1. THE RESOLVER WAS SILENT. Calls come due every day (FX issues daily and
- *      is never coverage-held), so a day on which something was due and
- *      NOTHING was disposed of — no hit, no miss, no unresolvable — means
- *      resolve-calls did not run, or ran and wrote nothing. Checked same-day
+ *      is never coverage-held), so a day on which something was due and NONE
+ *      OF IT was disposed of — no hit, no miss, no unresolvable among the
+ *      calls due that day — means resolve-calls did not run, or ran and wrote
+ *      nothing. The disposal count is taken from the due cohort itself, never
+ *      from the book at large, so a settlement elsewhere cannot mask a skipped
+ *      cohort. Checked same-day
  *      once the 09:45 UTC run has had time to finish; before that the check
  *      looks at yesterday, so the condition is continuously evaluable and its
  *      alert key stays live across midnight instead of being stood down at
@@ -68,8 +71,18 @@ export interface LedgerTruthReading {
   checkDate: string;
   /** Calls whose resolves_on is checkDate, any status. */
   dueOnCheckDate: number;
-  /** Calls whose resolved_at falls on checkDate — hit, miss or unresolvable. */
-  disposedOnCheckDate: number;
+  /**
+   * Of THOSE SAME calls, how many are no longer pending — hit, miss or
+   * unresolvable. Derived from the due cohort itself, so activity elsewhere in
+   * the book cannot satisfy it: the first draft counted any call disposed of
+   * that day, which one grace-expired settlement would have satisfied while
+   * every call actually due sat untouched. An independent review caught it.
+   * Held calls stay pending and simply do not count; FX is never held and is
+   * due every day, weekends included (measured 2026-08-29 → 09-12: 34 to 113
+   * same-day disposals on every date), so a cohort with nothing disposed is a
+   * resolver that did not run.
+   */
+  dueDisposedOnCheckDate: number;
   /** Pending calls with resolves_on strictly more than PAST_GRACE_DAYS ago. */
   pastGrace: number;
   oldestPastGrace: string | null;
@@ -88,7 +101,7 @@ export const OVERDUE_KEY = 'ledger:overdue';
 /** Every alert the reading justifies. Empty means the ledger is telling the truth. */
 export function ledgerTruthVerdict(r: LedgerTruthReading): LedgerTruthAlert[] {
   const out: LedgerTruthAlert[] = [];
-  if (r.dueOnCheckDate > 0 && r.disposedOnCheckDate === 0) {
+  if (r.dueOnCheckDate > 0 && r.dueDisposedOnCheckDate === 0) {
     out.push({
       key: SILENT_KEY,
       severity: 'critical',

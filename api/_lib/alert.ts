@@ -29,6 +29,20 @@ export interface AlertResult {
   detail: string;
 }
 
+export type Severity = 'critical' | 'warning' | 'info';
+
+/**
+ * How each severity is announced, EXHAUSTIVE by construction. A fourth
+ * severity added to the union above is a type error here until it is given a
+ * label — it cannot fall through to a yellow "[WARNING]" by omission, which is
+ * what the two ternaries this replaces would have done.
+ */
+const SEVERITY_LABEL: Record<Severity, { emoji: string; tag: string }> = {
+  critical: { emoji: '🔴', tag: 'CRITICAL' },
+  warning: { emoji: '🟡', tag: 'WARNING' },
+  info: { emoji: '🔵', tag: 'INFO' },
+};
+
 export interface AlertInput {
   /** Short, specific. Becomes the Discord heading and the email subject. */
   title: string;
@@ -40,7 +54,7 @@ export interface AlertInput {
    * alarm instead of a private Discord-only poster that, with the webhook
    * never configured, delivered nothing for four months.
    */
-  severity?: 'critical' | 'warning' | 'info';
+  severity?: Severity;
   /**
    * STABLE identity of the condition — e.g. the sorted set of affected
    * endpoints. Two raises with the same key are the same ongoing problem, and
@@ -68,7 +82,7 @@ export interface AlertInput {
 export const ALERT_REMINDER_HOURS = 6;
 
 async function viaDiscord(webhook: string, a: AlertInput): Promise<AlertResult> {
-  const emoji = a.severity === 'critical' ? '🔴' : a.severity === 'info' ? '🔵' : '🟡';
+  const emoji = SEVERITY_LABEL[a.severity ?? 'warning'].emoji;
   const res = await fetch(webhook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -87,7 +101,7 @@ async function viaEmail(key: string, to: string[], a: AlertInput): Promise<Alert
     body: JSON.stringify({
       from: 'NexusWatch Alerts <brief@nexuswatch.dev>',
       to,
-      subject: `[${a.severity === 'critical' ? 'CRITICAL' : a.severity === 'info' ? 'INFO' : 'WARNING'}] ${a.title}`,
+      subject: `[${SEVERITY_LABEL[a.severity ?? 'warning'].tag}] ${a.title}`,
       text: a.body,
     }),
     signal: AbortSignal.timeout(10000),
