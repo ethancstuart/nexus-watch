@@ -22,48 +22,6 @@
  */
 import { neon } from '@neondatabase/serverless';
 
-const PROBE_COUNTRIES = [
-  'IR',
-  'CN',
-  'RU',
-  'MM',
-  'SD',
-  'ET',
-  'SY',
-  'VE',
-  'CU',
-  'KP',
-  'BY',
-  'TR',
-  'EG',
-  'SA',
-  'PK',
-  'BD',
-  'TH',
-  'VN',
-  'IN',
-  'IQ',
-  'AF',
-  'YE',
-  'LY',
-  'SS',
-  'CD',
-  'UG',
-  'TZ',
-  'KE',
-  'NG',
-  'ML',
-  'BF',
-  'NE',
-  'TD',
-  'CF',
-  'SO',
-  'HT',
-  'AZ',
-  'KZ',
-  'UZ',
-  'LB',
-];
 const OONI_API = 'https://api.ooni.io/api/v1';
 
 interface Bucket {
@@ -82,8 +40,21 @@ async function main(): Promise<void> {
   if (!dbUrl) throw new Error('DATABASE_URL_UNPOOLED or DATABASE_URL is required');
   const sql = neon(dbUrl);
 
+  // The scope of a backfill is the table it corrects: every country the
+  // evidence table has ever held a row for, DERIVED from the table rather
+  // than copied from the collector's list. A country the collector has since
+  // stopped watching still has rows to correct; a country it never watched
+  // has nothing to correct. An independent review caught the copied list.
+  const countryRows = (await sql`
+    SELECT DISTINCT country_code FROM ooni_measurements ORDER BY country_code
+  `) as unknown as Array<{ country_code: string }>;
+  const countries = countryRows.map((r) => r.country_code);
+  if (countries.length === 0) {
+    throw new Error('ooni_measurements is empty — nothing to backfill, refusing to report success');
+  }
+
   console.log(
-    `${write ? 'WRITE' : 'DRY RUN'} — day-grain backfill ${since} → ${today}, ${PROBE_COUNTRIES.length} countries`,
+    `${write ? 'WRITE' : 'DRY RUN'} — day-grain backfill ${since} → ${today}, ${countries.length} countries from the table`,
   );
 
   let rowsChanged = 0;
@@ -91,7 +62,7 @@ async function main(): Promise<void> {
   let rowsSame = 0;
   const perCountry: string[] = [];
 
-  for (const cc of PROBE_COUNTRIES) {
+  for (const cc of countries) {
     const url = `${OONI_API}/aggregation?probe_cc=${cc}&since=${since}&until=${today}&test_name=web_connectivity&axis_x=measurement_start_day&time_grain=day`;
     const r = await fetch(url, {
       signal: AbortSignal.timeout(60_000),
