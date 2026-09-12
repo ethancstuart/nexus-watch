@@ -51,20 +51,6 @@ async function fetchStatus(host: string): Promise<StatusPayload> {
   return (await r.json()) as StatusPayload;
 }
 
-async function postDiscord(webhook: string, content: string, embeds: unknown[]): Promise<boolean> {
-  try {
-    const res = await fetch(webhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, embeds, username: 'NexusWatch Health' }),
-      signal: AbortSignal.timeout(5000),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Captured before ANY alert is raised, including the ledger check below.
   // Every active condition refreshes its last_seen after this instant, so a row
@@ -78,9 +64,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'unauthorized' });
   }
-
-  const webhook = process.env.DISCORD_APPROVAL_WEBHOOK_URL;
-  const enabled = process.env.DISCORD_APPROVAL_ENABLED !== 'false';
 
   // Pull current status snapshot
   const host = req.headers.host || 'nexuswatch.dev';
@@ -211,72 +194,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // ALERT ON WHATEVER CHANNEL EXISTS. This used to return `alertingDisabled`
-  // and stop, because DISCORD_APPROVAL_WEBHOOK_URL has never been set in
-  // production — so the health monitor detected issues and told nobody, for
-  // months. raiseAlert() prefers Discord when configured and otherwise emails
-  // ADMIN_EMAILS through Resend, both of which ARE configured today.
-  if (!webhook || !enabled) {
-    const summary = [
-      ...downEndpoints.map(
-        (e) => `DOWN  ${e.path} — HTTP ${e.httpCode}${e.lastError ? ` — ${e.lastError.slice(0, 100)}` : ''}`,
-      ),
-      ...degradedEndpoints.map((e) => `SLOW  ${e.path} — ${e.latencyMs}ms`),
-    ].join('\n');
-    // Keyed on WHICH endpoints are affected, not on the message. Latencies
-    // change every run ("3934ms"), so keying on the body would have deduped
-    // nothing and sent the flood anyway.
-    const affected = [...downEndpoints, ...degradedEndpoints].map((e) => e.path).sort();
-    const key = `endpoints:${affected.join(',')}`;
-    const alert = await raiseAlert({
-      key,
-      title: `${issuesCount} endpoint issue(s) on nexuswatch.dev`,
-      body: `${summary}\n\nChecked ${status.endpoints.length} endpoints at ${status.generatedAt}.`,
-      severity: downEndpoints.length > 0 ? 'critical' : 'warning',
-    });
-    // Any endpoint condition that is no longer present gets an all-clear.
-    await clearStaleAlerts('endpoints:', [key], runStartedAt);
-    return res.status(200).json({
-      ok: true,
-      issuesDetected: issuesCount,
-      recheck,
-      ledgerIssue,
-      alert,
-      issues: [...downEndpoints, ...degradedEndpoints],
-    });
-  }
-
-  const lines: string[] = [];
-  if (downEndpoints.length > 0) {
-    lines.push(`🔴 **${downEndpoints.length} endpoint(s) DOWN**`);
-    downEndpoints.forEach((e) => {
-      lines.push(`  • \`${e.path}\` — HTTP ${e.httpCode}${e.lastError ? ` — ${e.lastError.slice(0, 80)}` : ''}`);
-    });
-  }
-  if (degradedEndpoints.length > 0) {
-    lines.push(`🟡 **${degradedEndpoints.length} endpoint(s) DEGRADED**`);
-    degradedEndpoints.forEach((e) => {
-      lines.push(`  • \`${e.path}\` — ${e.latencyMs}ms`);
-    });
-  }
-
-  const colour = downEndpoints.length > 0 ? 0xdc2626 : 0xeab308;
-  const ok = await postDiscord(webhook, '', [
-    {
-      title: `NexusWatch Health Alert — ${status.overallHealth.toUpperCase()}`,
-      description: lines.join('\n'),
-      color: colour,
-      timestamp: status.generatedAt,
-      footer: { text: 'nexuswatch.dev/api/status' },
-    },
-  ]);
-
+  // ONE CHANNEL POLICY, IN ONE PLACE. raiseAlert() prefers Discord when
+  // DISCORD_APPROVAL_WEBHOOK_URL is configured and otherwise emails
+  // ADMIN_EMAILS through Resend, and it deduplicates on the key either way.
+  // This handler used to keep its own Discord path beside that — an embed
+  // posted directly, with no alert_state row, no dedupe and no all-clear —
+  // which would have brought the endpoint flood back the moment anyone set
+  // the webhook. The post-merge review of PR #39 found it; it is gone.
+  const summary = [
+    ...downEndpoints.map(
+      (e) => `DOWN  ${e.path} — HTTP ${e.httpCode}${e.lastError ? ` — ${e.lastError.slice(0, 100)}` : ''}`,
+    ),
+    ...degradedEndpoints.map((e) => `SLOW  ${e.path} — ${e.latencyMs}ms`),
+  ].join('\n');
+  // Keyed on WHICH endpoints are affected, not on the message. Latencies
+  // change every run ("3934ms"), so keying on the body would have deduped
+  // nothing and sent the flood anyway.
+  const affected = [...downEndpoints, ...degradedEndpoints].map((e) => e.path).sort();
+  const key = `endpoints:${affected.join(',')}`;
+  const alert = await raiseAlert({
+    key,
+    title: `${issuesCount} endpoint issue(s) on nexuswatch.dev`,
+    body: `${summary}\n\nChecked ${status.endpoints.length} endpoints at ${status.generatedAt}.`,
+    severity: downEndpoints.length > 0 ? 'critical' : 'warning',
+  });
+  // Any endpoint condition that is no longer present gets an all-clear.
+  await clearStaleAlerts('endpoints:', [key], runStartedAt);
   return res.status(200).json({
     ok: true,
-    alertSent: ok,
     issuesDetected: issuesCount,
     recheck,
     ledgerIssue,
-    overallHealth: status.overallHealth,
+    alert,
+    issues: [...downEndpoints, ...degradedEndpoints],
   });
 }
