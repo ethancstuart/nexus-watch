@@ -137,3 +137,31 @@ describe('formatAlertBody', () => {
     );
   });
 });
+
+/**
+ * THE CLAMP TRAP. shouldAlert is boundary-sensitive by design: it fires at the
+ * threshold and then once every repeatEvery failures. That is only a weekly
+ * cadence if the streak it is handed is the TRUE streak. The caller's query
+ * once looked back 45 days, so a channel broken for longer than that reported
+ * a streak of exactly 45 every morning — and 45 is a boundary — so beehiiv
+ * paged daily from 2026-09-10 until the window was widened. This pins the
+ * arithmetic so the next person widening or narrowing that window sees why.
+ */
+describe('a clamped streak defeats the cadence', () => {
+  it('45 is a repeat boundary and 46 is not', () => {
+    expect(shouldAlert(45)).toBe(true);
+    expect(shouldAlert(46)).toBe(false);
+    expect(shouldAlert(52)).toBe(true);
+  });
+
+  it('a streak frozen at a boundary re-alerts every day it is handed in', () => {
+    const frozenByWindow = 45;
+    const days = [1, 2, 3].map(() => shouldAlert(frozenByWindow));
+    expect(days).toEqual([true, true, true]);
+  });
+
+  it('a streak that keeps counting reaches a boundary once per repeat interval', () => {
+    const fired = [45, 46, 47, 48, 49, 50, 51, 52].filter((s) => shouldAlert(s));
+    expect(fired).toEqual([45, 52]);
+  });
+});
