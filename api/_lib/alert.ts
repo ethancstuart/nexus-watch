@@ -34,7 +34,13 @@ export interface AlertInput {
   title: string;
   /** Plain text. Keep it readable in a phone notification. */
   body: string;
-  severity?: 'critical' | 'warning';
+  /**
+   * `info` is for a scheduled report that is not a problem — the weekly cost
+   * check. It exists so that report can ride the same delivery path as every
+   * alarm instead of a private Discord-only poster that, with the webhook
+   * never configured, delivered nothing for four months.
+   */
+  severity?: 'critical' | 'warning' | 'info';
   /**
    * STABLE identity of the condition — e.g. the sorted set of affected
    * endpoints. Two raises with the same key are the same ongoing problem, and
@@ -62,7 +68,7 @@ export interface AlertInput {
 export const ALERT_REMINDER_HOURS = 6;
 
 async function viaDiscord(webhook: string, a: AlertInput): Promise<AlertResult> {
-  const emoji = a.severity === 'critical' ? '🔴' : '🟡';
+  const emoji = a.severity === 'critical' ? '🔴' : a.severity === 'info' ? '🔵' : '🟡';
   const res = await fetch(webhook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -81,7 +87,7 @@ async function viaEmail(key: string, to: string[], a: AlertInput): Promise<Alert
     body: JSON.stringify({
       from: 'NexusWatch Alerts <brief@nexuswatch.dev>',
       to,
-      subject: `[${a.severity === 'critical' ? 'CRITICAL' : 'WARNING'}] ${a.title}`,
+      subject: `[${a.severity === 'critical' ? 'CRITICAL' : a.severity === 'info' ? 'INFO' : 'WARNING'}] ${a.title}`,
       text: a.body,
     }),
     signal: AbortSignal.timeout(10000),
