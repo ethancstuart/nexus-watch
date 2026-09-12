@@ -132,10 +132,11 @@ export interface CoverageRequirement {
  * Marking on the resolution day itself is wrong and an independent review
  * caught it: `resolve-calls` only ever selects `status = 'pending'`, so a
  * terminal write removes the call from the retry set permanently. OONI's
- * ingest lags roughly 24 hours and `source-ooni.ts` fetches only
- * `since = yesterday`, so a run that misses leaves a hole that a later
- * backfill or a collector fix could still fill — and a call marked terminal on
- * day one can never benefit from either.
+ * ingest lags roughly 24 hours, and until 2026-09-12 `source-ooni.ts` fetched
+ * only `since = yesterday`, so a run that missed left a hole nothing filled.
+ * It now fetches a three-day window (BACKFILL_DAYS) and the thinnest
+ * countries first, so late evidence does arrive — and a call marked terminal
+ * on day one could never have benefited from it.
  *
  * So: below the grace period a thin call stays pending, exactly as before.
  * Past it, the evidence is not coming and the row is settled with its reason.

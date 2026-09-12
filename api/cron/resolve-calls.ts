@@ -243,8 +243,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               // GRACE FIRST. Marking terminally on the resolution day removes the
               // call from the retry set forever, because this job only ever
               // selects status='pending'. OONI's ingest lags ~24h and
-              // source-ooni.ts fetches only `since = yesterday`, so late evidence
-              // and manual backfills are both real.
+              // source-ooni.ts backfills a three-day window on every run (since
+              // 2026-09-12; it fetched one day before that), so late evidence
+              // is real and the grace window is what lets it count.
               const overdueBy = daysSinceResolution(call.resolves_on);
               if (overdueBy < UNRESOLVABLE_GRACE_DAYS) {
                 stillWaiting++;
