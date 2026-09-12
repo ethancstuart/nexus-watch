@@ -412,25 +412,15 @@ async function attemptProxyCacheBust(
 }> {
   const startedAt = Date.now();
 
-  // Pick the source that matches the active_source name — default to
-  // the primary if we can't find a match. Bail early for external URLs.
+  // Pick the source that matches the active_source name — default to the
+  // primary if we can't find a match. The only caller, maybeHealLayer, has
+  // already declined any source that is not one of our /api/ proxies, so the
+  // "external URL, skipped, filed as success" branch that used to live here
+  // was unreachable. It is gone; an independent review found it.
   const source =
     layer.primary.name === activeSource
       ? layer.primary
       : (layer.fallbacks.find((f) => f.name === activeSource) ?? layer.primary);
-
-  if (!source.probeUrl.startsWith('/api/')) {
-    return {
-      outcome: 'succeeded',
-      error: null,
-      latencyMs: Date.now() - startedAt,
-      actionDetails: {
-        action: 'proxy_cache_bust',
-        skipped: 'external_probe_url',
-        probe_url: source.probeUrl,
-      },
-    };
-  }
 
   const cacheBustToken = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const probeBase = base ? (base.startsWith('http') ? base : `https://${base}`) : '';
