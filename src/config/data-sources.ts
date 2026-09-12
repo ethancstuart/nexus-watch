@@ -41,7 +41,8 @@ export interface LayerConfig {
   primary: LayerSource;
   /**
    * Ordered list of alternative sources to cycle through when the circuit
-   * breaker opens. Empty array = no known fallback (cron handles gracefully).
+   * breaker opens. Empty array = no known fallback: the primary keeps being
+   * probed while open, so the breaker can recover (see pickSource).
    */
   fallbacks: LayerSource[];
 }
@@ -147,17 +148,22 @@ export const DATA_SOURCES: LayerConfig[] = [
 ];
 
 /**
- * Picks the active source for a layer given its circuit breaker state.
+ * Picks the source a layer is probed through, given its breaker state.
  * - circuit 'closed' or 'half_open' → primary
- * - circuit 'open'                  → fallback at index (failures / 5 - 1)
- * If the fallback index exceeds the fallback list, wraps around to 0.
- * Returns null if the layer has no fallbacks and the circuit is open.
+ * - circuit 'open', with fallbacks  → fallback at index (failures / 5 - 1),
+ *                                     wrapping around the list
+ * - circuit 'open', no fallbacks    → primary, and this is the contract change:
+ *   it used to return null, and a null here meant the cron recorded an outage
+ *   WITHOUT PROBING. A breaker that is never probed can never go half-open,
+ *   so a single-source layer that tripped stayed red for good. UCDP reached
+ *   150 consecutive "failures" of a probe that was never sent while its
+ *   upstream answered 200. Never null now: there is always something to probe.
  */
 export function pickSource(
   layer: LayerConfig,
   circuitState: 'closed' | 'open' | 'half_open',
   consecutiveFailures: number,
-): LayerSource | null {
+): LayerSource {
   if (circuitState !== 'open') return layer.primary;
   // A layer with nothing to fall back to keeps probing its only source. The
   // previous `return null` handed the cron a layer it could not probe, and a
@@ -169,5 +175,5 @@ export function pickSource(
   // Each 5 consecutive failures, advance to the next fallback.
   const bucket = Math.max(0, Math.floor(consecutiveFailures / 5) - 1);
   const idx = bucket % layer.fallbacks.length;
-  return layer.fallbacks[idx] ?? null;
+  return layer.fallbacks[idx] ?? layer.primary;
 }
