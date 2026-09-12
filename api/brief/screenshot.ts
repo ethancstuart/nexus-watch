@@ -4,6 +4,18 @@ import { neon } from '@neondatabase/serverless';
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
 /**
+ * How long the upstream map fetch may take, in milliseconds.
+ *
+ * It MUST be meaningfully less than maxDuration above. The first version of
+ * the proxy used the full ten seconds, which is the function's entire budget:
+ * a slow Mapbox response would have burned the invocation and the SVG fallback
+ * below could never have been sent, putting a broken image in an email rather
+ * than the rendered card. An independent review caught it. Six seconds leaves
+ * four to render and send the fallback.
+ */
+const MAPBOX_BUDGET_MS = 6_000;
+
+/**
  * Map of the Day — Public image endpoint (Track A.7).
  *
  *   GET /api/brief/screenshot
@@ -351,7 +363,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // paying to stop publishing a key. The bytes are cached for an hour
     // exactly as before; only the token stays here.
     try {
-      const upstream = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      const upstream = await fetch(url, { signal: AbortSignal.timeout(MAPBOX_BUDGET_MS) });
       if (upstream.ok) {
         const body = Buffer.from(await upstream.arrayBuffer());
         res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/png');

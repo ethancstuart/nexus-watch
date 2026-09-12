@@ -30,6 +30,22 @@ function isRealTimeZone(tz: unknown): boolean {
   }
 }
 
+/**
+ * The one page shell these confirmation screens use. Colour comes from
+ * src/styles/email-tokens.ts, never from a hex literal here — the same rule
+ * every other public renderer follows.
+ */
+function shell(title: string, inner: string): string {
+  return (
+    `<!doctype html><meta charset="utf-8"><title>${title} · NexusWatch</title>` +
+    `<meta name="robots" content="noindex">` +
+    `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+    `<body style="font-family:Georgia,serif;background:${colors.bgPage};color:${colors.textPrimary};display:grid;place-items:center;min-height:90vh;margin:0">` +
+    `<div style="max-width:28rem;padding:2rem;text-align:center">` +
+    `<h1 style="font-size:1.4rem;font-weight:600">${title}</h1>${inner}</div>`
+  );
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -39,26 +55,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CONSENT IS RESTORED BY THE MAILBOX, NOT BY A STRANGER. A GET carrying a
   // signed re-subscribe token is the ONLY way `unsubscribed` goes back to
   // FALSE (see the ON CONFLICT below and _lib/unsubscribe-token.ts).
-  if (req.method === 'GET') {
-    const e = String(req.query.e ?? '')
-      .trim()
-      .toLowerCase();
-    const t = String(req.query.t ?? '');
+  // The re-subscribe link is answered on BOTH methods, and only POST changes
+  // anything. The first version of this branch mutated on GET — the very bug
+  // just fixed in api/unsubscribe.ts, reintroduced on the opposite door, where
+  // a mail scanner following the confirmation link would have restored consent
+  // without the reader. An independent review caught it.
+  const resubEmail = String(req.query.e ?? '')
+    .trim()
+    .toLowerCase();
+  const resubToken = String(req.query.t ?? '');
+  if (resubEmail || resubToken) {
+    const e = resubEmail;
+    const t = resubToken;
     const confirmPage = (title: string, body: string, code: number): unknown =>
       res
         .status(code)
         .setHeader('Content-Type', 'text/html; charset=utf-8')
-        .send(
-          `<!doctype html><meta charset="utf-8"><title>${title} · NexusWatch</title>` +
-            `<meta name="robots" content="noindex">` +
-            `<meta name="viewport" content="width=device-width,initial-scale=1">` +
-            `<body style="font-family:Georgia,serif;background:#FAF8F3;color:#12161C;display:grid;place-items:center;min-height:90vh;margin:0">` +
-            `<div style="max-width:28rem;padding:2rem;text-align:center">` +
-            `<h1 style="font-size:1.4rem;font-weight:600">${title}</h1>` +
-            `<p style="line-height:1.6;color:#4a4f57">${body}</p></div>`,
-        );
+        .send(shell(title, `<p style="line-height:1.6;color:${colors.textSecondary}">${body}</p>`));
     if (!e || !t || !verifyResubscribeToken(e, t)) {
       return confirmPage('That link didn’t work', 'The confirmation link is invalid or has expired.', 400);
+    }
+    if (req.method !== 'POST') {
+      const action = `/api/subscribe?e=${encodeURIComponent(e)}&t=${encodeURIComponent(t)}`;
+      return res
+        .status(200)
+        .setHeader('Content-Type', 'text/html; charset=utf-8')
+        .send(
+          shell(
+            'Start the brief again?',
+            `<p style="line-height:1.6;color:${colors.textSecondary}">Nothing has changed yet. One click and the daily brief resumes.</p>` +
+              `<form method="post" action="${action}">` +
+              `<button type="submit" style="font:inherit;font-size:1rem;padding:0.7rem 1.6rem;background:${colors.accent};color:${colors.textInverse};border:0;border-radius:4px;cursor:pointer">Yes, send it again</button>` +
+              `</form>`,
+          ),
+        );
     }
     const url = process.env.DATABASE_URL;
     if (!url) return confirmPage('Something broke', 'Please try again later.', 500);
@@ -131,11 +161,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               to: [email.toLowerCase().trim()],
               subject: 'Confirm you want the brief again',
               html:
-                `<p style="font-family:Georgia,serif;color:#12161C;line-height:1.6">` +
+                `<p style="font-family:Georgia,serif;color:${colors.textPrimary};line-height:1.6">` +
                 `Someone asked to put this address back on the NexusWatch brief. ` +
                 `If that was you, confirm it here:</p>` +
-                `<p><a href="${link}" style="color:#9A1B1B">Yes, send me the brief again</a></p>` +
-                `<p style="font-family:Georgia,serif;color:#4a4f57;font-size:13px">` +
+                `<p><a href="${link}" style="color:${colors.accent}">Yes, send me the brief again</a></p>` +
+                `<p style="font-family:Georgia,serif;color:${colors.textSecondary};font-size:13px">` +
                 `If it wasn't you, ignore this and nothing changes.</p>`,
               text: `Someone asked to put this address back on the NexusWatch brief.\n\nIf that was you: ${link}\n\nIf it wasn't, ignore this and nothing changes.`,
             }),

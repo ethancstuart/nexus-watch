@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { verifyUnsubscribeToken } from './_lib/unsubscribe-token.js';
+import { colors } from '../src/styles/email-tokens.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -33,10 +34,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .send(
         `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">` +
           `<title>${title}</title>` +
-          `<body style="font-family:Georgia,serif;background:#FAF8F3;color:#12161C;display:grid;place-items:center;min-height:90vh;margin:0">` +
+          `<body style="font-family:Georgia,serif;background:${colors.bgPage};color:${colors.textPrimary};display:grid;place-items:center;min-height:90vh;margin:0">` +
           `<div style="max-width:28rem;padding:2rem;text-align:center">` +
           `<h1 style="font-size:1.4rem;font-weight:600">${title}</h1>` +
-          `<p style="line-height:1.6;color:#4a4f57">${body}</p></div>`,
+          `<p style="line-height:1.6;color:${colors.textSecondary}">${body}</p></div>`,
       );
 
   if (!email || !token || !verifyUnsubscribeToken(email, token)) {
@@ -62,13 +63,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `<!doctype html><meta charset="utf-8"><title>Unsubscribe · NexusWatch</title>` +
           `<meta name="robots" content="noindex">` +
           `<meta name="viewport" content="width=device-width,initial-scale=1">` +
-          `<body style="font-family:Georgia,serif;background:#FAF8F3;color:#12161C;display:grid;place-items:center;min-height:90vh;margin:0">` +
+          `<body style="font-family:Georgia,serif;background:${colors.bgPage};color:${colors.textPrimary};display:grid;place-items:center;min-height:90vh;margin:0">` +
           `<div style="max-width:28rem;padding:2rem;text-align:center">` +
           `<h1 style="font-size:1.4rem;font-weight:600">Unsubscribe?</h1>` +
-          `<p style="line-height:1.6;color:#4a4f57">One click and the briefs stop. Nothing has changed yet.</p>` +
+          `<p style="line-height:1.6;color:${colors.textSecondary}">One click and the briefs stop. Nothing has changed yet.</p>` +
           `<form method="post" action="${action}">` +
           `<input type="hidden" name="ui" value="1">` +
-          `<button type="submit" style="font:inherit;font-size:1rem;padding:0.7rem 1.6rem;background:#9A1B1B;color:#FAF8F3;border:0;border-radius:4px;cursor:pointer">Yes, unsubscribe me</button>` +
+          `<button type="submit" style="font:inherit;font-size:1rem;padding:0.7rem 1.6rem;background:${colors.accent};color:${colors.textInverse};border:0;border-radius:4px;cursor:pointer">Yes, unsubscribe me</button>` +
           `</form></div>`,
       );
   }

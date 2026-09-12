@@ -37,6 +37,16 @@ if (crons.length === 0) {
   process.exit(1);
 }
 
+/** Blank out comments and string/template bodies so a word in prose is not code. */
+function stripCommentsAndStrings(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+    .replace(/`(?:\\.|[^`\\])*`/g, '``')
+    .replace(/'(?:\\.|[^'\\])*'/g, "''")
+    .replace(/"(?:\\.|[^"\\])*"/g, '""');
+}
+
 /**
  * Does a CRON_SECRET comparison actually GATE anything?
  *
@@ -100,7 +110,8 @@ function secretCheckGates(src: string): boolean {
 
     if (src[p] !== '{') {
       // Single statement: it gates only if that statement is a return.
-      if (/^return\b/.test(src.slice(p, p + 7))) return true;
+      const stmt = stripCommentsAndStrings(src.slice(p, p + 12));
+      if (/^\s*(?:return|throw)\b/.test(stmt)) return true;
       continue;
     }
 
@@ -117,7 +128,11 @@ function secretCheckGates(src: string): boolean {
         }
       }
     }
-    if (/\breturn\b/.test(src.slice(p, end))) return true;
+    // STRIP COMMENTS AND STRINGS FIRST. A review of this guard pointed out
+    // that the word "return" anywhere in the block satisfied it — including
+    // inside the very comment a decorative check would carry ("we do not
+    // return here for now"). The word only counts as a gate when it is code.
+    if (/\b(?:return|throw)\b/.test(stripCommentsAndStrings(src.slice(p, end)))) return true;
   }
   return false;
 }

@@ -312,7 +312,15 @@ async function fetchLedgerFacts(): Promise<LedgerFacts | null> {
     const rows = (await sql`
       SELECT
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
-        COUNT(*) FILTER (WHERE status <> 'pending' AND kind <> 'seismicity_window')::int AS resolved,
+        -- SCORED, not merely "not pending". This counted every non-pending row,
+        -- so the five unresolvable calls — closed without a score, because the
+        -- resolver could not see enough of the country — were published in the
+        -- denominator of the share card. The card said 177/725 while /ledger,
+        -- which filters to hit/miss at api/calls/ledger.ts:107, said 177/720.
+        -- The card is what a stranger sees first when the link is shared, so it
+        -- was the more-read of the two numbers and the wrong one. Found by the
+        -- 2026-09-12 audit.
+        COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind <> 'seismicity_window')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
         MIN(resolves_on) FILTER (WHERE status = 'pending')::text AS next_resolves
       FROM calls
