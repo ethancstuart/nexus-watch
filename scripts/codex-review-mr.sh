@@ -36,6 +36,24 @@ command -v codex >/dev/null 2>&1 || { echo "codex CLI not found on PATH" >&2; ex
 OUT=".codex-reviews/$(echo "$BRANCH" | tr '/' '-')"
 mkdir -p "$OUT"
 
+# MATERIALISE THE WHOLE BRANCH, not only the files under review. Codex follows
+# an import when a question needs one, and an import resolved relative to a
+# snapshot holding only the reviewed files lands in the WORKING TREE — whatever
+# branch happens to be checked out there. On 2026-09-12 that produced a
+# confident BLOCKER citing a `return null` the branch had deleted: the reviewer
+# read the pre-merge src/config/data-sources.ts from a sibling worktree on an
+# older branch. `git archive` puts the branch's own tree under the snapshot, so
+# every path Codex can reach from a reviewed file is the branch's.
+git rev-parse --verify -q "$BRANCH^{commit}" >/dev/null || { echo "no such branch: $BRANCH" >&2; exit 2; }
+rm -rf "$OUT/snapshot"
+mkdir -p "$OUT/snapshot"
+git archive "$BRANCH" | tar -x -C "$OUT/snapshot"
+# No symlinks in the snapshot: a reviewed path must be a plain file, and
+# nothing Codex reads from here may point outside it. (The review of this
+# change noticed that a materialised symlink plus a redirect into the
+# snapshot would have written wherever the branch pointed it.)
+find "$OUT/snapshot" -type l -delete
+
 if [ -n "$ONLY_FILE" ]; then
   FILES="$ONLY_FILE"
 else
@@ -63,9 +81,14 @@ for f in $FILES; do
   BRIEF="$OUT/brief-$SAFE.txt"
   REVIEW="$OUT/review-$SAFE.txt"
   SNAP="$OUT/snapshot/$f"
-  mkdir -p "$(dirname "$SNAP")"
-  git show "$BRANCH:$f" > "$SNAP" 2>/dev/null || {
-    echo "  $f — SKIPPED (not present on $BRANCH)"; continue; }
+  # The archive above already holds the branch's copy, so this is an
+  # existence check and not a write.
+  [ -f "$SNAP" ] || {
+    echo "  $f — SKIPPED (not present on $BRANCH, or a symlink)"
+    # A stale review from an earlier run must not stand in for this one.
+    rm -f "$REVIEW"
+    continue
+  }
   ABS="$(cd "$(dirname "$SNAP")" && pwd)/$(basename "$SNAP")"
 
   # MATERIALISE THE BRANCH VERSION, and do not trust the working tree.
@@ -162,7 +185,18 @@ VERDICTS="$OUT/VERDICTS.md"
 for f in $FILES; do
   SAFE=$(echo "$f" | tr '/' '-')
   REVIEW="$OUT/review-$SAFE.txt"
-  [ -f "$REVIEW" ] || continue
+  if [ ! -f "$REVIEW" ]; then
+    # A file skipped above produced no review. That must FAIL the gate
+    # below, not vanish from it: a skipped file is not a reviewed file, and
+    # the review of this script found the skip exiting 0 with nothing read.
+    {
+      echo "## \`$f\`"
+      echo
+      echo "**NO VERDICT — not reviewable on $BRANCH (missing, or a symlink). A skipped file is not a reviewed file.**"
+      echo
+    } >> "$VERDICTS"
+    continue
+  fi
 
   # THE EXTRACTION TRAP: the brief is echoed back near the top of the output,
   # so a naive grep finds the literal "Q1: CONFIRMED|REFUTED" placeholder from

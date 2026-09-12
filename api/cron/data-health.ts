@@ -390,11 +390,11 @@ const HEAL_FAILURE_THRESHOLD = 3;
 /**
  * Attempt a proxy cache-bust on a layer that's currently red.
  *
- * For layers whose probeUrl starts with `/api/` (i.e., our own
- * serverless proxies), this forces a refetch with a cache-bust
- * query param, bypassing any edge cache on the proxy route. For
- * layers that probe external URLs directly, this is a no-op — there's
- * nothing we can do server-side to flush a third-party cache.
+ * Only for layers whose active source is one of our own `/api/` proxies:
+ * it forces a refetch with a cache-bust query param, bypassing any edge
+ * cache on the proxy route. The caller, maybeHealLayer, declines external
+ * sources before calling — there is nothing we can do server-side to flush
+ * a third-party cache, and no row is written for not doing it.
  *
  * Returns the outcome shape the caller records in data_health_actions.
  * Never throws; captures errors into the returned object so the cron's
@@ -412,25 +412,15 @@ async function attemptProxyCacheBust(
 }> {
   const startedAt = Date.now();
 
-  // Pick the source that matches the active_source name — default to
-  // the primary if we can't find a match. Bail early for external URLs.
+  // Pick the source that matches the active_source name — default to the
+  // primary if we can't find a match. The only caller, maybeHealLayer, has
+  // already declined any source that is not one of our /api/ proxies, so the
+  // "external URL, skipped, filed as success" branch that used to live here
+  // was unreachable. It is gone; an independent review found it.
   const source =
     layer.primary.name === activeSource
       ? layer.primary
       : (layer.fallbacks.find((f) => f.name === activeSource) ?? layer.primary);
-
-  if (!source.probeUrl.startsWith('/api/')) {
-    return {
-      outcome: 'succeeded',
-      error: null,
-      latencyMs: Date.now() - startedAt,
-      actionDetails: {
-        action: 'proxy_cache_bust',
-        skipped: 'external_probe_url',
-        probe_url: source.probeUrl,
-      },
-    };
-  }
 
   const cacheBustToken = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const probeBase = base ? (base.startsWith('http') ? base : `https://${base}`) : '';

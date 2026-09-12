@@ -122,6 +122,8 @@ export const CONCURRENCY = 4;
 export const COVERAGE_LOOKBACK_DAYS = 14;
 /** Per-country request timeout. */
 const REQUEST_TIMEOUT_MS = 10_000;
+/** A request with less than this left before the deadline does not start. */
+export const MIN_REQUEST_BUDGET_MS = 1_000;
 /** Stop starting new countries this long before the function budget ends. */
 const DEADLINE_SLACK_MS = 20_000;
 
@@ -219,9 +221,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const url = `${OONI_API}/aggregation?probe_cc=${cc}&since=${since}&until=${today}&test_name=web_connectivity&axis_x=measurement_start_day&time_grain=day`;
     // The request budget is the smaller of the per-request timeout and what
     // is left before the deadline, so a request started late cannot carry the
-    // run past the function's limit. The deadline governs work in flight,
-    // not only the decision to start it.
-    const budgetMs = Math.max(1_000, Math.min(REQUEST_TIMEOUT_MS, deadline - Date.now()));
+    // run past the function's limit. The deadline governs work in flight, not
+    // only the decision to start it — and with under a second left the
+    // request does not start at all. The earlier floor of one second let a
+    // request begun in the deadline's last moments run past it; an
+    // independent review read the comment against the code.
+    const remainingMs = deadline - Date.now();
+    if (remainingMs < MIN_REQUEST_BUDGET_MS) {
+      result.skipped.push(cc);
+      return;
+    }
+    const budgetMs = Math.min(REQUEST_TIMEOUT_MS, remainingMs);
     const r = await fetch(url, {
       signal: AbortSignal.timeout(budgetMs),
       headers: { 'User-Agent': 'NexusWatch/1.0 (+https://nexuswatch.dev)' },
