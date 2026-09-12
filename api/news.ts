@@ -3,19 +3,39 @@ import Parser from 'rss-parser';
 
 export const config = { runtime: 'nodejs' };
 
-function isPrivateHost(hostname: string): boolean {
-  // Block cloud metadata endpoints
-  if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') return true;
-  // Block localhost
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0') return true;
-  // Block private IP ranges
-  if (/^10\./.test(hostname)) return true;
-  if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
-  if (/^192\.168\./.test(hostname)) return true;
-  // Block link-local
-  if (/^169\.254\./.test(hostname)) return true;
-  return false;
-}
+/*
+ * THE `customUrls` PARAMETER IS GONE, AND SO IS THE DENYLIST THAT GUARDED IT.
+ *
+ * This endpoint used to accept `?customUrls=[{"url":...}]` and fetch up to ten
+ * caller-supplied URLs with rss-parser, filtered by an isPrivateHost() that
+ * compared hostname STRINGS against four literals and four IPv4 regexes. That
+ * is the construct this repo's first invariant forbids — a check satisfiable
+ * by a list — and it was satisfiable. Measured against the guard's own code:
+ *
+ *     http://[::1]/                      hostname "[::1]"          PASSED
+ *     http://127.0.0.2/                  hostname "127.0.0.2"      PASSED
+ *     http://[::ffff:169.254.169.254]/   hostname "[::ffff:a9fe:a9fe]"  PASSED
+ *     http://[fd00::1]/                  hostname "[fd00::1]"      PASSED
+ *     http://metadata.google.internal./  trailing dot              PASSED
+ *
+ * No IPv6 range was checked at all, only one loopback address of the /8 was
+ * listed, and a trailing dot defeats string equality. /api/news answers 200 in
+ * production and accepted the parameter, so one unauthenticated GET turned a
+ * nexuswatch.dev function into an HTTP proxy for hosts of the caller's
+ * choosing, returning any target that serves parseable RSS in the response
+ * body and acting as an existence-and-timing oracle for everything else.
+ *
+ * Nothing in this repository ever sent the parameter: it is a leftover of the
+ * deleted Intel Map, and its only reference was its own implementation. The
+ * fix is therefore removal, not a better denylist — a correctly derived guard
+ * would have to resolve the hostname and classify the ADDRESS, and then still
+ * defend against DNS rebinding, which is a great deal of machinery to keep a
+ * feature no caller uses. The feed list below is fixed and in-repo.
+ *
+ * Found by the audit's completeness review on 2026-09-12, after all three
+ * security passes had concluded "no fetch() in api/ takes a caller-supplied
+ * URL".
+ */
 
 interface FeedSource {
   name: string;
@@ -444,32 +464,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Invalid category' });
   }
 
-  // Handle custom feeds
-  let customSources: FeedSource[] = [];
-  const customUrlsParam = req.query.customUrls as string | undefined;
-  if (customUrlsParam) {
-    try {
-      const parsed = JSON.parse(customUrlsParam) as { url: string; name: string; lat?: number; lon?: number }[];
-      customSources = parsed
-        .slice(0, 10)
-        .filter((f) => {
-          try {
-            return !isPrivateHost(new URL(f.url).hostname);
-          } catch {
-            return false;
-          }
-        })
-        .map((f) => ({
-          name: f.name || 'Custom',
-          url: f.url,
-          country: '',
-          lat: f.lat || 0,
-          lon: f.lon || 0,
-        }));
-    } catch {
-      /* ignore invalid JSON */
-    }
-  }
+  // Custom feeds were removed with the caller-supplied URL path; see the
+  // note at the top of this file.
+  const customSources: FeedSource[] = [];
 
   const parser = new Parser({ timeout: 5000 });
   const articles = await fetchCategory(category, parser, customSources);

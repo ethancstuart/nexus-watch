@@ -1,11 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import {
-  resolveOutcome,
-  fxDepreciationPct,
+  UNRESOLVABLE_GRACE_DAYS,
   coverageRequirement,
   daysSinceResolution,
-  UNRESOLVABLE_GRACE_DAYS,
+  fxDepreciationPct,
+  missHoldReason,
+  resolveOutcome,
 } from '../_lib/calls.js';
 import { usgsCountUrl, type RegionBox } from '../_lib/seismicity.js';
 import { raiseAlert, clearAlert } from '../_lib/alert.js';
@@ -124,6 +125,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('[resolve-calls] truncation alert failed (non-fatal):', alertErr);
     }
 
+    // The UTC calendar day this run belongs to, computed once so every call
+
+    // in the batch is judged against the same boundary.
+
+    const todayUtc = new Date().toISOString().slice(0, 10);
+
     let hits = 0;
     let misses = 0;
     let unresolvable = 0;
@@ -171,6 +178,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const params = call.resolver_params;
           if (!params?.box || typeof params.mag !== 'number') {
             console.error(`[resolve-calls] call ${call.id} seismicity without frozen params — left pending`);
+            continue;
+          }
+          // THE WINDOW MUST BE OVER BEFORE IT CAN BE SCORED. This job runs at
+          // 09:45 UTC on the day a call's window closes, and the USGS query
+          // asks for events up to `${resolves_on}T23:59:59` — fourteen hours
+          // that have not happened yet. Like the censorship leg below, the
+          // omission is one-sided: a not-yet-occurred event can only turn a
+          // would-be hit into a miss. So the call waits, which costs a day and
+          // nothing else, and the existing grace path handles it from there.
+          if (call.resolves_on >= todayUtc) {
+            stillWaiting++;
             continue;
           }
           const url = usgsCountUrl(params.box, params.mag, call.made_on, call.resolves_on);
@@ -264,21 +282,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           } else {
             const coverage = (await sql`
           SELECT COUNT(DISTINCT measurement_date)::int AS covered_days,
-                 COALESCE(SUM(total_measurements), 0)::int AS measurements
+                 COALESCE(SUM(total_measurements), 0)::int AS measurements,
+                 COUNT(*) FILTER (WHERE measurement_date = ${call.resolves_on}::date)::int AS final_day_rows
           FROM ooni_measurements
           WHERE country_code = ${call.country_code}
             AND measurement_date >= ${call.made_on}::date
             AND measurement_date <= ${call.resolves_on}::date
-        `) as unknown as Array<{ covered_days: number; measurements: number }>;
+        `) as unknown as Array<{ covered_days: number; measurements: number; final_day_rows: number }>;
 
             const coveredDays = coverage[0]?.covered_days ?? 0;
             const observed = coverage[0]?.measurements ?? 0;
             const req = coverageRequirement(call.horizon_days);
 
-            if (coveredDays < req.minDays || observed < req.minMeasurements) {
+            // THE LAST DAY OF THE WINDOW IS PART OF THE WINDOW.
+            //
+            // This job runs at 09:45 UTC on the day a call's window closes,
+            // and OONI's rows for day D are not stored until D+1 00:00 UTC —
+            // measured, not assumed. So the final day of every censorship
+            // call was scored before any evidence for it existed: 261 of the
+            // first 262 resolved calls were settled with no row at all for
+            // their own resolves_on.
+            //
+            // The harm is ONE-SIDED, which is what makes it serious rather
+            // than merely noisy. A hit resolves on evidence alone (above), so
+            // a missing day can never manufacture a hit — only a miss. Nine
+            // published misses (ids 997, 999, 1006, 1103, 1110, 1136, 1207,
+            // 1214, 1240) have a confirmed block on their own final day,
+            // every one of them stored AFTER the verdict was written.
+            //
+            // Derived, not clocked: we do not subtract a day or wait a fixed
+            // number of hours, because the lag is a property of the upstream
+            // and it changes. The rule is that a would-be MISS may not be
+            // published while the resolver has never seen the last day it is
+            // scoring. It waits under the SAME grace window as a coverage
+            // hold, and becomes unresolvable by the same path if the evidence
+            // never comes. The hit path is untouched.
+            const finalDaySeen = (coverage[0]?.final_day_rows ?? 0) > 0;
+            const hold = missHoldReason({ finalDaySeen, coveredDays, measurements: observed }, req);
+
+            if (hold !== null) {
               const why =
-                `resolver coverage ${coveredDays}/${req.minDays} days, ` +
-                `${observed}/${req.minMeasurements} measurements in [${call.made_on}, ${call.resolves_on}]`;
+                hold === 'final-day-unseen'
+                  ? `no resolver evidence yet for the window's final day ${call.resolves_on} ` +
+                    `(coverage ${coveredDays}/${req.minDays} days, ${observed}/${req.minMeasurements} measurements)`
+                  : `resolver coverage ${coveredDays}/${req.minDays} days, ` +
+                    `${observed}/${req.minMeasurements} measurements in [${call.made_on}, ${call.resolves_on}]`;
               // warn, not error: an unresolvable settlement is the published
               // rule doing its job, not a fault. Logged at error level it filled
               // Vercel's error dashboard with ~280 "errors" in the week of

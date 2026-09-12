@@ -37,6 +37,131 @@ if (crons.length === 0) {
   process.exit(1);
 }
 
+/** Blank out comments and string/template bodies so a word in prose is not code. */
+function stripCommentsAndStrings(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+    .replace(/`(?:\\.|[^`\\])*`/g, '``')
+    .replace(/'(?:\\.|[^'\\])*'/g, "''")
+    .replace(/"(?:\\.|[^"\\])*"/g, '""');
+}
+
+/**
+ * True when the block's OWN statements return or throw — not a nested
+ * callback's. Depth is counted from the block's opening brace, so a
+ * `forEach(x => { return x; })` inside an auth branch no longer reads as a
+ * rejection.
+ */
+function gatesAtTopLevel(block: string): boolean {
+  let depth = 0;
+  const re = /[{}]|\b(?:return|throw)\b/g;
+  for (let m = re.exec(block); m !== null; m = re.exec(block)) {
+    const tok = m[0];
+    if (tok === '{') depth++;
+    else if (tok === '}') depth--;
+    else if (depth <= 1) return true;
+  }
+  return false;
+}
+
+/**
+ * Does a CRON_SECRET comparison actually GATE anything?
+ *
+ * A handler can mention CRON_SECRET and still be wide open. compute-cii did
+ * exactly that for months:
+ *
+ *     if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && ...) {
+ *       // Allow without auth for now (cron secret optional)
+ *     }
+ *
+ * The comparison ran, its result was discarded, and execution continued into
+ * the production writes. An unauthenticated GET returned HTTP 200 in
+ * production on 2026-09-12. This guard cleared it as "legacy idiom,
+ * authenticated in practice" because the file CONTAINED the string — the same
+ * presence-not-use mistake this file's own docstring says it exists to avoid.
+ *
+ * So the property is not "the secret is mentioned". It is "the branch that
+ * tests the secret ends the request". We find each `if` whose condition
+ * mentions CRON_SECRET and require a `return` inside its block.
+ */
+function secretCheckGates(src: string): boolean {
+  // The condition may not name the env var at all. Five handlers bind it to a
+  // local first — `const cronSecret = process.env.CRON_SECRET;` — and then
+  // test `authHeader !== \`Bearer ${cronSecret}\``. So derive the names that
+  // hold the secret rather than looking for one spelling of it.
+  const names = new Set(['CRON_SECRET']);
+  const aliasRe = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*process\.env\.CRON_SECRET/g;
+  for (let m = aliasRe.exec(src); m !== null; m = aliasRe.exec(src)) names.add(m[1] as string);
+
+  const mentionsSecret = (text: string): boolean => {
+    for (const n of names) {
+      // Whole-identifier match, so `cronSecretUnset` is not `cronSecret`.
+      if (new RegExp(`(?<![\\w$])${n}(?![\\w$])`).test(text)) return true;
+    }
+    return false;
+  };
+
+  // `if (` and `if(` are the same statement. Matching the literal three-character
+  // spelling let the second form pass unexamined.
+  const ifRe = /\bif\s*\(/g;
+  for (let mm = ifRe.exec(src); mm !== null; mm = ifRe.exec(src)) {
+    const i = mm.index;
+    // Walk the condition's parentheses to their close.
+    let depth = 0;
+    let j = i + mm[0].length - 1;
+    for (; j < src.length; j++) {
+      if (src[j] === '(') depth++;
+      else if (src[j] === ')') {
+        depth--;
+        if (depth === 0) break;
+      }
+    }
+    const condition = src.slice(i, j + 1);
+    if (!mentionsSecret(condition)) continue;
+
+    // What follows the condition is either a braced block or ONE statement.
+    // Decide on the first non-whitespace character and nothing else: an
+    // earlier version compared the offsets of the next `{` and the next `;`,
+    // which misreads the repo's actual idiom
+    //     if (token !== process.env.CRON_SECRET) return res.status(401).json({ ... });
+    // because the object literal's brace precedes the semicolon. That bug made
+    // this guard flag all thirteen correctly-gated handlers.
+    let p = j + 1;
+    while (p < src.length && /\s/.test(src[p] as string)) p++;
+
+    if (src[p] !== '{') {
+      // Single statement: it gates only if that statement is a return.
+      const stmt = stripCommentsAndStrings(src.slice(p, p + 12));
+      if (/^\s*(?:return|throw)\b/.test(stmt)) return true;
+      continue;
+    }
+
+    // Braced body: walk to its matching close and look for a return.
+    let bdepth = 0;
+    let end = p;
+    for (let k = p; k < src.length; k++) {
+      if (src[k] === '{') bdepth++;
+      else if (src[k] === '}') {
+        bdepth--;
+        if (bdepth === 0) {
+          end = k;
+          break;
+        }
+      }
+    }
+    // THE RETURN MUST BE THE BLOCK'S OWN, NOT SOMEONE ELSE'S. Two rounds of
+    // review sharpened this. First: the word "return" anywhere satisfied it,
+    // including inside the comment a decorative check would carry ("we do not
+    // return here for now") — so comments and string bodies are blanked. Then:
+    // a return nested inside a callback within the block still counted, and a
+    // callback's return gates nothing. So only depth zero of the block itself
+    // is read. `throw` counts too: it ends the request just as finally.
+    if (gatesAtTopLevel(stripCommentsAndStrings(src.slice(p, end)))) return true;
+  }
+  return false;
+}
+
 const violations: string[] = [];
 const exempt: Array<{ path: string; reason: string }> = [];
 const missing: string[] = [];
@@ -78,7 +203,11 @@ for (const cron of crons) {
   //    secret is UNSET, because `undefined !== undefined` is false. That is a
   //    migration WARNING, not a build break.
   if (!src.includes('CRON_SECRET')) {
-    violations.push(`${cron.path}  (${rel})`);
+    violations.push(`${cron.path}  (${rel})  — no authentication at all`);
+  } else if (!secretCheckGates(src)) {
+    // Mentions the secret but no branch testing it returns: the comparison is
+    // decorative and the endpoint is open. That is a FAILURE, not a warning.
+    violations.push(`${cron.path}  (${rel})  — tests CRON_SECRET but the branch does not return`);
   } else {
     legacy.push(cron.path);
   }

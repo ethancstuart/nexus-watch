@@ -49,6 +49,43 @@ export function verifyUnsubscribeToken(email: string, token: string): boolean {
   }
 }
 
+/**
+ * Re-subscription after an opt-out needs its OWN signature.
+ *
+ * WHY (audit, 2026-09-12). `/api/subscribe` used `ON CONFLICT (email) DO
+ * UPDATE SET unsubscribed = FALSE`, so an unauthenticated POST with someone
+ * else's address silently cleared their opt-out and put them back on the
+ * list. Consent cannot be restored by a stranger.
+ *
+ * The purpose string is not decoration: without it an unsubscribe token —
+ * which travels in the clear in every email footer, and is deliberately
+ * cheap — would also authorise re-subscription, and leaving the list would
+ * hand out the key for being put back on it.
+ */
+const RESUB_PURPOSE = 'resubscribe:v1';
+
+export function resubscribeToken(email: string): string | null {
+  const s = secret();
+  if (!s) return null;
+  return createHmac('sha256', s).update(`${RESUB_PURPOSE}:${email.trim().toLowerCase()}`).digest('hex').slice(0, 32);
+}
+
+export function resubscribeUrl(email: string): string | null {
+  const t = resubscribeToken(email);
+  if (!t) return null;
+  return `https://nexuswatch.dev/api/subscribe?e=${encodeURIComponent(email.trim().toLowerCase())}&t=${t}`;
+}
+
+export function verifyResubscribeToken(email: string, token: string): boolean {
+  const expected = resubscribeToken(email);
+  if (!expected || !token || token.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(token));
+  } catch {
+    return false;
+  }
+}
+
 /** Substitute the placeholder for one recipient, in html or plain text. */
 export function personalizeUnsubscribe(body: string, email: string): string {
   return body.split(UNSUB_PLACEHOLDER).join(unsubscribeUrl(email));

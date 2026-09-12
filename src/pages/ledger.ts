@@ -1,6 +1,7 @@
 import { createElement } from '../utils/dom.ts';
 import { installSurfaces, stat, sectionRule, figure, capture, row } from '../ui/kit/index.ts';
 import { setPageSeo } from '../utils/seo.ts';
+import { isScored } from '../../api/_lib/calls.ts';
 
 /**
  * The Ledger — /ledger, and the front door for the only claim nobody else in
@@ -376,8 +377,24 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
   }
 
   // ---- Where we were wrong ---------------------------------------------
-  const misses = data.resolved.filter((c) => c.status === 'miss');
-  if (data.resolved.length > 0) {
+  // SCORED AND UNSCORED ARE DIFFERENT THINGS, AND THIS PAGE USED TO CONFLATE
+  // THEM. `/api/calls/ledger` deliberately returns every non-pending row,
+  // which includes `unresolvable` (the resolver could not see enough evidence
+  // to score the call) and `void`. The render below was
+  // `c.status === 'hit' ? 'HIT' : 'MISS'`, so three calls that were never
+  // scored — CF, TD and SS — were published to the public ledger as MISS,
+  // as though the forecast had been wrong. On a register whose entire claim
+  // is that its record is honest and checkable, printing an unscored call as
+  // a wrong one is the worst defect available. Found by independent review
+  // 2026-09-12 and confirmed against the live API the same day.
+  //
+  // Membership derives from api/_lib/calls.ts's SCORED_STATUSES — the same
+  // set the Brier computation uses — so a status added tomorrow is unscored
+  // here by default rather than silently painted a miss.
+  const scored = data.resolved.filter((c) => isScored(c.status));
+  const unscored = data.resolved.filter((c) => !isScored(c.status));
+  const misses = scored.filter((c) => c.status === 'miss');
+  if (scored.length > 0) {
     main.appendChild(
       sectionRule({
         kicker: 'RESOLVED',
@@ -387,7 +404,7 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
           'trusts a risk score.',
       }),
     );
-    const ordered = [...data.resolved].sort((a, b) => {
+    const ordered = [...scored].sort((a, b) => {
       const aErr = (a.status === 'hit' ? 1 : 0) - a.probability;
       const bErr = (b.status === 'hit' ? 1 : 0) - b.probability;
       return Math.abs(bErr) - Math.abs(aErr);
@@ -399,6 +416,31 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
           detail: `${c.claim} — said ${pct(c.probability)}`,
           trail: c.status === 'hit' ? 'HIT' : 'MISS',
           state: c.status === 'hit' ? 'hit' : 'miss',
+          href: `/call/${c.id}`,
+        }),
+      );
+    }
+  }
+
+  // ---- Closed without a score -------------------------------------------
+  // These are not misses and they are not open. Saying so is the point.
+  if (unscored.length > 0) {
+    main.appendChild(
+      sectionRule({
+        kicker: 'CLOSED WITHOUT A SCORE',
+        title: 'Calls the evidence could not settle',
+        lede:
+          'The resolver did not see enough of the country to say yes or no, so these are closed unscored ' +
+          'rather than counted as wrong. They are excluded from the record above and from every skill number.',
+      }),
+    );
+    for (const c of unscored) {
+      main.appendChild(
+        row({
+          lead: c.country_code,
+          detail: `${c.claim} — said ${pct(c.probability)}`,
+          trail: c.status.toUpperCase(),
+          state: 'pending',
           href: `/call/${c.id}`,
         }),
       );

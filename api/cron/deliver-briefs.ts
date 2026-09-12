@@ -130,12 +130,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const subscribers = await sql`
     SELECT es.email, es.timezone
     FROM email_subscribers es
+    LEFT JOIN pg_timezone_names z ON z.name = es.timezone
     WHERE es.unsubscribed = FALSE
       -- COALESCE: subscribe.ts historically never wrote timezone, and a NULL
       -- zone makes both EXTRACTs NULL — the subscriber matches NO hour bucket
       -- and silently never receives anything, forever.
-      AND EXTRACT(HOUR FROM (NOW() AT TIME ZONE COALESCE(es.timezone, 'UTC'))) >= ${targetLocalHour}
-      AND EXTRACT(HOUR FROM (NOW() AT TIME ZONE COALESCE(es.timezone, 'UTC'))) < ${targetLocalHour + 1}
+      --
+      -- AND the zone is checked against Postgres's OWN catalogue before it is
+      -- used. An unrecognised zone does not make one row misbehave: it raises
+      -- an ERROR that aborts this query, so a single bad row stops the brief
+      -- reaching EVERYONE. subscribe.ts now validates against the runtime's
+      -- tzdata, but that protects new rows only, and a delivery path for four
+      -- subscribers should not be one bad string away from silence.
+      AND EXTRACT(HOUR FROM (NOW() AT TIME ZONE COALESCE(z.name, 'UTC'))) >= ${targetLocalHour}
+      AND EXTRACT(HOUR FROM (NOW() AT TIME ZONE COALESCE(z.name, 'UTC'))) < ${targetLocalHour + 1}
       AND NOT EXISTS (
         SELECT 1 FROM brief_subscriber_delivery bsd
         WHERE bsd.subscriber_email = es.email

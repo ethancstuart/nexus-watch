@@ -31,14 +31,29 @@ export async function resolveAdmin(req: VercelRequest): Promise<AdminUser | null
     .map((c) => c.trim())
     .find((c) => c.startsWith('__Host-session='));
   const sessionId = sessionCookie?.split('=')[1];
-  if (!sessionId) return null;
+  // THE COOKIE IS A PATH, NOT A NAME, UNLESS WE MAKE IT ONE.
+  //
+  // This value went straight into `${kvUrl}/get/session:${sessionId}` below
+  // with no encoding and no shape check, and '/' and '%' are legal RFC 6265
+  // cookie octets. A cookie of `a/../../flushall` resolves — verified against
+  // the real KV_REST_API_URL, whose path is bare '/' — to `/flushall`, sent
+  // with KV_REST_API_TOKEN in the Authorization header. So an anonymous
+  // request could run arbitrary Upstash REST commands: wipe the store, or
+  // /set a session object of its own choosing and then read it back as an
+  // admin, since `Boolean(u.isAdmin)` below is sufficient on its own.
+  //
+  // Every other KV caller in the repo already wraps its key in
+  // encodeURIComponent (kvCache.ts, apiAuth.ts); this was the lone exception.
+  // Both halves are applied here, because encoding alone would still let an
+  // unbounded caller-chosen key be read out of the shared store.
+  if (!sessionId || !/^[A-Za-z0-9_-]{16,128}$/.test(sessionId)) return null;
 
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
   if (!kvUrl || !kvToken) return null;
 
   try {
-    const res = await fetch(`${kvUrl}/get/session:${sessionId}`, {
+    const res = await fetch(`${kvUrl}/get/${encodeURIComponent(`session:${sessionId}`)}`, {
       headers: { Authorization: `Bearer ${kvToken}` },
     });
     const data = (await res.json()) as { result: string | null };

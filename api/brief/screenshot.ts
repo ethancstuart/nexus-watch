@@ -4,6 +4,18 @@ import { neon } from '@neondatabase/serverless';
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
 /**
+ * How long the upstream map fetch may take, in milliseconds.
+ *
+ * It MUST be meaningfully less than maxDuration above. The first version of
+ * the proxy used the full ten seconds, which is the function's entire budget:
+ * a slow Mapbox response would have burned the invocation and the SVG fallback
+ * below could never have been sent, putting a broken image in an email rather
+ * than the rendered card. An independent review caught it. Six seconds leaves
+ * four to render and send the fallback.
+ */
+const MAPBOX_BUDGET_MS = 6_000;
+
+/**
  * Map of the Day — Public image endpoint (Track A.7).
  *
  *   GET /api/brief/screenshot
@@ -337,12 +349,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       height: size.height,
       retina: size.retina,
     });
-    // 302 redirect — Mapbox's CDN caches aggressively, so we keep this
-    // function stateless and fast. The <img src="..."> in the email
-    // will follow the redirect and the client's image cache will
-    // handle the rest.
-    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
-    return res.redirect(302, url);
+    // FETCH IT, DO NOT REDIRECT TO IT. This used to answer 302 with the
+    // Mapbox URL in the Location header — and that URL carries
+    // `access_token=<MAPBOX_TOKEN>`. The endpoint is public by design (email
+    // clients, image proxies and social crawlers all pull it), so the token
+    // was handed to every one of them, and to anyone who simply curled it.
+    // Verified against production on 2026-09-12: the Location header of
+    // /api/brief/screenshot?date=...&size=email contained the token in full.
+    //
+    // A server env var is not a client credential no matter what prefix it
+    // carries. Proxying costs one upstream fetch per cold cache for an image
+    // a handful of readers and crawlers request, which is a price worth
+    // paying to stop publishing a key. The bytes are cached for an hour
+    // exactly as before; only the token stays here.
+    try {
+      const upstream = await fetch(url, { signal: AbortSignal.timeout(MAPBOX_BUDGET_MS) });
+      if (upstream.ok) {
+        const body = Buffer.from(await upstream.arrayBuffer());
+        res.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+        return res.status(200).send(body);
+      }
+      console.error(`[screenshot] mapbox ${upstream.status} — falling back to the rendered card`);
+    } catch (err) {
+      console.error('[screenshot] mapbox fetch failed — falling back:', err instanceof Error ? err.message : err);
+    }
+    // Any upstream failure falls through to the SVG below rather than
+    // serving a broken image into an email.
   }
 
   // Fallback path.
