@@ -12,16 +12,22 @@
  * with the stored rows. Without --write it PRINTS the diff and touches
  * nothing. With --write it upserts the true totals — which CORRECTS rows the
  * collector stored from an hourly bucket and ADDS rows for days OONI has
- * measurements the collector never stored at all. It never touches `calls`:
- * a resolved call is never rewritten, and what the corrected evidence means
- * for the 54 published misses that are hits is a published correction decided
- * by the owner, not a script.
+ * measurements the collector never stored at all. A stored day OONI no longer
+ * reports measurements for is left as it is and named in the report: there is
+ * no daily total to correct it with. It never touches `calls`: a resolved
+ * call is never rewritten, and what the corrected evidence means for the 54
+ * published misses that are hits is a published correction decided by the
+ * owner, not a script.
  *
- * A country whose OONI request fails is NOT silently skipped: the run
- * finishes the other countries, names the failures, and exits 1. A partial
- * report is not a report and a partial write is not a backfill — an
- * independent review caught the earlier version, which logged the skip and
- * exited 0.
+ * TWO PHASES. Phase one fetches and compares every country and writes
+ * nothing. Phase two writes the plan — only if phase one fetched every
+ * country. A --write run is therefore all-or-nothing at the country level:
+ * one failed request means NOTHING is written, the failures are named, and
+ * the exit code is 1. A partial report is not a report and a partial write is
+ * not a backfill. (A database failure mid-write can still stop phase two
+ * early; every upsert is idempotent, so the re-run completes it.) Two
+ * independent review rounds caught the versions that skipped a failed country
+ * with exit 0, and then wrote as they went.
  *
  * Usage:
  *   npx tsx scripts/backfill-ooni-daily.ts                 # dry run, since 2026-04-18
@@ -31,10 +37,17 @@
 import { neon } from '@neondatabase/serverless';
 
 // Overridable so the failure path can be exercised: point it at a dead path
-// and every country must be reported as failed and the exit code must be 1.
+// and every country must be reported as failed, nothing written, exit 1.
 const OONI_API = process.env.OONI_API_BASE ?? 'https://api.ooni.io/api/v1';
 const DEFAULT_SINCE = '2026-04-18';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A real calendar date in YYYY-MM-DD, not merely something shaped like one. */
+function isCalendarDate(s: string): boolean {
+  if (!DATE_RE.test(s)) return false;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s;
+}
 
 interface Bucket {
   measurement_start_day: string;
@@ -43,13 +56,21 @@ interface Bucket {
   measurement_count: number;
 }
 
+interface StoredRow {
+  d: string;
+  anomaly_count: number;
+  confirmed_blocked: number;
+  total_measurements: number;
+}
+
 async function main(): Promise<void> {
   const write = process.argv.includes('--write');
   const sinceIdx = process.argv.indexOf('--since');
   const sinceArg = sinceIdx > -1 ? process.argv[sinceIdx + 1] : undefined;
-  if (sinceIdx > -1 && !DATE_RE.test(sinceArg ?? '')) {
-    // `--since --write` must not turn "--write" into the window's start.
-    throw new Error(`--since needs a YYYY-MM-DD date, got ${JSON.stringify(sinceArg)}`);
+  if (sinceIdx > -1 && !isCalendarDate(sinceArg ?? '')) {
+    // `--since --write` must not turn "--write" into the window's start, and
+    // 2026-99-99 must not reach the query.
+    throw new Error(`--since needs a real YYYY-MM-DD date, got ${JSON.stringify(sinceArg)}`);
   }
   const since = sinceArg ?? DEFAULT_SINCE;
   const today = new Date().toISOString().slice(0, 10);
@@ -74,11 +95,14 @@ async function main(): Promise<void> {
     `${write ? 'WRITE' : 'DRY RUN'} — day-grain backfill ${since} → ${today}, ${countries.length} countries from the table`,
   );
 
+  // ---- PHASE ONE: fetch and compare. Nothing is written here. ----
   let rowsChanged = 0;
   let rowsAdded = 0;
   let rowsSame = 0;
+  let rowsLeft = 0;
   const perCountry: string[] = [];
   const failed: string[] = [];
+  const plan: Array<{ cc: string; d: string; b: Bucket }> = [];
 
   for (const cc of countries) {
     const url = `${OONI_API}/aggregation?probe_cc=${cc}&since=${since}&until=${today}&test_name=web_connectivity&axis_x=measurement_start_day&time_grain=day`;
@@ -92,7 +116,7 @@ async function main(): Promise<void> {
       buckets = (((await r.json()) as { result?: Bucket[] }).result ?? []).filter((b) => b.measurement_count > 0);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      console.error(`  ${cc}: FAILED (${reason}) — not corrected`);
+      console.error(`  ${cc}: FAILED (${reason})`);
       failed.push(cc);
       continue;
     }
@@ -101,14 +125,16 @@ async function main(): Promise<void> {
       SELECT measurement_date::text AS d, anomaly_count, confirmed_blocked, total_measurements
       FROM ooni_measurements
       WHERE country_code = ${cc} AND test_name = 'web_connectivity' AND measurement_date >= ${since}::date
-    `) as unknown as Array<{ d: string; anomaly_count: number; confirmed_blocked: number; total_measurements: number }>;
+    `) as unknown as StoredRow[];
     const byDay = new Map(stored.map((s) => [s.d, s]));
+    const seen = new Set<string>();
 
     let changed = 0;
     let added = 0;
     let flippedBlockedDays = 0;
     for (const b of buckets) {
       const d = b.measurement_start_day.slice(0, 10);
+      seen.add(d);
       const s = byDay.get(d);
       const same =
         s &&
@@ -124,39 +150,56 @@ async function main(): Promise<void> {
         changed++;
         if (s.confirmed_blocked > 0 !== b.confirmed_count > 0) flippedBlockedDays++;
       }
-      if (write) {
-        await sql`
-          INSERT INTO ooni_measurements (country_code, test_name, measurement_date, anomaly_count, confirmed_blocked, total_measurements)
-          VALUES (${cc}, 'web_connectivity', ${d}, ${b.anomaly_count}, ${b.confirmed_count}, ${b.measurement_count})
-          ON CONFLICT (country_code, test_name, measurement_date) DO UPDATE SET
-            anomaly_count = EXCLUDED.anomaly_count,
-            confirmed_blocked = EXCLUDED.confirmed_blocked,
-            total_measurements = EXCLUDED.total_measurements
-        `;
-      }
+      plan.push({ cc, d, b });
     }
+    // Stored days OONI reports no measurements for: left as they are, and said.
+    const left = stored.filter((s) => !seen.has(s.d)).length;
+    rowsLeft += left;
     rowsChanged += changed;
     rowsAdded += added;
     perCountry.push(
-      `${cc}: ${changed} changed, ${added} added, ${flippedBlockedDays} day(s) whose blocked/not-blocked reading flips`,
+      `${cc}: ${changed} changed, ${added} added, ${flippedBlockedDays} day(s) whose blocked/not-blocked reading flips` +
+        (left > 0 ? `, ${left} stored day(s) OONI has no total for (left as is)` : ''),
     );
     await new Promise((res) => setTimeout(res, 150));
   }
 
   for (const line of perCountry) console.log('  ' + line);
   console.log(
-    `\n${write ? 'WROTE' : 'WOULD WRITE'}: ${rowsChanged} rows corrected, ${rowsAdded} rows added, ${rowsSame} already true.`,
+    `\n${write ? 'TO WRITE' : 'WOULD WRITE'}: ${rowsChanged} rows corrected, ${rowsAdded} rows added, ${rowsSame} already true, ${rowsLeft} left as is.`,
   );
-  if (!write)
-    console.log(
-      'Nothing was written. Re-run with --write after the owner has decided how the 54 published misses are to be corrected.',
-    );
+
   if (failed.length > 0) {
     console.error(
-      `\nINCOMPLETE: ${failed.length} of ${countries.length} countries could not be fetched and were NOT ${write ? 'corrected' : 'compared'}: ${failed.join(' ')}. Re-run for them before treating this backfill as done.`,
+      `\nINCOMPLETE: ${failed.length} of ${countries.length} countries could not be fetched (${failed.join(' ')}). ` +
+        (write
+          ? 'NOTHING WRITTEN — a backfill that skips a country is not a backfill.'
+          : 'The comparison above is partial.') +
+        ' Re-run once OONI answers for them.',
     );
     process.exit(1);
   }
+  if (!write) {
+    console.log(
+      'Nothing was written. Re-run with --write after the owner has decided how the 54 published misses are to be corrected.',
+    );
+    return;
+  }
+
+  // ---- PHASE TWO: every country answered; write the plan. ----
+  let written = 0;
+  for (const { cc, d, b } of plan) {
+    await sql`
+      INSERT INTO ooni_measurements (country_code, test_name, measurement_date, anomaly_count, confirmed_blocked, total_measurements)
+      VALUES (${cc}, 'web_connectivity', ${d}, ${b.anomaly_count}, ${b.confirmed_count}, ${b.measurement_count})
+      ON CONFLICT (country_code, test_name, measurement_date) DO UPDATE SET
+        anomaly_count = EXCLUDED.anomaly_count,
+        confirmed_blocked = EXCLUDED.confirmed_blocked,
+        total_measurements = EXCLUDED.total_measurements
+    `;
+    written++;
+  }
+  console.log(`WROTE ${written} of ${plan.length} planned rows.`);
 }
 
 main().catch((err) => {
