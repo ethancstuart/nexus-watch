@@ -91,6 +91,41 @@ export const CALIBRATION_KINDS: ReadonlySet<string> = new Set(['seismicity_windo
  */
 export const SCORED_STATUSES: ReadonlySet<string> = new Set(['hit', 'miss']);
 
+/**
+ * May a would-be MISS be published yet?
+ *
+ * Three independent reasons to hold, all of them the same principle: absence
+ * of evidence is not evidence of absence.
+ *
+ *  - The resolver has never seen the window's FINAL DAY. resolve-calls runs at
+ *    09:45 UTC on the day a window closes and OONI's rows for day D are stored
+ *    at D+1 00:00 UTC, so the last day of every censorship call was being
+ *    scored before any evidence for it existed — 261 of the first 262 resolved
+ *    calls. Nine published misses have a confirmed block on their own final
+ *    day, stored after the verdict.
+ *  - Too few covered days.
+ *  - Too few measurements across those days.
+ *
+ * The asymmetry is deliberate and is the whole point: a HIT resolves on
+ * evidence alone and never consults this. Missing data can therefore only
+ * delay a miss, never manufacture a hit.
+ */
+export interface MissEvidence {
+  /** Does the resolver hold any row for the window's last day? */
+  finalDaySeen: boolean;
+  coveredDays: number;
+  measurements: number;
+}
+
+export function missHoldReason(
+  e: MissEvidence,
+  req: { minDays: number; minMeasurements: number },
+): 'final-day-unseen' | 'thin-coverage' | null {
+  if (!e.finalDaySeen) return 'final-day-unseen';
+  if (e.coveredDays < req.minDays || e.measurements < req.minMeasurements) return 'thin-coverage';
+  return null;
+}
+
 /** True when a row carries a real outcome and belongs in a Brier computation. */
 export function isScored(status: string): boolean {
   return SCORED_STATUSES.has(status);
