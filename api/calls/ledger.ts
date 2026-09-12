@@ -13,7 +13,6 @@ import {
   type ScoredCall,
 } from '../_lib/calls.js';
 import { assembleByKind } from '../_lib/ledger-by-kind.js';
-import { nextResolutionFloor } from '../_lib/ledger-truth.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -102,7 +101,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // must never feed a published statistic.
 
     // The whole book, from the table — the source of every published count.
-    const nextFloor = nextResolutionFloor(new Date());
     const totalsRows = (await sql`
       SELECT
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
@@ -111,13 +109,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         COUNT(*) FILTER (WHERE status = 'pending' AND kind = 'seismicity_window')::int AS calibration_open,
         COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind = 'seismicity_window')::int AS calibration_resolved,
         -- The next resolution EVENT, or null. A bare MIN over pending rows picks
-        -- up grace-held calls whose date has passed: this endpoint answered
-        -- "next_resolves_on: 2026-09-06" on 2026-09-12. The floor is today
-        -- until the resolver has settled today's cohort and tomorrow after
-        -- (ledger-truth.ts, nextResolutionFloor), so a cohort due today but
-        -- not yet attempted is still next. No backticks in this comment: it
-        -- lives inside a template literal.
-        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on >= ${nextFloor}::date)::text AS next_resolves_on,
+        -- up grace-held calls whose date has passed ("first resolves 2026-09-06"
+        -- on 09-12). The floor is DERIVED FROM THE DATA, not the clock: if any
+        -- call due today has been disposed of, the resolver has run and what is
+        -- still pending with today's date is held, so next is tomorrow. If none
+        -- has, today's cohort is still ahead of us -- including on a day the
+        -- resolver failed to run, which a clock-based floor would have hidden.
+        -- An independent review caught that case. No backticks in here: this
+        -- comment lives inside a template literal.
+        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on >= (SELECT CASE
+          WHEN EXISTS (SELECT 1 FROM calls d WHERE d.resolves_on = CURRENT_DATE AND d.status <> 'pending')
+          THEN CURRENT_DATE + 1 ELSE CURRENT_DATE END))::text AS next_resolves_on,
         MIN(made_on)::text AS first_call_on
       FROM calls
     `) as unknown as Array<{

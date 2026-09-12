@@ -66,30 +66,6 @@ export function checkDateFor(now: Date): string {
   return day.toISOString().slice(0, 10);
 }
 
-/**
- * The earliest resolves_on that still counts as "next" for a public surface
- * read at `now`. Same boundary as checkDateFor, seen from the other side:
- *
- *   - Before the resolver has settled today, today's cohort has not been
- *     attempted, so a call due today IS the next resolution event.
- *   - After it, everything due today has been attempted; what is still pending
- *     with today's date is coverage-held, and the next event is tomorrow's.
- *
- * A bare MIN(resolves_on) over pending rows picked up held calls whose date
- * had passed ("first resolves 2026-09-06", printed on 09-12). A strict
- * `> CURRENT_DATE` fixed that and over-corrected: for the ten hours before the
- * run it hid a cohort that was genuinely next, and would have printed nothing
- * at all on a day whose only open calls were due that day. An independent
- * review caught the second; this is the boundary that is right on both sides.
- */
-export function nextResolutionFloor(now: Date): string {
-  const judged = checkDateFor(now);
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  if (judged !== today.toISOString().slice(0, 10)) return today.toISOString().slice(0, 10);
-  today.setUTCDate(today.getUTCDate() + 1);
-  return today.toISOString().slice(0, 10);
-}
-
 export interface LedgerTruthReading {
   /** The day being judged — from checkDateFor. */
   checkDate: string;

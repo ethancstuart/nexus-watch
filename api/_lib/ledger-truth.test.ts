@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   checkDateFor,
-  nextResolutionFloor,
   ledgerTruthVerdict,
   PAST_GRACE_DAYS,
   RESOLVER_SETTLED_UTC_MINUTES,
@@ -154,34 +153,5 @@ describe('which day is being judged', () => {
   it('the settle point sits after the 09:45 run with slack, before the 10:30 tick', () => {
     expect(RESOLVER_SETTLED_UTC_MINUTES).toBeGreaterThan(9 * 60 + 45);
     expect(RESOLVER_SETTLED_UTC_MINUTES).toBeLessThanOrEqual(10 * 60 + 30);
-  });
-});
-
-describe('nextResolutionFloor — what a public surface may call "next"', () => {
-  it('before the resolver has settled today, today’s cohort is next', () => {
-    expect(nextResolutionFloor(new Date('2026-09-12T00:00:23Z'))).toBe('2026-09-12');
-    expect(nextResolutionFloor(new Date('2026-09-12T09:45:00Z'))).toBe('2026-09-12');
-    expect(nextResolutionFloor(new Date('2026-09-12T10:14:59Z'))).toBe('2026-09-12');
-  });
-
-  it('after it, what is still pending with today’s date is held, and next is tomorrow', () => {
-    expect(nextResolutionFloor(new Date('2026-09-12T10:15:00Z'))).toBe('2026-09-13');
-    expect(nextResolutionFloor(new Date('2026-09-12T23:59:59Z'))).toBe('2026-09-13');
-  });
-
-  it('is the same boundary checkDateFor uses, seen from the other side', () => {
-    for (const iso of [
-      '2026-09-12T03:00:00Z',
-      '2026-09-12T10:15:00Z',
-      '2026-09-30T23:00:00Z',
-      '2026-10-01T02:00:00Z',
-    ]) {
-      const now = new Date(iso);
-      const judged = checkDateFor(now);
-      const floor = nextResolutionFloor(now);
-      const today = iso.slice(0, 10);
-      // If today has been judged, the floor is after today; if not, it is today.
-      expect(judged === today ? floor > today : floor === today).toBe(true);
-    }
   });
 });

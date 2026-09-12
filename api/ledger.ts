@@ -12,7 +12,6 @@ import {
   type ScoredCall,
 } from './_lib/calls.js';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
-import { nextResolutionFloor } from './_lib/ledger-truth.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -119,19 +118,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       resolved_at: string | null;
     }>;
 
-    const nextFloor = nextResolutionFloor(new Date());
     const totals = (await sql`
       SELECT
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
         COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind <> 'seismicity_window')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
-        -- The next resolution EVENT, or null. This value is printed on the
-        -- public page as "first resolves …" — it read 2026-09-06 six days
-        -- later — and it selects the cohort the due projection below
-        -- describes. The floor is today until the resolver has settled today's
-        -- cohort and tomorrow after (ledger-truth.ts, nextResolutionFloor), so
-        -- a cohort due today but not yet attempted is still "next".
-        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on >= ${nextFloor}::date)::text AS next_resolves,
+        -- The next resolution EVENT, or null. A bare MIN over pending rows picks
+        -- up grace-held calls whose date has passed ("first resolves 2026-09-06"
+        -- on 09-12). The floor is DERIVED FROM THE DATA, not the clock: if any
+        -- call due today has been disposed of, the resolver has run and what is
+        -- still pending with today's date is held, so next is tomorrow. If none
+        -- has, today's cohort is still ahead of us -- including on a day the
+        -- resolver failed to run, which a clock-based floor would have hidden.
+        -- An independent review caught that case. No backticks in here: this
+        -- comment lives inside a template literal.
+        MIN(resolves_on) FILTER (WHERE status = 'pending' AND resolves_on >= (SELECT CASE
+          WHEN EXISTS (SELECT 1 FROM calls d WHERE d.resolves_on = CURRENT_DATE AND d.status <> 'pending')
+          THEN CURRENT_DATE + 1 ELSE CURRENT_DATE END))::text AS next_resolves,
         MIN(made_on)::text AS first_call
       FROM calls
     `) as unknown as Array<{
