@@ -13,7 +13,7 @@
  * identity change strands a public surface, which is the failure rule 8 exists
  * for; this is that rule with an exit code.
  *
- * WHY A RATCHET AND NOT A BAN. 302 literals survive across 31 files the day
+ * WHY A RATCHET AND NOT A BAN. 224 literals survive across 29 files the day
  * this lands. The retired terminal orange `#ff6600` alone appears 39 times on
  * a branch whose whole premise is that the terminal identity is gone — still
  * the most common literal in the tree, ahead of the dossier's own oxblood at
@@ -225,7 +225,6 @@ export const BASELINE: Readonly<Record<string, string>> = {
   'api/alerts/subscribe.ts': '3×#9a1b1b 1×#12161c 1×#3b4252 1×#888 1×#faf8f3 1×#fff',
   'api/alerts/unsubscribe.ts': '2×#9a1b1b 2×#fff 1×#12161c 1×#22c55e 1×#3b4252 1×#dc2626 1×#e5e0d4 1×#faf8f3',
   'api/alerts/verify.ts': '2×#9a1b1b 2×#fff 1×#12161c 1×#22c55e 1×#3b4252 1×#dc2626 1×#e5e0d4 1×#faf8f3',
-  'api/brief/og.ts': '3×#9a1b1b 2×#12161c 2×#c9c3b4 1×#3b4252 1×#faf8f3',
   'api/briefs-sample.ts': '2×#06b6d4 2×#dc2626 2×#ff6600 1×#22c55e 1×#a855f7 1×#eab308',
   'api/cron/daily-brief.ts': '2×#2a2f38 2×#e8e6de 1×#0e1116 1×#161b22 1×#8b8478 1×#c2bcab 1×#d66a64',
   'api/unsubscribe.ts': '1×#12161c 1×#4a4f57 1×#faf8f3',
