@@ -40,6 +40,13 @@ import { neon } from '@neondatabase/serverless';
 // and every country must be reported as failed, nothing written, exit 1.
 const OONI_API = process.env.OONI_API_BASE ?? 'https://api.ooni.io/api/v1';
 const DEFAULT_SINCE = '2026-04-18';
+// OONI rate-limits (429) and has bad minutes (5xx). Both are waited out: the
+// alternative is a whole run abandoned, because phase two writes nothing
+// unless every country answered. Four dry runs in twenty minutes on
+// 2026-09-12 were enough to be told 429 for all 39 countries.
+const MAX_ATTEMPTS = 4;
+const RETRY_BASE_MS = 30_000;
+const COUNTRY_GAP_MS = 400;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** A real calendar date in YYYY-MM-DD, not merely something shaped like one. */
@@ -54,6 +61,26 @@ interface Bucket {
   anomaly_count: number;
   confirmed_count: number;
   measurement_count: number;
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
+
+/** Fetch one country's daily buckets, waiting out 429/5xx up to MAX_ATTEMPTS. */
+async function fetchBuckets(url: string, log: (m: string) => void): Promise<Bucket[]> {
+  for (let attempt = 1; ; attempt++) {
+    const r = await fetch(url, {
+      signal: AbortSignal.timeout(60_000),
+      headers: { 'User-Agent': 'NexusWatch/1.0 (+https://nexuswatch.dev)' },
+    });
+    if (r.ok) return ((await r.json()) as { result?: Bucket[] }).result ?? [];
+    const retryable = r.status === 429 || r.status >= 500;
+    if (!retryable || attempt >= MAX_ATTEMPTS) throw new Error(`HTTP ${r.status} after ${attempt} attempt(s)`);
+    const retryAfter = Number(r.headers.get('retry-after'));
+    const waitMs =
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : RETRY_BASE_MS * 2 ** (attempt - 1);
+    log(`HTTP ${r.status} — attempt ${attempt} of ${MAX_ATTEMPTS}, retrying in ${Math.round(waitMs / 1000)}s`);
+    await sleep(waitMs);
+  }
 }
 
 interface StoredRow {
@@ -108,12 +135,7 @@ async function main(): Promise<void> {
     const url = `${OONI_API}/aggregation?probe_cc=${cc}&since=${since}&until=${today}&test_name=web_connectivity&axis_x=measurement_start_day&time_grain=day`;
     let buckets: Bucket[];
     try {
-      const r = await fetch(url, {
-        signal: AbortSignal.timeout(60_000),
-        headers: { 'User-Agent': 'NexusWatch/1.0 (+https://nexuswatch.dev)' },
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      buckets = (((await r.json()) as { result?: Bucket[] }).result ?? []).filter((b) => b.measurement_count > 0);
+      buckets = (await fetchBuckets(url, (m) => console.error(`  ${cc}: ${m}`))).filter((b) => b.measurement_count > 0);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       console.error(`  ${cc}: FAILED (${reason})`);
@@ -161,7 +183,7 @@ async function main(): Promise<void> {
       `${cc}: ${changed} changed, ${added} added, ${flippedBlockedDays} day(s) whose blocked/not-blocked reading flips` +
         (left > 0 ? `, ${left} stored day(s) OONI has no total for (left as is)` : ''),
     );
-    await new Promise((res) => setTimeout(res, 150));
+    await sleep(COUNTRY_GAP_MS);
   }
 
   for (const line of perCountry) console.log('  ' + line);
