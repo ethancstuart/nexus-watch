@@ -31,7 +31,7 @@
  *
  * Usage:
  *   npx tsx scripts/backfill-ooni-daily.ts                 # dry run, since 2026-04-18
- *   npx tsx scripts/backfill-ooni-daily.ts --since 2026-08-01
+ *   npx tsx scripts/backfill-ooni-daily.ts --since 2026-08-01    # or --since=2026-08-01
  *   npx tsx scripts/backfill-ooni-daily.ts --write         # after the owner's go
  */
 import { neon } from '@neondatabase/serverless';
@@ -54,6 +54,38 @@ function isCalendarDate(s: string): boolean {
   if (!DATE_RE.test(s)) return false;
   const t = Date.parse(`${s}T00:00:00Z`);
   return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s;
+}
+
+/**
+ * Strict: every token is either a known flag or an error. A script that can
+ * write must never run with an argument it did not understand — an
+ * independent review found `--since=2026-08-01` being silently dropped, which
+ * under --write would have backfilled from the default date instead.
+ */
+function parseArgs(argv: string[]): { write: boolean; since: string } {
+  let write = false;
+  let since: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i] as string;
+    if (a === '--write') {
+      write = true;
+      continue;
+    }
+    if (a === '--since' || a.startsWith('--since=')) {
+      const v = a === '--since' ? argv[++i] : a.slice('--since='.length);
+      // `--since --write` must not turn "--write" into the window's start,
+      // and 2026-99-99 must not reach the query.
+      if (!isCalendarDate(v ?? '')) {
+        throw new Error(`--since needs a real YYYY-MM-DD date, got ${JSON.stringify(v)}`);
+      }
+      since = v;
+      continue;
+    }
+    throw new Error(
+      `unknown argument ${JSON.stringify(a)} — usage: [--write] [--since YYYY-MM-DD | --since=YYYY-MM-DD]`,
+    );
+  }
+  return { write, since: since ?? DEFAULT_SINCE };
 }
 
 interface Bucket {
@@ -91,15 +123,7 @@ interface StoredRow {
 }
 
 async function main(): Promise<void> {
-  const write = process.argv.includes('--write');
-  const sinceIdx = process.argv.indexOf('--since');
-  const sinceArg = sinceIdx > -1 ? process.argv[sinceIdx + 1] : undefined;
-  if (sinceIdx > -1 && !isCalendarDate(sinceArg ?? '')) {
-    // `--since --write` must not turn "--write" into the window's start, and
-    // 2026-99-99 must not reach the query.
-    throw new Error(`--since needs a real YYYY-MM-DD date, got ${JSON.stringify(sinceArg)}`);
-  }
-  const since = sinceArg ?? DEFAULT_SINCE;
+  const { write, since } = parseArgs(process.argv.slice(2));
   const today = new Date().toISOString().slice(0, 10);
   const dbUrl = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
   if (!dbUrl) throw new Error('DATABASE_URL_UNPOOLED or DATABASE_URL is required');
