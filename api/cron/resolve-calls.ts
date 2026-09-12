@@ -8,7 +8,7 @@ import {
   UNRESOLVABLE_GRACE_DAYS,
 } from '../_lib/calls.js';
 import { usgsCountUrl, type RegionBox } from '../_lib/seismicity.js';
-import { raiseAlert } from '../_lib/alert.js';
+import { raiseAlert, clearAlert } from '../_lib/alert.js';
 
 /**
  * EVIDENCE UNITS ARE PER KIND, and the column is an INTEGER — a fact this
@@ -95,10 +95,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       SELECT COUNT(*)::int AS n FROM calls WHERE status = 'pending' AND resolves_on <= CURRENT_DATE
     `) as unknown as Array<{ n: number }>;
     const dueTotal = dueTotalRows[0]?.n ?? due.length;
-    if (dueTotal > due.length) {
-      console.warn(
-        `[resolve-calls] ${dueTotal} calls due but only ${due.length} taken this run — the rest wait for the next`,
-      );
+    const truncated = dueTotal > due.length;
+    // A truncated run is a condition, not a log line: the rows left behind are
+    // a day closer to grace, and a resolver that is behind stays behind until
+    // someone is told. Stable key; the counts live in the body. Cleared on the
+    // first run that takes everything due.
+    try {
+      if (truncated) {
+        await raiseAlert({
+          key: 'resolver:truncated',
+          severity: 'warning',
+          title: '[resolve-calls] more calls due than one run takes',
+          body:
+            `${dueTotal} calls are due and this run took ${due.length}; the rest wait for the next run. ` +
+            'If this repeats, the register is falling behind its grace window.',
+        });
+      } else {
+        await clearAlert('resolver:truncated');
+      }
+    } catch (alertErr) {
+      console.error('[resolve-calls] truncation alert failed (non-fatal):', alertErr);
     }
 
     let hits = 0;
@@ -341,7 +357,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           severity: 'critical',
           key: 'resolve-calls-errored',
           body:
-            `due=${due.length >= 500 ? '500+ (page-capped)' : due.length} resolved=${hits + misses} unresolvable=${unresolvable} ` +
+            `due=${dueTotal} taken=${due.length} resolved=${hits + misses} unresolvable=${unresolvable} ` +
             `still_waiting=${stillWaiting} errored=${errored}. Per-call errors are in the ` +
             'function logs. Rows stay pending, so a rerun after the fix resolves them.',
         });
@@ -352,11 +368,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       ok: true,
-      /** Rows this run took — bounded by the page. */
-      due: due.length,
-      /** Rows that were due — unbounded. When these differ, `truncated` says so. */
-      due_total: dueTotal,
-      truncated: dueTotal > due.length,
+      /** Rows that were due — unbounded, never a page size. */
+      due: dueTotal,
+      /** Rows this run took — bounded by the page. When short, `truncated` says so and an alarm is raised. */
+      taken: due.length,
+      truncated,
       resolved: hits + misses,
       hits,
       misses,
