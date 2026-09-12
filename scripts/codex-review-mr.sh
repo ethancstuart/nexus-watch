@@ -36,6 +36,18 @@ command -v codex >/dev/null 2>&1 || { echo "codex CLI not found on PATH" >&2; ex
 OUT=".codex-reviews/$(echo "$BRANCH" | tr '/' '-')"
 mkdir -p "$OUT"
 
+# MATERIALISE THE WHOLE BRANCH, not only the files under review. Codex follows
+# an import when a question needs one, and an import resolved relative to a
+# snapshot holding only the reviewed files lands in the WORKING TREE — whatever
+# branch happens to be checked out there. On 2026-09-12 that produced a
+# confident BLOCKER citing a `return null` the branch had deleted: the reviewer
+# read the pre-merge src/config/data-sources.ts from a sibling worktree on an
+# older branch. `git archive` puts the branch's own tree under the snapshot, so
+# every path Codex can reach from a reviewed file is the branch's.
+rm -rf "$OUT/snapshot"
+mkdir -p "$OUT/snapshot"
+git archive "$BRANCH" | tar -x -C "$OUT/snapshot"
+
 if [ -n "$ONLY_FILE" ]; then
   FILES="$ONLY_FILE"
 else
