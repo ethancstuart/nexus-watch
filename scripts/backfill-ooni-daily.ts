@@ -7,13 +7,21 @@
  * holds one hour's measurements and one hour's confirmed blocks, labelled as
  * the day. api/cron/source-ooni.ts carries the full finding and the numbers.
  *
- * WHAT THIS DOES. For every probe country, fetches OONI's daily totals from
- * `since` to today with `time_grain=day` and compares them with the stored
- * rows. Without --write it PRINTS the diff and touches nothing. With --write
- * it upserts the true totals. It never touches `calls`: a resolved call is
- * never rewritten, and what the corrected evidence means for the 54 published
- * misses that are hits is a published correction decided by the owner, not a
- * script.
+ * WHAT THIS DOES. For every country the evidence table holds, fetches OONI's
+ * daily totals from `since` to today with `time_grain=day` and compares them
+ * with the stored rows. Without --write it PRINTS the diff and touches
+ * nothing. With --write it upserts the true totals — which CORRECTS rows the
+ * collector stored from an hourly bucket and ADDS rows for days OONI has
+ * measurements the collector never stored at all. It never touches `calls`:
+ * a resolved call is never rewritten, and what the corrected evidence means
+ * for the 54 published misses that are hits is a published correction decided
+ * by the owner, not a script.
+ *
+ * A country whose OONI request fails is NOT silently skipped: the run
+ * finishes the other countries, names the failures, and exits 1. A partial
+ * report is not a report and a partial write is not a backfill — an
+ * independent review caught the earlier version, which logged the skip and
+ * exited 0.
  *
  * Usage:
  *   npx tsx scripts/backfill-ooni-daily.ts                 # dry run, since 2026-04-18
@@ -22,7 +30,11 @@
  */
 import { neon } from '@neondatabase/serverless';
 
-const OONI_API = 'https://api.ooni.io/api/v1';
+// Overridable so the failure path can be exercised: point it at a dead path
+// and every country must be reported as failed and the exit code must be 1.
+const OONI_API = process.env.OONI_API_BASE ?? 'https://api.ooni.io/api/v1';
+const DEFAULT_SINCE = '2026-04-18';
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 interface Bucket {
   measurement_start_day: string;
@@ -34,7 +46,12 @@ interface Bucket {
 async function main(): Promise<void> {
   const write = process.argv.includes('--write');
   const sinceIdx = process.argv.indexOf('--since');
-  const since = sinceIdx > -1 ? (process.argv[sinceIdx + 1] ?? '2026-04-18') : '2026-04-18';
+  const sinceArg = sinceIdx > -1 ? process.argv[sinceIdx + 1] : undefined;
+  if (sinceIdx > -1 && !DATE_RE.test(sinceArg ?? '')) {
+    // `--since --write` must not turn "--write" into the window's start.
+    throw new Error(`--since needs a YYYY-MM-DD date, got ${JSON.stringify(sinceArg)}`);
+  }
+  const since = sinceArg ?? DEFAULT_SINCE;
   const today = new Date().toISOString().slice(0, 10);
   const dbUrl = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
   if (!dbUrl) throw new Error('DATABASE_URL_UNPOOLED or DATABASE_URL is required');
@@ -61,21 +78,29 @@ async function main(): Promise<void> {
   let rowsAdded = 0;
   let rowsSame = 0;
   const perCountry: string[] = [];
+  const failed: string[] = [];
 
   for (const cc of countries) {
     const url = `${OONI_API}/aggregation?probe_cc=${cc}&since=${since}&until=${today}&test_name=web_connectivity&axis_x=measurement_start_day&time_grain=day`;
-    const r = await fetch(url, {
-      signal: AbortSignal.timeout(60_000),
-      headers: { 'User-Agent': 'NexusWatch/1.0 (+https://nexuswatch.dev)' },
-    });
-    if (!r.ok) {
-      console.error(`  ${cc}: HTTP ${r.status} — skipped`);
+    let buckets: Bucket[];
+    try {
+      const r = await fetch(url, {
+        signal: AbortSignal.timeout(60_000),
+        headers: { 'User-Agent': 'NexusWatch/1.0 (+https://nexuswatch.dev)' },
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      buckets = (((await r.json()) as { result?: Bucket[] }).result ?? []).filter((b) => b.measurement_count > 0);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error(`  ${cc}: FAILED (${reason}) — not corrected`);
+      failed.push(cc);
       continue;
     }
-    const buckets = (((await r.json()) as { result?: Bucket[] }).result ?? []).filter((b) => b.measurement_count > 0);
+    // Same key the write targets: (country_code, test_name, measurement_date).
     const stored = (await sql`
       SELECT measurement_date::text AS d, anomaly_count, confirmed_blocked, total_measurements
-      FROM ooni_measurements WHERE country_code = ${cc} AND measurement_date >= ${since}::date
+      FROM ooni_measurements
+      WHERE country_code = ${cc} AND test_name = 'web_connectivity' AND measurement_date >= ${since}::date
     `) as unknown as Array<{ d: string; anomaly_count: number; confirmed_blocked: number; total_measurements: number }>;
     const byDay = new Map(stored.map((s) => [s.d, s]));
 
@@ -126,6 +151,12 @@ async function main(): Promise<void> {
     console.log(
       'Nothing was written. Re-run with --write after the owner has decided how the 54 published misses are to be corrected.',
     );
+  if (failed.length > 0) {
+    console.error(
+      `\nINCOMPLETE: ${failed.length} of ${countries.length} countries could not be fetched and were NOT ${write ? 'corrected' : 'compared'}: ${failed.join(' ')}. Re-run for them before treating this backfill as done.`,
+    );
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {
