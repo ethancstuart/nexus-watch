@@ -83,7 +83,12 @@ for f in $FILES; do
   SNAP="$OUT/snapshot/$f"
   # The archive above already holds the branch's copy, so this is an
   # existence check and not a write.
-  [ -f "$SNAP" ] || { echo "  $f — SKIPPED (not present on $BRANCH)"; continue; }
+  [ -f "$SNAP" ] || {
+    echo "  $f — SKIPPED (not present on $BRANCH, or a symlink)"
+    # A stale review from an earlier run must not stand in for this one.
+    rm -f "$REVIEW"
+    continue
+  }
   ABS="$(cd "$(dirname "$SNAP")" && pwd)/$(basename "$SNAP")"
 
   # MATERIALISE THE BRANCH VERSION, and do not trust the working tree.
@@ -180,7 +185,18 @@ VERDICTS="$OUT/VERDICTS.md"
 for f in $FILES; do
   SAFE=$(echo "$f" | tr '/' '-')
   REVIEW="$OUT/review-$SAFE.txt"
-  [ -f "$REVIEW" ] || continue
+  if [ ! -f "$REVIEW" ]; then
+    # A file skipped above produced no review. That must FAIL the gate
+    # below, not vanish from it: a skipped file is not a reviewed file, and
+    # the review of this script found the skip exiting 0 with nothing read.
+    {
+      echo "## \`$f\`"
+      echo
+      echo "**NO VERDICT — not reviewable on $BRANCH (missing, or a symlink). A skipped file is not a reviewed file.**"
+      echo
+    } >> "$VERDICTS"
+    continue
+  fi
 
   # THE EXTRACTION TRAP: the brief is echoed back near the top of the output,
   # so a naive grep finds the literal "Q1: CONFIRMED|REFUTED" placeholder from
