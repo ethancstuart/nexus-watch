@@ -159,7 +159,13 @@ export function pickSource(
   consecutiveFailures: number,
 ): LayerSource | null {
   if (circuitState !== 'open') return layer.primary;
-  if (layer.fallbacks.length === 0) return null;
+  // A layer with nothing to fall back to keeps probing its only source. The
+  // previous `return null` handed the cron a layer it could not probe, and a
+  // breaker that is never probed can never go half-open, so it never closed:
+  // UCDP sat at 150 consecutive "failures" of a probe that was never sent,
+  // red on the public status page while its upstream answered 200. One probe
+  // an hour is not a hammer; permanent red for a transient outage is a lie.
+  if (layer.fallbacks.length === 0) return layer.primary;
   // Each 5 consecutive failures, advance to the next fallback.
   const bucket = Math.max(0, Math.floor(consecutiveFailures / 5) - 1);
   const idx = bucket % layer.fallbacks.length;
