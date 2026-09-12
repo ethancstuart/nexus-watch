@@ -48,6 +48,24 @@ function stripCommentsAndStrings(src: string): string {
 }
 
 /**
+ * True when the block's OWN statements return or throw — not a nested
+ * callback's. Depth is counted from the block's opening brace, so a
+ * `forEach(x => { return x; })` inside an auth branch no longer reads as a
+ * rejection.
+ */
+function gatesAtTopLevel(block: string): boolean {
+  let depth = 0;
+  const re = /[{}]|\b(?:return|throw)\b/g;
+  for (let m = re.exec(block); m !== null; m = re.exec(block)) {
+    const tok = m[0];
+    if (tok === '{') depth++;
+    else if (tok === '}') depth--;
+    else if (depth <= 1) return true;
+  }
+  return false;
+}
+
+/**
  * Does a CRON_SECRET comparison actually GATE anything?
  *
  * A handler can mention CRON_SECRET and still be wide open. compute-cii did
@@ -84,10 +102,14 @@ function secretCheckGates(src: string): boolean {
     return false;
   };
 
-  for (let i = src.indexOf('if ('); i !== -1; i = src.indexOf('if (', i + 1)) {
+  // `if (` and `if(` are the same statement. Matching the literal three-character
+  // spelling let the second form pass unexamined.
+  const ifRe = /\bif\s*\(/g;
+  for (let mm = ifRe.exec(src); mm !== null; mm = ifRe.exec(src)) {
+    const i = mm.index;
     // Walk the condition's parentheses to their close.
     let depth = 0;
-    let j = i + 3;
+    let j = i + mm[0].length - 1;
     for (; j < src.length; j++) {
       if (src[j] === '(') depth++;
       else if (src[j] === ')') {
@@ -128,11 +150,14 @@ function secretCheckGates(src: string): boolean {
         }
       }
     }
-    // STRIP COMMENTS AND STRINGS FIRST. A review of this guard pointed out
-    // that the word "return" anywhere in the block satisfied it — including
-    // inside the very comment a decorative check would carry ("we do not
-    // return here for now"). The word only counts as a gate when it is code.
-    if (/\b(?:return|throw)\b/.test(stripCommentsAndStrings(src.slice(p, end)))) return true;
+    // THE RETURN MUST BE THE BLOCK'S OWN, NOT SOMEONE ELSE'S. Two rounds of
+    // review sharpened this. First: the word "return" anywhere satisfied it,
+    // including inside the comment a decorative check would carry ("we do not
+    // return here for now") — so comments and string bodies are blanked. Then:
+    // a return nested inside a callback within the block still counted, and a
+    // callback's return gates nothing. So only depth zero of the block itself
+    // is read. `throw` counts too: it ends the request just as finally.
+    if (gatesAtTopLevel(stripCommentsAndStrings(src.slice(p, end)))) return true;
   }
   return false;
 }

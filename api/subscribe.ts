@@ -46,6 +46,42 @@ function shell(title: string, inner: string): string {
   );
 }
 
+/**
+ * Reactivate or create the beehiiv subscription for an address.
+ *
+ * Extracted so the CONFIRMED RESUBSCRIBE path runs it too. The first version
+ * of that path flipped the local `unsubscribed` flag and returned, which would
+ * have left a reader subscribed here and still inactive at beehiiv — a split
+ * brain that only shows up as "I confirmed and nothing arrives". An
+ * independent review caught it. Non-blocking by design: the local row is the
+ * record, beehiiv is a mirror, and a mirror being down must never fail a
+ * subscription.
+ */
+async function syncBeehiiv(email: string, source: string): Promise<void> {
+  const beehiivKey = process.env.BEEHIIV_API_KEY;
+  const beehiivPubId = process.env.BEEHIIV_PUBLICATION_ID;
+  if (!beehiivKey || !beehiivPubId) return;
+  try {
+    const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/subscriptions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${beehiivKey}` },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        reactivate_existing: true,
+        send_welcome_email: false,
+        utm_source: source,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!beehiivRes.ok) {
+      const errText = await beehiivRes.text().catch(() => '');
+      console.error(`[subscribe] beehiiv sync failed: ${beehiivRes.status} — ${errText.slice(0, 200)}`);
+    }
+  } catch (err) {
+    console.error('[subscribe] beehiiv sync error:', err instanceof Error ? err.message : err);
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -99,6 +135,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('[subscribe] resubscribe failed:', err instanceof Error ? err.message : err);
       return confirmPage('Something broke', 'Please try again later.', 500);
     }
+    // The mirror must be reactivated too, or the reader confirms and nothing
+    // arrives. Same call the normal subscribe path makes.
+    await syncBeehiiv(e, 'resubscribe');
     return confirmPage('You’re back on the list', 'The next brief will arrive at 7am your time.', 200);
   }
 
@@ -228,32 +267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Sync to beehiiv publication (non-blocking — subscription is already saved).
-    const beehiivKey = process.env.BEEHIIV_API_KEY;
-    const beehiivPubId = process.env.BEEHIIV_PUBLICATION_ID;
-    if (beehiivKey && beehiivPubId) {
-      try {
-        const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/subscriptions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${beehiivKey}`,
-          },
-          body: JSON.stringify({
-            email: email.toLowerCase().trim(),
-            reactivate_existing: true,
-            send_welcome_email: false,
-            utm_source: (source as string) || 'landing',
-          }),
-          signal: AbortSignal.timeout(8000),
-        });
-        if (!beehiivRes.ok) {
-          const errText = await beehiivRes.text().catch(() => '');
-          console.error(`[subscribe] beehiiv sync failed: ${beehiivRes.status} — ${errText.slice(0, 200)}`);
-        }
-      } catch (err) {
-        console.error('[subscribe] beehiiv sync error:', err instanceof Error ? err.message : err);
-      }
-    }
+    await syncBeehiiv(email, (source as string) || 'landing');
 
     return res.json({ success: true, message: 'Subscribed to NexusWatch Intelligence Brief' });
   } catch (err) {
