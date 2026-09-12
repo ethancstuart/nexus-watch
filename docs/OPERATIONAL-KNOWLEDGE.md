@@ -121,6 +121,51 @@ All measured against production 2026-08-28/29.
 
 ---
 
+## RETRACTED — "the OONI evidence table holds one row per country-day of measurements"
+
+**The belief, now withdrawn (2026-09-12):** `ooni_measurements` held daily
+totals — one row per country-day, `total_measurements` the day's volume,
+`confirmed_blocked` the day's confirmed blocks. Every OONI number in this file
+above, the coverage gate's sizing, the strategy plan's anomaly-rate analysis
+and the instrument essay's day counts were computed on that belief.
+
+**What is actually true.** OONI's aggregation endpoint picks its time grain
+from the window when none is stated. A fortnight comes back in days; the
+one-to-three-day windows `source-ooni.ts` has always asked for come back in
+HOURS — 24 buckets per country-day, all labelled with the same date. The upsert
+is keyed by day, so each hourly bucket overwrote the last and the table kept
+whichever hour arrived last. Russia's 2026-09-11 row: 8,507 measurements and
+633 confirmed blocks stored; 204,535 and 9,766 in OONI's daily total. The
+collector's own log line — "RU — 633 confirmed blocks on 2026-09-11T23:00:00Z"
+— is the stored row.
+
+**Consequence for the record.** Recomputed read-only against OONI's daily
+totals for all 267 resolved censorship calls: **54 published as MISS are
+hits** — 8 each in AF, BD, EG, KE, UZ, VN, 5 in CU, 1 in VE, every cohort from
+08-22 to 08-28. Egypt had confirmed blocks on 13–14 of 15 days in every window
+and was recorded as "no block seen", because the last hour of each day read
+zero. True hit rate 48%, published 28%. The five `unresolvable` stay
+unresolvable and the 45 grace-held calls stay held under true evidence, so
+correcting the table changes no pending outcome. The numbers in this file's
+OONI section ("Russia's 95,531") are hourly samples summed; the ratios between
+countries survive, the absolutes do not.
+
+**How it was verified:** the stored row against the collector's log line, then
+`time_grain=day` against the same window (3 buckets, true totals), then the
+full recomputation (`scripts/backfill-ooni-daily.ts` dry run reports the diff).
+
+**What was done and what was not.** `time_grain=day` is stated in the request
+(a test reads the line). No resolved call was rewritten and the historical
+rows were not backfilled — the backfill script exists with a dry-run default,
+and how the 54 are corrected on the public ledger is the owner's decision.
+
+**The lesson worth more than the fact:** *an upsert keyed coarser than its
+input silently keeps the last write.* The row count looked right for four
+months — one per country-day, exactly as the evidence-unit test asserts —
+because the key was right. The values were one twenty-fourth of the truth.
+
+---
+
 ## Licensing — seven sources carry non-commercial terms
 
 Verified 2026-08-29. This constrains the product's shape, not just its footer.

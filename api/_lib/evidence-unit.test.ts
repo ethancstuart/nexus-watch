@@ -48,6 +48,15 @@ describe('censorship evidence unit', () => {
     ).toEqual(['web_connectivity']);
   });
 
+  it('the OONI collector states day grain, because the table is keyed by day', () => {
+    // Left to choose, OONI returns HOURLY buckets for the short windows this
+    // collector asks for, and the day-keyed upsert then keeps whichever hour
+    // arrived last. Measured 2026-09-12: Russia's stored 09-11 row was one
+    // hour of a day 24 times larger, and one in five published censorship
+    // misses were hits under the true daily totals. The grain is stated.
+    expect(collector).toMatch(/time_grain=day/);
+  });
+
   it('the resolver still counts days, not rows', () => {
     // If someone reverts this to COUNT(*), the threshold silently starts
     // meaning rows again the moment a second test lands.
