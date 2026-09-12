@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { cronJitter } from '../_cron-utils.js';
+import { cronJitter, requireCron } from '../_cron-utils.js';
 import { BASELINE_CONFLICT, BASELINE_GOVERNANCE, MARKET_RISK } from '../_lib/cii-baselines.js';
 import { conflictBaselineFromDeaths } from '../_lib/ucdp.js';
 import { governanceFromWgi } from '../_lib/governance.js';
@@ -425,11 +425,20 @@ async function fetchDbData(sql: any): Promise<{
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Verify cron secret (Vercel sends this header for cron invocations)
-  const authHeader = req.headers.authorization;
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && !process.env.VERCEL_URL?.includes('localhost')) {
-    // Allow without auth for now (cron secret optional)
-  }
+  // THIS BLOCK USED TO BE EMPTY. `if (authHeader !== ...) { /* allow anyway */ }`
+  // — a comparison whose result was discarded, so every unauthenticated caller
+  // continued into the upstream fetches and the writes to country_cii_history,
+  // crisis_triggers and cached_layer_data below. Verified against production on
+  // 2026-09-12: an unauthenticated GET returned HTTP 200 and ran the job. This
+  // is also the heaviest cron in the system, so the hole was a cost amplifier
+  // as much as an integrity one.
+  //
+  // check-cron-auth did not catch it: it classified any handler merely
+  // CONTAINING the string CRON_SECRET as "legacy idiom, authenticated in
+  // practice". That is the exact mistake its own docstring warns about —
+  // testing for the presence of a string rather than its use — and it has been
+  // fixed in the same commit to require that the check gates a return.
+  if (!requireCron(req, res)) return;
 
   // Stagger cron execution to prevent thundering herd on upstream APIs
   await cronJitter(20);
