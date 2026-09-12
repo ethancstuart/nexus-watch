@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { resubscribeUrl, verifyResubscribeToken } from './_lib/unsubscribe-token.js';
 // `s` and `ts` used to be defined locally here, and both built the style
 // attribute WITHOUT escaping — which truncated every declaration list at the
 // first quote in a font stack. This is the WELCOME email, so that made the
@@ -17,11 +18,60 @@ import {
 
 export const config = { runtime: 'nodejs' };
 
+/** True only for a zone this runtime's tzdata actually knows. */
+function isRealTimeZone(tz: unknown): boolean {
+  if (typeof tz !== 'string' || tz.length === 0 || tz.length > 64) return false;
+  try {
+    // Throws RangeError on an unknown zone. That throw IS the check.
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // CONSENT IS RESTORED BY THE MAILBOX, NOT BY A STRANGER. A GET carrying a
+  // signed re-subscribe token is the ONLY way `unsubscribed` goes back to
+  // FALSE (see the ON CONFLICT below and _lib/unsubscribe-token.ts).
+  if (req.method === 'GET') {
+    const e = String(req.query.e ?? '')
+      .trim()
+      .toLowerCase();
+    const t = String(req.query.t ?? '');
+    const confirmPage = (title: string, body: string, code: number): unknown =>
+      res
+        .status(code)
+        .setHeader('Content-Type', 'text/html; charset=utf-8')
+        .send(
+          `<!doctype html><meta charset="utf-8"><title>${title} · NexusWatch</title>` +
+            `<meta name="robots" content="noindex">` +
+            `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+            `<body style="font-family:Georgia,serif;background:#FAF8F3;color:#12161C;display:grid;place-items:center;min-height:90vh;margin:0">` +
+            `<div style="max-width:28rem;padding:2rem;text-align:center">` +
+            `<h1 style="font-size:1.4rem;font-weight:600">${title}</h1>` +
+            `<p style="line-height:1.6;color:#4a4f57">${body}</p></div>`,
+        );
+    if (!e || !t || !verifyResubscribeToken(e, t)) {
+      return confirmPage('That link didn’t work', 'The confirmation link is invalid or has expired.', 400);
+    }
+    const url = process.env.DATABASE_URL;
+    if (!url) return confirmPage('Something broke', 'Please try again later.', 500);
+    try {
+      const sql2 = neon(url);
+      await sql2`UPDATE email_subscribers SET unsubscribed = FALSE WHERE LOWER(email) = ${e}`;
+    } catch (err) {
+      console.error('[subscribe] resubscribe failed:', err instanceof Error ? err.message : err);
+      return confirmPage('Something broke', 'Please try again later.', 500);
+    }
+    return confirmPage('You’re back on the list', 'The next brief will arrive at 7am your time.', 200);
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   const dbUrl = process.env.DATABASE_URL;
@@ -32,27 +82,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Valid email required' });
   }
 
-  // The browser knows the reader's zone (Intl.DateTimeFormat), but validate
-  // against the shape of an IANA name and never trust it into SQL semantics:
-  // deliver-briefs buckets on `NOW() AT TIME ZONE tz`, and an invalid zone
-  // there errors the whole delivery query for everyone. Unknown → UTC, which
-  // means "7am UTC" rather than "never delivered" — the failure this fixes:
-  // subscribe.ts NEVER wrote timezone, every new subscriber's zone was NULL,
-  // and a NULL zone matches no delivery bucket at all.
-  const tz =
-    typeof timezone === 'string' && /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+){0,2}$/.test(timezone) && timezone.length <= 64
-      ? timezone
-      : 'UTC';
+  // SHAPE IS NOT VALIDITY. This used to test the string against a regex for
+  // the shape of an IANA name, and the comment right here claimed that made
+  // an unknown zone fall back to UTC. It did not: `America/Not_A_Zone` is
+  // perfectly IANA-shaped. deliver-briefs buckets on
+  // `NOW() AT TIME ZONE es.timezone`, and Postgres answers an unrecognised
+  // zone with an ERROR that aborts the whole subscriber query — so one public
+  // POST could stop the brief reaching EVERY subscriber, indefinitely, until
+  // someone found and deleted the row. Verified against production on
+  // 2026-09-12: the regex accepts it and Postgres raises
+  // `time zone "America/Not_A_Zone" not recognized`.
+  //
+  // Ask the platform's own zone database instead of describing it. Intl
+  // throws on a zone it does not know, which is the property we actually
+  // want, and a new zone added to the tzdata ships with the runtime rather
+  // than waiting for someone to update a list here.
+  const tz = isRealTimeZone(timezone) ? (timezone as string) : 'UTC';
 
   try {
     const sql = neon(dbUrl);
-    await sql`
+    const rows = (await sql`
       INSERT INTO email_subscribers (email, source, timezone)
       VALUES (${email.toLowerCase().trim()}, ${source || 'landing'}, ${tz})
+      -- The unsubscribed column IS NOT TOUCHED HERE. It used to be set FALSE on
+      -- conflict, so an unauthenticated POST with someone else's address
+      -- silently put them back on the list after they had opted out. A
+      -- returning reader gets a signed confirmation link by email instead
+      -- (the RETURNING below decides whether to send one).
       ON CONFLICT (email) DO UPDATE
-        SET unsubscribed = FALSE,
-            timezone = COALESCE(email_subscribers.timezone, EXCLUDED.timezone)
-    `;
+        SET timezone = COALESCE(email_subscribers.timezone, EXCLUDED.timezone)
+      RETURNING unsubscribed
+    `) as unknown as Array<{ unsubscribed: boolean }>;
+
+    // Previously opted out: do not resurrect them. Send the one link that can,
+    // to the only place that proves ownership — their mailbox. The response
+    // below is identical either way, so this endpoint never reveals whether an
+    // address is on the list.
+    if (rows[0]?.unsubscribed === true) {
+      const link = resubscribeUrl(email);
+      const key = process.env.RESEND_API_KEY;
+      if (link && key) {
+        try {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+            body: JSON.stringify({
+              from: 'NexusWatch <brief@nexuswatch.dev>',
+              to: [email.toLowerCase().trim()],
+              subject: 'Confirm you want the brief again',
+              html:
+                `<p style="font-family:Georgia,serif;color:#12161C;line-height:1.6">` +
+                `Someone asked to put this address back on the NexusWatch brief. ` +
+                `If that was you, confirm it here:</p>` +
+                `<p><a href="${link}" style="color:#9A1B1B">Yes, send me the brief again</a></p>` +
+                `<p style="font-family:Georgia,serif;color:#4a4f57;font-size:13px">` +
+                `If it wasn't you, ignore this and nothing changes.</p>`,
+              text: `Someone asked to put this address back on the NexusWatch brief.\n\nIf that was you: ${link}\n\nIf it wasn't, ignore this and nothing changes.`,
+            }),
+          });
+        } catch (err) {
+          console.error('[subscribe] resubscribe mail failed:', err instanceof Error ? err.message : err);
+        }
+      }
+      return res.json({ success: true, message: 'Subscribed to NexusWatch Intelligence Brief' });
+    }
 
     // Send welcome email via Resend
     const resendKey = process.env.RESEND_API_KEY;
