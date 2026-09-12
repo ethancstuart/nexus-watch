@@ -24,6 +24,35 @@ export const config = { runtime: 'nodejs', maxDuration: 180 };
  * unresolvable for want of coverage — a published outcome caused by our own
  * collector's ordering, not by OONI's volunteers.
  *
+ * THE HOURLY-BUCKET DEFECT, found 2026-09-12 while verifying the rewrite
+ * below, and worse than everything above it. OONI's aggregation endpoint
+ * chooses its time grain from the window when none is stated: a fortnight
+ * comes back in days, but the one-to-three-day windows this collector has
+ * always asked for come back in HOURS — 24 rows per country-day, each
+ * labelled with the same date. The upsert is keyed by (country, test, date),
+ * so every hourly bucket overwrote the last, and what the table kept for each
+ * day was whichever hour arrived last. Verified against production: Russia's
+ * 2026-09-11 row held 8,507 measurements and 633 confirmed blocks; OONI's
+ * daily total for that day is 204,535 and 9,766. The log line "RU — 633
+ * confirmed blocks on 2026-09-11T23:00:00Z" is the row.
+ *
+ * Both columns the resolver reads were wrong. `total_measurements` was one
+ * hour's worth, so the published coverage gate was judged against roughly a
+ * twenty-fourth of the real volume. `confirmed_blocked` was one hour's worth,
+ * so a day with blocks in every hour but the last recorded ZERO — and the
+ * resolver reads "days with confirmed_blocked > 0". Recomputed read-only
+ * against OONI's daily totals for all 267 resolved censorship calls: 54 that
+ * the register published as MISS are hits (Egypt had confirmed blocks on 13
+ * or 14 of 15 days in every window and was recorded as "no block seen"),
+ * across AF, BD, EG, KE, UZ, VN, CU and VE; the true hit rate is 48 percent,
+ * not 28. No resolved row has been rewritten — that is the owner's call and a
+ * published correction, not a silent one. The 45 grace-held calls stay held
+ * under true evidence, so correcting history changes no pending outcome.
+ *
+ * `time_grain=day` fixes it forward. With the three-day window each run now
+ * rewrites the last three days with true totals; the days before that stay
+ * hourly-sampled until scripts/backfill-ooni-daily.ts is run with --write.
+ *
  * NOW:
  *   - THINNEST FIRST, derived from the table. Each run counts the last
  *     fourteen days of rows per country and fetches the sparsest first, so
@@ -181,7 +210,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const since = new Date(Date.now() - BACKFILL_DAYS * 86_400_000).toISOString().slice(0, 10);
 
   async function collect(cc: string): Promise<void> {
-    const url = `${OONI_API}/aggregation?probe_cc=${cc}&since=${since}&until=${today}&test_name=web_connectivity&axis_x=measurement_start_day`;
+    // time_grain=day, STATED. Without it OONI picks the grain from the window
+    // and hands back HOURLY buckets for anything short — 72 rows for three
+    // days — and the day-keyed upsert below then kept whichever hour arrived
+    // last. See the docstring: one in five published censorship misses are
+    // hits under the true daily totals. The table is keyed by day; the
+    // request says day. A test reads this line.
+    const url = `${OONI_API}/aggregation?probe_cc=${cc}&since=${since}&until=${today}&test_name=web_connectivity&axis_x=measurement_start_day&time_grain=day`;
     // The request budget is the smaller of the per-request timeout and what
     // is left before the deadline, so a request started late cannot carry the
     // run past the function's limit. The deadline governs work in flight,
