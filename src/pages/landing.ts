@@ -22,7 +22,7 @@ const FALLBACK_BRIEF = {
   date: 'Sample',
   headline: 'A reading on the world, written each morning at 05:00 ET.',
   excerpt:
-    'Three minutes. The conflicts that moved overnight, the disasters that landed, the markets that flinched. Each line evidence-chained back to the source — USGS, ACLED, GDELT, AIS — so you can audit anything that smells off. The full archive is open.',
+    'Three minutes. What resolved overnight, what is still open, and the signal of the day — each line traced back to the source that settles it, so you can audit anything that smells off. The full archive is open.',
 };
 
 interface BriefResponse {
@@ -101,17 +101,17 @@ export function renderLanding(root: HTMLElement): void {
         <article class="nw-feature">
           <span class="nw-feature-label">85 Countries</span>
           <h3 class="nw-feature-title">The evidence surface.</h3>
-          <p class="nw-feature-desc">The live map and the Country Instability Index are where calls come from — six weighted components, evidence chains, confidence badges. Click a number, see the data behind it.</p>
+          <p class="nw-feature-desc">The Country Instability Index is where calls come from — a structural level and a daily deviation, published separately because adding them would invent movement. Click a number, see the data behind it.</p>
         </article>
         <article class="nw-feature">
-          <span class="nw-feature-label">45+ Layers</span>
-          <h3 class="nw-feature-title">Live data, every minute.</h3>
-          <p class="nw-feature-desc">Earthquakes, conflict, sanctions, shipping, satellites, AI sentiment, dark vessels, undersea cables, and thirty-seven more — refreshed continuously.</p>
+          <span class="nw-feature-label">7 Sources</span>
+          <h3 class="nw-feature-title">Few, and named.</h3>
+          <p class="nw-feature-desc">OONI, daily FX reference rates, USGS, UCDP, OFAC and the UN list, World Bank governance, Wikipedia pageviews. Each resolves something specific, and the status page says when each was last read.</p>
         </article>
         <article class="nw-feature">
           <span class="nw-feature-label">Open API</span>
-          <h3 class="nw-feature-title">Query the firehose.</h3>
-          <p class="nw-feature-desc">A v2 REST surface over the same data the dashboard reads, including the full ledger as JSON. No key required for basic queries.</p>
+          <h3 class="nw-feature-title">Read the whole book.</h3>
+          <p class="nw-feature-desc">The full ledger as JSON, every call with its evidence, and the brief archive. No key, no signup.</p>
         </article>
         <article class="nw-feature">
           <span class="nw-feature-label">Receipts</span>
@@ -121,86 +121,6 @@ export function renderLanding(root: HTMLElement): void {
       </div>
     </section>
 
-    <section class="nw-reveal" aria-label="Layers">
-      <span class="nw-section-eyebrow">Layers / 45+</span>
-      <h2 class="nw-section-heading">The breadth of the surface.</h2>
-      <p class="nw-section-lede">
-        Five categories, thirty named layers visible above; fifteen more under the hood. Toggle any of them on
-        the live map.
-      </p>
-      <div class="nw-layers-rail" id="nw-layers-rail">
-        <article class="nw-layer-card">
-          <div class="nw-layer-head">
-            <span class="nw-layer-name">Conflict & Military</span>
-            <span class="nw-layer-count">7 <span class="nw-layer-dot" aria-hidden="true"></span></span>
-          </div>
-          <ul class="nw-layer-list">
-            <li>Conflict Events (GDELT-derived)</li>
-            <li>Conflict Zones</li>
-            <li>Military Bases (28)</li>
-            <li>Cyber Threat Corridors</li>
-            <li>OFAC Sanctions</li>
-            <li>GPS Jamming Zones</li>
-            <li>Frontlines</li>
-          </ul>
-        </article>
-        <article class="nw-layer-card">
-          <div class="nw-layer-head">
-            <span class="nw-layer-name">Natural Hazards</span>
-            <span class="nw-layer-count">5 <span class="nw-layer-dot" aria-hidden="true"></span></span>
-          </div>
-          <ul class="nw-layer-list">
-            <li>Earthquakes (USGS, 1 min)</li>
-            <li>Wildfires (NASA FIRMS)</li>
-            <li>GDACS Disasters</li>
-            <li>WHO Disease Outbreaks</li>
-            <li>Weather Alerts</li>
-          </ul>
-        </article>
-        <article class="nw-layer-card">
-          <div class="nw-layer-head">
-            <span class="nw-layer-name">Infrastructure</span>
-            <span class="nw-layer-count">9 <span class="nw-layer-dot" aria-hidden="true"></span></span>
-          </div>
-          <ul class="nw-layer-list">
-            <li>Ship Tracking (26)</li>
-            <li>Chokepoint Status (6)</li>
-            <li>Undersea Cables (12)</li>
-            <li>Oil & Gas Pipelines</li>
-            <li>Nuclear Facilities (22)</li>
-            <li>Strategic Ports (18)</li>
-            <li>Trade Routes</li>
-            <li>Space Launches</li>
-            <li>Energy Grid</li>
-          </ul>
-        </article>
-        <article class="nw-layer-card">
-          <div class="nw-layer-head">
-            <span class="nw-layer-name">Intelligence</span>
-            <span class="nw-layer-count">7 <span class="nw-layer-dot" aria-hidden="true"></span></span>
-          </div>
-          <ul class="nw-layer-list">
-            <li>GDELT News Events</li>
-            <li>Prediction Markets</li>
-            <li>Satellites (animated orbits)</li>
-            <li>Internet Outages</li>
-            <li>Election Calendar</li>
-            <li>Refugee Displacement Arcs</li>
-            <li>Sentiment</li>
-          </ul>
-        </article>
-        <article class="nw-layer-card">
-          <div class="nw-layer-head">
-            <span class="nw-layer-name">Environment</span>
-            <span class="nw-layer-count">2 <span class="nw-layer-dot" aria-hidden="true"></span></span>
-          </div>
-          <ul class="nw-layer-list">
-            <li>Air Quality AQI (30 cities)</li>
-            <li>Live Aircraft (OpenSky)</li>
-          </ul>
-        </article>
-      </div>
-    </section>
 
 
 
@@ -253,23 +173,17 @@ export function renderLanding(root: HTMLElement): void {
       <span class="nw-section-eyebrow">Sources / Receipts</span>
       <h2 class="nw-section-heading">Public data. Public method.</h2>
       <p class="nw-section-lede">
-        Everything on the map traces back to one of these. Open repo on GitHub; open API at <code>/api</code>.
+        Every call traces back to one of these. Open repo on GitHub; open API at <code>/api</code>.
       </p>
-      <ul class="nw-trust-list">
-        <li>USGS</li>
-        <li>GDELT</li>
-        <li>NASA FIRMS</li>
-        <li>OpenSky</li>
-        <li>OpenAQ</li>
-        <li>GDACS</li>
-        <li>WHO</li>
-        <li>AIS / Marine Traffic</li>
-        <li>Polymarket</li>
-        <li>OFAC Sanctions</li>
-        <li>OONI</li>
-        <li>UNHCR</li>
-        <li>Cloudflare Radar</li>
-      </ul>
+        <ul class="nw-trust-list">
+          <li>OONI</li>
+          <li>FX reference rates</li>
+          <li>USGS</li>
+          <li>UCDP</li>
+          <li>OFAC &amp; UN sanctions</li>
+          <li>World Bank governance</li>
+          <li>Wikipedia pageviews</li>
+        </ul>
     </section>
 
     <footer class="nw-footer">
@@ -336,7 +250,15 @@ export function renderLanding(root: HTMLElement): void {
     } else {
       // Desktop: dynamic-import MapLibre + boot a decorative globe in the
       // background. The headline paints first; the globe arrives 50–500ms later.
-      void bootDecorativeGlobe(heroGlobe, prefersReducedMotion);
+      // THE DECORATIVE GLOBE IS GONE. It lazy-loaded MapLibre — 1,047,879 bytes,
+      // 78% of the built bundle — to spin a dark sphere behind the headline of a
+      // product with no map, and pulled its stylesheet from
+      // `unpkg.com/maplibre-gl@latest` (unpinned, third-party, executing on this
+      // origin) plus tiles from CARTO on every homepage visit. Three findings in
+      // one ornament: a supply-chain hole, the only CRITICAL in `npm audit`, and
+      // three third-party recipients the privacy policy did not name. The static
+      // CSS treatment below is what everyone saw first anyway.
+      heroGlobe.classList.add('nw-hero-globe-static');
     }
   }
 
@@ -467,94 +389,5 @@ function formatBriefDate(iso: string): string {
     return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
   } catch {
     return iso;
-  }
-}
-
-/**
- * Decorative MapLibre globe for the hero. Non-interactive, slowly auto-
- * rotating. Lazy-imports MapLibre so the marketing surface doesn't pay
- * 1MB of map bundle until after first paint. Falls back silently to the
- * static globe styling on any error.
- */
-async function bootDecorativeGlobe(container: HTMLElement, reducedMotion: boolean): Promise<void> {
-  // Tag with the static fallback first so if MapLibre fails or is slow,
-  // the user always sees the dark globe stylization.
-  container.classList.add('nw-hero-globe-static');
-
-  try {
-    const maplibreMod = await import('maplibre-gl');
-    const maplibregl = maplibreMod.default;
-
-    // Inject MapLibre CSS — same pattern as MapView.
-    if (!document.querySelector('link[data-nw-maplibre-css]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css';
-      link.crossOrigin = 'anonymous';
-      link.dataset.nwMaplibreCss = '1';
-      document.head.appendChild(link);
-    }
-
-    const map = new maplibregl.Map({
-      container,
-      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      center: [10, 25],
-      zoom: 1.6,
-      pitch: 0,
-      bearing: 0,
-      attributionControl: false,
-      interactive: false,
-      maxZoom: 4,
-      minZoom: 1.2,
-      fadeDuration: 600,
-    });
-
-    // Once the style loads, switch to globe projection + atmosphere.
-    map.on('style.load', () => {
-      try {
-        map.setProjection({ type: 'globe' } as maplibregl.ProjectionSpecification);
-      } catch {
-        // mercator fallback is fine
-      }
-      try {
-        (map as unknown as { setFog: (opts: Record<string, unknown>) => void }).setFog({
-          color: 'rgba(0, 0, 0, 1)',
-          'high-color': 'rgba(20, 10, 5, 1)',
-          'horizon-blend': 0.12,
-          'space-color': 'rgba(0, 0, 0, 1)',
-          'star-intensity': 0.55,
-        });
-      } catch {
-        // fog not supported
-      }
-      // Now that real tiles are coming in, peel back the static painting.
-      container.classList.remove('nw-hero-globe-static');
-    });
-
-    // Slow ambient rotation, gated on reduced motion.
-    if (!reducedMotion) {
-      const speed = 0.04; // degrees per frame ≈ 0.05 deg/sec at 60fps roughly
-      let rafId: number | null = null;
-      const tick = () => {
-        const c = map.getCenter();
-        map.setCenter([c.lng + speed * 0.04, c.lat]);
-        rafId = requestAnimationFrame(tick);
-      };
-      map.on('load', () => {
-        rafId = requestAnimationFrame(tick);
-      });
-      // Pause on hidden tab to be neighborly.
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden && rafId) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-        } else if (!document.hidden && !rafId) {
-          rafId = requestAnimationFrame(tick);
-        }
-      });
-    }
-  } catch (err) {
-    // Map failed — the static fallback class is still on the container.
-    console.warn('Hero globe failed to boot, using static fallback', err);
   }
 }

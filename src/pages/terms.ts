@@ -23,7 +23,7 @@ export function renderTermsPage(root: HTMLElement): void {
 
     <div style="font-size:14px;color:var(--nw-text-secondary);line-height:1.7">
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">1. What NexusWatch Is</h2>
-      <p>NexusWatch is a geopolitical intelligence platform that aggregates publicly available data from sources like ACLED, USGS, NASA FIRMS, GDELT, and others to compute Country Instability Index (CII) scores and generate intelligence briefs.</p>
+      <p>NexusWatch is a public register of dated forecasts. It states a claim about a country, fixes a resolution date and a criterion in advance, and lets an outside source decide the outcome — OONI for censorship, daily FX reference rates for currency moves, USGS for earthquakes. It also publishes a country instability index and a daily brief. Every call, right or wrong, stays on the record.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">2. Not Advice</h2>
       <p><strong>NexusWatch does not provide investment advice, policy recommendations, military guidance, or any professional counsel.</strong> CII scores, briefs, scenario simulations, and all other outputs are for informational and analytical purposes only. Do not make financial, security, travel, or policy decisions based solely on NexusWatch data. Always consult qualified professionals for decisions that affect people, money, or safety.</p>

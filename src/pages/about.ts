@@ -22,7 +22,7 @@ export function renderAbout(root: HTMLElement): void {
     <nav class="nw-nav" aria-label="Primary">
       <a href="#/" class="nw-nav-brand"><span class="nw-nav-mark">●</span>&nbsp;NexusWatch</a>
       <div class="nw-nav-links">
-        <a href="#/intel">Intel Map</a>
+        <a href="#/ledger">Ledger</a>
         <a href="#/briefs">Briefs</a>
         <a href="#/why-free">Why Free</a>
         <a href="#/about">About</a>
@@ -43,9 +43,8 @@ export function renderAbout(root: HTMLElement): void {
 
       <h2>What it is, and isn't.</h2>
       <p>
-        NexusWatch is a live globe with forty-five-plus data layers, a country-by-country
-        instability index, an AI-composed daily brief, an open API, and a Cinema mode for wall
-        displays. It is <em>not</em> a replacement for Bloomberg, Dataminr, or your government
+        NexusWatch is a public register of dated forecasts, a country-by-country
+          instability index, a daily brief, and an open API. It is <em>not</em> a replacement for Bloomberg, Dataminr, or your government
         intelligence service. It's an opinionated reading surface for the open data those services
         already touch — built for the analyst, the journalist, and the curious.
       </p>
@@ -80,7 +79,7 @@ export function renderAbout(root: HTMLElement): void {
       </p>
 
       <p class="nw-essay-closing">
-        Thanks for reading. Now go <a href="#/intel">open the dashboard</a>.
+        Thanks for reading. Now go <a href="#/ledger">read the ledger</a>.
       </p>
     </article>
 
@@ -88,7 +87,7 @@ export function renderAbout(root: HTMLElement): void {
       <div class="nw-footer-top">
         <div class="nw-footer-brand"><span>●</span> NexusWatch</div>
         <div class="nw-footer-links">
-          <a href="#/intel">Intel Map</a>
+          <a href="#/ledger">Ledger</a>
           <a href="#/briefs">Briefs</a>
           <a href="#/why-free">Why Free</a>
           <a href="#/about">About</a>

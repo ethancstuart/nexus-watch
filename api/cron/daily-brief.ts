@@ -2265,7 +2265,7 @@ function renderCTA(): string {
 
   return (
     `<div ${styleAttr(style({ margin: `${space.xl} 0`, textAlign: 'center' }))}>` +
-    `<a href="https://nexuswatch.dev/#/intel" ${styleAttr(ctaSecondary)}>Open Live Map →</a>` +
+    `<a href="https://nexuswatch.dev/#/ledger" ${styleAttr(ctaSecondary)}>Open the ledger →</a>` +
     `<a href="https://nexuswatch.dev/#/briefs" ${styleAttr(ctaButton)}>Read the Brief Archive →</a>` +
     `</div>`
   );
@@ -2344,7 +2344,7 @@ function renderPlainText(briefText: string, date: string, time: string, archiveU
     '',
     `──────────────────────────────────────────`,
     ``,
-    `Open the live map: https://nexuswatch.dev/#/intel`,
+    `Read the ledger: https://nexuswatch.dev/#/ledger`,
     `Read the Brief Archive: https://nexuswatch.dev/#/briefs`,
     `Forward today's brief: ${archiveUrl}`,
     ``,

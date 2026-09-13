@@ -70,7 +70,7 @@ export function renderSettings(root: HTMLElement): void {
     <nav class="dossier-nav">
       <a href="#/" class="dossier-nav-logo">NexusWatch</a>
       <div class="dossier-nav-links">
-        <a href="#/intel" class="dossier-nav-link">PLATFORM</a>
+        <a href="#/ledger" class="dossier-nav-link">LEDGER</a>
         <a href="#/briefs" class="dossier-nav-link">BRIEFS</a>
         <a href="#/settings" class="dossier-nav-link dossier-nav-subscribe">SETTINGS</a>
       </div>

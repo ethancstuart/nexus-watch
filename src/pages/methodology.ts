@@ -23,7 +23,7 @@ export function renderMethodology(root: HTMLElement): void {
     <nav class="briefs-nav">
       <a href="#/" class="briefs-nav-logo">NexusWatch</a>
       <div class="briefs-nav-links">
-        <a href="#/intel" class="briefs-nav-link">PLATFORM</a>
+        <a href="#/ledger" class="briefs-nav-link">LEDGER</a>
         <a href="#/briefs" class="briefs-nav-link">BRIEFS</a>
         <a href="https://brief.nexuswatch.dev" target="_blank" class="briefs-nav-link briefs-nav-subscribe">SUBSCRIBE</a>
       </div>
@@ -35,7 +35,7 @@ export function renderMethodology(root: HTMLElement): void {
       <p class="method-lede">Data sources, trust layer, and verification methodology behind every CII score.</p>
 
       <h2 class="brief-section-header">The Trust Layer</h2>
-      <p>Every NexusWatch number is <strong>auditable</strong>. Click any CII score in the platform and you'll see the data points that computed it — USGS quakes, OONI censorship measurements, GDELT-derived signals — and, just as importantly, which components are static baselines rather than live feeds. Alongside, we publish:</p>
+      <p>Every NexusWatch number is <strong>auditable</strong>. Every call carries the criterion it was issued with, the source that resolves it and the evidence that source returned, and the whole book is downloadable as JSON from <code>/api/calls/ledger</code>. Where a published verdict has since been contradicted by better evidence, the correction is shown beside it rather than replacing it.</p>
       <ul class="method-list">
         <li><strong>Confidence levels</strong> (HIGH/MEDIUM/LOW) based on source count, freshness, and data volume</li>
         <li><strong>Verification badges</strong> — events are CONFIRMED (3+ sources), CORROBORATED (2), UNVERIFIED (1), or CONTESTED</li>
@@ -138,25 +138,31 @@ export function renderMethodology(root: HTMLElement): void {
         <li><strong>The daily deviation (points)</strong> — today's live signal on top of the level: earthquakes (USGS), confirmed censorship (OONI), FX stress, attention spikes (Wikipedia). 0 is a quiet day, and it mean-reverts by construction as rolling feeds age out.</li>
       </ul>
       <p>Why the split: measured over 90 days of our own history, the conflict component moved in <strong>0 of 85 countries</strong>, governance in 7 and market exposure in 16 — those were a slow baseline wearing a live label — while the old "sentiment" component was defined as conflict×0.5 + disasters×0.3, an echo of other components that double-counted both. Summing a static level with mean-reverting live noise produced daily "moves" that were mostly a rolling 24-hour feed aging out. Publishing the two parts separately is the honest version of the same information.</p>
-      <p>NexusWatch keeps <strong>scored daily history for 85 countries</strong> — the set every forecast, snapshot and ledger call runs on. The map additionally displays client-computed estimates for roughly 157 countries across three tiers (Core, Extended, Monitor); those estimates carry no scored history and are labelled accordingly.</p>
-      <p>CII powers the daily intelligence brief, correlation detection engine, scenario simulation, verification engine, and portfolio exposure calculations.</p>
+      <p>NexusWatch keeps <strong>scored daily history for 85 countries</strong> — the set every forecast, snapshot and ledger call runs on.</p>
+      <p>The index feeds the daily brief. The map, the correlation engine, the scenario simulator and the portfolio calculator this paragraph used to list were deleted in September 2026.</p>
 
-      <h2 class="brief-section-header">Data Sources (12 primary)</h2>
-      <p>Every CII component and every layer displays which sources contributed. Current primary sources:</p>
+      <h2 class="brief-section-header">Data sources (7)</h2>
+      <p>
+        This list was wrong until 2026-09-12. It named twelve sources, nine of which had no collector in the
+        codebase — they were left behind when the map product was deleted, and the refresh intervals beside them
+        described nothing that was running. On a page whose only job is to let you check our work, that was the
+        worst error on the site. These seven are what the code actually reads, at the cadence it actually reads
+        them.
+      </p>
       <ul class="method-list">
-        <li><strong>UCDP GED</strong> — Uppsala Conflict Data Program georeferenced events: monthly candidate files (~1 month lag) plus annual curated releases; drives the derived conflict baseline. GDELT-derived headlines remain a brief-side signal. ACLED is not an input (legacy API retired; account read-access pending).</li>
-        <li><strong>USGS</strong> — earthquake hazards feed (60s refresh)</li>
-        <li><strong>NASA FIRMS</strong> — active fire hotspots via MODIS/VIIRS (10min)</li>
-        <li><strong>GDELT</strong> — global news events with tone analysis, 65+ languages (15min)</li>
-        <li><strong>WHO</strong> — disease outbreak news (hourly)</li>
-        <li><strong>Open-Meteo</strong> — severe weather alerts (15min)</li>
-        <li><strong>OpenSky</strong> — live aircraft positions from ADS-B (30s)</li>
-        <li><strong>AIS Marine Traffic</strong> — ship positions (5min)</li>
-        <li><strong>Polymarket</strong> — prediction market odds (5min)</li>
-        <li><strong>Cloudflare Radar</strong> — internet traffic anomalies (5min)</li>
-        <li><strong>OFAC</strong> — US sanctions list (daily)</li>
-        <li><strong>UNHCR</strong> — refugee displacement data (daily)</li>
+        <li><strong>OONI</strong> — Open Observatory of Network Interference, <code>web_connectivity</code> measurements at day grain. Collected every six hours; resolves every censorship call. Data is licensed CC BY-NC-SA 4.0.</li>
+        <li><strong>Exchange-rate reference rates</strong> — daily USD reference rates, collected at 05:00 UTC. Resolves every FX call.</li>
+        <li><strong>USGS</strong> — earthquake catalogue, queried directly at resolution time rather than collected. Resolves the seismicity calibration calls.</li>
+        <li><strong>UCDP</strong> — Uppsala Conflict Data Program georeferenced events, monthly candidate files plus annual curated releases (~1 month lag). Drives the derived conflict baseline.</li>
+        <li><strong>OFAC and the UN consolidated list</strong> — sanctions designations, collected every six hours.</li>
+        <li><strong>World Bank governance indicators</strong> — refreshed monthly.</li>
+        <li><strong>Wikipedia pageviews</strong> — daily, as an attention signal.</li>
       </ul>
+      <p>
+        Nothing else is read. ACLED, GDELT, NASA FIRMS, WHO, Open-Meteo, OpenSky, AIS, Polymarket, Cloudflare
+        Radar and UNHCR appeared on this page for months after their collectors were deleted. They are not
+        inputs and have not been for some time.
+      </p>
 
       <h2 class="brief-section-header">The Components</h2>
       <p>The <strong>structural level</strong> is the rescaled sum of Conflict + Governance + Market Exposure (55 native points → 0–100). The <strong>daily deviation</strong> is the sum of Disasters + Infrastructure/Censorship + Attention + FX stress, reported in raw points. The two are never added together:</p>
@@ -261,14 +267,14 @@ export function renderMethodology(root: HTMLElement): void {
       <p>The CII computation is fully open source. The algorithm runs in <code class="method-code">api/cron/compute-cii.ts</code> and can be inspected on <a class="method-link" href="https://github.com/ethancstuart/nexus-watch" target="_blank" rel="noopener">GitHub</a>.</p>
 
       <div class="method-cta-row">
-        <a href="#/intel" class="method-cta">EXPLORE CII ON THE LIVE MAP →</a>
+        <a href="#/ledger" class="method-cta">SEE THE LEDGER →</a>
       </div>
     </article>
 
     <footer class="briefs-footer">
       <span>NexusWatch Intelligence Platform</span>
       <a href="#/briefs">Briefs</a>
-      <a href="#/intel">Live Map</a>
+      <a href="#/ledger">Ledger</a>
     </footer>
   `;
 

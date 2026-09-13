@@ -1,7 +1,7 @@
 {
   "name": "NexusWatch",
   "short_name": "NexusWatch",
-  "description": "Real-time geopolitical intelligence platform. 45+ live data layers, 86 countries scored, daily AI briefs. Free.",
+  "description": "Dated forecasts, resolved by an outside source on a date fixed in advance. Hits and misses both published. Free.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
