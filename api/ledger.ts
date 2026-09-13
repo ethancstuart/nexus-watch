@@ -46,6 +46,11 @@ interface CallRow {
   resolves_on: string;
   status: string;
   void_reason?: string | null;
+  /** What the evidence says now, when it disagrees with what was published. */
+  correction_cause?: string | null;
+  correction_status?: string | null;
+  correction_note?: string | null;
+  correction_issued_on?: string | null;
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -95,10 +100,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Display list, capped. The STATISTICS below must not be computed from
     // this — see `scoredRows`.
     const resolved = (await sql`
-      SELECT id, kind, country_code, claim, probability::float AS probability,
-             base_rate::float AS base_rate, resolves_on::text AS resolves_on, status, void_reason
-      FROM calls WHERE status <> 'pending'
-      ORDER BY resolved_at DESC LIMIT 40
+      SELECT c.id, c.kind, c.country_code, c.claim, c.probability::float AS probability,
+             c.base_rate::float AS base_rate, c.resolves_on::text AS resolves_on,
+             c.status, c.void_reason,
+             cc.cause AS correction_cause, cc.corrected_status AS correction_status,
+             cc.evidence_note AS correction_note, cc.issued_on::text AS correction_issued_on
+      FROM calls c
+      LEFT JOIN call_corrections cc ON cc.call_id = c.id
+      WHERE c.status <> 'pending'
+      ORDER BY c.resolved_at DESC LIMIT 40
     `) as unknown as CallRow[];
 
     // Every resolved call, for scoring. The headline was previously computed
@@ -116,6 +126,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       base_rate: number | null;
       status: string;
       resolved_at: string | null;
+    }>;
+
+    // CORRECTIONS GET THEIR OWN QUERY, not a filter over the resolved page.
+    // Filtering the 40 most recent resolved rows found none of them, because
+    // the corrections sit on older calls — so the section rendered a truthful
+    // total above an empty list. A count and the rows under it must come from
+    // the same place. The count is unbounded; the rows are the most recent 25.
+    const correctionTotal = (await sql`
+      SELECT COUNT(*)::int AS n FROM call_corrections
+    `) as unknown as Array<{ n: number }>;
+    const correctionCount = correctionTotal[0]?.n ?? 0;
+
+    const correctedDisplay = (await sql`
+      SELECT c.id, c.country_code, c.claim, c.status,
+             cc.corrected_status AS correction_status, cc.cause AS correction_cause
+      FROM call_corrections cc
+      JOIN calls c ON c.id = cc.call_id
+      ORDER BY c.resolves_on DESC, c.id DESC
+      LIMIT 25
+    `) as unknown as Array<{
+      id: number;
+      country_code: string;
+      claim: string;
+      status: string;
+      correction_status: string;
+      correction_cause: string;
     }>;
 
     const totals = (await sql`
@@ -396,6 +432,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const scoredDisplay = resolved.filter((c) => isScored(c.status));
     const unscoredDisplay = resolved.filter((c) => !isScored(c.status));
 
+    // THE CORRECTION GOES ABOVE THE RECORD IT CORRECTS, and it goes HERE —
+    // on the server-rendered page. /ledger rewrites to this file, so a direct
+    // visit, a shared link, a search result and every crawler get this HTML.
+    // The SPA renderer in src/pages/ledger.ts runs only after an in-app
+    // navigation. Shipping the corrections there alone meant the one audience
+    // that had already seen the wrong number could see the correction, and
+    // everyone arriving fresh could not. Found by checking the served HTML
+    // rather than the code that was supposed to produce it.
+    if (correctionCount > 0) {
+      parts.push(
+        '<div class="rule"></div><div class="kicker">Corrections</div>' +
+          `<h2>${correctionCount} call${correctionCount === 1 ? '' : 's'} we were wrong about</h2>` +
+          '<p class="lede">Two defects in our own instruments published these as misses when the evidence ' +
+          'says otherwise: the collector stored one hour of each day instead of the whole day, and the ' +
+          'resolver scored a call before the last day of its window had any evidence at all. Both are fixed. ' +
+          'The verdicts below are what we published and we have not rewritten them — the corrected reading ' +
+          'sits beside each one. Every number on this page still counts the call as it was published.</p>',
+      );
+      for (const c of correctedDisplay) {
+        parts.push(
+          `<a class="row" href="/call/${c.id}"><span class="lead">${esc(c.country_code)}</span>` +
+            `<span class="det">${esc(c.claim)} — published ${esc(c.status.toUpperCase())}, ` +
+            `evidence says ${esc((c.correction_status ?? '').toUpperCase())}</span>` +
+            `<span class="trail">CORRECTED</span></a>`,
+        );
+      }
+      if (correctionCount > correctedDisplay.length) {
+        parts.push(
+          `<p class="lede">${correctedDisplay.length} of ${correctionCount} shown here; the rest are in ` +
+            '<a href="/api/calls/ledger?all=1">the full book</a>, each with the evidence that corrects it.</p>',
+        );
+      }
+    }
+
     if (scoredDisplay.length > 0) {
       parts.push('<div class="rule"></div><div class="kicker">Resolved</div><h2>Including where we were wrong</h2>');
       // Worst-first, unconditionally. There is no ordering in which this list
@@ -409,7 +479,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         parts.push(
           `<a class="row ${c.status === 'hit' ? 'hit' : 'miss'}" href="/call/${c.id}"><span class="lead">${esc(c.country_code)}</span>` +
             `<span class="det">${esc(c.claim)} — said ${pct(c.probability)}</span>` +
-            `<span class="trail">${c.status === 'hit' ? 'HIT' : 'MISS'}</span></a>`,
+            `<span class="trail">${c.status === 'hit' ? 'HIT' : 'MISS'}${c.correction_cause ? ' · CORRECTED' : ''}</span></a>`,
         );
       }
     }
