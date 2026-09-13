@@ -43,6 +43,25 @@ interface CallRow {
   status: string;
   evidence_count: number | null;
   resolved_at: string | null;
+  /** Present only when the evidence has since disagreed with what was published. */
+  correction_cause?: string | null;
+  correction_status?: string | null;
+  correction_note?: string | null;
+  correction_issued_on?: string | null;
+}
+
+/** Drop the flat join columns; the response carries them nested instead. */
+function withoutCorrectionColumns(
+  c: CallRow,
+): Omit<CallRow, 'correction_cause' | 'correction_status' | 'correction_note' | 'correction_issued_on'> {
+  const {
+    correction_cause: _cause,
+    correction_status: _status,
+    correction_note: _note,
+    correction_issued_on: _issued,
+    ...rest
+  } = c;
+  return rest;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -64,12 +83,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resolvedLimit = wantsAll ? 100000 : 500;
 
   try {
+    // A CORRECTION TRAVELS WITH THE CALL IT CORRECTS.
+    //
+    // The verdict column is never rewritten — see docs/migrations/
+    // 2026-09-12-call-corrections.sql for why, and for the two defects that
+    // made corrections necessary. `status` is still exactly what was
+    // published on the day. `correction` is what the evidence says now, and
+    // carries the numbers a reader can check for themselves.
+    //
+    // DEPLOY ORDER IS LOAD-BEARING HERE, and saying otherwise would be the
+    // kind of comment this audit exists to remove. A LEFT JOIN to a table that
+    // does not exist ERRORS; it does not quietly return nulls. The migration
+    // (docs/migrations/2026-09-12-call-corrections.sql) was applied to
+    // production before this code shipped, and must be applied to any other
+    // environment before this code runs there. A call with no correction row
+    // is unaffected.
     const resolved = (await sql`
-      SELECT id, kind, country_code, claim, probability::float AS probability,
-             base_rate::float AS base_rate, made_on::text AS made_on, resolves_on::text AS resolves_on,
-             status, evidence_count, resolved_at::text AS resolved_at
-      FROM calls WHERE status <> 'pending'
-      ORDER BY resolved_at DESC
+      SELECT c.id, c.kind, c.country_code, c.claim, c.probability::float AS probability,
+             c.base_rate::float AS base_rate, c.made_on::text AS made_on, c.resolves_on::text AS resolves_on,
+             c.status, c.evidence_count, c.resolved_at::text AS resolved_at,
+             cc.cause AS correction_cause,
+             cc.corrected_status AS correction_status,
+             cc.evidence_note AS correction_note,
+             cc.issued_on::text AS correction_issued_on
+      FROM calls c
+      LEFT JOIN call_corrections cc ON cc.call_id = c.id
+      WHERE c.status <> 'pending'
+      ORDER BY c.resolved_at DESC
       LIMIT ${resolvedLimit}
     `) as unknown as CallRow[];
 
@@ -281,7 +321,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       by_kind: byKind,
       open,
-      resolved: wantsAll ? resolved : resolved.slice(0, 100),
+      // The correction rides WITH its call rather than in a separate list, so
+      // no surface can render the verdict and miss the correction. `status`
+      // stays exactly what was published; `correction` is what the evidence
+      // says now. Null for the overwhelming majority.
+      resolved: (wantsAll ? resolved : resolved.slice(0, 100)).map((c) => ({
+        ...withoutCorrectionColumns(c),
+        correction: c.correction_cause
+          ? {
+              cause: c.correction_cause,
+              corrected_status: c.correction_status,
+              note: c.correction_note,
+              issued_on: c.correction_issued_on,
+            }
+          : null,
+      })),
     });
   } catch (err) {
     console.error('[calls/ledger] failed:', err instanceof Error ? err.message : err);
