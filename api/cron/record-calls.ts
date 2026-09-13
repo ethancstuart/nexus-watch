@@ -58,6 +58,8 @@ interface RateRow {
   recent_hits: number;
 }
 
+// calls-write: ISSUES calls. INSERT only. Every ON CONFLICT is DO NOTHING, so a
+// rerun on the same UTC date cannot alter a call already on the book.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
   if (token !== process.env.CRON_SECRET) return res.status(401).json({ error: 'unauthorized' });
@@ -124,19 +126,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `OONI records at least ${THRESHOLD} confirmed website or app blocking event ` +
         `in ${r.country_code} within ${HORIZON_DAYS} days.`;
 
-      await sql`
+      const inserted = (await sql`
         INSERT INTO calls
           (made_on, kind, country_code, claim, probability, horizon_days,
            resolves_on, resolver, threshold, base_rate)
         VALUES
           (CURRENT_DATE, ${KIND}, ${r.country_code}, ${claim}, ${probability}, ${HORIZON_DAYS},
            CURRENT_DATE + (${HORIZON_DAYS}::int), ${RESOLVER}, ${THRESHOLD}, ${longRun})
-        ON CONFLICT (made_on, kind, country_code) DO UPDATE
-          SET probability = EXCLUDED.probability,
-              base_rate   = EXCLUDED.base_rate,
-              claim       = EXCLUDED.claim
-      `;
-      written++;
+        -- DO NOTHING, NOT DO UPDATE. A criterion is frozen at issue: that is
+        -- the whole claim a dated forecast makes. This used to overwrite
+        -- probability, base_rate, claim, threshold_pct and reference_value on
+        -- conflict, so a second run on the same UTC date silently rewrote an
+        -- already-published call — and resolve-calls scores against
+        -- reference_value and threshold_pct, so the rewrite decided the
+        -- outcome. Issuance is idempotent by day; a rerun should change
+        -- nothing, which is exactly what this now does. Found by the
+        -- 2026-09-12 audit.
+        ON CONFLICT (made_on, kind, country_code) DO NOTHING
+        RETURNING id
+      `) as unknown as Array<{ id: number }>;
+      // COUNT ROWS, NOT INTENTIONS. With DO NOTHING a conflicting row writes
+      // nothing, and this counter incremented anyway — so a rerun would report
+      // a full day of issuance having issued none of it, and cron-health reads
+      // that number. A published count must be of rows.
+      written += inserted.length;
     }
 
     // === FX depreciation calls ===
@@ -235,19 +248,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `${code} depreciates ${threshold.toFixed(2)}% or more against USD ` +
           `at any point within ${HORIZON_DAYS} days, from ${meta.rate.toPrecision(6)}.`;
 
-        await sql`
+        const fxWrittenRows = (await sql`
           INSERT INTO calls
             (made_on, kind, country_code, claim, probability, horizon_days,
              resolves_on, resolver, threshold, threshold_pct, reference_value, base_rate)
           VALUES
             (CURRENT_DATE, ${FX_KIND}, ${meta.country_code}, ${claim}, ${probability}, ${HORIZON_DAYS},
              CURRENT_DATE + (${HORIZON_DAYS}::int), ${FX_RESOLVER}, 1, ${threshold}, ${meta.rate}, ${longRun})
-          ON CONFLICT (made_on, kind, country_code) DO UPDATE
-            SET probability = EXCLUDED.probability, base_rate = EXCLUDED.base_rate,
-                claim = EXCLUDED.claim, threshold_pct = EXCLUDED.threshold_pct,
-                reference_value = EXCLUDED.reference_value
-        `;
-        fxWritten++;
+          -- Frozen at issue; see the censorship pass above for why this is
+          -- DO NOTHING. reference_value and threshold_pct are the columns
+          -- resolve-calls scores against, so rewriting them moved the goalposts
+          -- of a call already on the public book.
+          ON CONFLICT (made_on, kind, country_code) DO NOTHING
+          RETURNING id
+        `) as unknown as Array<{ id: number }>;
+        // Count rows, not intentions — see the censorship pass above.
+        fxWritten += fxWrittenRows.length;
       }
     } catch (fxErr) {
       console.error('[record-calls] fx pass failed (non-fatal):', fxErr instanceof Error ? fxErr.message : fxErr);
@@ -284,7 +300,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const claim =
           `USGS records at least 1 earthquake of magnitude ${region.mag.toFixed(2)} or greater ` +
           `in the ${region.code} region within ${SEISMIC_HORIZON_DAYS} days.`;
-        await sql`
+        const seisWrittenRows = (await sql`
           INSERT INTO calls
             (made_on, kind, country_code, claim, probability, horizon_days,
              resolves_on, resolver, threshold, base_rate, resolver_params)
@@ -294,8 +310,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
              'USGS fdsnws event count', 1, ${region.baseRate},
              ${JSON.stringify({ box, mag: region.mag })})
           ON CONFLICT (made_on, kind, country_code) DO NOTHING
-        `;
-        seisWritten++;
+          RETURNING id
+        `) as unknown as Array<{ id: number }>;
+        // Count rows, not intentions — see the censorship pass above.
+        seisWritten += seisWrittenRows.length;
       }
     } catch (seisErr) {
       console.error(

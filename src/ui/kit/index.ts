@@ -214,8 +214,8 @@ export interface RowOptions {
   trail: string;
   /** Optional middle detail. */
   detail?: string;
-  /** Optional state for colouring: hit / miss / pending. */
-  state?: 'hit' | 'miss' | 'pending';
+  /** Optional state for colouring: hit / miss / pending / corrected. */
+  state?: 'hit' | 'miss' | 'pending' | 'corrected';
   /**
    * Optional destination — the row renders as a real <a>. Used by the ledger to
    * link each call to its /call/:id page; a plain anchor deliberately bypasses

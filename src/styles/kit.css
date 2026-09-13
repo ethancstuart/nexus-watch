@@ -304,6 +304,16 @@ a.nw-row:hover .nw-row__detail {
 .nw-row[data-state='miss'] .nw-row__trail {
   color: var(--color-negative);
 }
+
+/* A correction is neither a hit nor a miss nor an open call. It is the
+   register saying it got something wrong, so it reads in the accent the
+   dossier reserves for exactly that, without the miss styling that would
+   imply the call itself was scored wrong. */
+.nw-row[data-state='corrected'] .nw-row__trail {
+  color: var(--nw-accent, #9a1b1b);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
 .nw-row[data-state='pending'] .nw-row__trail {
   color: var(--color-text-tertiary);
 }
