@@ -15,6 +15,7 @@ import {
   styleAttrOf as s,
   typeStyleAttr as ts,
 } from '../src/styles/email-tokens.js';
+import { beehiivPublicationId } from './_lib/beehiiv-config.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -59,7 +60,7 @@ function shell(title: string, inner: string): string {
  */
 async function syncBeehiiv(email: string, source: string): Promise<void> {
   const beehiivKey = process.env.BEEHIIV_API_KEY;
-  const beehiivPubId = process.env.BEEHIIV_PUBLICATION_ID;
+  const beehiivPubId = beehiivPublicationId();
   if (!beehiivKey || !beehiivPubId) return;
   try {
     const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/subscriptions`, {

@@ -1408,7 +1408,7 @@ ${(() => {
 
     // === Publish to beehiiv ===
     const beehiivKey = process.env.BEEHIIV_API_KEY;
-    const beehiivPubId = process.env.BEEHIIV_PUB_ID;
+    const beehiivPubId = beehiivPublicationId();
     if (beehiivKey && beehiivPubId) {
       const beehiivT0 = Date.now();
       try {
@@ -1418,9 +1418,9 @@ ${(() => {
         // because the error was recorded and never surfaced. Check the shape
         // ourselves and say which env var is wrong and what it should look
         // like — a config error should read as a config error.
-        if (!/^pub_[0-9a-fA-F-]+$/.test(beehiivPubId)) {
+        if (!BEEHIIV_PUB_ID_RE.test(beehiivPubId)) {
           throw new Error(
-            'BEEHIIV_PUB_ID is malformed: expected the publication id in the ' +
+            'BEEHIIV_PUBLICATION_ID is malformed: expected the publication id in the ' +
               'form pub_<uuid> (copy it from beehiiv → Settings → API). ' +
               `Got a ${beehiivPubId.length}-character value starting ` +
               `"${beehiivPubId.slice(0, 4)}". Fix the env var in Vercel; ` +
@@ -1727,6 +1727,7 @@ import {
   type RegionId,
 } from '../../src/services/interests-types.js';
 import { requireCron } from '../_cron-utils.js';
+import { BEEHIIV_PUB_ID_RE, beehiivPublicationId } from '../_lib/beehiiv-config.js';
 
 export interface RenderedBrief {
   emailHtml: string;
