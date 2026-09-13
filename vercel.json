@@ -61,10 +61,6 @@
       "destination": "/index.html"
     },
     {
-      "source": "/api-docs",
-      "destination": "/index.html"
-    },
-    {
       "source": "/mcp",
       "destination": "/index.html"
     },
@@ -94,6 +90,14 @@
     },
     {
       "source": "/settings",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/welcome",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/api",
       "destination": "/index.html"
     }
   ],
