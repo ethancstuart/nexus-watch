@@ -30,10 +30,10 @@ const MARKER = /\/\/\s*calls-write:\s*(.+)/;
 function walk(dir: string, out: string[] = []): string[] {
   if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return out;
   for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry.startsWith('.')) continue;
+    if (['node_modules', 'dist', 'coverage', '.codex-reviews'].includes(entry) || entry.startsWith('.')) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) walk(full, out);
-    else if (/\.(ts|tsx|mjs)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) out.push(full);
+    else if (/\.(ts|tsx|js|mjs|cjs)$/.test(entry) && !/\.test\.(ts|tsx|js)$/.test(entry)) out.push(full);
   }
   return out;
 }
@@ -56,7 +56,11 @@ const WRITE_RE = /\b(?:UPDATE\s+calls\b|DELETE\s+FROM\s+calls\b|INSERT\s+INTO\s+
 const undeclared: string[] = [];
 const declared: Array<{ file: string; reason: string }> = [];
 
-for (const file of [...walk(join(ROOT, 'api')), ...walk(join(ROOT, 'scripts')), ...walk(join(ROOT, 'src'))]) {
+// EVERY DIRECTORY THAT SHIPS OR RUNS. A review pointed out that scoping to
+// three directories lets a write pass by living somewhere else, so the walk
+// starts at the repository root and skips only what cannot run: dependencies,
+// build output, and the migrations directory, whose whole job is schema.
+for (const file of walk(ROOT)) {
   const raw = readFileSync(file, 'utf8');
   // A file that only TALKS about the pattern — this guard, a docstring — has
   // the verb inside a comment, and nothing outside one.

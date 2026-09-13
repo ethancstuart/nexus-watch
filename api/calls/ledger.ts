@@ -91,8 +91,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // published on the day. `correction` is what the evidence says now, and
     // carries the numbers a reader can check for themselves.
     //
-    // LEFT JOIN, so a deploy that precedes the table sees no corrections
-    // rather than failing, and a call with no correction is unchanged.
+    // DEPLOY ORDER IS LOAD-BEARING HERE, and saying otherwise would be the
+    // kind of comment this audit exists to remove. A LEFT JOIN to a table that
+    // does not exist ERRORS; it does not quietly return nulls. The migration
+    // (docs/migrations/2026-09-12-call-corrections.sql) was applied to
+    // production before this code shipped, and must be applied to any other
+    // environment before this code runs there. A call with no correction row
+    // is unaffected.
     const resolved = (await sql`
       SELECT c.id, c.kind, c.country_code, c.claim, c.probability::float AS probability,
              c.base_rate::float AS base_rate, c.made_on::text AS made_on, c.resolves_on::text AS resolves_on,

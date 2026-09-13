@@ -126,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `OONI records at least ${THRESHOLD} confirmed website or app blocking event ` +
         `in ${r.country_code} within ${HORIZON_DAYS} days.`;
 
-      await sql`
+      const inserted = (await sql`
         INSERT INTO calls
           (made_on, kind, country_code, claim, probability, horizon_days,
            resolves_on, resolver, threshold, base_rate)
@@ -143,8 +143,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         -- nothing, which is exactly what this now does. Found by the
         -- 2026-09-12 audit.
         ON CONFLICT (made_on, kind, country_code) DO NOTHING
-      `;
-      written++;
+        RETURNING id
+      `) as unknown as Array<{ id: number }>;
+      // COUNT ROWS, NOT INTENTIONS. With DO NOTHING a conflicting row writes
+      // nothing, and this counter incremented anyway — so a rerun would report
+      // a full day of issuance having issued none of it, and cron-health reads
+      // that number. A published count must be of rows.
+      written += inserted.length;
     }
 
     // === FX depreciation calls ===
@@ -243,7 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `${code} depreciates ${threshold.toFixed(2)}% or more against USD ` +
           `at any point within ${HORIZON_DAYS} days, from ${meta.rate.toPrecision(6)}.`;
 
-        await sql`
+        const fxWrittenRows = (await sql`
           INSERT INTO calls
             (made_on, kind, country_code, claim, probability, horizon_days,
              resolves_on, resolver, threshold, threshold_pct, reference_value, base_rate)
@@ -255,8 +260,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           -- resolve-calls scores against, so rewriting them moved the goalposts
           -- of a call already on the public book.
           ON CONFLICT (made_on, kind, country_code) DO NOTHING
-        `;
-        fxWritten++;
+          RETURNING id
+        `) as unknown as Array<{ id: number }>;
+        // Count rows, not intentions — see the censorship pass above.
+        fxWritten += fxWrittenRows.length;
       }
     } catch (fxErr) {
       console.error('[record-calls] fx pass failed (non-fatal):', fxErr instanceof Error ? fxErr.message : fxErr);
@@ -293,7 +300,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const claim =
           `USGS records at least 1 earthquake of magnitude ${region.mag.toFixed(2)} or greater ` +
           `in the ${region.code} region within ${SEISMIC_HORIZON_DAYS} days.`;
-        await sql`
+        const seisWrittenRows = (await sql`
           INSERT INTO calls
             (made_on, kind, country_code, claim, probability, horizon_days,
              resolves_on, resolver, threshold, base_rate, resolver_params)
@@ -303,8 +310,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
              'USGS fdsnws event count', 1, ${region.baseRate},
              ${JSON.stringify({ box, mag: region.mag })})
           ON CONFLICT (made_on, kind, country_code) DO NOTHING
-        `;
-        seisWritten++;
+          RETURNING id
+        `) as unknown as Array<{ id: number }>;
+        // Count rows, not intentions — see the censorship pass above.
+        seisWritten += seisWrittenRows.length;
       }
     } catch (seisErr) {
       console.error(

@@ -387,6 +387,39 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
     );
   }
 
+  // ---- Corrections ------------------------------------------------------
+  // A correction is not a footnote. It goes ABOVE the record it corrects,
+  // because a reader who sees the hit rate and leaves has been misled by the
+  // omission. The published verdict is still shown, because it is still what
+  // we published.
+  const corrected = data.resolved.filter((c) => c.correction);
+  if (corrected.length > 0) {
+    const issued = corrected[0]?.correction?.issued_on ?? '';
+    main.appendChild(
+      sectionRule({
+        kicker: 'CORRECTIONS',
+        title: `${corrected.length} call${corrected.length === 1 ? '' : 's'} we got wrong about, and why`,
+        lede:
+          'Two defects in our own instruments published these calls as misses when the evidence says ' +
+          'otherwise. The verdicts below are what we published and we have not rewritten them; the ' +
+          'corrected reading is beside each one. ' +
+          (issued ? `Correction issued ${issued}. ` : '') +
+          'The causes are on the methodology page.',
+      }),
+    );
+    for (const c of corrected) {
+      main.appendChild(
+        row({
+          lead: c.country_code,
+          detail: `${c.claim} — published ${c.status.toUpperCase()}, evidence says ${(c.correction?.corrected_status ?? '').toUpperCase()}`,
+          trail: 'CORRECTED',
+          state: 'corrected',
+          href: `/call/${c.id}`,
+        }),
+      );
+    }
+  }
+
   // ---- Where we were wrong ---------------------------------------------
   // SCORED AND UNSCORED ARE DIFFERENT THINGS, AND THIS PAGE USED TO CONFLATE
   // THEM. `/api/calls/ledger` deliberately returns every non-pending row,
@@ -431,39 +464,6 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
               ? 'HIT'
               : 'MISS',
           state: c.status === 'hit' ? 'hit' : 'miss',
-          href: `/call/${c.id}`,
-        }),
-      );
-    }
-  }
-
-  // ---- Corrections ------------------------------------------------------
-  // A correction is not a footnote. It goes ABOVE the record it corrects,
-  // because a reader who sees the hit rate and leaves has been misled by the
-  // omission. The published verdict is still shown, because it is still what
-  // we published.
-  const corrected = data.resolved.filter((c) => c.correction);
-  if (corrected.length > 0) {
-    const issued = corrected[0]?.correction?.issued_on ?? '';
-    main.appendChild(
-      sectionRule({
-        kicker: 'CORRECTIONS',
-        title: `${corrected.length} call${corrected.length === 1 ? '' : 's'} we got wrong about, and why`,
-        lede:
-          'Two defects in our own instruments published these calls as misses when the evidence says ' +
-          'otherwise. The verdicts below are what we published and we have not rewritten them; the ' +
-          'corrected reading is beside each one. ' +
-          (issued ? `Correction issued ${issued}. ` : '') +
-          'The causes are on the methodology page.',
-      }),
-    );
-    for (const c of corrected) {
-      main.appendChild(
-        row({
-          lead: c.country_code,
-          detail: `${c.claim} — published ${c.status.toUpperCase()}, evidence says ${(c.correction?.corrected_status ?? '').toUpperCase()}`,
-          trail: 'CORRECTED',
-          state: 'pending',
           href: `/call/${c.id}`,
         }),
       );
