@@ -58,6 +58,8 @@ interface RateRow {
   recent_hits: number;
 }
 
+// calls-write: ISSUES calls. INSERT only. Every ON CONFLICT is DO NOTHING, so a
+// rerun on the same UTC date cannot alter a call already on the book.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
   if (token !== process.env.CRON_SECRET) return res.status(401).json({ error: 'unauthorized' });
@@ -131,10 +133,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         VALUES
           (CURRENT_DATE, ${KIND}, ${r.country_code}, ${claim}, ${probability}, ${HORIZON_DAYS},
            CURRENT_DATE + (${HORIZON_DAYS}::int), ${RESOLVER}, ${THRESHOLD}, ${longRun})
-        ON CONFLICT (made_on, kind, country_code) DO UPDATE
-          SET probability = EXCLUDED.probability,
-              base_rate   = EXCLUDED.base_rate,
-              claim       = EXCLUDED.claim
+        -- DO NOTHING, NOT DO UPDATE. A criterion is frozen at issue: that is
+        -- the whole claim a dated forecast makes. This used to overwrite
+        -- probability, base_rate, claim, threshold_pct and reference_value on
+        -- conflict, so a second run on the same UTC date silently rewrote an
+        -- already-published call — and resolve-calls scores against
+        -- reference_value and threshold_pct, so the rewrite decided the
+        -- outcome. Issuance is idempotent by day; a rerun should change
+        -- nothing, which is exactly what this now does. Found by the
+        -- 2026-09-12 audit.
+        ON CONFLICT (made_on, kind, country_code) DO NOTHING
       `;
       written++;
     }
@@ -242,10 +250,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           VALUES
             (CURRENT_DATE, ${FX_KIND}, ${meta.country_code}, ${claim}, ${probability}, ${HORIZON_DAYS},
              CURRENT_DATE + (${HORIZON_DAYS}::int), ${FX_RESOLVER}, 1, ${threshold}, ${meta.rate}, ${longRun})
-          ON CONFLICT (made_on, kind, country_code) DO UPDATE
-            SET probability = EXCLUDED.probability, base_rate = EXCLUDED.base_rate,
-                claim = EXCLUDED.claim, threshold_pct = EXCLUDED.threshold_pct,
-                reference_value = EXCLUDED.reference_value
+          -- Frozen at issue; see the censorship pass above for why this is
+          -- DO NOTHING. reference_value and threshold_pct are the columns
+          -- resolve-calls scores against, so rewriting them moved the goalposts
+          -- of a call already on the public book.
+          ON CONFLICT (made_on, kind, country_code) DO NOTHING
         `;
         fxWritten++;
       }

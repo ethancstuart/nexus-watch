@@ -72,6 +72,8 @@ interface DueCall {
   resolver_params: { box?: RegionBox; mag?: number } | null;
 }
 
+// calls-write: SETTLES calls. Every UPDATE carries `AND status = 'pending'`, so a
+// resolved call cannot be reached from here — that clause IS the never-rewrite rule.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
   if (token !== process.env.CRON_SECRET) return res.status(401).json({ error: 'unauthorized' });
