@@ -93,51 +93,33 @@ export function setJsonLd(id: string, data: Record<string, unknown>): void {
 
 export const PAGE_SEO = {
   landing: {
-    title: 'Real-Time Geopolitical Intelligence',
+    title: 'The Register',
     description:
-      '45+ live data layers on a 3D globe. 158 countries scored. Daily AI briefs and dark vessel detection. Open-source. Free.',
+      'A public register of dated forecasts, each resolved by an outside source on a date fixed in advance. The record is published whether it flatters us or not. Open-source. Free.',
     canonicalPath: '/',
   },
   about: {
     title: 'About',
     description:
-      'NexusWatch is an open-source geopolitical intelligence platform built for analysts, journalists, and the curious. Free.',
+      'Who runs NexusWatch, what it forecasts, and why the whole record — including the wrong calls — is public. Open-source. Free.',
     canonicalPath: '/about',
   },
   whyFree: {
     title: 'Why Free',
     description:
-      'Why NexusWatch is free, forever. The economics, the open-source license, and the case for accessible geopolitical intelligence. Free.',
+      'Why NexusWatch is free: what it costs to run, what the open-source licence means, and why a register nobody pays for is easier to trust. Free.',
     canonicalPath: '/why-free',
   },
   briefs: {
     title: 'Daily Briefs',
     description:
-      'Three-minute geopolitical intelligence brief, every morning at 5 AM ET. Composed by AI, evidence-chained, free to read. Free.',
+      'A short brief every morning, written from the day\u2019s collected data and checked against it, with the ledger\u2019s standing on every issue. Free to read.',
     canonicalPath: '/briefs',
-  },
-  compare: {
-    title: 'Compare Countries',
-    description:
-      'Side-by-side instability scoring across 158 countries: conflict, disasters, sentiment, infrastructure, governance, market exposure. Free.',
-    canonicalPath: '/compare',
-  },
-  watchlist: {
-    title: 'Watchlist',
-    description:
-      'Track the countries, regions, and signals you care about. Personalized morning briefs. Browser notifications. Free.',
-    canonicalPath: '/watchlist',
-  },
-  feed: {
-    title: 'Live Feed',
-    description:
-      'Continuous stream of conflict events, disasters, market moves, and intelligence signals. Filter by region or layer. Free.',
-    canonicalPath: '/feed',
   },
   faq: {
     title: 'FAQ',
     description:
-      'Common questions about NexusWatch — data sources, methodology, the Country Instability Index, and why the product is free. Free.',
+      'Common questions: what a call is, how it resolves, which sources the register reads, and why it is free.',
     canonicalPath: '/faq',
   },
   methodology: {
@@ -164,24 +146,6 @@ export const PAGE_SEO = {
       'What NexusWatch is shipping next — data layers, AI features, and intelligence systems on the public roadmap. Free.',
     canonicalPath: '/roadmap',
   },
-  portfolio: {
-    title: 'Portfolio Geopolitical Exposure',
-    description:
-      "Map your portfolio's geopolitical risk exposure to country instability scores across 158 countries. Holdings → CII-weighted exposure. Free.",
-    canonicalPath: '/portfolio',
-  },
-  entities: {
-    title: 'Entity Graph',
-    description:
-      'Browse geopolitical non-state actors — armed groups, intelligence agencies, PMCs, sanctioned organizations. Sponsors, proxies, operating countries. Free.',
-    canonicalPath: '/entities',
-  },
-  releaseNotes: {
-    title: "What's New",
-    description:
-      'Release notes for NexusWatch — new data layers, AI features, intelligence systems, and platform improvements. Building in public. Free.',
-    canonicalPath: '/whats-new',
-  },
   terms: {
     title: 'Terms of Service',
     description:
@@ -206,23 +170,11 @@ export const PAGE_SEO = {
       'Connect Claude Code, Cursor, or any MCP client to NexusWatch. 9 geopolitical intelligence tools — country risk, scenarios, portfolio exposure. No auth. Free.',
     canonicalPath: '/mcp',
   },
-  audit: {
-    title: 'Public Audit Viewer',
-    description:
-      "Drill into any country's CII computation history — every rule applied, every source cited, every delta. Radical transparency. Free.",
-    canonicalPath: '/audit',
-  },
   status: {
     title: 'Data Health',
     description:
-      'Real-time service health for every NexusWatch data source — 45+ layers, circuit-breaker states, last-success timestamps. Public transparency. Free.',
+      'Live health for every source the register reads: seven upstreams, circuit-breaker state and last-success time for each. Free.',
     canonicalPath: '/status',
-  },
-  caseStudy: {
-    title: 'Case Study',
-    description:
-      'Technical case study for NexusWatch — system design, data pipeline, AI integration, and the engineering choices behind the platform. Free.',
-    canonicalPath: '/case-study',
   },
   // ---------------------------------------------------------------------------
   // Routes intentionally without entries:

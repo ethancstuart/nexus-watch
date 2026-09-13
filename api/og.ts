@@ -151,12 +151,12 @@ function renderSiteCard(): string {
       <span style="color:${C.textInverse};background:${C.up};font-size:13px;font-weight:700;letter-spacing:0.18em;padding:6px 14px;border-radius:999px;">FREE.</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
-      <span style="color:${C.textPrimary};font-size:64px;font-weight:600;line-height:1.1;font-family:${SERIF};">Real-time geopolitical intelligence.</span>
-      <span style="color:${C.textTertiary};font-size:22px;font-weight:500;line-height:1.4;">45+ live data layers · 86 countries scored · daily AI brief</span>
+      <span style="color:${C.textPrimary};font-size:64px;font-weight:600;line-height:1.1;font-family:${SERIF};">Every call we make, on the record.</span>
+      <span style="color:${C.textTertiary};font-size:22px;font-weight:500;line-height:1.4;">dated forecasts · resolved by an outside source · hits and misses both published</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span style="color:${C.textTertiary};font-size:14px;letter-spacing:0.08em;">nexuswatch.dev</span>
-      <span style="color:${C.textTertiary};font-size:14px;letter-spacing:0.08em;">// terminal for the world</span>
+      <span style="color:${C.textTertiary};font-size:14px;letter-spacing:0.08em;">// the register</span>
     </div>
   </div>`;
 }

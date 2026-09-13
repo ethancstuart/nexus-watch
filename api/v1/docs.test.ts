@@ -86,6 +86,22 @@ describe('the published API docs describe only what exists', () => {
   it('still documents the endpoints — this is not an empty file passing vacuously', () => {
     // Every assertion above is satisfied by a payload with no endpoints at
     // all. Without this, deleting the docs would turn the suite green.
-    expect(Object.keys(payload().endpoints ?? {}).length).toBeGreaterThan(5);
+    expect(Object.keys(payload().endpoints ?? {}).length).toBeGreaterThan(0);
+  });
+
+  it('documents ONLY endpoints that exist', () => {
+    // This test used to demand MORE THAN FIVE endpoints, which is how the
+    // document came to advertise seven while five of them — /tension, /events,
+    // /correlations, /timeline, /market — returned 404 in production. The
+    // suite was holding the lie in place. A count proves nothing; the property
+    // is that every documented route has a handler on disk, which is derived
+    // from the filesystem rather than from a number someone chose.
+    for (const key of Object.keys(payload().endpoints ?? {})) {
+      const path = key.replace(/^GET\s+/, '');
+      const name = path.replace(/^\/api\/v1\//, '');
+      expect(existsSync(join(V1, `${name}.ts`)), `${key} is documented but api/v1/${name}.ts does not exist`).toBe(
+        true,
+      );
+    }
   });
 });

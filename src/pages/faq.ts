@@ -15,10 +15,6 @@ import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
-    q: 'What do the colored dots on the map mean?',
-    a: 'Each color represents a different data layer. Red dots are conflict signals derived from GDELT headlines — positions are approximate, country-level, orange dots are wildfires (NASA FIRMS), yellow dots are news events (GDELT), and green markers show chokepoint status. Press <kbd>L</kbd> to open the full layer panel and toggle layers on/off.',
-  },
-  {
     q: 'What is the CII score?',
     a: 'The Country Instability Index (CII) is a composite 0\u2013100 score measuring geopolitical risk across 6 components: Conflict (20%), Disasters (15%), Sentiment (15%), Infrastructure (15%), Governance (15%), and Market Exposure (20%). Higher scores mean greater instability. Every score links to its full evidence chain.',
   },
@@ -28,11 +24,11 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: 'How often is the data updated?',
-    a: 'It depends on the source. Earthquakes update every 60 seconds (USGS). Wildfires every 10 minutes (NASA FIRMS). The conflict signal refreshes with GDELT (the ACLED feed is currently offline). CII scores recompute on each data refresh cycle. Each layer shows a freshness badge \u2014 green means updated within the last hour.',
+    a: 'It depends on the source. OONI censorship measurements are collected every six hours and OONI itself stores a day once that day is over. FX reference rates arrive daily at 05:00 UTC. Sanctions lists every six hours. Wikipedia pageviews daily. World Bank governance and UCDP monthly. USGS is queried directly when a call resolves rather than collected. The status page shows the last successful read for each.',
   },
   {
     q: 'Is NexusWatch really free?',
-    a: 'Yes. The whole thing — full 3D globe with 45+ live layers, CII scores with daily history for 85 countries, intelligence briefs, AI analyst, alerts, evidence chains, scenario simulation, portfolio exposure, API access. Free for everyone. No credit card required.',
+    a: 'Yes. The whole register — every call with its criterion and evidence, the country instability index with daily history for 85 countries, the daily brief, the archive and the API. No account, no card, no paid tier.',
   },
   {
     q: 'How do I compare countries?',
@@ -98,7 +94,7 @@ export function renderFaqPage(root: HTMLElement): void {
 
   const footer = createElement('div', { className: 'nw-faq-footer' });
   footer.innerHTML = `
-    <a href="#/intel" class="nw-faq-cta">Open the Intel Map \u2192</a>
+    <a href="#/ledger" class="nw-faq-cta">Open the ledger \u2192</a>
   `;
   page.appendChild(footer);
 

@@ -44,9 +44,11 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'public, max-age=3600');
 
   return res.json({
-    name: 'NexusWatch Intelligence API',
+    name: 'NexusWatch API',
     version: '1.0.0',
-    description: 'Real-time geopolitical intelligence, risk scoring, and event data.',
+    description:
+      'The public register: dated forecasts, the evidence that settles them, and the daily brief. ' +
+      'Two endpoints, both listed below and both real.',
     baseUrl: 'https://nexuswatch.dev/api/v1',
     access: {
       authentication: 'none',
@@ -55,39 +57,28 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         'and no per-key rate limit is enforced today. Please be reasonable — ' +
         'this runs on a hobby budget, and limits will be introduced before they are advertised.',
     },
+    // ONLY WHAT EXISTS. This block used to advertise seven endpoints; five of
+    // them — /tension, /events, /correlations, /timeline, /market — returned
+    // 404 in production, because they were deleted with the map product and
+    // nobody updated the document that promised them. An API document that
+    // lists routes it does not serve is worse than no document. Verified
+    // against production on 2026-09-12 before this edit, and every entry below
+    // was verified to answer 200.
     endpoints: {
       'GET /api/v1/cii': {
-        description: 'Country Instability Index — 50 countries scored 0-100',
-        params: { country: 'Optional 2-letter country code for single country + history' },
-      },
-      'GET /api/v1/tension': {
-        description: 'Global tension index — composite risk score',
-      },
-      'GET /api/v1/events': {
-        description: 'Unified event stream across all data layers',
-        params: {
-          layer:
-            'Optional layer filter: earthquakes, acled, fires, ships, flights, launches, satellites, disease-outbreaks, internet-outages, displacement, weather-alerts, air-quality, predictions',
-        },
-      },
-      'GET /api/v1/correlations': {
-        description: 'Cross-domain correlation alerts — auto-detected event connections',
+        description: 'Country Instability Index — structural level and daily deviation, per country',
+        params: { country: 'Optional 2-letter country code for a single country plus its history' },
       },
       'GET /api/v1/brief': {
-        description: 'AI-generated daily intelligence briefing',
-        params: { date: 'Optional YYYY-MM-DD for historical brief' },
+        description: 'The daily brief',
+        params: { date: 'Optional YYYY-MM-DD for a past brief' },
       },
-      'GET /api/v1/timeline': {
-        description: '90-day historical event timeline',
-        params: {
-          from: 'ISO timestamp (default: 24h ago)',
-          to: 'ISO timestamp (default: now)',
-          layer: 'Optional layer filter',
-        },
-      },
-      'GET /api/v1/market': {
-        description: 'Real-time market data — stocks, commodities, FX, crypto',
-      },
+    },
+    // The register itself is not under /v1. These are the stable public reads.
+    alsoPublic: {
+      'GET /api/calls/ledger': 'Every call, open and resolved, with corrections attached',
+      'GET /api/call?id=N': 'One call and its evidence',
+      'GET /api/briefs': 'The brief archive',
     },
     // No tiers. There is one level of access and it is the one you are using.
     // Anything else here would be a price for something nobody can buy.

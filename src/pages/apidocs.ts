@@ -13,7 +13,7 @@ export function renderApiDocsPage(container: HTMLElement): void {
 
   const header = createElement('header', { className: 'nw-apidocs-header' });
   header.innerHTML = `
-    <a href="#/intel" class="nw-apidocs-back">← Back to Intel Map</a>
+    <a href="#/ledger" class="nw-apidocs-back">← Back to the ledger</a>
     <h1>NexusWatch API v2</h1>
     <p class="nw-apidocs-subtitle">
       Verified geopolitical intelligence for your product. Every response includes
@@ -69,7 +69,7 @@ export function renderApiDocsPage(container: HTMLElement): void {
     "methodology": "6-component model...",
     "date": "2026-04-14",
     "count": 86,
-    "attribution": "Data sourced from ACLED, USGS, NASA FIRMS, GDELT..."
+    "attribution": "Data sourced from OONI (CC BY-NC-SA 4.0), USGS, UCDP, OFAC, the UN consolidated list, World Bank, Wikimedia, and daily FX reference rates."
   }
 }</code></pre>
       </details>

@@ -22,7 +22,7 @@ export function renderWhyFree(root: HTMLElement): void {
     <nav class="nw-nav" aria-label="Primary">
       <a href="#/" class="nw-nav-brand"><span class="nw-nav-mark">●</span>&nbsp;NexusWatch</a>
       <div class="nw-nav-links">
-        <a href="#/intel">Intel Map</a>
+        <a href="#/ledger">Ledger</a>
         <a href="#/briefs">Briefs</a>
         <a href="#/why-free">Why Free</a>
         <a href="#/about">About</a>
@@ -36,7 +36,7 @@ export function renderWhyFree(root: HTMLElement): void {
       <p>
         The existing geopolitical intelligence platforms cost five thousand to fifty thousand dollars
         a year and read like government reports written for nobody. The data underneath them is
-        mostly open — USGS, ACLED, GDELT, NASA, IMF, World Bank, the wires. The interpretation is
+        mostly open — USGS, OONI, UCDP, the World Bank, the sanctions lists, the wires. The interpretation is
         the actual product. I'd rather charge zero, build the audience, and figure out funding from
         somewhere that isn't a per-seat license.
       </p>
@@ -79,7 +79,7 @@ export function renderWhyFree(root: HTMLElement): void {
       <div class="nw-footer-top">
         <div class="nw-footer-brand"><span>●</span> NexusWatch</div>
         <div class="nw-footer-links">
-          <a href="#/intel">Intel Map</a>
+          <a href="#/ledger">Ledger</a>
           <a href="#/briefs">Briefs</a>
           <a href="#/why-free">Why Free</a>
           <a href="#/about">About</a>

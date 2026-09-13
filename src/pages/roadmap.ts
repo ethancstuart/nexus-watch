@@ -98,7 +98,6 @@ export function renderRoadmap(root: HTMLElement): void {
       title: 'AI Chat',
       desc: 'Multi-provider chat (Anthropic, OpenAI, Google, xAI) with BYO key support',
     },
-    { status: 'shipped', label: 'Shipped', title: 'Prediction Markets', desc: 'Live odds from Polymarket and Kalshi' },
     {
       status: 'shipped',
       label: 'Shipped',

@@ -19,42 +19,18 @@ interface LayerStatus {
 }
 
 const LAYER_DISPLAY_NAMES: Record<string, string> = {
-  earthquakes: 'USGS Earthquakes',
-  fires: 'NASA FIRMS Wildfires',
-  acled: 'ACLED Conflict Events',
-  news: 'GDELT News Sentiment',
-  'internet-outages': 'Cloudflare Radar',
-  'weather-alerts': 'Open-Meteo Weather',
-  flights: 'OpenSky Aircraft',
-  ships: 'AIS Ship Tracking',
-  'prediction-markets': 'Polymarket',
-  'disease-outbreaks': 'WHO Outbreaks',
-  sanctions: 'OFAC Sanctions',
-  elections: 'Election Calendar',
-  frontlines: 'Conflict Frontlines',
-  'gps-jamming': 'GPS Jamming',
-  cables: 'Undersea Cables',
-  pipelines: 'Oil/Gas Pipelines',
-  ports: 'Strategic Ports',
-  nuclear: 'Nuclear Facilities',
-  'air-quality': 'Air Quality (AQI)',
-  satellites: 'Satellite Orbits',
-  cyber: 'Cyber Threat Corridors',
-  'military-bases': 'Military Bases',
-  'conflict-zones': 'Conflict Zones',
-  gdacs: 'GDACS Disasters',
-  'trade-routes': 'Trade Routes',
-  launches: 'Space Launches',
-  energy: 'Energy Infrastructure',
-  sentiment: 'Sentiment Index',
-  displacement: 'Refugee Displacement',
-  refugees: 'UNHCR Flows',
-  'nuclear-threat': 'Nuclear Threat Composite',
-  'cyber-threat': 'Cyber Threat Intel',
-  protest: 'Global Protest Index',
-  'chokepoint-threat': 'Chokepoint Threat',
-  'chokepoint-status': 'Chokepoint Status',
-  'air-quality-aqi': 'Air Quality AQI',
+  // THE SIX THE HEALTH CRON ACTUALLY PROBES. This map used to carry twenty-odd
+  // entries — NASA FIRMS, ACLED, GDELT, Cloudflare Radar, OpenSky, AIS,
+  // Polymarket, GDACS, UNHCR and more — long after their collectors were
+  // deleted. They never rendered, because the API returns only what it probes,
+  // but a reader of this file would have believed them. Kept in step with
+  // src/config/data-sources.ts.
+  ooni: 'OONI Censorship Measurements',
+  'fx-rates': 'FX Reference Rates',
+  sanctions: 'OFAC & UN Sanctions Lists',
+  wikipedia: 'Wikipedia Pageviews',
+  governance: 'World Bank Governance',
+  ucdp: 'UCDP Armed Conflict',
 };
 
 export async function renderStatusPage(container: HTMLElement): Promise<void> {
@@ -64,7 +40,7 @@ export async function renderStatusPage(container: HTMLElement): Promise<void> {
 
   const header = createElement('header', { className: 'nw-status-header' });
   header.innerHTML = `
-    <a href="#/intel" class="nw-status-back">← Back to Intel Map</a>
+    <a href="#/ledger" class="nw-status-back">← Back to the ledger</a>
     <h1>System Status</h1>
     <p class="nw-status-subtitle">
       Real-time health of every NexusWatch data source. If something's broken, you'll see it here first.

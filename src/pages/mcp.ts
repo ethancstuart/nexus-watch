@@ -56,7 +56,7 @@ export function renderMcpPage(root: HTMLElement): void {
     <nav class="nw-nav" aria-label="Primary">
       <a href="#/" class="nw-nav-brand"><span class="nw-nav-mark">●</span>&nbsp;NexusWatch</a>
       <div class="nw-nav-links">
-        <a href="#/intel">Intel Map</a>
+        <a href="#/ledger">Ledger</a>
         <a href="#/briefs">Briefs</a>
         <a href="#/api">API</a>
         <a href="#/mcp" aria-current="page">MCP</a>
@@ -151,7 +151,7 @@ export function renderMcpPage(root: HTMLElement): void {
       <div class="nw-footer-top">
         <div class="nw-footer-brand"><span>●</span> NexusWatch</div>
         <div class="nw-footer-links">
-          <a href="#/intel">Intel Map</a>
+          <a href="#/ledger">Ledger</a>
           <a href="#/briefs">Briefs</a>
           <a href="#/api">API</a>
           <a href="#/mcp">MCP</a>

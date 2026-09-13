@@ -23,30 +23,50 @@ export function renderPrivacyPage(root: HTMLElement): void {
 
     <div style="font-size:14px;color:var(--nw-text-secondary);line-height:1.7">
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">The Short Version</h2>
-      <p>We collect your email and name from Google/GitHub login. We don't track you with third-party analytics. Your portfolio holdings never leave your browser. We use cookies only for authentication sessions. That's it.</p>
+      <p>There are no accounts. If you subscribe to the brief we keep your email address, your timezone and
+      where you signed up from. That is the whole of it. You can leave from a link in every email.</p>
 
-      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">1. What We Collect</h2>
-      <p><strong>When you sign in:</strong> Your name, email address, and profile picture from your Google or GitHub account. This is used to identify your account and deliver briefs.</p>
-      <p><strong>When you subscribe to briefs:</strong> Your email address and delivery preferences (frequency, regions of interest).</p>
-      <p><strong>NexusWatch is free for everyone.</strong> No payment processing. No card data ever touches our servers.</p>
+      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">1. What we collect</h2>
+      <p><strong>If you subscribe:</strong> your email address, the timezone your browser reports (so the brief
+      arrives in your morning rather than ours), and which page you subscribed from.</p>
+      <p><strong>If you just read:</strong> nothing you give us. Our host records ordinary web-server logs, and
+      page views are counted as described below.</p>
+      <p><strong>There is no sign-in.</strong> This page previously described Google and GitHub login, a session
+      cookie, portfolio holdings and a watchlist. None of those exist; they were removed with the earlier
+      product in September 2026 and this policy was not updated until 2026-09-12. We are sorry — a privacy
+      policy that describes the wrong product is worse than none.</p>
+      <p><strong>No payments.</strong> NexusWatch is free. No card data ever reaches us.</p>
 
-      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">2. What We Don't Collect</h2>
-      <p><strong>No third-party tracking.</strong> No Google Analytics, no Facebook Pixel, no ad trackers. We have a lightweight, first-party event counter stored in your browser's localStorage for conversion analytics \u2014 this data never leaves your device.</p>
-      <p><strong>Portfolio data stays in your browser.</strong> The Portfolio Geopolitical Exposure feature computes everything client-side. Your holdings are stored in localStorage on your device. We cannot see, access, or store your portfolio.</p>
-      <p><strong>No selling of data.</strong> We do not sell, rent, or share your personal information with anyone.</p>
+      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">2. Who else sees it</h2>
+      <p>We would rather name them than claim there are none.</p>
+      <ul style="margin:8px 0 8px 18px">
+        <li><strong>Neon</strong> — the database holding subscribers and the call ledger. United States.</li>
+        <li><strong>Upstash</strong> — short-lived caching. United States.</li>
+        <li><strong>Resend</strong> — delivers the brief; your address is sent to them for each send.</li>
+        <li><strong>beehiiv</strong> — a mirror of the brief, when it is configured.</li>
+        <li><strong>Vercel</strong> — hosting, server logs, and first-party page-view counts.</li>
+        <li><strong>Sentry</strong> — browser error reports, when something breaks.</li>
+        <li><strong>Anthropic</strong> — writes the brief from the day's collected data. No subscriber data is sent.</li>
+        <li><strong>Google Fonts</strong> — serves two typefaces, so Google sees the request.</li>
+      </ul>
+      <p>We do not sell, rent or share your information with anyone else, and we run no advertising trackers.
+      Until 2026-09-12 this section said "no third-party tracking" and named only two of the above.</p>
 
-      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">3. Cookies & Local Storage</h2>
-      <p><strong>Session cookie:</strong> A single authentication cookie (<code>__Host-session</code>) to keep you logged in. Expires when you sign out.</p>
-      <p><strong>localStorage:</strong> We store your preferences (theme, layer selections, watchlist, interests, saved views) in your browser's localStorage. This data stays on your device and syncs to our server only when you're logged in, so your settings follow you across devices.</p>
+      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">3. Cookies and local storage</h2>
+      <p><strong>No cookies are set by this site.</strong> There is nothing to keep you logged in to.</p>
+      <p><strong>localStorage</strong> holds display preferences in your browser. It is never sent to us.</p>
 
-      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">4. How We Use Your Data</h2>
-      <p>Your email: to send intelligence briefs at your chosen frequency, and to send transactional emails (welcome, subscription confirmation, alert notifications). Your name: to personalize your experience. Your interests: to filter brief content to what matters to you.</p>
+      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">4. How we use it</h2>
+      <p>Your email address is used to send the brief, and nothing else. We do not email you about anything we
+      have not already said we would.</p>
 
-      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">5. Data Storage</h2>
-      <p>Account data is stored in Neon (PostgreSQL) and Upstash (Redis) hosted in the US. Session data is stored in Upstash Redis with automatic expiration. All data is encrypted in transit (TLS) and at rest.</p>
+      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">5. Retention</h2>
+      <p>Your subscription is kept until you unsubscribe. A record that a brief was delivered to you on a given
+      date is kept as a delivery log.</p>
 
-      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">6. Your Rights</h2>
-      <p>You can: view your data (settings page), update your preferences, unsubscribe from emails (one-click in every email), delete your account (email us), export your watchlist (CSV export on watchlist page). To request account deletion: <a href="mailto:hello@nexuswatch.dev" style="color:var(--nw-accent)">hello@nexuswatch.dev</a></p>
+      <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">6. Your rights</h2>
+      <p>Unsubscribe from the link in any brief — one click, no questions. To see what we hold about you, or to
+      have it deleted outright, email the address below and it will be done by hand.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">7. Changes</h2>
       <p>We may update this policy. Material changes will be communicated via email to subscribers.</p>

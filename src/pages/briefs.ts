@@ -61,7 +61,7 @@ export function renderBriefs(root: HTMLElement): void {
       <a href="#/" class="dossier-nav-logo">NexusWatch</a>
       <div class="dossier-nav-links">
         <a href="#/ledger" class="dossier-nav-link">LEDGER</a>
-        <a href="#/intel" class="dossier-nav-link">PLATFORM</a>
+        <a href="#/ledger" class="dossier-nav-link">LEDGER</a>
         <a href="#/briefs" class="dossier-nav-link">BRIEFS</a>
       </div>
     </nav>
@@ -84,7 +84,7 @@ export function renderBriefs(root: HTMLElement): void {
 
     <footer class="dossier-footer">
       <a href="#/">Home</a>
-      <a href="#/intel">Live Map</a>
+      <a href="#/ledger">Ledger</a>
       <a href="#/methodology">Methodology</a>
       <a href="mailto:hello@nexuswatch.dev">hello@nexuswatch.dev</a>
     </footer>
@@ -149,18 +149,14 @@ export function renderBriefs(root: HTMLElement): void {
     .then((data: { briefs?: BriefListItem[] }) => {
       allBriefs = data.briefs ?? [];
       if (allBriefs.length === 0) {
-        // 2026-05-02 P2.4: try Haiku-synthesized samples; fall back to static.
-        listEl.innerHTML = renderSampleHero(SAMPLE_BRIEFS);
-        void fetch('/api/briefs-sample')
-          .then((r) => r.json())
-          .then((data: { samples?: SampleBrief[] }) => {
-            if (data.samples && data.samples.length > 0) {
-              listEl.innerHTML = renderSampleHero(data.samples);
-            }
-          })
-          .catch(() => {
-            /* keep static fallback */
-          });
+        // AN EMPTY ARCHIVE SAYS SO. This used to render three invented briefs
+        // under the heading "RECENT INTELLIGENCE THEMES" — fabricated paragraphs
+        // citing ACLED, GDELT and AIS, sources this system has not read since the
+        // map product was deleted — and then tried to replace them with
+        // model-written samples. On a register whose whole claim is that what it
+        // publishes is real and checkable, presenting invented intelligence as a
+        // preview is the one thing it cannot do.
+        listEl.innerHTML = renderEmptyArchive();
         return;
       }
       renderBriefList();
@@ -197,65 +193,18 @@ export function renderBriefs(root: HTMLElement): void {
 // this hero is bypassed.
 // ---------------------------------------------------------------------------
 
-interface SampleBrief {
-  theme: string;
-  title: string;
-  excerpt: string;
-  themeColor: string;
-}
-
-const SAMPLE_BRIEFS: SampleBrief[] = [
-  {
-    theme: 'CHOKEPOINT',
-    title: 'Strait of Hormuz transit at 14-month low',
-    excerpt:
-      'Vessel transits through Hormuz fell to 38 ships/day this week — lowest since 2025. AIS data shows three VLCCs rerouting Cape of Good Hope. Brent +2.3% on the week.',
-    themeColor: 'var(--nw-accent, #ff6600)',
-  },
-  {
-    theme: 'CONFLICT',
-    title: 'Sahel instability index +6.2 points in 30 days',
-    excerpt:
-      'ACLED logged 247 conflict events across Mali, Burkina Faso, Niger — a 41% MoM rise. GDELT cross-reference confirms the surge. Three coup-vulnerability indicators flashing yellow.',
-    themeColor: '#dc2626',
-  },
-  {
-    theme: 'TRADE',
-    title: 'Taiwan Strait shipping density holds steady — for now',
-    excerpt:
-      'Despite three PLA navy exercises this month, container traffic through the Taiwan Strait is unchanged from baseline. Insurance markets are pricing 12% premium on hull policies.',
-    themeColor: '#06b6d4',
-  },
-];
-
-function renderSampleHero(samples: SampleBrief[] = SAMPLE_BRIEFS): string {
-  const cards = samples
-    .map(
-      (b) => `
-    <article class="dossier-sample-card">
-      <span class="dossier-sample-theme" style="color:${b.themeColor};border-color:${b.themeColor}">${b.theme}</span>
-      <h3 class="dossier-sample-title">${escapeHtml(b.title)}</h3>
-      <p class="dossier-sample-excerpt">${escapeHtml(b.excerpt)}</p>
-    </article>
-  `,
-    )
-    .join('');
-
+function renderEmptyArchive(): string {
   return `
     <div class="dossier-sample-hero">
       <header class="dossier-sample-header">
-        <span class="dossier-sample-eyebrow">PREVIEW — RECENT INTELLIGENCE THEMES</span>
-        <h2 class="dossier-sample-headline">A taste of what the daily brief covers</h2>
+        <span class="dossier-sample-eyebrow">THE ARCHIVE IS EMPTY</span>
+        <h2 class="dossier-sample-headline">No briefs have been published yet.</h2>
         <p class="dossier-sample-subtitle">
-          Next live brief publishes <strong>5 AM ET</strong> tomorrow. The samples
-          below are hand-curated previews — full briefs synthesize fresh CII data
-          across 85 scored countries every morning.
+          When the first one goes out it will appear here, and every one after it. We would rather show you
+          nothing than show you an example we made up.
         </p>
       </header>
-      <div class="dossier-sample-grid">${cards}</div>
-      <p class="dossier-sample-cta">
-        Subscribe via <a href="https://brief.nexuswatch.dev" target="_blank" rel="noopener">brief.nexuswatch.dev</a> to get tomorrow's first issue in your inbox.
-      </p>
+      <p class="dossier-sample-cta"><a href="#/ledger">Read the ledger instead &rarr;</a></p>
     </div>
   `;
 }
@@ -273,7 +222,7 @@ export function renderBrief(root: HTMLElement, date: string): void {
       <a href="#/" class="dossier-nav-logo">NexusWatch</a>
       <div class="dossier-nav-links">
         <a href="#/briefs" class="dossier-nav-link">ALL BRIEFS</a>
-        <a href="#/intel" class="dossier-nav-link">PLATFORM</a>
+        <a href="#/ledger" class="dossier-nav-link">LEDGER</a>
         <a href="https://brief.nexuswatch.dev" target="_blank" rel="noopener" class="dossier-nav-link dossier-nav-subscribe">SUBSCRIBE</a>
       </div>
     </nav>
@@ -294,7 +243,7 @@ export function renderBrief(root: HTMLElement, date: string): void {
 
     <footer class="dossier-footer">
       <a href="#/briefs">All Briefs</a>
-      <a href="#/intel">Live Map</a>
+      <a href="#/ledger">Ledger</a>
       <a href="#/methodology">Methodology</a>
       <a href="mailto:hello@nexuswatch.dev">hello@nexuswatch.dev</a>
     </footer>
@@ -343,8 +292,9 @@ export function renderBrief(root: HTMLElement, date: string): void {
         <h1 class="dossier-title">NexusWatch · ${escapeHtml(briefDate)}</h1>
         <div class="dossier-article-date">${escapeHtml(dayName)}</div>
         <div class="dossier-byline" style="font-size:12px;color:#8b8478;margin-top:32px;padding-top:16px;border-top:1px solid #e5e0d4;line-height:1.6;">
-          Generated by NexusWatch AI · Data from 12+ verified sources (ACLED, USGS, GDELT, WHO, NASA, AIS, OONI, Polymarket).<br>
-          Every claim is traced to its source. <a href="#/methodology" style="color:#9a1b1b;">Read our methodology →</a>
+          Written by a model from the day's collected data, then checked against it.<br>
+          Sources: OONI, USGS, UCDP, OFAC and the UN list, World Bank governance, Wikipedia pageviews, and daily
+          FX reference rates. <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>
         </div>
         <div class="dossier-body">${body}</div>
         <div class="dossier-share" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
