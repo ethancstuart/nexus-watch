@@ -11,7 +11,7 @@
  *
  * Probe URL guidance
  * ------------------
- * Prefer probing the internal Vercel function proxy (e.g. /api/fires) rather
+ * Prefer probing the internal Vercel function proxy (e.g. /api/cii) rather
  * than hitting upstream APIs directly — the proxy fails fast when the upstream
  * is down and the cron can run the probe without CORS or auth concerns.
  * When probed from the cron, relative `/api/*` paths are expanded to the
