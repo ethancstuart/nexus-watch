@@ -68,11 +68,17 @@ const DEGRADED_ABOVE_MS = 3000;
 // brief, and the CII that feeds it. It had probed six map-layer endpoints —
 // including one already deleted — manufacturing failures for surfaces the
 // product no longer has. A probe list is a claim about what matters.
+// /api/briefs-sample was removed from this list on 2026-09-15 along with the
+// endpoint itself. It generated model-written example briefs for the /briefs
+// page to show when the archive was empty; that fallback was deleted when the
+// invented samples came off the site, leaving an endpoint with no consumer
+// that still paged the owner every time its six-hour cache expired and the
+// model call made it slow. A health check on something nobody reads is a
+// pager that only ever cries wolf.
 const ENDPOINTS: Array<{ path: string; category: 'core' | 'data' | 'derived' }> = [
   { path: '/api/cii', category: 'core' },
   { path: '/api/briefs', category: 'core' },
   { path: '/api/calls/ledger', category: 'core' },
-  { path: '/api/briefs-sample', category: 'derived' },
 ];
 
 type Attempt =

@@ -9,7 +9,6 @@ export const config = { runtime: 'nodejs', maxDuration: 25 };
  * cost (Anthropic, Windy, EIA, etc).
  *
  * Runs every 45 minutes:
- *   - briefs-sample: 6h KV TTL — refreshed every 8th run (~6h)
  *   - webcam-catalog: 1h KV TTL — refreshed every run
  *   - aurora: 5min module cache — refreshed every run
  *   - energy: 30min module cache — refreshed every run
@@ -23,7 +22,9 @@ export const config = { runtime: 'nodejs', maxDuration: 25 };
 // Trimmed to the narrowed product (PR-9): the other three targets were map
 // endpoints whose ONLY remaining reference was this warmer — a cache kept
 // warm for pages that no longer exist.
-const TARGETS = ['/api/briefs-sample', '/api/cii'];
+// /api/briefs-sample is gone (2026-09-15). Warming it meant a paid Anthropic
+// call every eighth run to refresh example briefs that nothing displayed.
+const TARGETS = ['/api/cii'];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cronSecret = process.env.CRON_SECRET;
