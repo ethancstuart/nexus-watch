@@ -325,6 +325,26 @@
   text-transform: uppercase;
 }
 
+/*
+ * The one link in the hero had NO rule, so it rendered in the browser's
+ * default blue with an underline, on a near-black ground, directly under the
+ * primary call to action. It has looked like that since the editorial rebuild
+ * on 2026-05-01. Nobody reported it because everyone who works on this site
+ * arrives already knowing where the ledger is.
+ */
+.nw-hero-fineprint a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-accent);
+  padding-bottom: 1px;
+  transition: color var(--motion-fast, 150ms) ease;
+}
+
+.nw-hero-fineprint a:hover,
+.nw-hero-fineprint a:focus-visible {
+  color: var(--color-text-primary);
+}
+
 /* Section eyebrow + heading shared */
 .nw-section-eyebrow {
   font-family: var(--font-mono);
