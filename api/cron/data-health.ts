@@ -31,6 +31,8 @@ export interface ProbeResult {
   recordCount: number | null;
   freshnessSeconds: number | null;
   error: string | null;
+  /** 2 when a transport failure was retried. Absent means one attempt. */
+  attempts?: number;
 }
 
 export interface CurrentRow {
@@ -202,11 +204,45 @@ function extractFreshness(candidate: unknown): number | null {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/**
+ * A TRANSPORT FAILURE IS RETRIED ONCE; AN HTTP ERROR IS NOT.
+ *
+ * Measured over 30 days of stored probes: the OONI source failed 27.4% of its
+ * health checks (46 of 168 in the last week alone) and the recorded error was
+ * always "This operation was aborted" — the 5s timeout, never an HTTP status.
+ * Its SUCCESSFUL probes have p50 1,012ms, p90 3,523ms, p99 4,808ms and a
+ * maximum of 4,972ms. A distribution pressed that flat against a 5,000ms
+ * ceiling is a truncated one: every probe slower than the timeout is recorded
+ * as a failure and never appears in the success figures at all.
+ *
+ * OONI was not down for a quarter of the last week. It is simply slower than
+ * five seconds from Vercel about that often — and `/api/public/status` is a
+ * PUBLIC page whose stated purpose is radical transparency about service
+ * health. It has been telling readers the source that resolves every
+ * censorship call is red, when it was answering.
+ *
+ * This is the same lesson as api/status.ts, which already carries it: "A SLOW
+ * ENDPOINT WAS REPORTED AS A DEAD ONE... the timeout is now 8s, and a
+ * TRANSPORT failure is retried ONCE before it counts. The retry is the part
+ * that matters." A genuinely dead source fails twice; a slow one answers the
+ * second time. An HTTP error response is a real answer and is never retried.
+ */
 export async function probeSource(
   source: LayerSource,
   fetchImpl: FetchLike = fetch,
   base?: string,
 ): Promise<ProbeResult> {
+  const first = await probeOnce(source, fetchImpl, base);
+  // `ok` or an HTTP status means the source answered. Only a transport
+  // failure — abort, DNS, reset — earns a second attempt.
+  if (first.ok || first.error?.startsWith('HTTP ')) return first;
+  const second = await probeOnce(source, fetchImpl, base);
+  // Report the total cost of the reading, so a retried probe cannot look as
+  // cheap as a first-attempt one in the latency figures.
+  return { ...second, latencyMs: first.latencyMs + second.latencyMs, attempts: 2 };
+}
+
+async function probeOnce(source: LayerSource, fetchImpl: FetchLike = fetch, base?: string): Promise<ProbeResult> {
   const url = resolveProbeUrl(source.probeUrl, base);
   const started = Date.now();
   const controller = new AbortController();

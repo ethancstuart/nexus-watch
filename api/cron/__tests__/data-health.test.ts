@@ -252,6 +252,65 @@ describe('probeSource', () => {
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
   });
 
+  /**
+   * THE RETRY, AND THE REASON IT EXISTS.
+   *
+   * The OONI source failed 27.4% of its health probes over a week (46 of 168),
+   * every one of them "This operation was aborted" and none an HTTP status,
+   * while its successful probes ran p99 4,808ms against a 5,000ms timeout. It
+   * was not down; it was slower than the timeout about a quarter of the time,
+   * and /api/public/status published that to readers as red.
+   *
+   * api/status.ts already carries this lesson for the endpoint pingers. These
+   * assertions are what stop it being lost again here.
+   */
+  it('retries ONCE when the transport fails, and succeeds on the second attempt', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('This operation was aborted'))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([{ id: 1 }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    const result = await probeSource(source, mockFetch);
+    expect(result.ok).toBe(true);
+    expect(result.attempts).toBe(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does NOT retry an HTTP error — that is a real answer', async () => {
+    // A 503 means the source replied. Retrying it would double the load on
+    // something already struggling and change nothing about the verdict.
+    const mockFetch = vi.fn().mockResolvedValue(new Response('oops', { status: 503 }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('HTTP 503');
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it('still fails when BOTH attempts fail, so a dead source is still dead', async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const result = await probeSource(source, mockFetch);
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('ECONNREFUSED');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports the total cost of a retried reading, not just the second attempt', async () => {
+    // Otherwise a retried probe looks as cheap as a first-attempt one in the
+    // latency figures, and the p99 that revealed this defect would hide the
+    // next one.
+    const mockFetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('aborted'))
+      .mockResolvedValueOnce(new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(result.attempts).toBe(2);
+  });
+
   it('does not crash on JSON bodies that fail to parse', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response('not-json', {
