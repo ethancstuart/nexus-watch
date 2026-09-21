@@ -49,6 +49,18 @@ export function shell(body: string, opts: ShellOptions): string {
 <title>${esc(opts.title)}</title>
 <meta name="description" content="${esc(opts.description)}">
 <link rel="canonical" href="${esc(canonical)}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- THE FONTS THIS PAGE NAMES, ACTUALLY LOADED.
+     Every server-rendered page sets its numbers in JetBrains Mono and its
+     headlines in a serif, and this shell emitted no stylesheet at all — so
+     /ledger, /call/:id and /brief/:date have been rendering in whatever the
+     reader's machine substitutes. On macOS that is Menlo for every figure on
+     the register and Charter for every headline. Same URL and same weights as
+     index.html, so a reader arriving from the SPA pays nothing for it. -->
+<link
+  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap"
+  rel="stylesheet">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${esc(opts.title)}">
 <meta property="og:description" content="${esc(opts.description)}">
