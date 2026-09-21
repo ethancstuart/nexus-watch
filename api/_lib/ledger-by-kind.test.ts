@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assembleByKind, type KindCountRow, type ScoredRow } from './ledger-by-kind.js';
+import { assembleByKind, describeCorrections, type KindCountRow, type ScoredRow } from './ledger-by-kind.js';
 
 /**
  * REGRESSION FOR A DEFECT THAT WAS LIVE ON THE PUBLIC API.
@@ -293,5 +293,37 @@ describe('corrected reading', () => {
     expect(withCorrections.hits).toBe(clean.hits);
     expect(withCorrections.resolved).toBe(clean.resolved);
     expect(withCorrections.skill_vs_base_rate).toBe(clean.skill_vs_base_rate);
+  });
+});
+
+describe('describeCorrections', () => {
+  it('names the direction, not just the count', () => {
+    const rows = [
+      { status: 'miss', corrected_status: 'hit' },
+      { status: 'miss', corrected_status: 'hit' },
+    ];
+    expect(describeCorrections(rows)).toBe('2 calls published MISS that the evidence records as HIT');
+  });
+
+  it('does NOT assert the first row of a mixed set of them all', () => {
+    // The defect this replaced: the sentence read the published verdict off
+    // corrected[0] and asserted it of every correction. True while all 54 run
+    // one way, and silently false the first time one runs the other.
+    const rows = [
+      { status: 'miss', corrected_status: 'hit' },
+      { status: 'miss', corrected_status: 'hit' },
+      { status: 'hit', corrected_status: 'miss' },
+    ];
+    const out = describeCorrections(rows);
+    expect(out).toContain('2 calls published MISS that the evidence records as HIT');
+    expect(out).toContain('1 call published HIT that the evidence records as MISS');
+    // Largest group first, so the sentence leads with what mostly happened.
+    expect(out.indexOf('MISS that')).toBeLessThan(out.indexOf('HIT that'));
+  });
+
+  it('singularises one call', () => {
+    expect(describeCorrections([{ status: 'miss', corrected_status: 'hit' }])).toBe(
+      '1 call published MISS that the evidence records as HIT',
+    );
   });
 });

@@ -228,3 +228,27 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
 
   return out;
 }
+
+/**
+ * What moved, counted per DIRECTION rather than assumed from the first row.
+ *
+ * The first version of this line read the published verdict off `corrected[0]`
+ * and asserted it of all of them — true today, when every correction is a MISS
+ * the evidence records as a HIT, and silently false the first time a single
+ * correction runs the other way. An independent review named it. A sentence
+ * about a set is derived from the set.
+ */
+export function describeCorrections(rows: Array<{ status: string; corrected_status: string | null }>): string {
+  const byDirection = new Map<string, number>();
+  for (const r of rows) {
+    const key = `${r.status.toUpperCase()}|${(r.corrected_status ?? '').toUpperCase()}`;
+    byDirection.set(key, (byDirection.get(key) ?? 0) + 1);
+  }
+  return [...byDirection]
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, n]) => {
+      const [published, evidence] = key.split('|');
+      return `${n} call${n === 1 ? '' : 's'} published ${published} that the evidence records as ${evidence}`;
+    })
+    .join('; ');
+}

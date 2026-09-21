@@ -13,6 +13,7 @@ import {
 } from './_lib/calls.js';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
 import { outcomeMarks } from '../src/styles/register-tokens.js';
+import { describeCorrections } from './_lib/ledger-by-kind.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -416,28 +417,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // base rate and those base rates were estimated from the very evidence
         // these corrections repair. Printing one would be a number against a
         // benchmark we know is mis-estimated, which is worse than no number.
+        // Scope DERIVED from isScored rather than enumerating hit/miss — a
+        // status added later must count as a correction, not vanish into
+        // "no correction" because nobody extended a literal.
         const corrected = rows.filter(
-          (r) => (r.corrected_status === 'hit' || r.corrected_status === 'miss') && r.corrected_status !== r.status,
+          (r) => r.corrected_status !== null && isScored(r.corrected_status) && r.corrected_status !== r.status,
         );
         if (corrected.length > 0) {
-          const cs: ScoredCall[] = rows.map((r) => ({
-            probability: r.probability,
-            outcome: (r.corrected_status === 'hit' || r.corrected_status === 'miss'
-              ? r.corrected_status === 'hit'
-                ? 1
-                : 0
-              : r.status === 'hit'
-                ? 1
-                : 0) as 0 | 1,
-          }));
+          const cs: ScoredCall[] = rows.map((r) => {
+            const effective =
+              r.corrected_status !== null && isScored(r.corrected_status) ? r.corrected_status : r.status;
+            return { probability: r.probability, outcome: (effective === 'hit' ? 1 : 0) as 0 | 1 };
+          });
           const cBrier = brierScore(cs);
           const cHits = cs.reduce((acc, c) => acc + c.outcome, 0);
           parts.push(
             `<div class="row unscored"><span class="lead">&nbsp;</span>` +
               `<span class="det">On corrected evidence — ${cHits}/${rows.length} landed` +
               `${Number.isFinite(cBrier) ? `, Brier ${cBrier.toFixed(3)}` : ''}. ` +
-              `${corrected.length} call${corrected.length === 1 ? '' : 's'} published ` +
-              `${esc(corrected[0].status.toUpperCase())} that the evidence records otherwise. ` +
+              `${esc(describeCorrections(corrected))}. ` +
               `The published verdicts above are unchanged.` +
               `</span><span class="trail">skill withheld</span></div>`,
           );
