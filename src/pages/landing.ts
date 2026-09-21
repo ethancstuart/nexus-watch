@@ -31,13 +31,72 @@ interface BriefResponse {
   summary?: string;
 }
 
+/**
+ * The calibration figure: what we said, against what happened.
+ *
+ * One row per probability band — the band, two bars on a shared 0–100% scale,
+ * the mean probability we assigned, the share that actually happened, and the
+ * sample size. Both bars are labelled with their own number, so no reader is
+ * asked to judge a length against an unstated axis.
+ *
+ * It renders only from live data. If the fetch fails, or the ledger has no
+ * calibration yet, the figure stays hidden rather than showing a placeholder.
+ * An invented record is the one thing this page must never display.
+ *
+ * A thin band is marked thin. Eight calls that missed all eight is a true fact
+ * about a tiny sample, and printing "12%" beside "n=8" without comment would
+ * be the flattering kind of honesty.
+ *
+ * No colour carries meaning here: the two bars differ in fill, not hue, so the
+ * figure reads identically in greyscale and to a dichromat.
+ */
+function renderCalibrationFigure(
+  root: HTMLElement,
+  bins: Array<{ from: number; to: number; count: number; meanPredicted: number; observed: number }>,
+): void {
+  const fig = root.querySelector<HTMLElement>('#nw-hero-figure');
+  const rows = root.querySelector<HTMLElement>('#nw-figure-rows');
+  if (!fig || !rows || bins.length === 0) return;
+
+  const pct = (n: number): string => `${Math.round(n * 100)}%`;
+  rows.textContent = '';
+  for (const b of bins) {
+    const thin = b.count < 20;
+    const row = document.createElement('div');
+    row.className = 'nw-figure-row';
+    const band = document.createElement('span');
+    band.className = 'nw-figure-band';
+    band.textContent = `${pct(b.from)}\u2013${pct(b.to)}`;
+    const bars = document.createElement('span');
+    bars.className = 'nw-figure-bars';
+    const said = document.createElement('span');
+    said.className = 'nw-figure-bar nw-figure-bar--said';
+    said.style.width = `${(b.meanPredicted * 100).toFixed(1)}%`;
+    const happened = document.createElement('span');
+    happened.className = 'nw-figure-bar nw-figure-bar--happened';
+    happened.style.width = `${(b.observed * 100).toFixed(1)}%`;
+    bars.append(said, happened);
+    const saidLabel = document.createElement('span');
+    saidLabel.className = 'nw-figure-said';
+    saidLabel.textContent = `said ${pct(b.meanPredicted)}`;
+    const happenedLabel = document.createElement('span');
+    happenedLabel.className = 'nw-figure-happened';
+    happenedLabel.textContent = `happened ${pct(b.observed)}`;
+    const n = document.createElement('span');
+    n.className = 'nw-figure-n';
+    n.textContent = `n=${b.count}${thin ? ' \u00b7 thin' : ''}`;
+    row.append(band, bars, saidLabel, happenedLabel, n);
+    rows.appendChild(row);
+  }
+  fig.hidden = false;
+}
+
 export function renderLanding(root: HTMLElement): void {
   setPageSeo(PAGE_SEO.landing);
   root.textContent = '';
 
   // Reduced motion + viewport-based decisions.
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const isNarrow = window.matchMedia('(max-width: 767px)').matches;
 
   // Top-level <main> opts into the marketing surface (Source Serif, generous
   // rhythm). Adding nw-landing-surface on top scopes our overrides.
@@ -56,7 +115,21 @@ export function renderLanding(root: HTMLElement): void {
     </nav>
 
     <section class="nw-hero" aria-label="Hero">
-      <div class="nw-hero-globe" id="nw-hero-globe" aria-hidden="true"></div>
+      <!-- THE FIGURE IS THE HERO. This was a decorative rotating globe, then a
+           black void once the globe was removed. It is now the calibration
+           table: what we said would happen against what happened, in every
+           probability band we have issued calls in. It is the only artifact on
+           the site that shows the SHAPE of the record rather than a summary of
+           it, it needs no query the ledger does not already answer, and it
+           reads as eight lines of mono on a phone. Rendered from live data or
+           not at all — never from a placeholder. -->
+      <figure class="nw-hero-figure" id="nw-hero-figure" hidden>
+        <figcaption class="nw-figure-caption">
+          <span class="nw-figure-title">Said, against happened</span>
+          <span class="nw-figure-note">Every resolved call, grouped by the probability we gave it.</span>
+        </figcaption>
+        <div class="nw-figure-rows" id="nw-figure-rows"></div>
+      </figure>
 
       <div class="nw-hero-live" aria-hidden="true">
         <span class="nw-hero-live-dot"></span>
@@ -226,8 +299,24 @@ export function renderLanding(root: HTMLElement): void {
   const eyebrow = main.querySelector<HTMLElement>('#nw-hero-eyebrow');
   if (eyebrow) {
     void fetch('/api/calls/ledger')
-      .then((r) => (r.ok ? (r.json() as Promise<{ counts?: { open?: number; resolved?: number } }>) : null))
+      .then((r) =>
+        r.ok
+          ? (r.json() as Promise<{
+              counts?: { open?: number; resolved?: number };
+              scoring?: {
+                calibration?: Array<{
+                  from: number;
+                  to: number;
+                  count: number;
+                  meanPredicted: number;
+                  observed: number;
+                }>;
+              };
+            }>)
+          : null,
+      )
       .then((d) => {
+        renderCalibrationFigure(main, d?.scoring?.calibration ?? []);
         const open = d?.counts?.open;
         const resolved = d?.counts?.resolved;
         if (typeof open !== 'number') return;
@@ -241,26 +330,8 @@ export function renderLanding(root: HTMLElement): void {
       });
   }
 
-  // ── Hero globe — lazy MapLibre on desktop, static fallback on mobile ──
-  const heroGlobe = main.querySelector<HTMLElement>('#nw-hero-globe');
-  if (heroGlobe) {
-    if (isNarrow) {
-      // Mobile: paint a stylized dark globe. Skip MapLibre entirely.
-      heroGlobe.classList.add('nw-hero-globe-static');
-    } else {
-      // Desktop: dynamic-import MapLibre + boot a decorative globe in the
-      // background. The headline paints first; the globe arrives 50–500ms later.
-      // THE DECORATIVE GLOBE IS GONE. It lazy-loaded MapLibre — 1,047,879 bytes,
-      // 78% of the built bundle — to spin a dark sphere behind the headline of a
-      // product with no map, and pulled its stylesheet from
-      // `unpkg.com/maplibre-gl@latest` (unpinned, third-party, executing on this
-      // origin) plus tiles from CARTO on every homepage visit. Three findings in
-      // one ornament: a supply-chain hole, the only CRITICAL in `npm audit`, and
-      // three third-party recipients the privacy policy did not name. The static
-      // CSS treatment below is what everyone saw first anyway.
-      heroGlobe.classList.add('nw-hero-globe-static');
-    }
-  }
+  // The hero globe block lived here. It set a "static fallback" class on a
+  // div that no longer exists; the figure above replaced it.
 
   // ── Hero headline dim after 2s so globe stays legible ──
   const heroContent = main.querySelector<HTMLElement>('#nw-hero-content');

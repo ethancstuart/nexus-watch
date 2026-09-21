@@ -12,6 +12,7 @@ import {
   type ScoredCall,
 } from './_lib/calls.js';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
+import { outcomeMarks } from '../src/styles/register-tokens.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -29,7 +30,8 @@ export const config = { runtime: 'nodejs', maxDuration: 20 };
  * pushState's and the SPA renders, while a direct load or a crawl hits this
  * function and gets real HTML with no JavaScript required.
  *
- * THE PALETTE COMES FROM src/styles/email-tokens.ts, the same source the daily
+ * THE PALETTE COMES FROM src/styles/register-tokens.ts via ssr-shell — the dark
+ * web palette, deliberately NOT the email's, which stays light. Formerly the daily
  * brief and the dossier theme read. A server renderer that cannot use CSS custom
  * properties is exactly where a private copy of the palette gets made, and a
  * private copy is how an identity change strands the most public surface you
@@ -452,7 +454,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       for (const c of correctedDisplay) {
         parts.push(
-          `<a class="row" href="/call/${c.id}"><span class="lead">${esc(c.country_code)}</span>` +
+          `<a class="row unscored" href="/call/${c.id}"><span class="lead">${esc(c.country_code)}</span>` +
             `<span class="det">${esc(c.claim)} — published ${esc(c.status.toUpperCase())}, ` +
             `evidence says ${esc((c.correction_status ?? '').toUpperCase())}</span>` +
             `<span class="trail">CORRECTED</span></a>`,
@@ -479,7 +481,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         parts.push(
           `<a class="row ${c.status === 'hit' ? 'hit' : 'miss'}" href="/call/${c.id}"><span class="lead">${esc(c.country_code)}</span>` +
             `<span class="det">${esc(c.claim)} — said ${pct(c.probability)}</span>` +
-            `<span class="trail">${c.status === 'hit' ? 'HIT' : 'MISS'}${c.correction_cause ? ' · CORRECTED' : ''}</span></a>`,
+            `<span class="trail"><span class="mark" aria-hidden="true">${c.status === 'hit' ? outcomeMarks.hit : outcomeMarks.miss}</span>` +
+            `${c.status === 'hit' ? 'HIT' : 'MISS'}${c.correction_cause ? ' · CORRECTED' : ''}</span></a>`,
         );
       }
     }
