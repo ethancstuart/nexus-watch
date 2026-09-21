@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "vercel dev",
-    "build": "npm run typecheck && vite build && node scripts/inject-sw-manifest.js",
+    "build": "npm run typecheck && vite build && node scripts/check-build-output.mjs && node scripts/inject-sw-manifest.js",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
