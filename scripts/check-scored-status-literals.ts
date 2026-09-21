@@ -30,6 +30,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { SCORED_STATUSES } from '../api/_lib/calls.js';
 
 const ROOT = process.cwd();
 /** The one file allowed to say what the scored statuses are. */
@@ -45,10 +46,17 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** A SQL set membership over the scored statuses, in either order. */
-const SQL_SET = /IN\s*\(\s*'(hit|miss)'\s*,\s*'(hit|miss)'\s*\)/i;
+// THE PATTERN DERIVES FROM THE SET IT GUARDS. An earlier version spelled
+// `hit|miss` into these regexes — which is the very thing the guard exists to
+// forbid, one level up, and an independent review was right to name it. Add a
+// third scored status and that version would have kept passing a literal that
+// enumerated all three.
+const ALT = [...SCORED_STATUSES].map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+
+/** A SQL set membership over the scored statuses, in any order. */
+const SQL_SET = new RegExp(String.raw`IN\s*\(\s*'(${ALT})'\s*,\s*'(${ALT})'\s*\)`, 'i');
 /** A TypeScript scope test spelling the same set out. */
-const TS_OR = /===\s*'(hit|miss)'\s*\|\|\s*[\w.?\s]*===\s*'(hit|miss)'/;
+const TS_OR = new RegExp(String.raw`===\s*'(${ALT})'\s*\|\|\s*[\w.?\s]*===\s*'(${ALT})'`);
 
 const offenders: string[] = [];
 

@@ -202,3 +202,45 @@ describe('unresolvable grace period', () => {
     expect(daysSinceResolution('')).toBe(0);
   });
 });
+
+/**
+ * THE TRIPWIRE FOR THE BINARY OUTCOME MODEL.
+ *
+ * `ScoredCall.outcome` is `0 | 1`, and every scoring path in the repo maps to
+ * it the same way: `status === 'hit' ? 1 : 0`. That is correct while the
+ * scored set is exactly {hit, miss} — and silently WRONG the moment it is not,
+ * because a third scored verdict would be scored as a miss everywhere at once:
+ * the register's Brier, the corrected reading beside it, the OG card, and the
+ * daily email. No type error, no test failure, one quiet wrong number on four
+ * surfaces.
+ *
+ * An independent review raised this against `correctedOutcomeOf` in particular.
+ * The honest answer is that it is not a property of that function — it is a
+ * property of the outcome model, and fixing it in one mapper would make the
+ * corrected reading disagree with the published one, which is worse.
+ *
+ * So the assumption is written down where it fails loudly. Adding a scored
+ * status is a deliberate act; this test makes it also a visible one, and the
+ * message says what has to be revisited.
+ */
+describe('the binary outcome model', () => {
+  it('holds only while the scored set is exactly {hit, miss}', () => {
+    expect([...SCORED_STATUSES].sort()).toEqual(['hit', 'miss']);
+  });
+
+  it('states what must be revisited if that ever changes', () => {
+    // Deliberately a message, not a mechanism. If this file is being edited to
+    // add a third status, these are the mappings that silently score it 0:
+    //
+    //   api/calls/ledger.ts    correctedOutcomeOf, and the by_kind outcome map
+    //   api/ledger.ts          the SSR per-kind and corrected readings
+    //   api/_lib/calls.ts      every ScoredCall construction
+    //   api/og.ts              the share card's hit count
+    //   api/cron/daily-brief.ts  the email's headline
+    //
+    // ScoredCall.outcome is 0 | 1. A third verdict needs a decision about what
+    // it means numerically BEFORE any of the above is touched.
+    expect(SCORED_STATUSES.has('hit')).toBe(true);
+    expect(SCORED_STATUSES.has('miss')).toBe(true);
+  });
+});
