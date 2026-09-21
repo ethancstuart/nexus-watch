@@ -34,6 +34,33 @@ export class MapView {
     this.container = container;
   }
 
+  /**
+   * The zoom at which the globe fills its container.
+   *
+   * In MapLibre's globe projection the sphere's on-screen diameter is the
+   * mercator world width over pi: 512 * 2^zoom / PI. At the old fixed zoom of
+   * 1.5 that is 461px — which fitted a 1120x796 pane about as well as it
+   * fitted a phone, which is to say not at all.
+   *
+   * Solving for zoom given a target diameter:  z = log2(d * PI / 512)
+   *
+   * Checked against the live map before adopting: predicted 461px at z=1.5,
+   * measured ~440px on a 1120x796 pane. The 4% gap is the projection's
+   * horizon margin, which FILL absorbs.
+   */
+  private zoomThatFitsGlobe(): number {
+    const rect = this.container?.getBoundingClientRect();
+    const w = rect?.width || 1120;
+    const h = rect?.height || 796;
+    // Leave a little room so the sphere is not flush against the chrome.
+    const FILL = 0.92;
+    const target = FILL * Math.min(w, h);
+    const z = Math.log2((target * Math.PI) / 512);
+    // Never below the map's own minZoom, and never so tight that the globe
+    // crops — 4 is already a continental view.
+    return Math.max(0.8, Math.min(4, z));
+  }
+
   init(): maplibregl.Map {
     // Inject maplibre-gl.css before constructing the map so default
     // controls (zoom, attribution, popups) render styled. See top-level
@@ -41,7 +68,13 @@ export class MapView {
     // 2026-05-02: bumped to globe-v3 so existing users get the new
     // wide-angle default zoom (was 3.8, now 1.5 — shows the full globe
     // on first load instead of a continental crop).
-    const GLOBE_VERSION = 'globe-v3';
+    //
+    // 2026-09-21 — globe-v4. A FIXED default zoom cannot fit a variable
+    // viewport, and 1.5 fitted none of them. On a 1120x796 map pane it drew a
+    // 461px globe: a third of the width, with dead black margin on every side.
+    // Reported as "small and weird". The zoom is computed from the container
+    // now, so the globe fills the pane on a laptop and on a 4K display alike.
+    const GLOBE_VERSION = 'globe-v4';
     if (localStorage.getItem('nw:globe-version') !== GLOBE_VERSION) {
       localStorage.removeItem(VIEWPORT_KEY);
       localStorage.setItem('nw:globe-version', GLOBE_VERSION);
@@ -55,7 +88,7 @@ export class MapView {
       container: this.container,
       style: getMapStyleUrl(),
       center: saved?.center || [0, 20],
-      zoom: saved?.zoom || 1.5,
+      zoom: saved?.zoom ?? this.zoomThatFitsGlobe(),
       pitch: isCinema ? 10 : 0,
       bearing: 0,
       attributionControl: false,

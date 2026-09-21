@@ -32,7 +32,16 @@
  * cannot stand behind instead of footnoting them, because a footnote does not
  * survive being quoted.
  */
-import { brierScore, independentUnits, resolutionBatches, publishableSkill, type ScoredCall } from './calls.js';
+import {
+  brierScore,
+  baseRate,
+  independentUnits,
+  resolutionBatches,
+  publishableSkill,
+  MIN_INDEPENDENT_UNITS,
+  MIN_RESOLUTION_BATCHES,
+  type ScoredCall,
+} from './calls.js';
 
 /** One row of the per-kind GROUP BY over `calls`. Counts, no row detail. */
 export interface KindCountRow {
@@ -116,6 +125,70 @@ export interface KindFigures {
    * a zeroed-out object that looks like a measurement.
    */
   corrected: CorrectedReading | null;
+  /** Calibration by probability band, FOR THIS KIND ONLY. Never pooled. */
+  bands: BandRecord[];
+  /** One entry per resolution date. A scoreboard for a morning, not a parameter. */
+  batches_detail: BatchRecord[];
+  /** Fires when the hit rate and the skill point in opposite directions. */
+  counter_reading: CounterReading | null;
+  /** Why a skill figure is absent, in the reader's words. Null when present. */
+  skill_withheld_because: string | null;
+}
+
+/**
+ * One probability band's record, for ONE kind.
+ *
+ * `scoring.note` on this endpoint already forbids pooling across kinds, and
+ * the pooled array currently rendered on the landing page is the reason it has
+ * to: FX runs cold in the 0.1-0.2 band (0.169 predicted against 0.220
+ * observed, 540 rows) while censorship runs blazing hot in the same band
+ * (0.108 against 0.007, 145 rows). Averaged, they cancel into a flattering
+ * 0.156/0.175 that describes neither. That is a self-graded accuracy figure
+ * one level of indirection down.
+ *
+ * `units` prints beside `n` always. Thirty-seven rows over eight units is not
+ * thirty-seven observations and the reader is entitled to see the difference.
+ */
+export interface BandRecord {
+  from: number;
+  to: number;
+  n: number;
+  units: number;
+  batches: number;
+  /** Mean stated probability in the band. Null when the band is withheld. */
+  predicted: number | null;
+  /** Realised frequency. Null when the band is withheld. */
+  observed: number | null;
+  /** Null when the band prints. Otherwise the reason, for display. */
+  withheld_because: string | null;
+}
+
+/** One morning's settlement. A scoreboard, explicitly not an estimate. */
+export interface BatchRecord {
+  resolves_on: string;
+  n: number;
+  hits: number;
+  hit_rate: number;
+  units: number;
+}
+
+/**
+ * THE CONTRADICTION THAT PRINTS ITSELF.
+ *
+ * Wherever a cohort's realised hit rate and its skill against climatology
+ * point in opposite directions, the disagreement is surfaced in place rather
+ * than letting either number stand alone.
+ *
+ * This is the exact guard that would have caught /api/accuracy/stats
+ * publishing "90.3% accuracy" against -17% real skill — firing automatically
+ * instead of waiting four months for somebody to run the comparison by hand.
+ */
+export interface CounterReading {
+  hit_rate: number;
+  mean_base_rate: number;
+  skill: number;
+  /** A sentence the surface can print verbatim. */
+  reading: string;
 }
 
 const num = (v: number) => (Number.isFinite(v) ? v : null);
@@ -139,6 +212,10 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
       scored_rows_used: 0,
       scoring_complete: true,
       corrected: null,
+      bands: [],
+      batches_detail: [],
+      counter_reading: null,
+      skill_withheld_because: null,
     };
   }
 
@@ -195,9 +272,17 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
     if (!out[kind].scoring_complete) continue;
 
     out[kind].brier = calls.length > 0 ? num(brierScore(calls)) : null;
-    // Withheld until the kind has resolved in enough independent batches for
-    // the number to separate skill from one fortnight's weather.
-    out[kind].skill_vs_base_rate = num(publishableSkill({ calls, batches: out[kind].batches }));
+    // Withheld until the kind has resolved across enough independent batches
+    // AND enough independent units. Both axes, because one currency observed
+    // on sixteen consecutive overlapping windows satisfies the first and is
+    // still a single observation.
+    out[kind].skill_vs_base_rate = num(publishableSkill({ calls, batches: out[kind].batches, units: out[kind].units }));
+    out[kind].skill_withheld_because =
+      out[kind].skill_vs_base_rate === null ? withheldReason(kind, out[kind].units, out[kind].batches) : null;
+
+    out[kind].bands = bandRecords(rows);
+    out[kind].batches_detail = batchRecords(rows);
+    out[kind].counter_reading = counterReading(rows, out[kind].skill_vs_base_rate);
 
     // THE SECOND READING. Same rows, same stated probabilities, outcomes taken
     // from the evidence where a correction exists. Computed under the same
@@ -257,4 +342,124 @@ export function describeCorrections(rows: Array<{ status: string; corrected_stat
       return `${n} call${n === 1 ? '' : 's'} published ${published} that the evidence records as ${evidence}`;
     })
     .join('; ');
+}
+
+/** The deciles a probability can fall in. Fixed, so a band cannot be chosen after the fact. */
+const BAND_EDGES = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
+
+/**
+ * Why a figure is absent, phrased for a reader rather than a log.
+ *
+ * A withheld line is not a footnote and is never omitted — it prints in the
+ * same face and size the number would have taken. "SKILL WITHHELD — 1
+ * independent unit; needs 3" beside a probability is the most honest sentence
+ * this product can write.
+ */
+function withheldReason(kind: string, units: number, batches: number): string {
+  if (CALIBRATION_KIND_HINT.test(kind)) return 'NO EDGE CLAIMED — THIS IS THE BASE RATE.';
+  if (units < MIN_INDEPENDENT_UNITS) {
+    return `${units} independent unit${units === 1 ? '' : 's'}; needs ${MIN_INDEPENDENT_UNITS}.`;
+  }
+  if (batches < MIN_RESOLUTION_BATCHES) {
+    return `${batches} resolution batch${batches === 1 ? '' : 'es'}; needs ${MIN_RESOLUTION_BATCHES}.`;
+  }
+  return 'every row stated at its own base rate — the result is an identity, not a measurement.';
+}
+
+/**
+ * A control kind claims no edge by construction, so its absence of skill is
+ * not a shortfall to apologise for. Matched by name rather than imported from
+ * CALIBRATION_KINDS so this module keeps taking its scope from its inputs.
+ */
+const CALIBRATION_KIND_HINT = /seismicity|calibration|control/i;
+
+/** Per-band record for ONE kind. Never pooled — see BandRecord. */
+function bandRecords(rows: ScoredRow[]): BandRecord[] {
+  const out: BandRecord[] = [];
+  for (let i = 0; i < BAND_EDGES.length - 1; i++) {
+    const from = BAND_EDGES[i];
+    const to = BAND_EDGES[i + 1];
+    // Upper edge inclusive only in the last band, so 1.0 has a home and no
+    // probability is counted twice.
+    const inBand = rows.filter(
+      (r) => r.probability >= from && (i === BAND_EDGES.length - 2 ? r.probability <= to : r.probability < to),
+    );
+    if (inBand.length === 0) continue; // an empty band is not a row of zeroes
+    const units = independentUnits(inBand.map((r) => r.countryCode));
+    const batches = resolutionBatches(inBand.map((r) => r.resolvedOn));
+    const publishable = units >= MIN_INDEPENDENT_UNITS && batches >= MIN_RESOLUTION_BATCHES;
+    out.push({
+      from,
+      to,
+      n: inBand.length,
+      units,
+      batches,
+      predicted: publishable ? inBand.reduce((a, r) => a + r.probability, 0) / inBand.length : null,
+      observed: publishable ? inBand.reduce((a, r) => a + r.outcome, 0) / inBand.length : null,
+      withheld_because: publishable ? null : withheldReason('', units, batches),
+    });
+  }
+  return out;
+}
+
+/**
+ * One entry per resolution date.
+ *
+ * A batch is a scoreboard for one morning, NOT an estimate of a parameter —
+ * everything in it shares a resolver, a date, and whatever the world happened
+ * to do that fortnight. FX hit rate by date traces a clean U (43.9% on
+ * 2026-09-06, 6.2% at the trough, 55.4% on 09-21) because sixty-five
+ * currencies are being moved together by the dollar against one threshold
+ * rule. That shape is the single most informative thing in the book and it is
+ * invisible in any per-country view.
+ */
+function batchRecords(rows: ScoredRow[]): BatchRecord[] {
+  const byDate = new Map<string, ScoredRow[]>();
+  for (const r of rows) {
+    if (!r.resolvedOn) continue;
+    const list = byDate.get(r.resolvedOn);
+    if (list) list.push(r);
+    else byDate.set(r.resolvedOn, [r]);
+  }
+  return [...byDate.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([resolves_on, list]) => {
+      const hits = list.reduce((a, r) => a + r.outcome, 0);
+      return {
+        resolves_on,
+        n: list.length,
+        hits,
+        hit_rate: list.length > 0 ? hits / list.length : 0,
+        units: independentUnits(list.map((r) => r.countryCode)),
+      };
+    });
+}
+
+/**
+ * The contradiction that prints itself. See CounterReading.
+ *
+ * Null when the two readings agree, or when either is unavailable — a
+ * contradiction cannot be asserted between a number and an absence.
+ */
+function counterReading(rows: ScoredRow[], skill: number | null): CounterReading | null {
+  if (skill === null || rows.length === 0) return null;
+  const withBase = rows.filter((r) => r.baseRate !== undefined && Number.isFinite(r.baseRate));
+  if (withBase.length === 0) return null;
+  const hitRate = baseRate(rows.map((r) => ({ probability: r.probability, outcome: r.outcome })));
+  const meanBase = withBase.reduce((a, r) => a + (r.baseRate as number), 0) / withBase.length;
+  if (!Number.isFinite(hitRate)) return null;
+
+  const flatteringHitRate = hitRate > meanBase && skill < 0;
+  const unflatteringHitRate = hitRate < meanBase && skill > 0;
+  if (!flatteringHitRate && !unflatteringHitRate) return null;
+
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+  return {
+    hit_rate: hitRate,
+    mean_base_rate: meanBase,
+    skill,
+    reading: flatteringHitRate
+      ? `${pct(hitRate)} of these landed against a ${pct(meanBase)} base rate, and the skill against that baseline is still ${(skill * 100).toFixed(1)}%. The hit rate is the easier number and it is the misleading one.`
+      : `${pct(hitRate)} of these landed against a ${pct(meanBase)} base rate, yet the skill against that baseline is ${(skill * 100).toFixed(1)}%. A low hit rate on hard calls can still beat the baseline.`,
+  };
 }

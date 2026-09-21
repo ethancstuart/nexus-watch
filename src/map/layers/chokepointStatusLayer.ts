@@ -23,18 +23,33 @@ const CHOKEPOINTS: Chokepoint[] = [
   { name: 'Turkish Straits', lat: 41.12, lon: 29.05, radiusKm: 80, description: 'Black Sea access, grain corridor' },
 ];
 
-type Status = 'green' | 'yellow' | 'red';
+/**
+ * `unknown` is a FIRST-CLASS state, not a missing one.
+ *
+ * There is no chokepoint-status feed in this repository. Every reading the
+ * layer used to show was hardcoded (see computeStatuses). So the state the
+ * layer is actually in, for every chokepoint, is `unknown` — and that has to
+ * be representable, or the absence gets rounded to "normal" and the map
+ * asserts something nobody measured.
+ */
+type Status = 'green' | 'yellow' | 'red' | 'unknown';
 
 const STATUS_COLORS: Record<Status, string> = {
   green: '#00ff00',
   yellow: '#eab308',
   red: '#ef4444',
+  // registerColors.textTertiary — deliberately NOT a fourth point on the
+  // green/amber/red ramp. An unknown reading must not look like a mild one.
+  unknown: '#9C958A',
 };
 
 const STATUS_LABELS: Record<Status, string> = {
   green: 'NORMAL',
   yellow: 'ELEVATED',
   red: 'DISRUPTED',
+  // Says what is true: we have no feed for this. Not "normal", not "unknown
+  // risk" — the instrument is absent, and the label names that.
+  unknown: 'NO STATUS FEED',
 };
 
 export class ChokepointStatusLayer implements MapDataLayer {
@@ -68,7 +83,9 @@ export class ChokepointStatusLayer implements MapDataLayer {
       new CustomEvent('dashview:layer-data', {
         detail: {
           layerId: this.id,
-          data: CHOKEPOINTS.map((c) => ({ ...c, status: this.statuses.get(c.name) || 'green' })),
+          // No status is NOT 'green'. Defaulting an unknown reading to
+          // "normal operations" asserts the thing we do not know.
+          data: CHOKEPOINTS.map((c) => ({ ...c, status: this.statuses.get(c.name) ?? 'unknown' })),
         },
       }),
     );
@@ -87,18 +104,28 @@ export class ChokepointStatusLayer implements MapDataLayer {
     return CHOKEPOINTS.length;
   }
 
+  /**
+   * THIS FUNCTION USED TO FABRICATE SIX THREAT LEVELS AND IT IS NOW EMPTY.
+   *
+   * It was named computeStatuses and it computed nothing. It set Bab el-Mandeb
+   * to RED, Hormuz / Suez / the Turkish Straits to YELLOW and the rest to
+   * GREEN, from a comment reading "for now, use known geopolitical context" —
+   * a frozen judgement written once, rendered on a live map as though an
+   * instrument had read it, and never updated again. The "Suez Canal ELEVATED"
+   * label on the globe came from here, not from data.
+   *
+   * It is the same defect as the AIS layer that invented positions for real
+   * warships when its key was unset, deleted 2026-09-21. A chokepoint status
+   * is a claim about the world; this product does not publish claims it cannot
+   * source. There is no chokepoint-status feed in the repository, so there is
+   * no status — and the layer now draws the chokepoints as what they provably
+   * are, locations, with no threat reading attached.
+   *
+   * If a real feed lands, set statuses from it here and restore the colour
+   * ramp. Until then an absent reading is the honest one.
+   */
   private computeStatuses(): void {
-    // Listen for existing layer data to compute threat levels
-    // For now, use known geopolitical context for initial status
-    // Bab el-Mandeb: RED (Houthi attacks on shipping)
-    // Strait of Hormuz: YELLOW (Iran tensions)
-    // Others: GREEN (normal operations)
-    this.statuses.set('Bab el-Mandeb', 'red');
-    this.statuses.set('Strait of Hormuz', 'yellow');
-    this.statuses.set('Suez Canal', 'yellow');
-    this.statuses.set('Panama Canal', 'green');
-    this.statuses.set('Strait of Malacca', 'green');
-    this.statuses.set('Turkish Straits', 'yellow');
+    this.statuses.clear();
   }
 
   private renderLayer(): void {
@@ -109,7 +136,7 @@ export class ChokepointStatusLayer implements MapDataLayer {
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
       features: CHOKEPOINTS.map((c) => {
-        const status = this.statuses.get(c.name) || 'green';
+        const status = this.statuses.get(c.name) ?? 'unknown';
         return {
           type: 'Feature' as const,
           geometry: { type: 'Point' as const, coordinates: [c.lon, c.lat] },

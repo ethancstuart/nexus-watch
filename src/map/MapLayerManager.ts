@@ -38,25 +38,71 @@ export class MapLayerManager {
     }
   }
 
+  /**
+   * ONE BAD LAYER MUST NOT TAKE DOWN THE MAP.
+   *
+   * This looped over forty-seven layers calling `layer.init(map)` with no
+   * guard. A single throw ended the loop, propagated out of `initAll()`, and
+   * killed the whole `map.on('load')` handler in src/pages/nexuswatch.ts —
+   * which is where the boot overlay's own removal lives. The result, reported
+   * from a real browser on 2026-09-21: the Intel Map sat on "Computing
+   * instability scores..." indefinitely, with no error on screen and no way
+   * out, because the code that hides the overlay was eighty lines below the
+   * line that threw.
+   *
+   * A layer failing to initialise is a missing layer. It is not a dead map.
+   * Each one is now isolated, and the ones that fail are NAMED — both in the
+   * console and on `window.__nwLayerInitFailures`, so the next person seeing a
+   * stuck boot can read which layer did it instead of bisecting forty-seven.
+   */
   initAll(): void {
     if (!this.map) return;
     const enabledIds = this.loadEnabledLayers();
+    const failures: Array<{ id: string; error: string }> = [];
     let delay = 0;
     for (const [id, layer] of this.layers) {
-      layer.init(this.map);
+      try {
+        layer.init(this.map);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        failures.push({ id, error: message });
+        console.error(`[layers] ${id} failed to init — layer skipped, map continues:`, err);
+        continue;
+      }
       if (enabledIds.includes(id)) {
-        layer.enable();
+        try {
+          layer.enable();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          failures.push({ id, error: `enable: ${message}` });
+          console.error(`[layers] ${id} failed to enable — layer skipped, map continues:`, err);
+          continue;
+        }
         // Stagger API calls to avoid thundering herd on page load.
         // 2026-05-02 perf pass: dropped base 800→250ms, heavy +3000→+750ms.
         // Total boot for 18 default layers: ~5s → ~1.8s.
         const heavyLayers = new Set(['flights', 'ships', 'satellites', 'clouds', 'aurora']);
         const layerDelay = heavyLayers.has(id) ? delay + 750 : delay;
         setTimeout(() => {
-          void layer.refresh();
-          this.startRefreshCycle(layer);
+          // A refresh that throws is one layer's data problem, never the
+          // map's. It runs on a timer, so an unguarded throw here becomes an
+          // unhandled rejection nobody sees.
+          try {
+            void layer.refresh();
+            this.startRefreshCycle(layer);
+          } catch (err) {
+            console.error(`[layers] ${id} refresh failed:`, err);
+          }
         }, layerDelay);
         delay += 250;
       }
+    }
+    if (failures.length > 0) {
+      (window as unknown as { __nwLayerInitFailures?: unknown }).__nwLayerInitFailures = failures;
+      console.error(
+        `[layers] ${failures.length} of ${this.layers.size} layer(s) failed to start: ` +
+          failures.map((f) => f.id).join(', '),
+      );
     }
     // Mark init as done so late-registering lazy layers can auto-enable
     this.initDone = true;

@@ -96,6 +96,16 @@ import type { CinemaMode } from '../cinema/CinemaMode.ts';
 import { computeCorrelations } from '../services/correlationEngine.ts';
 import { evaluateAlerts, setRules } from '../services/alertEngine.ts';
 import { loadRulesFromStorage, openAlertBuilder } from '../ui/alertBuilder.ts';
+// RESTORED 2026-09-21. These three stylesheets were deleted with the Intel
+// Map on 2026-09-06 and PR #53 brought their components back without them.
+// quick-layer-bar.css is the visible one: the chip strip above the map
+// (Earthquakes / Fires / Conflict / ...) had NO styles in any stylesheet, so
+// it rendered as raw browser default buttons — grey, boxy and jammed
+// together. Reported as "gray and weird looking", which is exactly what an
+// unstyled <button> looks like.
+import '../styles/quick-layer-bar.css';
+import '../styles/map.css';
+import '../styles/density.css';
 import '../styles/alert-builder.css';
 import '../styles/timeline.css';
 import '../styles/brief.css';
@@ -132,21 +142,74 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   // reads 5 feeds). A product whose pitch is a published track record cannot
   // fabricate a number on its own loading screen. The phase captions below are
   // real stages, so they stay; the invented counters are gone.
-  const animateLoadStats = () => {
+  /**
+   * THE CAPTION REPORTS WHAT HAS HAPPENED, NOT WHAT TIME IT IS.
+   *
+   * This ran off a 400ms interval: "Loading map tiles..." at 0.8s,
+   * "Initializing data layers..." at 1.6s, "Computing instability scores..."
+   * at 2.4s, and the bar to 90% at 6 ticks — all of it regardless of whether
+   * the map had loaded, a layer had returned, or anything had been computed at
+   * all. When the boot genuinely hung on 2026-09-21, the screen said it was
+   * computing instability scores. Nothing was. That caption is the single
+   * biggest reason the hang took as long as it did to diagnose, by me and by
+   * the person who reported it.
+   *
+   * The stat row that used to sit beside this was deleted for exactly this —
+   * counting up numbers that were not measurements. The captions were the same
+   * defect wearing a different shape, and they survived that cleanup.
+   *
+   * Each stage below is called from the event it names. A stage that never
+   * arrives leaves the caption on the last thing that was actually true.
+   */
+  const bootStage = (() => {
     const text = loadingOverlay.querySelector('.nw-loading-text');
-    const bar = loadingOverlay.querySelector('.nw-loading-bar-fill') as HTMLElement;
-    let step = 0;
-    const tick = setInterval(() => {
-      step++;
-      if (bar) bar.style.width = `${Math.min(step * 15, 90)}%`;
-      if (step === 2 && text) text.textContent = 'Loading map tiles...';
-      if (step === 4 && text) text.textContent = 'Initializing data layers...';
-      if (step === 6 && text) text.textContent = 'Computing instability scores...';
-      if (step >= 7) clearInterval(tick);
-    }, 400);
-  };
-  animateLoadStats();
+    const bar = loadingOverlay.querySelector('.nw-loading-bar-fill') as HTMLElement | null;
+    return (label: string, fraction: number): void => {
+      if (text) text.textContent = label;
+      if (bar) bar.style.width = `${Math.round(fraction * 100)}%`;
+    };
+  })();
+  bootStage('Connecting to intelligence feeds...', 0.1);
   root.appendChild(loadingOverlay);
+
+  /**
+   * THE OVERLAY MUST NEVER BE ABLE TO STRAND A READER, and until now it could.
+   *
+   * Its removal lived entirely inside `map.on('load')` — including the twelve
+   * second "safety timeout" that was supposed to cover layers failing to
+   * report. A safety net nested inside the event it is meant to survive is not
+   * a safety net. If the load event never fires — WebGL unavailable, the style
+   * blocked by CSP, or anything in the eighty lines above the removal throwing
+   * — the reader sits on a black screen with a caption that lies (the captions
+   * are on a 400ms timer and reach "Computing instability scores..." after
+   * 2.8s regardless of what has actually loaded) and no way out.
+   *
+   * Reported from a real browser on 2026-09-21: stuck there past thirty
+   * seconds.
+   *
+   * So the failsafe is armed HERE, at creation, where nothing can prevent it.
+   * The happy path still removes the overlay as soon as the priority layers
+   * report; this only guarantees an upper bound. `removeBootOverlay` is
+   * idempotent so the two paths cannot fight.
+   */
+  const BOOT_OVERLAY_FAILSAFE_MS = 15000;
+  let bootOverlayRemoved = false;
+  const removeBootOverlay = (reason: 'loaded' | 'failsafe'): void => {
+    if (bootOverlayRemoved) return;
+    bootOverlayRemoved = true;
+    if (reason === 'failsafe') {
+      // Say so. A map that came up degraded should not look identical to one
+      // that came up clean, and the console is where the next person looks.
+      console.warn(
+        `[boot] map did not signal ready within ${BOOT_OVERLAY_FAILSAFE_MS}ms — ` +
+          'revealing the interface anyway. Check window.__nwLayerInitFailures.',
+      );
+      bootStage('Taking longer than expected — opening anyway.', 1);
+    }
+    loadingOverlay.classList.add('fade-out');
+    setTimeout(() => loadingOverlay.remove(), 600);
+  };
+  setTimeout(() => removeBootOverlay('failsafe'), BOOT_OVERLAY_FAILSAFE_MS);
 
   // ── Build DOM structure synchronously ──
   const app = createElement('div', { className: 'nw-app' });
@@ -596,6 +659,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
   })();
 
   map.on('load', () => {
+    bootStage('Map ready — starting data layers...', 0.5);
     layerManager.initAll();
     initCascadeOverlay(map);
     initScenarioOverlay(map);
@@ -671,6 +735,10 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       const needed = 3;
       const onData = () => {
         loaded++;
+        bootStage(
+          `Data layers responding (${Math.min(loaded, needed)}/${needed})...`,
+          0.5 + (0.5 * Math.min(loaded, needed)) / needed,
+        );
         if (loaded >= needed) {
           document.removeEventListener('dashview:layer-data', onData);
           resolve();
@@ -681,10 +749,7 @@ export async function renderNexusWatch(root: HTMLElement): Promise<void> {
       setTimeout(resolve, 12000);
     });
 
-    Promise.all([minLoadTime, priorityLayersLoaded]).then(() => {
-      loadingOverlay.classList.add('fade-out');
-      setTimeout(() => loadingOverlay.remove(), 600);
-    });
+    Promise.all([minLoadTime, priorityLayersLoaded]).then(() => removeBootOverlay('loaded'));
   });
 
   // ── Timeline Scrubber (time-travel intelligence) ──

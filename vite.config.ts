@@ -1,5 +1,70 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+/**
+ * Emit MapLibre v6's worker, which nothing else will.
+ *
+ * MAPLIBRE v6 MOVED ITS WORKER OUT OF THE BUNDLE. v5 inlined it as a blob; v6
+ * ships `maplibre-gl-worker.mjs` as a separate ESM file and resolves it at run
+ * time from its own module URL:
+ *
+ *   function(){ let e = import.meta.url;
+ *     let t = e.endsWith('-dev.mjs') ? 'maplibre-gl-worker-dev.mjs' : 'maplibre-gl-worker.mjs';
+ *     return new URL(`./${t}`, e).href }
+ *
+ * Vite cannot see that. Its worker detection needs a STATIC
+ * `new URL('./worker.js', import.meta.url)`; this builds the filename from a
+ * variable, so no worker chunk is emitted and the computed URL —
+ * `/assets/maplibre-gl-worker.mjs` — is a 404 in production.
+ *
+ * WHAT THAT LOOKS LIKE, because it took a long time to find: the map fetches
+ * style.json, the sprite and tiles.json, and then stops. No vector tile is
+ * ever requested, because the worker that parses them never starts. MapLibre
+ * fires `load` only after the first VISUALLY COMPLETE render, which never
+ * happens, so every `map.on('load')` handler is dead — layers never
+ * initialise, counters stay at zero, and the globe renders as a bare grey
+ * sphere. There is no error in the console. Measured on the PR #61 preview
+ * 2026-09-21: `/assets/maplibre-gl-worker.mjs` -> HTTP 404.
+ *
+ * The worker imports `./maplibre-gl-shared.mjs`, so both are emitted, side by
+ * side, where the computed URL expects them. The build FAILS if either is
+ * missing from the installed package rather than shipping a broken map.
+ */
+function maplibreWorkerPlugin(): Plugin {
+  const NEEDED = ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs'] as const;
+  return {
+    name: 'nexuswatch:maplibre-worker',
+    apply: 'build',
+    generateBundle() {
+      const require = createRequire(import.meta.url);
+      let distDir: string;
+      try {
+        distDir = require.resolve('maplibre-gl/dist/maplibre-gl.mjs').replace(/maplibre-gl\.mjs$/, '');
+      } catch (err) {
+        this.error(`maplibre-gl not resolvable — cannot emit its worker: ${String(err)}`);
+        return;
+      }
+      for (const file of NEEDED) {
+        let source: string;
+        try {
+          source = readFileSync(distDir + file, 'utf8');
+        } catch {
+          this.error(
+            `maplibre-gl/dist/${file} is missing. MapLibre v6 loads its tile-parsing worker ` +
+              `from this file at run time; without it the map fetches its style and then ` +
+              `silently never renders. Refusing to build a map that cannot load.`,
+          );
+          return;
+        }
+        // The path must match what MapLibre computes: `./<file>` relative to
+        // the emitted vendor chunk, which Vite puts under assets/.
+        this.emitFile({ type: 'asset', fileName: `assets/${file}`, source });
+      }
+    },
+  };
+}
 
 // Bundle analyzer is opt-in via env var to avoid slowing routine builds.
 // Run with: ANALYZE=1 npm run build
@@ -36,17 +101,25 @@ export default defineConfig({
       },
     },
   },
-  plugins: ANALYZE
-    ? [
-        visualizer({
-          filename: `docs/perf/bundle-${new Date().toISOString().slice(0, 10)}.html`,
-          gzipSize: true,
-          brotliSize: true,
-          template: 'treemap',
-          open: false,
-        }),
-      ]
-    : [],
+  // The MapLibre worker emitter is UNCONDITIONAL — it is correctness, not
+  // tooling. It briefly lived in a second `plugins:` key added above this one,
+  // which is a duplicate property in an object literal: the later key silently
+  // won, the plugin never ran, and the build looked fine while emitting no
+  // worker at all. Exactly the defect being fixed, reintroduced by the fix.
+  plugins: [
+    maplibreWorkerPlugin(),
+    ...(ANALYZE
+      ? [
+          visualizer({
+            filename: `docs/perf/bundle-${new Date().toISOString().slice(0, 10)}.html`,
+            gzipSize: true,
+            brotliSize: true,
+            template: 'treemap',
+            open: false,
+          }),
+        ]
+      : []),
+  ],
   test: {
     environment: 'happy-dom',
     // EXCLUDE EVERY IN-REPO COPY OF THE REPO. Two directories sit INSIDE the
