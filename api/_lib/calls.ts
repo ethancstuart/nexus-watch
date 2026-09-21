@@ -556,28 +556,56 @@ export function fxDepreciationPct(reference: number, observed: number): number {
  * The original weight was a declared-in-advance 0.6 for everything, which was
  * honest but arbitrary. A walk-forward backtest over the full stored history
  * (disjoint 14-day outcome windows, thresholds and rates estimated from data
- * strictly before each fold; scripts/backtest-calls.ts reproduces it) swept
- * the weight and measured Brier out-of-sample:
+ * strictly before each fold; scripts/backtest-calls.ts reproduces it) sweeps
+ * the weight and measures Brier out-of-sample.
+ *
+ * CURRENT MEASUREMENT — re-run 2026-09-21 against production:
+ *
+ *     w      FX (n=297)   censorship (n=127)
+ *     0.0    0.1797       0.0925   <- best for censorship
+ *     0.2    0.1781       0.0958   <- best for FX
+ *     0.4    0.1783       0.1001
+ *     0.6    0.1803       0.1056
+ *     0.8    0.1840       0.1122
+ *
+ *   FX skill vs its own climatology: +0.9% at w=0.2, +0.8% at w=0.4,
+ *   and -0.3% at w=0.6 — past 0.4 the blend is worse than not blending.
+ *
+ * SUPERSEDED, kept because a quietly replaced measurement teaches nobody —
+ * the 2026-08-23 run, on less than half the folds:
  *
  *     w      FX (n=267)   censorship (n=93)
- *     0.0    0.1013       0.0677   <- best for censorship
+ *     0.0    0.1013       0.0677
  *     0.2    0.0993       0.0687
- *     0.4    0.0987 <- best for FX
- *     0.6    0.0994       0.0725   <- the old default
+ *     0.4    0.0987 <- best for FX, and why the weight was 0.4
+ *     0.6    0.0994       0.0725   <- the original default
  *     0.8    0.1014       0.0753
  *
+ * THE ABSOLUTES MOVED AND THE SHAPE DID NOT. Reference Brier went from ~0.10
+ * to 0.18 and the FX hit rate from 7.5% to 23.2%: the calm window that trained
+ * the first run has ended, so the older absolutes describe a regime that is
+ * gone. The ordering survived both runs — a little recency helps FX, any
+ * recency hurts censorship — which is the part the weight is set from.
+ *
+ * FX moved 0.4 -> 0.2 on 2026-09-21 to sit on the measured optimum. The
+ * difference from 0.4 is +0.1pp of skill and is inside the noise; it is made
+ * because the rule is that the weight follows the backtest, and 0.6 was
+ * proposed on a +6.0% figure that this script does not reproduce at any
+ * weight. It measures -0.3% there.
+ *
  * Recency carries a small real signal in FX and none at all in censorship —
- * at w=0.6 the censorship leg scored -7.1% skill against its own climatology,
- * a pure noise penalty the data-science review predicted from the variance of
- * a three-window estimator. So censorship states climatology, and FX leans
- * recent only as far as the evidence supports.
+ * at w=0.6 the censorship leg scored -7.1% skill against its own climatology
+ * on the first run and -14.1% on this one, a pure noise penalty the
+ * data-science review predicted from the variance of a three-window
+ * estimator. So censorship states climatology, and FX leans recent only as
+ * far as the evidence supports.
  *
  * Remeasure as history accumulates; the weight follows the backtest, never
  * the other way around.
  */
 export const RECENCY_WEIGHT: Record<CallKind, number> = {
   censorship_event: 0,
-  fx_devaluation: 0.4,
+  fx_devaluation: 0.2,
   // Poisson climatology — a recency blend would only add noise to a harness
   // whose entire job is to sit exactly on its base rate.
   seismicity_window: 0,
