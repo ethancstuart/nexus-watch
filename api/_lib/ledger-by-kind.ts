@@ -51,6 +51,52 @@ export interface ScoredRow {
   baseRate?: number;
   outcome: 0 | 1;
   resolvedOn: string;
+  /**
+   * The outcome the EVIDENCE records, where it differs from the one that was
+   * published. Set only for a call carrying a row in `call_corrections`;
+   * undefined means published and evidence agree.
+   *
+   * This never replaces `outcome`. The published verdict is what the register
+   * said and it is not rewritten — the two live side by side so the second
+   * reading can be computed without touching the first.
+   */
+  correctedOutcome?: 0 | 1;
+}
+
+/**
+ * The same kind, scored again on corrected evidence.
+ *
+ * WHY THIS IS A SEPARATE OBJECT AND NOT A REPLACEMENT. 54 calls were published
+ * MISS that the evidence records as HIT — the collector stored one hour of each
+ * day instead of the whole day, and the resolver scored a call's final day
+ * before any evidence for it existed. Both are fixed forward. Neither verdict
+ * is rewritten, because a register that edits settled calls is not a register.
+ * So the headline stays as published and this sits beside it.
+ *
+ * THE BRIER IS EXACT AND THE SKILL IS NOT, and they are treated differently
+ * for that reason. A Brier score needs only the stated probability and the
+ * outcome, both of which are known exactly. A SKILL score is measured against
+ * each unit's own long-run base rate — and those base rates were themselves
+ * estimated from the same hourly-bucket evidence that produced the wrong
+ * verdicts. Recomputing them requires `scripts/backfill-ooni-daily.ts --write`,
+ * which has never been run and is the owner's call.
+ *
+ * Publishing a skill number against a benchmark known to be mis-estimated
+ * would be exactly the kind of figure this module already refuses elsewhere,
+ * so it is withheld with its reason attached rather than printed with a
+ * footnote. A footnote does not survive being quoted.
+ */
+export interface CorrectedReading {
+  /** Exact: stated probability against the outcome the evidence records. */
+  brier: number | null;
+  /** Hits under corrected evidence. */
+  hits: number;
+  /** How many of this kind's scored rows carry a correction. */
+  corrections_applied: number;
+  /** Withheld until base rates are rebuilt on corrected evidence. */
+  skill_vs_base_rate: number | null;
+  /** Why the skill number above is absent. Null when it is present. */
+  skill_withheld_because: string | null;
 }
 
 export interface KindFigures {
@@ -64,6 +110,12 @@ export interface KindFigures {
   batches: number;
   scored_rows_used: number;
   scoring_complete: boolean;
+  /**
+   * The second reading, on corrected evidence. Null when no call of this kind
+   * carries a correction — which is the ordinary case and must not render as
+   * a zeroed-out object that looks like a measurement.
+   */
+  corrected: CorrectedReading | null;
 }
 
 const num = (v: number) => (Number.isFinite(v) ? v : null);
@@ -86,6 +138,7 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
       batches: 0,
       scored_rows_used: 0,
       scoring_complete: true,
+      corrected: null,
     };
   }
 
@@ -145,6 +198,32 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
     // Withheld until the kind has resolved in enough independent batches for
     // the number to separate skill from one fortnight's weather.
     out[kind].skill_vs_base_rate = num(publishableSkill({ calls, batches: out[kind].batches }));
+
+    // THE SECOND READING. Same rows, same stated probabilities, outcomes taken
+    // from the evidence where a correction exists. Computed under the same
+    // `scoring_complete` gate as the first — a corrected Brier over a partial
+    // set would be as misleading as a published one, and more so for sitting
+    // next to a number that is whole.
+    const correctedCount = rows.filter((r) => r.correctedOutcome !== undefined).length;
+    if (correctedCount > 0) {
+      const correctedCalls: ScoredCall[] = rows.map((r) => ({
+        probability: r.probability,
+        outcome: r.correctedOutcome ?? r.outcome,
+        baseRate: r.baseRate,
+      }));
+      out[kind].corrected = {
+        brier: calls.length > 0 ? num(brierScore(correctedCalls)) : null,
+        hits: correctedCalls.reduce((acc, c) => acc + c.outcome, 0),
+        corrections_applied: correctedCount,
+        // Deliberately not computed. See CorrectedReading: the reference these
+        // would be scored against is each unit's base rate, and those were
+        // estimated from the same evidence the corrections repair.
+        skill_vs_base_rate: null,
+        skill_withheld_because:
+          'base rates are estimated from the same evidence these corrections repair; ' +
+          'a skill number against that benchmark would not mean what it appears to',
+      };
+    }
   }
 
   return out;

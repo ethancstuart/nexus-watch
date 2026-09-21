@@ -14,6 +14,21 @@ import {
 } from '../_lib/calls.js';
 import { assembleByKind } from '../_lib/ledger-by-kind.js';
 
+/**
+ * The outcome the evidence records, when it differs from the published one.
+ *
+ * Returns undefined when there is no correction OR when the correction agrees
+ * with the published verdict — a correction that changes nothing is not one,
+ * and letting it through would inflate `corrections_applied`, which is a
+ * number readers will quote.
+ */
+function correctedOutcomeOf(published: string, corrected: string | null): 0 | 1 | undefined {
+  if (corrected !== 'hit' && corrected !== 'miss') return undefined;
+  const c = corrected === 'hit' ? 1 : 0;
+  const p = published === 'hit' ? 1 : 0;
+  return c === p ? undefined : (c as 0 | 1);
+}
+
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
 /**
@@ -216,10 +231,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //
     // Unlike the SSR query this one does NOT exclude calibration kinds: by_kind
     // is where the seismicity harness's ~0 skill is supposed to be visible.
+    //
+    // The corrections ride along on this query so the SECOND READING is scored
+    // over exactly the same row set as the first. Computing it from a separate
+    // query would reintroduce, one level up, the counts-vs-scores mismatch this
+    // endpoint already carries two comments about.
+    //
+    // DISTINCT ON (call_id) is not decoration. `call_corrections` is unique on
+    // (call_id, cause) and the recorder derives one cause per call — but a
+    // plain join trusts that, and a call that ever acquired a second cause
+    // would silently appear TWICE in the scored set, inflating the Brier
+    // denominator and quietly changing a published number. The subquery makes
+    // at most one correction per call structural rather than assumed.
     const scoringRows = (await sql`
-      SELECT kind, country_code, probability::float AS probability,
-             base_rate::float AS base_rate, status, resolved_at::text AS resolved_at
-      FROM calls WHERE status = ANY(${scoredStatuses})
+      SELECT c.kind, c.country_code, c.probability::float AS probability,
+             c.base_rate::float AS base_rate, c.status, c.resolved_at::text AS resolved_at,
+             cc.corrected_status
+      FROM calls c
+      LEFT JOIN (
+        SELECT DISTINCT ON (call_id) call_id, corrected_status
+        FROM call_corrections ORDER BY call_id, issued_on DESC
+      ) cc ON cc.call_id = c.id
+      WHERE c.status = ANY(${scoredStatuses})
     `) as unknown as Array<{
       kind: string;
       country_code: string;
@@ -227,6 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       base_rate: number | null;
       status: string;
       resolved_at: string | null;
+      corrected_status: string | null;
     }>;
 
     // The SAME fix, applied to the top-level statistics. An independent review
@@ -272,6 +306,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         baseRate: c.base_rate ?? undefined,
         outcome: (c.status === 'hit' ? 1 : 0) as 0 | 1,
         resolvedOn: (c.resolved_at ?? '').slice(0, 10),
+        // Only a correction that CHANGES the outcome counts as one. A row
+        // agreeing with what was published is not a correction, and counting
+        // it would overstate how much of the record moved.
+        correctedOutcome: correctedOutcomeOf(c.status, c.corrected_status),
       })),
     );
 

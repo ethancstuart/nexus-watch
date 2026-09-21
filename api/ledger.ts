@@ -117,10 +117,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // from the 40 rows above while being captioned with the un-limited count —
     // and because record-calls.ts writes FX after censorship, those 40 would
     // have been almost entirely one leg presented as the whole book.
+    // Corrections ride along, for the same reason the JSON endpoint does it:
+    // the second reading must be scored over exactly the rows the first one
+    // was. DISTINCT ON (call_id) keeps a call that ever acquired a second
+    // cause from appearing twice and moving a published number.
     const scoredRows = (await sql`
-      SELECT kind, country_code, probability::float AS probability, base_rate::float AS base_rate,
-             status, resolved_at::text AS resolved_at
-      FROM calls WHERE status IN ('hit','miss') AND kind <> 'seismicity_window'
+      SELECT c.kind, c.country_code, c.probability::float AS probability, c.base_rate::float AS base_rate,
+             c.status, c.resolved_at::text AS resolved_at, cc.corrected_status
+      FROM calls c
+      LEFT JOIN (
+        SELECT DISTINCT ON (call_id) call_id, corrected_status
+        FROM call_corrections ORDER BY call_id, issued_on DESC
+      ) cc ON cc.call_id = c.id
+      WHERE c.status IN ('hit','miss') AND c.kind <> 'seismicity_window'
     `) as unknown as Array<{
       kind: string;
       country_code: string;
@@ -128,6 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       base_rate: number | null;
       status: string;
       resolved_at: string | null;
+      corrected_status: string | null;
     }>;
 
     // CORRECTIONS GET THEIR OWN QUERY, not a filter over the resolved page.
@@ -389,6 +399,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             `${independentUnits(rows.map((r) => r.country_code))} units, ${kBatches} batch${kBatches === 1 ? '' : 'es'}` +
             `</span><span class="trail">${esc(trail)}</span></div>`,
         );
+
+        // THE SECOND READING, printed directly beneath the first.
+        //
+        // The line above is what the register PUBLISHED and it is not edited:
+        // this project's rule is that a resolved call is never rewritten. But
+        // 54 of those verdicts rest on evidence we have since established was
+        // wrong — the collector stored one hour of each day, and the resolver
+        // scored a call's final day before its evidence existed — and a
+        // headline derived from them, sitting above a section headed "54 calls
+        // we were wrong about", is a number the page itself contradicts.
+        //
+        // So both readings are published. The Brier here is exact: it needs
+        // only the stated probability and the outcome, and both are known. The
+        // SKILL is withheld, because skill is measured against each unit's own
+        // base rate and those base rates were estimated from the very evidence
+        // these corrections repair. Printing one would be a number against a
+        // benchmark we know is mis-estimated, which is worse than no number.
+        const corrected = rows.filter(
+          (r) => (r.corrected_status === 'hit' || r.corrected_status === 'miss') && r.corrected_status !== r.status,
+        );
+        if (corrected.length > 0) {
+          const cs: ScoredCall[] = rows.map((r) => ({
+            probability: r.probability,
+            outcome: (r.corrected_status === 'hit' || r.corrected_status === 'miss'
+              ? r.corrected_status === 'hit'
+                ? 1
+                : 0
+              : r.status === 'hit'
+                ? 1
+                : 0) as 0 | 1,
+          }));
+          const cBrier = brierScore(cs);
+          const cHits = cs.reduce((acc, c) => acc + c.outcome, 0);
+          parts.push(
+            `<div class="row unscored"><span class="lead">&nbsp;</span>` +
+              `<span class="det">On corrected evidence — ${cHits}/${rows.length} landed` +
+              `${Number.isFinite(cBrier) ? `, Brier ${cBrier.toFixed(3)}` : ''}. ` +
+              `${corrected.length} call${corrected.length === 1 ? '' : 's'} published ` +
+              `${esc(corrected[0].status.toUpperCase())} that the evidence records otherwise. ` +
+              `The published verdicts above are unchanged.` +
+              `</span><span class="trail">skill withheld</span></div>`,
+          );
+        }
       }
       parts.push('<div class="grid">');
     }
