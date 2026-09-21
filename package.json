@@ -29,7 +29,8 @@
     "check:route-rewrites": "tsx scripts/check-route-rewrites.ts",
     "check:api-paths": "tsx scripts/check-api-paths.ts",
     "check:design-tokens": "tsx scripts/check-design-tokens.ts",
-    "check:scored-status-literals": "tsx scripts/check-scored-status-literals.ts"
+    "check:scored-status-literals": "tsx scripts/check-scored-status-literals.ts",
+    "check:csp-map-hosts": "tsx scripts/check-csp-covers-map-hosts.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
