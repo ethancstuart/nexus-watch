@@ -168,10 +168,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const totalsRows = (await sql`
       SELECT
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
-        COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind <> 'seismicity_window')::int AS resolved,
+        COUNT(*) FILTER (WHERE status = ANY(${[...SCORED_STATUSES]}) AND kind <> 'seismicity_window')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
         COUNT(*) FILTER (WHERE status = 'pending' AND kind = 'seismicity_window')::int AS calibration_open,
-        COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind = 'seismicity_window')::int AS calibration_resolved,
+        COUNT(*) FILTER (WHERE status = ANY(${[...SCORED_STATUSES]}) AND kind = 'seismicity_window')::int AS calibration_resolved,
         -- The next resolution EVENT, or null. A bare MIN over pending rows picks
         -- up grace-held calls whose date has passed ("first resolves 2026-09-06"
         -- on 09-12). The floor is DERIVED FROM THE DATA, not the clock: if any
@@ -272,6 +272,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       corrected_status: string | null;
     }>;
 
+    // THE CORRECTED READING RE-SCORES THE PUBLISHED COHORT, DELIBERATELY.
+    //
+    // `scoringRows` is filtered to calls whose PUBLISHED status is scored, so
+    // the second reading covers exactly the rows the first one covers and the
+    // two Briers are comparable. That is the whole point of printing them
+    // together: same calls, same stated probabilities, outcomes corrected.
+    //
+    // The consequence, named rather than left implicit: a correction on a call
+    // published `unresolvable` — one the evidence says should have been scored
+    // at all — is NOT in this cohort. Including it would change the
+    // denominator, and a Brier over 264 rows is not comparable with a Brier
+    // over 263 however carefully it is labelled. That case needs its own
+    // treatment and its own number, not a quiet seat in this one.
+    //
+    // An independent review was right that the scope is keyed to the published
+    // status. It is keyed there on purpose; what was missing is that nothing
+    // SAID so, and nothing would have noticed the day such a correction was
+    // recorded. This count is that notice. It is zero today.
+    const outsideCohort = (await sql`
+      SELECT COUNT(*)::int AS n
+      FROM call_corrections cc
+      JOIN calls c ON c.id = cc.call_id
+      WHERE c.status <> ALL(${scoredStatuses})
+    `) as unknown as Array<{ n: number }>;
+    const correctionsOutsideScoredCohort = outsideCohort[0]?.n ?? 0;
+
     // The SAME fix, applied to the top-level statistics. An independent review
     // found that `scoring.base_rate`, `calibration`, `murphy`,
     // `independent_units` and `resolution_batches` were still computed from
@@ -367,6 +393,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         murphy: scored.length ? murphyDecomposition(scored) : null,
       },
       by_kind: byKind,
+      /**
+       * Corrections recorded against calls the published cohort never scored
+       * (e.g. an `unresolvable` the evidence says was a hit). They are NOT in
+       * any `corrected` reading above, because including them would change the
+       * denominator and make the two Briers incomparable. Non-zero here means
+       * a number is owed that this endpoint does not yet publish.
+       */
+      corrections_outside_scored_cohort: correctionsOutsideScoredCohort,
       open,
       // The correction rides WITH its call rather than in a separate list, so
       // no surface can render the verdict and miss the correction. `status`

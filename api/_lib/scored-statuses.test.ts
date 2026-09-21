@@ -65,7 +65,6 @@ describe('scored statuses', () => {
     // not the code.
     const expected = [...SCORED_STATUSES].sort().join(',');
     const offenders: string[] = [];
-    let found = 0;
 
     for (const file of walk(API_DIR)) {
       const src = readFileSync(file, 'utf8');
@@ -74,7 +73,6 @@ describe('scored statuses', () => {
       for (const chunk of src.split('`')) {
         if (!/\b(FROM|UPDATE|INTO)\s+calls\b/i.test(chunk)) continue;
         for (const m of chunk.matchAll(/status\s+IN\s*\(([^)]*)\)/gi)) {
-          found++;
           const listed = m[1]
             .split(',')
             .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
@@ -88,11 +86,38 @@ describe('scored statuses', () => {
       }
     }
 
-    // Assert the guard can actually see something. A scan that silently matches
-    // nothing is a green result with no mechanism behind it — the exact failure
-    // this repo has already been bitten by.
-    expect(found).toBeGreaterThan(0);
+    // NO LONGER `found > 0`, and the reason matters.
+    //
+    // When this was written, six queries spelled the scored statuses out by
+    // hand and this test checked that each list was CORRECT. They are now all
+    // `status = ANY(${[...SCORED_STATUSES]})`, and `check:scored-status-literals`
+    // fails the build if a literal comes back — so zero matches here is the
+    // enforced state, not a broken scan.
+    //
+    // The instrument still has to prove it can see, though. That assertion
+    // moved to the derived form below, where the filters actually live.
     expect(offenders).toEqual([]);
+  });
+
+  /**
+   * THE SELF-CHECK, RELOCATED TO WHERE THE FILTERS NOW ARE.
+   *
+   * A scan that silently matches nothing is a green result with no mechanism
+   * behind it. The test above used to carry this assertion against
+   * `status IN (...)`; removing the last literal made that scan vacuous and
+   * this suite failed, which is the discipline working. So the check follows
+   * the code: every scored-status filter on the calls table is now the derived
+   * form, and at least one must be visible for this file to mean anything.
+   */
+  it('the calls table is filtered by the DERIVED status set, and the scan can see it', () => {
+    let derived = 0;
+    for (const file of walk(API_DIR)) {
+      for (const chunk of readFileSync(file, 'utf8').split('`')) {
+        if (!/\b(FROM|UPDATE|INTO)\s+calls\b/i.test(chunk)) continue;
+        derived += [...chunk.matchAll(/status\s*=\s*ANY\(\$\{\s*\[\s*\.\.\.\s*SCORED_STATUSES\s*\]/gi)].length;
+      }
+    }
+    expect(derived).toBeGreaterThan(0);
   });
 });
 

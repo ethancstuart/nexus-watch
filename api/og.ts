@@ -1,4 +1,5 @@
 import { ImageResponse } from '@vercel/og';
+import { SCORED_STATUSES } from './_lib/calls.js';
 import { colors as C } from '../src/styles/email-tokens.js';
 import type { VercelRequest } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
@@ -320,7 +321,7 @@ async function fetchLedgerFacts(): Promise<LedgerFacts | null> {
         -- The card is what a stranger sees first when the link is shared, so it
         -- was the more-read of the two numbers and the wrong one. Found by the
         -- 2026-09-12 audit.
-        COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind <> 'seismicity_window')::int AS resolved,
+        COUNT(*) FILTER (WHERE status = ANY(${[...SCORED_STATUSES]}) AND kind <> 'seismicity_window')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
         MIN(resolves_on) FILTER (WHERE status = 'pending')::text AS next_resolves
       FROM calls

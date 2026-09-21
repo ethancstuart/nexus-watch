@@ -11,7 +11,13 @@ import {
   chooseSubject,
   fallbackSubject,
 } from '../_lib/brief-structure.js';
-import { formatLedgerSummary, CALIBRATION_KINDS, type Call, type LedgerSummaryRow } from '../_lib/calls.js';
+import {
+  formatLedgerSummary,
+  CALIBRATION_KINDS,
+  SCORED_STATUSES,
+  type Call,
+  type LedgerSummaryRow,
+} from '../_lib/calls.js';
 import { UNSUB_PLACEHOLDER } from '../_lib/unsubscribe-token.js';
 import { checkBudget, recordAnthropicSpend } from '../_lib/llm-budget.js';
 
@@ -947,7 +953,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             SELECT COUNT(*)::int AS total,
                    COUNT(*) FILTER (WHERE status = 'hit')::int AS hits
             FROM calls
-            WHERE status IN ('hit','miss') AND NOT (kind = ANY(${calibrationKinds}))
+            WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calibrationKinds}))
               AND resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
           `) as unknown as Array<{ total: number; hits: number }>;
           const resolvedRows = (await sql`
@@ -955,7 +961,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                    base_rate::float AS base_rate, status,
                    resolves_on::text AS resolves_on, evidence_count
             FROM calls
-            WHERE status IN ('hit','miss') AND NOT (kind = ANY(${calibrationKinds}))
+            WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calibrationKinds}))
               AND resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
             ORDER BY ABS(probability - COALESCE(base_rate, probability)) DESC
             LIMIT 40
@@ -1212,7 +1218,7 @@ ${(() => {
       const resolvedToday = (await sql`
         SELECT country_code, status, probability::float AS probability
         FROM calls
-        WHERE resolved_at::date = CURRENT_DATE AND status IN ('hit','miss')
+        WHERE resolved_at::date = CURRENT_DATE AND status = ANY(${[...SCORED_STATUSES]})
           AND NOT (kind = ANY(${calKinds}))
       `) as unknown as Array<{ country_code: string; status: string; probability: number }>;
       ledgerRecord = {
@@ -1228,7 +1234,7 @@ ${(() => {
         SELECT kind, probability::float AS probability, base_rate::float AS base_rate,
                status, resolved_at::text AS resolved_at
         FROM calls
-        WHERE status IN ('hit','miss') AND NOT (kind = ANY(${calKinds}))
+        WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calKinds}))
       `) as unknown as Array<{
         kind: string;
         probability: number;

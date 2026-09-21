@@ -9,6 +9,7 @@ import {
   publishableSkill,
   coverageRequirement,
   isScored,
+  SCORED_STATUSES,
   type ScoredCall,
 } from './_lib/calls.js';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
@@ -130,7 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         SELECT DISTINCT ON (call_id) call_id, corrected_status
         FROM call_corrections ORDER BY call_id, issued_on DESC
       ) cc ON cc.call_id = c.id
-      WHERE c.status IN ('hit','miss') AND c.kind <> 'seismicity_window'
+      WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND c.kind <> 'seismicity_window'
     `) as unknown as Array<{
       kind: string;
       country_code: string;
@@ -170,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const totals = (await sql`
       SELECT
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
-        COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind <> 'seismicity_window')::int AS resolved,
+        COUNT(*) FILTER (WHERE status = ANY(${[...SCORED_STATUSES]}) AND kind <> 'seismicity_window')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
         -- The next resolution EVENT, or null. A bare MIN over pending rows picks
         -- up grace-held calls whose date has passed ("first resolves 2026-09-06"
@@ -420,8 +421,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Scope DERIVED from isScored rather than enumerating hit/miss — a
         // status added later must count as a correction, not vanish into
         // "no correction" because nobody extended a literal.
+        // A TYPE PREDICATE, not just a filter. `describeCorrections` requires a
+        // non-null corrected status, and this is what proves the caller honours
+        // that rather than leaving it to a comment — an independent review
+        // pointed out the function would otherwise render "records as " for a
+        // null it can never actually be handed today.
         const corrected = rows.filter(
-          (r) => r.corrected_status !== null && isScored(r.corrected_status) && r.corrected_status !== r.status,
+          (r): r is (typeof rows)[number] & { corrected_status: string } =>
+            r.corrected_status !== null && isScored(r.corrected_status) && r.corrected_status !== r.status,
         );
         if (corrected.length > 0) {
           const cs: ScoredCall[] = rows.map((r) => {

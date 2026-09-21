@@ -237,11 +237,17 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
  * the evidence records as a HIT, and silently false the first time a single
  * correction runs the other way. An independent review named it. A sentence
  * about a set is derived from the set.
+ *
+ * `corrected_status` is REQUIRED rather than nullable. A row with no correction
+ * is not a correction, and accepting null here would let a caller hand one over
+ * and get "records as " rendered into published copy. The caller narrows with a
+ * type predicate, so the filter and this signature are checked against each
+ * other by the compiler instead of by a comment.
  */
-export function describeCorrections(rows: Array<{ status: string; corrected_status: string | null }>): string {
+export function describeCorrections(rows: Array<{ status: string; corrected_status: string }>): string {
   const byDirection = new Map<string, number>();
   for (const r of rows) {
-    const key = `${r.status.toUpperCase()}|${(r.corrected_status ?? '').toUpperCase()}`;
+    const key = `${r.status.toUpperCase()}|${r.corrected_status.toUpperCase()}`;
     byDirection.set(key, (byDirection.get(key) ?? 0) + 1);
   }
   return [...byDirection]
