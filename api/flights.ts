@@ -199,6 +199,7 @@ async function fetchAdsbLol(res: VercelResponse) {
   let rateLimited = 0;
   let failed = 0;
   let skipped = 0;
+  const reasons = new Map<string, number>();
 
   const collected: Array<Array<Record<string, unknown>>> = [];
   for (let i = 0; i < regions.length; i += CONCURRENCY) {
@@ -224,9 +225,23 @@ async function fetchAdsbLol(res: VercelResponse) {
     );
     for (const r of settled) {
       queried++;
-      if (r.status === 'fulfilled') collected.push(r.value);
-      else if ((r.reason as Error)?.name === 'RateLimited') rateLimited++;
-      else failed++;
+      if (r.status === 'fulfilled') {
+        collected.push(r.value);
+        continue;
+      }
+      const err = r.reason as Error;
+      if (err?.name === 'RateLimited') {
+        rateLimited++;
+      } else {
+        failed++;
+        // WHY it failed, not just that it did. The first version of this
+        // reported `failed: 81` and a note asserting the client was throttled
+        // — which the counts then contradicted, because none of the 81 were
+        // 429s. A failure count without a reason is the same dead end as the
+        // silent `[]` it replaced, one step further along.
+        const reason = err?.name === 'TimeoutError' ? 'timeout' : (err?.message ?? 'unknown');
+        reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+      }
     }
   }
   const results = collected.map((value) => ({ status: 'fulfilled' as const, value }));
@@ -269,7 +284,15 @@ async function fetchAdsbLol(res: VercelResponse) {
      * otherwise, which is how this endpoint reported success while every one
      * of its eighty-one requests was being refused.
      */
-    regions: { total: regions.length, queried, rateLimited, failed, skipped },
+    regions: {
+      total: regions.length,
+      queried,
+      rateLimited,
+      failed,
+      skipped,
+      /** Distinct failure reasons, commonest first. Empty when nothing failed. */
+      reasons: Object.fromEntries([...reasons].sort((a, b) => b[1] - a[1]).slice(0, 5)),
+    },
     /** Aircraft in this response. `total` is before the 1500 display sample. */
     count: sampled.length,
     total: aircraft.length,
@@ -282,8 +305,9 @@ async function fetchAdsbLol(res: VercelResponse) {
     ...(sampled.length === 0 && rateLimited + failed > 0
       ? {
           note:
-            `No aircraft returned: ${rateLimited} of ${queried} region requests were rate-limited ` +
-            `and ${failed} failed. This is a throttled client, not an empty sky.`,
+            `No aircraft returned, and the upstream is the reason rather than the sky: ` +
+            `of ${queried} region requests, ${rateLimited} were rate-limited and ${failed} failed` +
+            `${reasons.size > 0 ? ` (${[...reasons].sort((a, b) => b[1] - a[1])[0][0]})` : ''}.`,
         }
       : {}),
     timestamp: Math.floor(Date.now() / 1000),
