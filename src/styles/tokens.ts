@@ -28,6 +28,7 @@
  */
 
 import { colors as emailColors, fonts as emailFonts } from './email-tokens';
+import { registerColors } from './register-tokens';
 
 // ---------------------------------------------------------------------------
 // Theme identifier
@@ -60,30 +61,38 @@ export type AnyThemeName = NewThemeName | LegacyThemeName;
 // moves the values into a token object so B.2+ can swap them.
 
 export const terminalTokens: Record<string, string> = {
-  // Surfaces
-  '--color-bg': '#000000',
-  '--color-bg-page': '#000000',
-  '--color-surface': '#0a0a0a',
-  '--color-surface-elevated': '#111111',
-  '--color-surface-sunken': '#000000',
-  '--color-surface-muted': '#0d0d0d',
+  // Surfaces — registerColors, so the SPA chrome and the server-rendered
+  // register are one palette rather than two that merely both look dark.
+  // These were #000000 while design-tokens.css said #0a0a0a and /ledger said
+  // #161412: three dark grounds on one product. DERIVED, not copied, so a
+  // change to the palette reaches this theme without anyone remembering.
+  '--color-bg': registerColors.bgPage,
+  '--color-bg-page': registerColors.bgPage,
+  '--color-surface': registerColors.bgCard,
+  '--color-surface-elevated': registerColors.hairline,
+  '--color-surface-sunken': registerColors.bgSunken,
+  '--color-surface-muted': registerColors.bgSunken,
 
-  // Borders
-  '--color-border': '#1a1a1a',
-  '--color-border-subtle': '#141414',
-  '--color-border-strong': '#262626',
+  // Borders. `hairline` is decorative and carries no meaning; `border` is the
+  // one that clears WCAG 1.4.11 (3.18:1) and belongs on anything a reader has
+  // to perceive as a boundary.
+  '--color-border': registerColors.hairline,
+  '--color-border-subtle': registerColors.hairline,
+  '--color-border-strong': registerColors.border,
 
-  // Text
-  '--color-text': '#cccccc',
-  '--color-text-primary': '#ffffff',
-  '--color-text-secondary': '#cccccc',
-  '--color-text-muted': '#666666',
-  '--color-text-tertiary': '#888888',
-  '--color-text-inverse': '#000000',
+  // Text — 14.70:1 / 9.20:1 / 6.19:1 on the ground above, all measured.
+  '--color-text': registerColors.textSecondary,
+  '--color-text-primary': registerColors.textPrimary,
+  '--color-text-secondary': registerColors.textSecondary,
+  '--color-text-muted': registerColors.textTertiary,
+  '--color-text-tertiary': registerColors.textTertiary,
+  '--color-text-inverse': registerColors.bgPage,
 
-  // Accents
-  '--color-accent': '#ff6600',
-  '--color-accent-soft': '#ff8533',
+  // Accents. Orange was already identical on both surfaces; the hover was
+  // #ff7722 here and #FF8533 in the register, which is the kind of drift a
+  // second palette produces.
+  '--color-accent': registerColors.accent,
+  '--color-accent-soft': registerColors.accentHover,
   '--color-accent-dim': 'rgba(255, 102, 0, 0.15)',
   '--color-accent-border': 'rgba(255, 102, 0, 0.3)',
   '--color-accent-bg-soft': 'rgba(255, 102, 0, 0.08)',
