@@ -1,4 +1,7 @@
-import maplibregl from 'maplibre-gl';
+// maplibre-gl v6 is ESM-only and exports no default; a namespace import is
+// the supported shape. v5, which did have a default, carried the CRITICAL
+// advisory this restoration exists to avoid.
+import * as maplibregl from 'maplibre-gl';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { MapDataLayer } from './LayerDefinition.ts';
 import { pipelinePopup } from '../PopupCard.ts';

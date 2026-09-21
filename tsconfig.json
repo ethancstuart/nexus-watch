@@ -4,7 +4,9 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    "types": ["vite/client", "geojson"], // geojson: maplibre-gl v5 shipped the
+    // GeoJSON namespace globally; v6 does not, and this array restricts globals
+    // to what is named here, so the map's layer types need it declared.
     "skipLibCheck": true,
     "allowUmdGlobalAccess": true,
 

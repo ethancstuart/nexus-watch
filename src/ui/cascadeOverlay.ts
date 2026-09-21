@@ -11,6 +11,7 @@
  */
 
 import type { Map as MaplibreMap } from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { detectActiveCascades, cascadeColor, type CascadeArrow } from '../services/cascadeEngine.ts';
 
 let map: MaplibreMap | null = null;

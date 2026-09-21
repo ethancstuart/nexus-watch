@@ -1,4 +1,4 @@
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { createElement } from '../utils/dom.ts';
 import type { MapLayerManager } from './MapLayerManager.ts';
 import type { MapLayerCategory } from '../types/index.ts';
