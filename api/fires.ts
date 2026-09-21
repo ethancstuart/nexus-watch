@@ -32,11 +32,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const csv = await response.text();
-    const hotspots = parseCsv(csv);
+    const { hotspots, total } = parseCsv(csv);
 
-    return res
-      .setHeader('Cache-Control', 'public, max-age=600, s-maxage=600')
-      .json({ hotspots, count: hotspots.length });
+    return res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600').json({
+      hotspots,
+      /** Hotspots in the feed, before sampling. */
+      count: total,
+      /** How many are in this response. */
+      returned: hotspots.length,
+      sampled: total > hotspots.length,
+    });
   } catch (err) {
     console.error('FIRMS API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Fire service error' });
@@ -54,18 +59,23 @@ async function handlePublicFeed(res: VercelResponse) {
     }
 
     const csv = await response.text();
-    const hotspots = parseCsv(csv);
+    const { hotspots, total } = parseCsv(csv);
 
-    return res
-      .setHeader('Cache-Control', 'public, max-age=600, s-maxage=600')
-      .json({ hotspots, count: hotspots.length });
+    return res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600').json({
+      hotspots,
+      /** Hotspots in the feed, before sampling. */
+      count: total,
+      /** How many are in this response. */
+      returned: hotspots.length,
+      sampled: total > hotspots.length,
+    });
   } catch (err) {
     console.error('Public FIRMS feed error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Fire service error' });
   }
 }
 
-function parseCsv(csv: string): {
+interface Hotspot {
   lat: number;
   lon: number;
   brightness: number;
@@ -74,9 +84,20 @@ function parseCsv(csv: string): {
   acqDate: string;
   acqTime: string;
   frp: number;
-}[] {
+}
+
+/**
+ * Returns the sampled hotspots AND how many the feed actually held.
+ *
+ * It used to return only the sampled array, and both callers published
+ * `count: hotspots.length`. The sampler caps at 2000, so on any serious fire
+ * day the endpoint reported exactly 2000 — a page size presented as a
+ * measurement of the world. The same defect api/_lib/ledger-by-kind.ts was
+ * written about, in a different file.
+ */
+function parseCsv(csv: string): { hotspots: Hotspot[]; total: number } {
   const lines = csv.trim().split('\n');
-  if (lines.length < 2) return [];
+  if (lines.length < 2) return { hotspots: [], total: 0 };
 
   const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
   const latIdx = headers.indexOf('latitude');
@@ -88,18 +109,9 @@ function parseCsv(csv: string): {
   const timeIdx = headers.indexOf('acq_time');
   const frpIdx = headers.indexOf('frp');
 
-  if (latIdx === -1 || lonIdx === -1) return [];
+  if (latIdx === -1 || lonIdx === -1) return { hotspots: [], total: 0 };
 
-  const results: {
-    lat: number;
-    lon: number;
-    brightness: number;
-    confidence: number | string;
-    satellite: string;
-    acqDate: string;
-    acqTime: string;
-    frp: number;
-  }[] = [];
+  const results: Hotspot[] = [];
 
   // Sample for performance — max 2000 hotspots
   const step = lines.length > 2001 ? Math.ceil((lines.length - 1) / 2000) : 1;
@@ -122,5 +134,7 @@ function parseCsv(csv: string): {
     });
   }
 
-  return results;
+  // `total` is the data rows in the feed, before sampling — the header line
+  // is excluded, and a malformed row still counted as present upstream.
+  return { hotspots: results, total: Math.max(0, lines.length - 1) };
 }

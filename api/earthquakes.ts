@@ -30,24 +30,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const minMag = parseFloat(minmagnitude);
     const maxCount = parseInt(limit, 10);
-    const earthquakes = data.features
-      .filter((f) => f.properties.mag >= minMag)
-      .slice(0, maxCount)
-      .map((f) => ({
-        id: f.id,
-        magnitude: f.properties.mag,
-        place: f.properties.place,
-        time: f.properties.time,
-        url: f.properties.url,
-        tsunami: f.properties.tsunami === 1,
-        lon: f.geometry.coordinates[0],
-        lat: f.geometry.coordinates[1],
-        depth: f.geometry.coordinates[2],
-      }));
+    // COUNT COMES FROM THE MATCH, NEVER FROM THE PAGE. `count` used to be
+    // `earthquakes.length` — the length of the array AFTER .slice(limit) — so
+    // on any busy day it reported exactly 300 and a reader had no way to tell
+    // a 300-quake day from a 900-quake one. This is the defect
+    // api/_lib/ledger-by-kind.ts exists to document, arriving here from a
+    // different direction.
+    const matching = data.features.filter((f) => f.properties.mag >= minMag);
+    const earthquakes = matching.slice(0, maxCount).map((f) => ({
+      id: f.id,
+      magnitude: f.properties.mag,
+      place: f.properties.place,
+      time: f.properties.time,
+      url: f.properties.url,
+      tsunami: f.properties.tsunami === 1,
+      lon: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1],
+      depth: f.geometry.coordinates[2],
+    }));
 
-    return res
-      .setHeader('Cache-Control', 'public, max-age=60, s-maxage=60')
-      .json({ earthquakes, count: earthquakes.length });
+    return res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60').json({
+      earthquakes,
+      /** How many matched the magnitude filter, whole feed. */
+      count: matching.length,
+      /** How many are in this response. */
+      returned: earthquakes.length,
+      limit: maxCount,
+      truncated: matching.length > earthquakes.length,
+    });
   } catch (err) {
     console.error('Earthquake API error:', err instanceof Error ? err.message : err);
     return res.status(502).json({ error: 'Earthquake service error' });

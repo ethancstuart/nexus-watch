@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 
+/** The page Polymarket is asked for. Named so a count derived from it cannot
+ * be mistaken for a total. */
+const POLYMARKET_PAGE_SIZE = 15;
+
 export const config = { runtime: 'nodejs' };
 
 /**
@@ -86,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
       const polyRes = await fetch(
-        'https://gamma-api.polymarket.com/events?closed=false&order=volume24hr&ascending=false&limit=15',
+        `https://gamma-api.polymarket.com/events?closed=false&order=volume24hr&ascending=false&limit=${POLYMARKET_PAGE_SIZE}`,
         { signal: AbortSignal.timeout(5000) },
       );
       if (polyRes.ok) {
@@ -170,7 +174,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({
       divergences,
       significant_count: significant.length,
-      total_markets: markets.length,
+      /**
+       * The markets THIS RESPONSE considered, which is a page and says so.
+       *
+       * It was published as `total_markets` while being the length of a
+       * `limit=15` fetch with one market taken per event — so it read as "the
+       * market universe" and was at most fifteen, for ever. A page size
+       * presented as a total is the defect api/_lib/ledger-by-kind.ts exists
+       * to document; the honest fix here is to name it a page rather than
+       * invent a total, because Polymarket's gamma endpoint is not asked for
+       * one and guessing would be worse.
+       */
+      markets_considered: markets.length,
+      markets_page_size: POLYMARKET_PAGE_SIZE,
+      markets_truncated: markets.length >= POLYMARKET_PAGE_SIZE,
       total_matched: divergences.length,
       meta: {
         methodology:

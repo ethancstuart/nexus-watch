@@ -6,15 +6,25 @@ export const config = { runtime: 'nodejs', maxDuration: 8 };
 /**
  * Energy — EIA (US Energy Information Administration) + ENTSO-E (EU grid).
  *
- * GET /api/energy?country=US     → EIA crude oil + natural gas + electricity prices
- * GET /api/energy?country=DE     → ENTSO-E day-ahead prices + load forecast (when ENTSOE_API_KEY set)
- * GET /api/energy                → Global summary: WTI, Brent, Henry Hub, EU TTF
+ * GET /api/energy → three global EIA price series.
+ *
+ * THIS BLOCK USED TO DOCUMENT AN ENDPOINT THAT DOES NOT EXIST. It described
+ * `?country=US` returning US electricity prices and `?country=DE` returning
+ * ENTSO-E day-ahead prices and load forecasts. No code reads `req.query
+ * .country` — there is no country branch, no ENTSO-E call and no
+ * ENTSOE_API_KEY anywhere in this file. An independent review named it.
+ *
+ * It is corrected rather than implemented because this product has already
+ * been caught describing capabilities it does not have: eleven of the
+ * thirteen data sources named on the public pages have no collector
+ * (docs/OWNER-ACTIONS-2026-09-12.md §6). A docblock is where the next person
+ * decides what to trust.
  *
  * Powers the country panel "Energy mix" section.
  *
  * Falls back to last-known values from module cache on upstream failure.
- * EIA only requires EIA_API_KEY (free, instant). ENTSO-E key approval is
- * 1-3 days; until set, EU country requests return EIA-style global prices.
+ * Requires EIA_API_KEY (free, instant). Without it the endpoint returns an
+ * empty price map and says so, rather than anything invented.
  */
 
 interface EnergySnapshot {

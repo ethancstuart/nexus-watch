@@ -56,18 +56,32 @@ const PENDING_DECISION: Record<string, string> = {
   'parse-alert': 'Alert builder — fails visibly. Billed an Anthropic key when live.',
   'v1/cii-sparklines': 'CII sparklines — swallowed, renders blank.',
   'v1/data-lake': 'News ticker — unguarded. `data_lake` is dropped by PR #38.',
+  // public/sw.js only NAMES these, in a cache-exclusion predicate: "never
+  // cache auth or chat API routes". They are not fetch targets, so nothing
+  // breaks while they are absent — the predicate simply never matches. Dead
+  // config left by the 2026-09-06 deletion, worth removing, not urgent.
+  auth: 'Service-worker cache predicate only, not a fetch. Dead config from the 2026-09-06 deletion.',
+  chat: 'Service-worker cache predicate only, not a fetch. Dead config from the 2026-09-06 deletion.',
   // NOT listed: accuracy/stats. It appears once, in a comment in src/main.ts
   // recording that the page module and the endpoint were both deleted on
   // 2026-08-31. Comment-stripping removes it, which is the correct result —
   // it was in an earlier draft of this list because the first scan read prose.
 };
 
+/**
+ * CLIENT SOURCE IS NOT ONLY `src/**.ts`.
+ *
+ * The first version of this walked src/ for .ts files alone, and an
+ * independent review was right that a non-TypeScript caller would pass by
+ * omission — the exact shape the guard exists to forbid. index.html carries
+ * three /api/ references and public/sw.js two, none of which were checked.
+ */
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     if (entry === 'node_modules' || entry.startsWith('.')) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) walk(full, out);
-    else if (/\.ts$/.test(entry) && !/\.test\.ts$/.test(entry)) out.push(full);
+    else if (/\.(ts|tsx|js|mjs|jsx|html)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) out.push(full);
   }
   return out;
 }
@@ -80,7 +94,9 @@ function stripComments(src: string): string {
 const vercelJson = readFileSync(join(ROOT, 'vercel.json'), 'utf8');
 const referenced = new Map<string, string>();
 
-for (const file of walk(join(ROOT, 'src'))) {
+const CLIENT_SOURCES = [...walk(join(ROOT, 'src')), ...walk(join(ROOT, 'public')), join(ROOT, 'index.html')];
+
+for (const file of CLIENT_SOURCES) {
   const src = stripComments(readFileSync(file, 'utf8'));
   for (const m of src.matchAll(/\/api\/[A-Za-z0-9/_-]+/g)) {
     // A path immediately preceded by another host is part of that URL.

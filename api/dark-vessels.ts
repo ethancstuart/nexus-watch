@@ -38,6 +38,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       LIMIT 20
     `;
 
+    // COUNTS COME FROM COUNT(*), NEVER FROM THE PAGE — the rule this repo
+    // already wrote down in api/_lib/ledger-by-kind.ts after the public API
+    // published `censorship_event.open: 3` against 312 real rows. The same
+    // defect was here: `activeCount` was `active.length` behind LIMIT 50 and
+    // `recentCount` was `recent.length` behind LIMIT 20, so the moment more
+    // than fifty vessels were dark the endpoint reported exactly fifty, for
+    // ever, and nothing said it was a page.
+    const totals = (await sql`
+      SELECT
+        COUNT(*) FILTER (WHERE gap_end IS NULL AND duration_minutes >= 30)::int AS active_total,
+        COUNT(*) FILTER (WHERE gap_end IS NOT NULL AND gap_end > NOW() - INTERVAL '24 hours')::int AS recent_total
+      FROM vessel_gaps
+    `) as unknown as Array<{ active_total: number; recent_total: number }>;
+    const activeTotal = totals[0]?.active_total ?? 0;
+    const recentTotal = totals[0]?.recent_total ?? 0;
+
     return res.setHeader('Cache-Control', 'public, max-age=60').json({
       active: active.map((r) => ({
         mmsi: r.mmsi,
@@ -60,8 +76,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         durationMinutes: r.duration_minutes,
         sensitiveArea: r.sensitive_area,
       })),
-      activeCount: active.length,
-      recentCount: recent.length,
+      /** Whole table, not the page above. */
+      activeCount: activeTotal,
+      recentCount: recentTotal,
+      /** How many of each are actually in this response. */
+      activeReturned: active.length,
+      recentReturned: recent.length,
+      truncated: activeTotal > active.length || recentTotal > recent.length,
     });
   } catch (err) {
     console.error('Dark vessels API error:', err instanceof Error ? err.message : err);

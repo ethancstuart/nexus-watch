@@ -20,6 +20,26 @@ export const config = { runtime: 'nodejs' };
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res);
   const apiKey = process.env.FINNHUB_API_KEY;
+  const action = req.query.action as string | undefined;
+
+  // THE KEY FALLBACK ANSWERS ONLY THE QUOTES REQUEST IT WAS WRITTEN FOR.
+  //
+  // It used to run before any routing, so with no FINNHUB_API_KEY every
+  // action — search, ticker, sparklines, candle, news, profile, metrics —
+  // received `{ quotes: [] }`. A caller asking for a company profile got a
+  // quotes envelope with a 200 on it and no way to tell that its request had
+  // not been understood. An independent review named it.
+  //
+  // An action that genuinely needs the key now says so, in its own shape,
+  // with a status that means it.
+  if (!apiKey && action) {
+    return res.status(503).json({
+      error: 'Market data requires FINNHUB_API_KEY configuration',
+      action,
+      source: 'none',
+    });
+  }
+
   if (!apiKey) {
     // Free fallback: return major indices via Yahoo Finance (no auth needed)
     try {
@@ -58,7 +78,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ quotes: [], error: 'Market data requires FINNHUB_API_KEY configuration', source: 'none' });
   }
 
-  const action = req.query.action as string | undefined;
   if (action === 'search') {
     return handleSearch(req, res, apiKey);
   }

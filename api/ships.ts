@@ -157,10 +157,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (vessels.length > 0) {
       cachedVessels = vessels;
       lastFetch = Date.now();
+      return res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=30').json({
+        vessels,
+        count: vessels.length,
+      });
     }
-    return res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=30').json({
-      vessels,
-      count: vessels.length,
+
+    // A COLLECTION THAT YIELDS NOTHING IS NOT A SEA WITH NO SHIPS.
+    //
+    // collectAIS listens for four seconds and can return an empty array
+    // WITHOUT THROWING — a slow WebSocket handshake, a quiet moment, a
+    // truncated stream. The catch below already serves the stale cache, but
+    // this path never reached it: it returned `vessels: []` with a 200, so a
+    // transient hiccup made the whole layer vanish while reporting success.
+    // The cache write was already guarded by `length > 0`; the response was
+    // not, which is the asymmetry that hid it.
+    if (cachedVessels.length > 0) {
+      return res.setHeader('Cache-Control', 'public, max-age=15').json({
+        vessels: cachedVessels,
+        count: cachedVessels.length,
+        cached: true,
+        stale: true,
+      });
+    }
+    return res.setHeader('Cache-Control', 'public, max-age=15').json({
+      vessels: [],
+      count: 0,
+      note: 'No AIS positions were received in this collection window.',
     });
   } catch (err) {
     console.error('AIS error:', err instanceof Error ? err.message : err);
