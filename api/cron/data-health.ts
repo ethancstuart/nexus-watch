@@ -33,6 +33,20 @@ export interface ProbeResult {
   error: string | null;
   /** 2 when a transport failure was retried. Absent means one attempt. */
   attempts?: number;
+  /**
+   * The HTTP status the source replied with, or null when the request never
+   * got an answer at all (abort, DNS, reset).
+   *
+   * THIS IS WHAT THE RETRY KEYS ON, and it is a field rather than a string
+   * match for a reason an independent review named: the first version tested
+   * `error.startsWith('HTTP ')`, so the decision to retry depended on the
+   * FORMAT OF A HUMAN-READABLE MESSAGE. Someone reformats that string — as
+   * attemptProxyCacheBust already does, appending the body — and a source
+   * returning 503 starts getting retried, doubling load on something already
+   * failing. The distinction "did it answer" is structural, so it is stored
+   * structurally.
+   */
+  httpStatus: number | null;
 }
 
 export interface CurrentRow {
@@ -233,9 +247,9 @@ export async function probeSource(
   base?: string,
 ): Promise<ProbeResult> {
   const first = await probeOnce(source, fetchImpl, base);
-  // `ok` or an HTTP status means the source answered. Only a transport
-  // failure — abort, DNS, reset — earns a second attempt.
-  if (first.ok || first.error?.startsWith('HTTP ')) return first;
+  // An answer of any kind — 200 or 503 — is a reading. Only a request that
+  // never landed earns a second attempt.
+  if (first.httpStatus !== null) return first;
   const second = await probeOnce(source, fetchImpl, base);
   // Report the total cost of the reading, so a retried probe cannot look as
   // cheap as a first-attempt one in the latency figures.
@@ -257,6 +271,7 @@ async function probeOnce(source: LayerSource, fetchImpl: FetchLike = fetch, base
         recordCount: null,
         freshnessSeconds: null,
         error: `HTTP ${res.status}`,
+        httpStatus: res.status,
       };
     }
     let body: unknown = null;
@@ -269,7 +284,7 @@ async function probeOnce(source: LayerSource, fetchImpl: FetchLike = fetch, base
       }
     }
     const { recordCount, freshnessSeconds } = inferFromBody(body);
-    return { ok: true, latencyMs, recordCount, freshnessSeconds, error: null };
+    return { ok: true, latencyMs, recordCount, freshnessSeconds, error: null, httpStatus: res.status };
   } catch (err) {
     return {
       ok: false,
@@ -277,6 +292,8 @@ async function probeOnce(source: LayerSource, fetchImpl: FetchLike = fetch, base
       recordCount: null,
       freshnessSeconds: null,
       error: err instanceof Error ? err.message : String(err),
+      // Never landed. This is the only shape that is retried.
+      httpStatus: null,
     };
   } finally {
     clearTimeout(timer);

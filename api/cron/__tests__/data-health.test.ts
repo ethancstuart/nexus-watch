@@ -20,6 +20,7 @@ const happyProbe = (over: Partial<ProbeResult> = {}): ProbeResult => ({
   recordCount: 42,
   freshnessSeconds: 60,
   error: null,
+  httpStatus: 200,
   ...over,
 });
 
@@ -32,6 +33,7 @@ describe('computeScore', () => {
     const probe: ProbeResult = {
       ok: false,
       latencyMs: 5000,
+      httpStatus: null,
       recordCount: null,
       freshnessSeconds: null,
       error: 'ECONNREFUSED',
@@ -309,6 +311,26 @@ describe('probeSource', () => {
     const result = await probeSource(source, mockFetch);
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
     expect(result.attempts).toBe(2);
+  });
+
+  it('decides on the STATUS, not on how the error was worded', async () => {
+    // The first version tested `error.startsWith('HTTP ')`, so whether a 503
+    // got retried depended on the format of a human-readable string. An
+    // independent review named it. attemptProxyCacheBust in this same file
+    // already formats its errors differently (`HTTP 503: <body>`), so the
+    // divergence was one edit away from doubling load on a failing source.
+    //
+    // This asserts the decision survives a reworded message.
+    const mockFetch = vi.fn().mockResolvedValue(new Response('detail', { status: 503 }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.httpStatus).toBe(503);
+    expect(mockFetch).toHaveBeenCalledOnce();
+
+    // And that a transport failure — which has NO status — is the retried one.
+    const transport = vi.fn().mockRejectedValue(new Error('any wording at all'));
+    const r2 = await probeSource(source, transport);
+    expect(r2.httpStatus).toBeNull();
+    expect(transport).toHaveBeenCalledTimes(2);
   });
 
   it('does not crash on JSON bodies that fail to parse', async () => {
