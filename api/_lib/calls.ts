@@ -319,6 +319,9 @@ export function brierSkillScore(calls: ScoredCall[]): number {
  *   - fewer than MIN_RESOLUTION_BATCHES independent resolution batches. One
  *     fortnight cannot separate a forecasting method from the weather it
  *     happened to land in.
+ *   - fewer than MIN_INDEPENDENT_UNITS distinct units, when the caller knows
+ *     its unit count. Sixteen overlapping windows on one currency are one
+ *     observation wearing sixteen hats.
  *   - a cohort whose every row was stated AT its base rate. Its skill is
  *     0.000 by algebra rather than by measurement, and a hard zero printed as
  *     a result reads as a finding. It is not one.
@@ -326,10 +329,16 @@ export function brierSkillScore(calls: ScoredCall[]): number {
  * NaN is a real answer here — "not enough resolved calls to say" — and callers
  * must render it as an absence with its reason, never as a 0.
  */
-export function publishableSkill(opts: { calls: ScoredCall[]; batches: number }): number {
-  const { calls, batches } = opts;
+export function publishableSkill(opts: { calls: ScoredCall[]; batches: number; units?: number }): number {
+  const { calls, batches, units } = opts;
   if (calls.length === 0) return NaN;
   if (batches < MIN_RESOLUTION_BATCHES) return NaN;
+  // `units` is optional so existing callers keep compiling, but a caller that
+  // KNOWS its unit count and is below the floor must be refused. Omitting it
+  // is not the same as passing it — an omitted count means "this cohort has no
+  // meaningful unit axis", which is true of a pooled statistical primitive and
+  // false of every per-kind figure this ledger publishes.
+  if (units !== undefined && units < MIN_INDEPENDENT_UNITS) return NaN;
   // Every row priced at its own baseline: numerator and denominator are the
   // same sum, so the result is an identity, not a measurement.
   if (calls.every((c) => c.baseRate !== undefined && c.probability === c.baseRate)) return NaN;
@@ -417,6 +426,30 @@ export function resolutionBatches(resolvedOnDates: string[]): number {
  * number we could put in its place.
  */
 export const MIN_RESOLUTION_BATCHES = 3;
+
+/**
+ * The OTHER axis of independence, and the one the shipped gate was missing.
+ *
+ * MIN_RESOLUTION_BATCHES guards the TEMPORAL axis — three separate mornings,
+ * so one fortnight's weather cannot masquerade as method. It says nothing
+ * about how many distinct things were being forecast on those mornings.
+ *
+ * WHY THIS MATTERS HERE AND NOT IN THEORY. record-calls writes one call per
+ * unit per day, so every FX unit has `batches === n` by construction. Egypt
+ * has SIXTEEN resolved calls, made daily, each a 14-day window overlapping the
+ * last by thirteen days:
+ *
+ *   M M M M M H H H H M H H H H H H
+ *
+ * That is one devaluation episode rendered as sixteen trials. Under the
+ * batch-only gate a cohort of exactly that shape — one country, sixteen
+ * "batches" — passes, and a skill number prints over what is arithmetically a
+ * single observation.
+ *
+ * So a published figure now needs three independent UNITS as well as three
+ * independent batches. Both, not either.
+ */
+export const MIN_INDEPENDENT_UNITS = 3;
 
 export interface CalibrationBin {
   /** Lower edge of the probability bin, 0..1. */
