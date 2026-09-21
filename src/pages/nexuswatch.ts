@@ -96,6 +96,16 @@ import type { CinemaMode } from '../cinema/CinemaMode.ts';
 import { computeCorrelations } from '../services/correlationEngine.ts';
 import { evaluateAlerts, setRules } from '../services/alertEngine.ts';
 import { loadRulesFromStorage, openAlertBuilder } from '../ui/alertBuilder.ts';
+// RESTORED 2026-09-21. These three stylesheets were deleted with the Intel
+// Map on 2026-09-06 and PR #53 brought their components back without them.
+// quick-layer-bar.css is the visible one: the chip strip above the map
+// (Earthquakes / Fires / Conflict / ...) had NO styles in any stylesheet, so
+// it rendered as raw browser default buttons — grey, boxy and jammed
+// together. Reported as "gray and weird looking", which is exactly what an
+// unstyled <button> looks like.
+import '../styles/quick-layer-bar.css';
+import '../styles/map.css';
+import '../styles/density.css';
 import '../styles/alert-builder.css';
 import '../styles/timeline.css';
 import '../styles/brief.css';
