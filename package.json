@@ -27,7 +27,8 @@
     "check:kv-key-encoding": "tsx scripts/check-kv-key-encoding.ts",
     "check:calls-writes": "tsx scripts/check-calls-writes.ts",
     "check:route-rewrites": "tsx scripts/check-route-rewrites.ts",
-    "check:design-tokens": "tsx scripts/check-design-tokens.ts"
+    "check:design-tokens": "tsx scripts/check-design-tokens.ts",
+    "check:scored-status-literals": "tsx scripts/check-scored-status-literals.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
