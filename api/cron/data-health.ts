@@ -47,6 +47,18 @@ export interface ProbeResult {
    * structurally.
    */
   httpStatus: number | null;
+  /**
+   * The FIRST attempt's error, kept only when a retry happened.
+   *
+   * Without it the retry quietly destroys evidence. This entire fix was
+   * diagnosed by reading `error` out of stored `data_health` rows — 46 of them
+   * all saying "This operation was aborted" is what identified the timeout.
+   * A retry that overwrites the first error with the second would have made
+   * that impossible to see: a source that aborts and then answers 503 would
+   * be recorded as a plain 503, and the timeout it is actually suffering from
+   * would never appear in the table at all. Named by an independent review.
+   */
+  retriedAfter?: string;
 }
 
 export interface CurrentRow {
@@ -252,8 +264,14 @@ export async function probeSource(
   if (first.httpStatus !== null) return first;
   const second = await probeOnce(source, fetchImpl, base);
   // Report the total cost of the reading, so a retried probe cannot look as
-  // cheap as a first-attempt one in the latency figures.
-  return { ...second, latencyMs: first.latencyMs + second.latencyMs, attempts: 2 };
+  // cheap as a first-attempt one in the latency figures — and keep the first
+  // error, which is the evidence that a retry happened at all.
+  return {
+    ...second,
+    latencyMs: first.latencyMs + second.latencyMs,
+    attempts: 2,
+    retriedAfter: first.error ?? 'transport failure',
+  };
 }
 
 async function probeOnce(source: LayerSource, fetchImpl: FetchLike = fetch, base?: string): Promise<ProbeResult> {
@@ -815,7 +833,11 @@ async function probeLayer(
     score,
     lastSuccess: probe.ok ? now : prevState.last_success,
     lastFailure: probe.ok ? prevState.last_failure : now,
-    error: probe.error,
+    // The retry is folded INTO the stored error, because `error` is the only
+    // column data_health keeps and it is the one this whole fix was diagnosed
+    // from. A field the table never receives would be evidence destroyed just
+    // as surely as overwriting it.
+    error: probe.retriedAfter ? `${probe.error ?? 'ok'} (after retry: ${probe.retriedAfter})` : probe.error,
     fallbackUsed: source.name === layer.primary.name ? null : source.name,
     latencyMs: probe.latencyMs,
     recordCount: probe.recordCount,

@@ -333,6 +333,32 @@ describe('probeSource', () => {
     expect(transport).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps the FIRST error when it retries, so the retry does not destroy evidence', async () => {
+    // The whole OONI diagnosis came from reading `error` out of stored
+    // data_health rows. A retry that overwrote the first error with the
+    // second would hide exactly that: a source timing out and then answering
+    // 503 would be filed as a plain 503 for ever.
+    const mockFetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('This operation was aborted'))
+      .mockResolvedValueOnce(new Response('nope', { status: 503 }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.httpStatus).toBe(503);
+    expect(result.retriedAfter).toBe('This operation was aborted');
+  });
+
+  it('a first-attempt success carries no retry marker', async () => {
+    // So the marker cannot become decoration on every row and stop meaning
+    // anything — the reason `sampled`, `truncated` and the flights `note` are
+    // all conditional too.
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.retriedAfter).toBeUndefined();
+    expect(result.attempts).toBeUndefined();
+  });
+
   it('does not crash on JSON bodies that fail to parse', async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response('not-json', {
