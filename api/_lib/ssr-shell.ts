@@ -1,4 +1,5 @@
-import { colors, fonts } from '../../src/styles/email-tokens.js';
+import { fonts } from '../../src/styles/email-tokens.js';
+import { registerColors as colors } from '../../src/styles/register-tokens.js';
 
 /**
  * The one server-rendered page shell — masthead, palette, typography, colophon.
@@ -69,11 +70,14 @@ export function shell(body: string, opts: ShellOptions): string {
   }
 <style>
   :root {
+    color-scheme: dark;
     --ink: ${colors.textPrimary}; --ink2: ${colors.textSecondary}; --ink3: ${colors.textTertiary};
     --page: ${colors.bgPage}; --card: ${colors.bgCard}; --rule: ${colors.border};
-    --gold: ${colors.divider}; --accent: ${colors.accent};
-    --up: ${colors.up}; --down: ${colors.down};
+    --hair: ${colors.hairline};
+    --gold: ${colors.divider}; --accent: ${colors.accent}; --accent-hi: ${colors.accentHover};
+    --focus: ${colors.focus};
   }
+  *:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
   body { margin:0; background:var(--page); color:var(--ink); font-family:${fonts.sans}; }
   .wrap { max-width:940px; margin:0 auto; padding:56px 24px 96px; }
   .rule { height:2px; background:var(--gold); margin:64px 0 14px; }
@@ -94,7 +98,14 @@ export function shell(body: string, opts: ShellOptions): string {
   .row .lead { font-family:${fonts.mono}; font-variant-numeric:tabular-nums; font-size:15px; min-width:3.5em; }
   .row .det { font-size:14px; color:var(--ink2); flex:1 1 auto; }
   .row .trail { font-family:${fonts.mono}; font-variant-numeric:tabular-nums; font-size:15px; margin-left:auto; }
-  .hit .trail { color:var(--up); } .miss .trail { color:var(--down); } .pending .trail { color:var(--ink3); }
+  /* OUTCOMES CARRY NO COLOUR. The old rule painted HIT green and MISS red —
+     1.11:1 apart for ordinary colour vision and 1.09:1 under deuteranopia, so
+     the same colour for everyone. The word does the work, and the gutter mark
+     differs in SHAPE: filled for a hit, hollow for a miss. Reads identically in
+     greyscale and to a dichromat. */
+  .hit .trail, .miss .trail { color:var(--ink); font-weight:600; }
+  .pending .trail, .unscored .trail { color:var(--ink3); }
+  .trail .mark { font-family:${fonts.mono}; margin-right:8px; color:var(--ink3); }
   a { color:var(--accent); }
   .foot { margin-top:64px; font-size:14px; color:var(--ink2); }
   .masthead { display:flex; align-items:baseline; gap:22px; flex-wrap:wrap; padding:18px 0; border-bottom:2px solid var(--gold); margin-bottom:40px; }
