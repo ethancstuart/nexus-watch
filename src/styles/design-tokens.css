@@ -1,25 +1,69 @@
 /* NexusWatch Design Tokens — Modern Dark SaaS
    Decision: D-1 (Modern dark SaaS), D-6 (Approachable audience), D-11 (Secondary palette)
    Inter for headers/body, JetBrains Mono for data only.
-   Approved 2026-04-18. */
+   Approved 2026-04-18.
+
+   2026-09-21 — THE SPA SURFACES NOW READ THE REGISTER'S PALETTE.
+   Three different dark grounds were live at once: this file's #0a0a0a, the
+   runtime terminal theme's #000000, and the server-rendered register's
+   #161412. The landing page and /ledger are the same product and did not look
+   like it.
+
+   The values below are `registerColors` from src/styles/register-tokens.ts,
+   which is the single source. They are duplicated here ONLY because a static
+   stylesheet cannot import TypeScript, and a paint that waits for JS is a
+   flash of the old palette on every load. `design-tokens.test.ts` parses this
+   file and fails if any value drifts from the token module, so the copy
+   cannot rot quietly.
+
+   The ground is warm #161412 rather than black on purpose: pure black under
+   off-white is the halation pair that makes long-form dark reading fail. It
+   costs 2.2 points of contrast (14.70:1 against 16.91:1) and buys back
+   legibility over a three-thousand-word brief.
+
+   This also repairs an AA failure that was live: --nw-text-muted was #757575
+   on #0a0a0a, which is 4.30:1 — below the 4.5:1 floor for body text. The
+   replacement measures 6.19:1. */
 
 :root {
-  /* === Backgrounds === */
-  --nw-bg: #0a0a0a;
-  --nw-surface: #111111;
-  --nw-surface-hover: #181818;
-  --nw-surface-active: #1a1a1a;
-  --nw-border: #222222;
-  --nw-border-subtle: #1a1a1a;
+  /* The ground is dark, so say so. Without this the user agent styles form
+     controls, scrollbars and — the reason this was noticed — UNVISITED LINKS
+     for a light page: the landing page's "See every call we have open" fell
+     through to the UA default #0000EE, which is 1.96:1 on this ground and
+     fails WCAG at any text size. */
+  color-scheme: dark;
 
-  /* === Text === */
-  --nw-text: #ededed;
-  --nw-text-secondary: #999999;
-  --nw-text-muted: #757575;
+  /* === Backgrounds === registerColors.bgPage / bgCard / hairline */
+  --nw-bg: #161412;
+  --nw-surface: #1e1b18;
+  --nw-surface-hover: #2e2a25;
+  --nw-surface-active: #2e2a25;
+  /* Decorative separators. registerColors.hairline, 1.29:1 — carries no
+     meaning, and nothing that carries meaning may use it. Unchanged in weight
+     from the #222222 it replaces (1.24:1), so this is not a regression; real
+     UI boundaries want --nw-border-strong, which clears WCAG 1.4.11. */
+  --nw-border: #2e2a25;
+  --nw-border-subtle: #2e2a25;
+  /* registerColors.border, 3.18:1 — input borders, frames, chart axes. */
+  --nw-border-strong: #6b655b;
 
-  /* === Primary Accent === */
+  /* === Text === registerColors.textPrimary / textSecondary / textTertiary
+     14.70:1 (AAA) / 9.20:1 (AAA) / 6.19:1 (AA) on --nw-bg. */
+  --nw-text: #e8e6de;
+  --nw-text-secondary: #bdb7aa;
+  --nw-text-muted: #9c958a;
+
+  /* Parchment gold. The one value that crosses the light/dark boundary
+     unchanged, and the thread tying the dark site to the light email.
+     Structure only — rules and edges, never text, never a link. 8.13:1. */
+  --nw-gold: #c9a86b;
+
+  /* === Primary Accent === registerColors.accent / accentHover, 6.26:1 / 7.57:1 */
   --nw-accent: #ff6600;
-  --nw-accent-hover: #ff7722;
+  --nw-accent-hover: #ff8533;
+  /* Deliberately lighter than the accent so it stays visible on an
+     accent-coloured control. registerColors.focus, 10.51:1. */
+  --nw-focus: #ffb380;
   --nw-accent-dim: rgba(255, 102, 0, 0.12);
   --nw-accent-text: #000000;
 

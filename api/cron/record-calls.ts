@@ -163,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // The SAME rule, applied to every generator rather than only the one it was
     // written for. An independent review caught that: a rule claimed to be
     // general, gating one loop, is a censorship-shaped fix wearing a general
-    // rule's language. FX passes today (weight 0.4, so it can depart), which is
+    // rule's language. FX passes today (weight 0.2, so it can depart), which is
     // exactly why applying it here is safe and why it belongs here — the guard
     // has to be structural before it can protect a kind nobody has written yet.
     if (!shouldIssue(FX_KIND)) {
