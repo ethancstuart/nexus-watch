@@ -21,8 +21,13 @@
  *    calibration — the recent regime is calmer than the training window.
  *    Skill vs climatology +1.9% at w=0.6: statistically nothing.
  *  - Censorship: skill −7.1% at w=0.6. The recency blend is pure noise there.
- *  - Weight sweep put the optimum at w≈0.4 for FX and w=0 for censorship;
- *    RECENCY_WEIGHT now carries those values.
+ *  - Weight sweep put the optimum at w≈0.4 for FX and w=0 for censorship.
+ *
+ * RE-RUN 2026-09-21 (n=297 FX folds, 127 censorship): the regime has changed
+ * — FX hit rate 7.5% -> 23.2%, reference Brier ~0.10 -> 0.18 — and the FX
+ * optimum moved to w=0.2 (+0.9% skill), with 0.4 at +0.8% and 0.6 at -0.3%.
+ * Censorship is still worst at every non-zero weight. RECENCY_WEIGHT carries
+ * the current values; its docstring carries both tables.
  *
  * Usage: npx tsx scripts/backtest-calls.ts
  */
