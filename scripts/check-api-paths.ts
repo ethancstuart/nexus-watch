@@ -37,25 +37,21 @@ import { join, relative } from 'node:path';
 const ROOT = process.cwd();
 
 /**
- * Unserved on purpose, pending an owner decision. Each entry says which
- * feature it belongs to and what decision it waits on.
+ * Unserved on purpose, pending an owner decision.
  *
- * Recorded 2026-09-21 from the PR #53 audit
- * (docs/PR53-ENDPOINT-AUDIT-2026-09-21.md). All were deleted on 2026-09-06.
+ * WAS TWELVE ENTRIES. The owner's answer on 2026-09-21 was "restore
+ * everything", so eleven of them are now served again — the AI analyst, the
+ * sitrep generator, both news feeds, the OSINT ticker, the data lake, the
+ * crisis playbook, the alert parser, cinema narration, the CII sparklines,
+ * the webcam catalog and the timeline. Four of those bill the Anthropic key;
+ * check:llm-spend confirms every one records spend and gates on the budget.
+ *
+ * What remains is what the service worker merely NAMES in a cache-exclusion
+ * predicate. They are not fetch targets, so nothing breaks while they are
+ * absent — dead config from the 2026-09-06 deletion, worth removing, not
+ * urgent.
  */
 const PENDING_DECISION: Record<string, string> = {
-  'webcam-catalog': 'CCTV panel — fails visibly. Restore endpoint or strip panel.',
-  news: 'News view — fails visibly. OWNER-ACTIONS §5 recommends deleting /api/news.',
-  'news-feed': 'News view — fails visibly. Restore or strip with the news panel.',
-  'osint-feed': 'OSINT ticker + sidebar feeds — sidebar fails visibly, ticker silently.',
-  'v1/timeline-data': 'Timeline scrubber/bar/replay — scrubber and bar fail visibly.',
-  'crisis/active': 'Crisis playbook — returns an empty result, silently.',
-  'cinema-narrate': 'Cinema narration — swallowed. Billed an Anthropic key when live.',
-  'ai-analyst': 'AI terminal — swallowed. Billed an Anthropic key when live.',
-  sitrep: 'AI sitreps — swallowed. Billed an Anthropic key when live.',
-  'parse-alert': 'Alert builder — fails visibly. Billed an Anthropic key when live.',
-  'v1/cii-sparklines': 'CII sparklines — swallowed, renders blank.',
-  'v1/data-lake': 'News ticker — unguarded. `data_lake` is dropped by PR #38.',
   // public/sw.js only NAMES these, in a cache-exclusion predicate: "never
   // cache auth or chat API routes". They are not fetch targets, so nothing
   // breaks while they are absent — the predicate simply never matches. Dead
