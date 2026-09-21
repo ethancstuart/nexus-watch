@@ -179,16 +179,57 @@ async function fetchAdsbLol(res: VercelResponse) {
     'PAF',
   ];
 
-  const results = await Promise.allSettled(
-    regions.map(async (r) => {
-      const res = await fetch(`https://api.adsb.lol/v2/lat/${r.lat}/lon/${r.lon}/dist/${r.dist}`, {
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) return [];
-      const data = (await res.json()) as { ac?: Array<Record<string, unknown>> };
-      return data.ac || [];
-    }),
-  );
+  // EIGHTY-ONE REGIONS IN PARALLEL IS A RATE LIMIT, NOT A SWEEP.
+  //
+  // This fanned every region out at once with Promise.allSettled and returned
+  // `[]` for any non-OK response. Measured against adsb.lol on 2026-09-21:
+  // twenty simultaneous requests returned two 200s, the rest 429 and 420. So
+  // the endpoint answered 200 with `count: 0` and `source: 'adsb.lol'` while
+  // eighty-one requests were being refused — an empty sky and a throttled
+  // client are indistinguishable in that response, and the layer simply drew
+  // nothing.
+  //
+  // Same shape and same fix as source-ooni.ts: a small number in flight at
+  // once, stop with slack before the budget rather than run into it, and
+  // REPORT WHAT WAS SKIPPED instead of folding it into an empty result.
+  const CONCURRENCY = 4;
+  const BUDGET_MS = 6000;
+  const startedAt = Date.now();
+  let queried = 0;
+  let rateLimited = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  const collected: Array<Array<Record<string, unknown>>> = [];
+  for (let i = 0; i < regions.length; i += CONCURRENCY) {
+    if (Date.now() - startedAt > BUDGET_MS) {
+      skipped = regions.length - i;
+      break;
+    }
+    const batch = regions.slice(i, i + CONCURRENCY);
+    const settled = await Promise.allSettled(
+      batch.map(async (r) => {
+        const res = await fetch(`https://api.adsb.lol/v2/lat/${r.lat}/lon/${r.lon}/dist/${r.dist}`, {
+          signal: AbortSignal.timeout(4000),
+        });
+        if (res.status === 429 || res.status === 420) {
+          const e = new Error('rate-limited');
+          e.name = 'RateLimited';
+          throw e;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { ac?: Array<Record<string, unknown>> };
+        return data.ac || [];
+      }),
+    );
+    for (const r of settled) {
+      queried++;
+      if (r.status === 'fulfilled') collected.push(r.value);
+      else if ((r.reason as Error)?.name === 'RateLimited') rateLimited++;
+      else failed++;
+    }
+  }
+  const results = collected.map((value) => ({ status: 'fulfilled' as const, value }));
 
   const seen = new Set<string>();
   const aircraft: Array<Record<string, unknown>> = [];
@@ -222,7 +263,29 @@ async function fetchAdsbLol(res: VercelResponse) {
 
   return res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=15').json({
     aircraft: sampled,
+    /**
+     * What the sweep actually managed. A zero aircraft count means nothing
+     * without these: an empty sky and a throttled client look identical
+     * otherwise, which is how this endpoint reported success while every one
+     * of its eighty-one requests was being refused.
+     */
+    regions: { total: regions.length, queried, rateLimited, failed, skipped },
+    /** Aircraft in this response. `total` is before the 1500 display sample. */
     count: sampled.length,
+    total: aircraft.length,
+    sampled: aircraft.length > sampled.length,
+    /**
+     * Present only when the sweep produced nothing AND the reason was refusal
+     * rather than an empty sky. Without it a caller cannot tell the two apart,
+     * and the map would draw an empty layer as though that were the world.
+     */
+    ...(sampled.length === 0 && rateLimited + failed > 0
+      ? {
+          note:
+            `No aircraft returned: ${rateLimited} of ${queried} region requests were rate-limited ` +
+            `and ${failed} failed. This is a throttled client, not an empty sky.`,
+        }
+      : {}),
     timestamp: Math.floor(Date.now() / 1000),
     source: 'adsb.lol',
   });
