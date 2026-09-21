@@ -212,6 +212,17 @@ async function fetchAdsbLol(res: VercelResponse) {
       batch.map(async (r) => {
         const res = await fetch(`https://api.adsb.lol/v2/lat/${r.lat}/lon/${r.lon}/dist/${r.dist}`, {
           signal: AbortSignal.timeout(4000),
+          // THE 403 WAS THE USER-AGENT, and this is one line because the
+          // diagnosis took the work. Node's fetch sends `User-Agent: node` by
+          // default; adsb.lol refuses that and refuses an absent one, while
+          // answering any identified client. Reproduced against the live API:
+          //   curl default UA            -> 200
+          //   -H 'User-Agent:'  (absent) -> 403
+          //   -H 'User-Agent: node'      -> 403
+          //   -H 'User-Agent: NexusWatch/1.0 (https://nexuswatch.dev)' -> 200
+          // Every other outbound caller in this repo that talks to a community
+          // API already identifies itself; this one did not.
+          headers: { 'User-Agent': 'NexusWatch/1.0 (https://nexuswatch.dev)', Accept: 'application/json' },
         });
         if (res.status === 429 || res.status === 420) {
           const e = new Error('rate-limited');
