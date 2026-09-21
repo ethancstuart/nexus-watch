@@ -38,6 +38,28 @@ body {
   --color-border: var(--nw-border);
 }
 
+/* AN UNSTYLED LINK MUST FAIL INTO THE PALETTE, NOT OUT OF IT.
+   There was no bare `a` rule in the SPA at all, so any anchor nobody had
+   styled took the user agent's colour. On the landing page that was
+   `.nw-hero-fineprint a` — "See every call we have open" — rendering in
+   #0000EE at 1.96:1 against the ground, on the most public page the product
+   has. Every specific rule still overrides this; what changes is the default
+   for the NEXT link somebody adds, which now inherits the register's accent
+   (6.26:1, AA) instead of a colour from outside the design system. */
+a {
+  color: var(--nw-accent);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--nw-accent-hover);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--nw-focus);
+  outline-offset: 2px;
+}
+
 /* Skip link */
 .skip-link {
   position: absolute;
