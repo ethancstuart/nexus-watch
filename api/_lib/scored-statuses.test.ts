@@ -65,7 +65,6 @@ describe('scored statuses', () => {
     // not the code.
     const expected = [...SCORED_STATUSES].sort().join(',');
     const offenders: string[] = [];
-    let found = 0;
 
     for (const file of walk(API_DIR)) {
       const src = readFileSync(file, 'utf8');
@@ -74,7 +73,6 @@ describe('scored statuses', () => {
       for (const chunk of src.split('`')) {
         if (!/\b(FROM|UPDATE|INTO)\s+calls\b/i.test(chunk)) continue;
         for (const m of chunk.matchAll(/status\s+IN\s*\(([^)]*)\)/gi)) {
-          found++;
           const listed = m[1]
             .split(',')
             .map((s) => s.trim().replace(/^['"]|['"]$/g, ''))
@@ -88,11 +86,38 @@ describe('scored statuses', () => {
       }
     }
 
-    // Assert the guard can actually see something. A scan that silently matches
-    // nothing is a green result with no mechanism behind it — the exact failure
-    // this repo has already been bitten by.
-    expect(found).toBeGreaterThan(0);
+    // NO LONGER `found > 0`, and the reason matters.
+    //
+    // When this was written, six queries spelled the scored statuses out by
+    // hand and this test checked that each list was CORRECT. They are now all
+    // `status = ANY(${[...SCORED_STATUSES]})`, and `check:scored-status-literals`
+    // fails the build if a literal comes back — so zero matches here is the
+    // enforced state, not a broken scan.
+    //
+    // The instrument still has to prove it can see, though. That assertion
+    // moved to the derived form below, where the filters actually live.
     expect(offenders).toEqual([]);
+  });
+
+  /**
+   * THE SELF-CHECK, RELOCATED TO WHERE THE FILTERS NOW ARE.
+   *
+   * A scan that silently matches nothing is a green result with no mechanism
+   * behind it. The test above used to carry this assertion against
+   * `status IN (...)`; removing the last literal made that scan vacuous and
+   * this suite failed, which is the discipline working. So the check follows
+   * the code: every scored-status filter on the calls table is now the derived
+   * form, and at least one must be visible for this file to mean anything.
+   */
+  it('the calls table is filtered by the DERIVED status set, and the scan can see it', () => {
+    let derived = 0;
+    for (const file of walk(API_DIR)) {
+      for (const chunk of readFileSync(file, 'utf8').split('`')) {
+        if (!/\b(FROM|UPDATE|INTO)\s+calls\b/i.test(chunk)) continue;
+        derived += [...chunk.matchAll(/status\s*=\s*ANY\(\$\{\s*\[\s*\.\.\.\s*SCORED_STATUSES\s*\]/gi)].length;
+      }
+    }
+    expect(derived).toBeGreaterThan(0);
   });
 });
 
@@ -175,5 +200,47 @@ describe('unresolvable grace period', () => {
   it('never throws on a malformed date, which would abort the batch', () => {
     expect(daysSinceResolution('not-a-date')).toBe(0);
     expect(daysSinceResolution('')).toBe(0);
+  });
+});
+
+/**
+ * THE TRIPWIRE FOR THE BINARY OUTCOME MODEL.
+ *
+ * `ScoredCall.outcome` is `0 | 1`, and every scoring path in the repo maps to
+ * it the same way: `status === 'hit' ? 1 : 0`. That is correct while the
+ * scored set is exactly {hit, miss} — and silently WRONG the moment it is not,
+ * because a third scored verdict would be scored as a miss everywhere at once:
+ * the register's Brier, the corrected reading beside it, the OG card, and the
+ * daily email. No type error, no test failure, one quiet wrong number on four
+ * surfaces.
+ *
+ * An independent review raised this against `correctedOutcomeOf` in particular.
+ * The honest answer is that it is not a property of that function — it is a
+ * property of the outcome model, and fixing it in one mapper would make the
+ * corrected reading disagree with the published one, which is worse.
+ *
+ * So the assumption is written down where it fails loudly. Adding a scored
+ * status is a deliberate act; this test makes it also a visible one, and the
+ * message says what has to be revisited.
+ */
+describe('the binary outcome model', () => {
+  it('holds only while the scored set is exactly {hit, miss}', () => {
+    expect([...SCORED_STATUSES].sort()).toEqual(['hit', 'miss']);
+  });
+
+  it('states what must be revisited if that ever changes', () => {
+    // Deliberately a message, not a mechanism. If this file is being edited to
+    // add a third status, these are the mappings that silently score it 0:
+    //
+    //   api/calls/ledger.ts    correctedOutcomeOf, and the by_kind outcome map
+    //   api/ledger.ts          the SSR per-kind and corrected readings
+    //   api/_lib/calls.ts      every ScoredCall construction
+    //   api/og.ts              the share card's hit count
+    //   api/cron/daily-brief.ts  the email's headline
+    //
+    // ScoredCall.outcome is 0 | 1. A third verdict needs a decision about what
+    // it means numerically BEFORE any of the above is touched.
+    expect(SCORED_STATUSES.has('hit')).toBe(true);
+    expect(SCORED_STATUSES.has('miss')).toBe(true);
   });
 });

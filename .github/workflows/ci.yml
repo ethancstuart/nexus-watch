@@ -1,8 +1,20 @@
 name: CI
 
 on:
+  # EVERY pull request, not only those targeting main.
+  #
+  # This said `branches: [main]`, so a PR stacked on a feature branch got NO
+  # CI RUN AT ALL — not a failure, not a skip, simply no `validate` check to
+  # look at. PR #61 (the map layer endpoints, stacked on #53) sat with Vercel
+  # green and nothing else, and the only thing that had actually run its
+  # typecheck, tests and guards was .githooks/pre-push on one laptop.
+  #
+  # That is the same shape as the drift run-guards.mjs was written to end:
+  # checks written, committed and believed to be enforced, enforced in fact by
+  # a local hook that a fresh clone does not have until `npm run prepare`.
+  # Stacked work is exactly where review attention is thinnest, so it is the
+  # worst place to have no CI.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 

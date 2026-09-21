@@ -14,6 +14,30 @@ import {
 } from '../_lib/calls.js';
 import { assembleByKind } from '../_lib/ledger-by-kind.js';
 
+/**
+ * The outcome the evidence records, when it differs from the published one.
+ *
+ * Returns undefined when there is no correction OR when the correction agrees
+ * with the published verdict — a correction that changes nothing is not one,
+ * and letting it through would inflate `corrections_applied`, which is a
+ * number readers will quote.
+ */
+function correctedOutcomeOf(published: string, corrected: string | null): 0 | 1 | undefined {
+  // DERIVED FROM isScored, NOT AN ENUMERATION OF hit/miss.
+  //
+  // The first version of this tested `corrected !== 'hit' && corrected !== 'miss'`,
+  // which is precisely the shape SCORED_STATUSES' own docstring warns about:
+  // a status added later would be collapsed into "no correction" and the row
+  // would proceed as though the register had never been wrong about it —
+  // passing by omission, silently, in a number readers quote. An independent
+  // review named it. Scope now comes from the same allow-list every other
+  // scoring path in this file reads.
+  if (corrected === null || !isScored(corrected)) return undefined;
+  const c = corrected === 'hit' ? 1 : 0;
+  const p = published === 'hit' ? 1 : 0;
+  return c === p ? undefined : (c as 0 | 1);
+}
+
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
 /**
@@ -144,10 +168,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const totalsRows = (await sql`
       SELECT
         COUNT(*) FILTER (WHERE status = 'pending' AND kind <> 'seismicity_window')::int AS open,
-        COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind <> 'seismicity_window')::int AS resolved,
+        COUNT(*) FILTER (WHERE status = ANY(${[...SCORED_STATUSES]}) AND kind <> 'seismicity_window')::int AS resolved,
         COUNT(*) FILTER (WHERE status = 'hit' AND kind <> 'seismicity_window')::int AS hits,
         COUNT(*) FILTER (WHERE status = 'pending' AND kind = 'seismicity_window')::int AS calibration_open,
-        COUNT(*) FILTER (WHERE status IN ('hit','miss') AND kind = 'seismicity_window')::int AS calibration_resolved,
+        COUNT(*) FILTER (WHERE status = ANY(${[...SCORED_STATUSES]}) AND kind = 'seismicity_window')::int AS calibration_resolved,
         -- The next resolution EVENT, or null. A bare MIN over pending rows picks
         -- up grace-held calls whose date has passed ("first resolves 2026-09-06"
         -- on 09-12). The floor is DERIVED FROM THE DATA, not the clock: if any
@@ -216,10 +240,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //
     // Unlike the SSR query this one does NOT exclude calibration kinds: by_kind
     // is where the seismicity harness's ~0 skill is supposed to be visible.
+    //
+    // The corrections ride along on this query so the SECOND READING is scored
+    // over exactly the same row set as the first. Computing it from a separate
+    // query would reintroduce, one level up, the counts-vs-scores mismatch this
+    // endpoint already carries two comments about.
+    //
+    // DISTINCT ON (call_id) is not decoration. `call_corrections` is unique on
+    // (call_id, cause) and the recorder derives one cause per call — but a
+    // plain join trusts that, and a call that ever acquired a second cause
+    // would silently appear TWICE in the scored set, inflating the Brier
+    // denominator and quietly changing a published number. The subquery makes
+    // at most one correction per call structural rather than assumed.
     const scoringRows = (await sql`
-      SELECT kind, country_code, probability::float AS probability,
-             base_rate::float AS base_rate, status, resolved_at::text AS resolved_at
-      FROM calls WHERE status = ANY(${scoredStatuses})
+      SELECT c.kind, c.country_code, c.probability::float AS probability,
+             c.base_rate::float AS base_rate, c.status, c.resolved_at::text AS resolved_at,
+             cc.corrected_status
+      FROM calls c
+      LEFT JOIN (
+        SELECT DISTINCT ON (call_id) call_id, corrected_status
+        FROM call_corrections ORDER BY call_id, issued_on DESC
+      ) cc ON cc.call_id = c.id
+      WHERE c.status = ANY(${scoredStatuses})
     `) as unknown as Array<{
       kind: string;
       country_code: string;
@@ -227,7 +269,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       base_rate: number | null;
       status: string;
       resolved_at: string | null;
+      corrected_status: string | null;
     }>;
+
+    // THE CORRECTED READING RE-SCORES THE PUBLISHED COHORT, DELIBERATELY.
+    //
+    // `scoringRows` is filtered to calls whose PUBLISHED status is scored, so
+    // the second reading covers exactly the rows the first one covers and the
+    // two Briers are comparable. That is the whole point of printing them
+    // together: same calls, same stated probabilities, outcomes corrected.
+    //
+    // The consequence, named rather than left implicit: a correction on a call
+    // published `unresolvable` — one the evidence says should have been scored
+    // at all — is NOT in this cohort. Including it would change the
+    // denominator, and a Brier over 264 rows is not comparable with a Brier
+    // over 263 however carefully it is labelled. That case needs its own
+    // treatment and its own number, not a quiet seat in this one.
+    //
+    // An independent review was right that the scope is keyed to the published
+    // status. It is keyed there on purpose; what was missing is that nothing
+    // SAID so, and nothing would have noticed the day such a correction was
+    // recorded. This count is that notice. It is zero today.
+    const outsideCohort = (await sql`
+      SELECT COUNT(*)::int AS n
+      FROM call_corrections cc
+      JOIN calls c ON c.id = cc.call_id
+      WHERE c.status <> ALL(${scoredStatuses})
+    `) as unknown as Array<{ n: number }>;
+    const correctionsOutsideScoredCohort = outsideCohort[0]?.n ?? 0;
 
     // The SAME fix, applied to the top-level statistics. An independent review
     // found that `scoring.base_rate`, `calibration`, `murphy`,
@@ -272,6 +341,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         baseRate: c.base_rate ?? undefined,
         outcome: (c.status === 'hit' ? 1 : 0) as 0 | 1,
         resolvedOn: (c.resolved_at ?? '').slice(0, 10),
+        // Only a correction that CHANGES the outcome counts as one. A row
+        // agreeing with what was published is not a correction, and counting
+        // it would overstate how much of the record moved.
+        correctedOutcome: correctedOutcomeOf(c.status, c.corrected_status),
       })),
     );
 
@@ -320,6 +393,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         murphy: scored.length ? murphyDecomposition(scored) : null,
       },
       by_kind: byKind,
+      /**
+       * Corrections recorded against calls the published cohort never scored
+       * (e.g. an `unresolvable` the evidence says was a hit). They are NOT in
+       * any `corrected` reading above, because including them would change the
+       * denominator and make the two Briers incomparable. Non-zero here means
+       * a number is owed that this endpoint does not yet publish.
+       */
+      corrections_outside_scored_cohort: correctionsOutsideScoredCohort,
       open,
       // The correction rides WITH its call rather than in a separate list, so
       // no surface can render the verdict and miss the correction. `status`

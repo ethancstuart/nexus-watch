@@ -118,8 +118,16 @@ export const colorsDark = {
  */
 export const fonts = {
   // Headlines. Serif gravitas — "dossier", not "SaaS".
+  // Source Serif 4 leads because it is the one actually loaded — by
+  // index.html for the SPA and by ssr-shell for the server-rendered pages.
+  // Tiempos Headline and GT Alpina led this stack for months and are
+  // licensed fonts that no surface has ever fetched, so every headline fell
+  // through to Charter while the code claimed otherwise. They stay in the
+  // stack, behind the font that exists, in case either is ever licensed.
+  // Email is unaffected either way: mail clients do not fetch webfonts, so
+  // there the stack resolves to Charter or Georgia as it always did.
   serif:
-    '"Tiempos Headline", "GT Alpina", Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", Times, serif',
+    '"Source Serif 4", "Tiempos Headline", "GT Alpina", Charter, "Iowan Old Style", "Apple Garamond", Georgia, "Times New Roman", Times, serif',
   // Body copy. Inter is the universal email-safe sans-serif.
   sans: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   // Data, tickers, timestamps, issue number. JetBrains Mono keeps the

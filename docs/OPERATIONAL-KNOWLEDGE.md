@@ -9,7 +9,7 @@ below states how it was verified. When an entry turns out to be wrong it is
 **retracted in place**, not deleted — a quietly disappeared belief teaches
 nobody, and the retraction is usually more useful than the original claim.
 
-Last updated 2026-08-29.
+Last updated 2026-09-21.
 
 ---
 
@@ -159,10 +159,130 @@ full recomputation (`scripts/backfill-ooni-daily.ts` dry run reports the diff).
 rows were not backfilled — the backfill script exists with a dry-run default,
 and how the 54 are corrected on the public ledger is the owner's decision.
 
+**UPDATE 2026-09-21 — the owner decided: publish both readings.** `/ledger` and
+`/api/calls/ledger` now carry the as-published figures and, beneath them, the
+same rows re-scored on corrected evidence. No verdict was rewritten; there is a
+test asserting the published figures are byte-identical either way.
+
+The corrected reading is **worse, and that is the finding**:
+
+| | published | corrected |
+|---|---|---|
+| censorship hits | 74 / 263 (28%) | 128 / 263 (48%) |
+| Brier | 0.058 | **0.151** |
+
+Being more right about the world made the forecasts more wrong. The calls were
+priced below climatology and the blocks did happen, so every correction moves a
+low stated probability onto an outcome that occurred. A record that only
+publishes corrections which flatter it is not a record.
+
+**The corrected SKILL is withheld, not computed.** Skill is measured against
+each unit's own long-run base rate, and those base rates were estimated from
+the same hourly-bucket evidence these corrections repair. A number against a
+benchmark known to be mis-estimated is withheld with its reason attached rather
+than footnoted. It becomes computable when `backfill-ooni-daily.ts --write`
+runs, which is still an owner action.
+
+A `corrections_outside_scored_cohort` count is published beside it, and is 0.
+The corrected reading re-scores the cohort the published one scored, so the two
+Briers are comparable; a correction landing on a call published `unresolvable`
+would change the denominator and needs its own number. Nothing would have
+noticed that happening, so it is counted.
+
 **The lesson worth more than the fact:** *an upsert keyed coarser than its
 input silently keeps the last write.* The row count looked right for four
 months — one per country-day, exactly as the evidence-unit test asserts —
 because the key was right. The values were one twenty-fourth of the truth.
+
+---
+
+## `/api/ships` invented the positions of real warships
+
+Found 2026-09-21 while restoring the eleven map layer endpoints deleted on
+2026-09-06.
+
+`api/ships.ts` carried a `buildCuratedFleet()` fallback, used whenever
+`AISSTREAM_API_KEY` was unset — which it has been. It returned a hardcoded
+table of roughly eighty vessels at invented coordinates, **including real named
+warships**: USS Ronald Reagan, USS Blue Ridge, INS Vikramaditya, ROKS Dokdo.
+The positions were offset by `Math.floor(Date.now() / 300_000)` so that, in the
+code's own words, they *"appear to drift between refreshes"*. It was served as
+`source: 'curated-fallback'` with the note "Approximate positions", on a map
+that presents itself as intelligence.
+
+**How it was verified:** read out of the deleted file recovered from `fef3655^`,
+including the coordinate table and the drift arithmetic. Not inferred from the
+function's name.
+
+**What was done.** Deleted, not fixed. Unconfigured now returns an empty list
+and says why. Every other restored endpoint was scanned for the same pattern —
+`curated|mock|sample|fake|synthetic|simulate|placeholder` — and `ships` was the
+only fabricator; the remaining `sample` matches are downsampling of real data.
+
+**The lesson worth more than the fact:** *this project has now made the same
+decision twice.* The model-written sample briefs came off `/briefs` for exactly
+this reason, and the reasoning was recorded — and a second fabricator survived
+in a different directory because the decision was recorded as a fix to one
+surface rather than as a rule about all of them. An empty layer is a fact. A
+fabricated one is a different product.
+
+---
+
+## A guard that runs the wrong code is worse than no guard
+
+Two instruments were lying on 2026-09-21, and both were green.
+
+**`npx vitest run` reported 5,461 tests for a suite of 507.**
+`scripts/codex-review-mr.sh` materialises each reviewed branch into
+`.codex-reviews/<branch>/snapshot/` with `git archive`, and never cleans up.
+Eighteen snapshots held **436 test files** against the working tree's 44.
+Because `.codex-reviews/` is gitignored, **CI ran 44 files while local ran 480**
+— so a verification claim made on this machine was not a claim about what CI
+would check. A stale snapshot can also fail the suite for code the branch does
+not contain, or pass and pad the count while the real suite shrinks.
+
+This is the second occurrence. `.claude/worktrees/` did the same thing on
+2026-08-28 (429 → 868) and its fix is commented four lines above where the new
+exclusion now sits. The category is *an in-repo copy of the repo*, and naming
+the category is what the first fix failed to do.
+
+**`check-scored-status-literals.ts` enumerated what it forbids.** Written to
+stop `IN ('hit','miss')` appearing outside `SCORED_STATUSES`, its own regexes
+spelled `hit|miss` — so a third scored status would have let a literal
+enumerating all three pass. Caught by independent review. The pattern is now
+built from the set at run time.
+
+**The general rule, restated because it keeps costing:** *before trusting a
+tool's output, prove it is looking at what you think it is, and prove it can
+fail.* Every guard in this repo is plant-tested both ways. These two were not
+plant-tested against the question "what is in scope", only "does it detect the
+thing I planted in front of it".
+
+---
+
+## Headless Chrome has no WebGL, and a screenshot is not a render check
+
+`--headless --disable-gpu` provides **no WebGL context at all** — verified with
+a `canvas.getContext('webgl2')` probe, which returns null. MapLibre therefore
+cannot initialise, the Intel Map hangs on its loading overlay forever, and the
+screenshot shows a splash screen. On 2026-09-21 this produced the confident,
+wrong conclusion that PR #53's restored map does not load.
+
+With `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader` the
+context is real (ANGLE/SwiftShader) and the map initialises: `maplibregl-canvas`
+at 1120×796, 47 layer toggles. **But `--screenshot` still shows the splash** —
+headless cannot composite the WebGL canvas into the capture, while `--dump-dom`
+under the same flags shows the loaded map.
+
+So for a WebGL page the DOM is the instrument and the picture is not. For
+ordinary pages the picture is still required — a control run against the
+production landing renders 366 KB in the same setup, which is how the WebGL
+fault was distinguished from a site fault.
+
+*Related, and the reason this entry is here rather than in a commit message:*
+the OG-card retraction at the top of this file says byte size is not a render
+check. This is the same lesson from the other side — **a render check is not
+valid until the renderer is known to work.**
 
 ---
 

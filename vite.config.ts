@@ -49,12 +49,31 @@ export default defineConfig({
     : [],
   test: {
     environment: 'happy-dom',
-    // EXCLUDE AGENT WORKTREES. `.claude/worktrees/` sits INSIDE the repo, so a
-    // running agent's checkout doubled the suite (429 -> 868 on 2026-08-28) and
-    // every test count taken during that window was measuring the wrong thing.
-    // Worse: a stale worktree pinned to an older commit can fail CI on main for
-    // code main does not contain. Default excludes are restated because
-    // supplying `exclude` replaces them rather than extending them.
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/worktrees/**', '**/.git/**'],
+    // EXCLUDE EVERY IN-REPO COPY OF THE REPO. Two directories sit INSIDE the
+    // tree and hold whole checkouts of other commits, and vitest will happily
+    // run their tests as if they were this branch's.
+    //
+    //   `.claude/worktrees/`  — a running agent's checkout doubled the suite
+    //     (429 -> 868 on 2026-08-28) and every test count taken during that
+    //     window was measuring the wrong thing.
+    //
+    //   `.codex-reviews/`     — the MR reviewer materialises each reviewed
+    //     branch with `git archive` so Codex can follow imports into the
+    //     branch's own tree rather than into whatever is checked out. Those
+    //     snapshots are never cleaned up, so they accumulate: on 2026-09-21
+    //     eighteen of them held 436 test files against the working tree's 44,
+    //     and `npx vitest run` reported "5461 tests passed" for a suite of
+    //     498. Ninety percent of every local verification was other branches.
+    //
+    // The failure mode is the same for both and it is worse than a wrong
+    // number. `.codex-reviews/` is gitignored, so CI never sees it: CI ran 44
+    // files while local ran 480, and the two disagreed about what "the tests"
+    // means. A stale snapshot pinned to an older commit can also fail the
+    // suite for code this branch does not contain, or pass and pad the count
+    // so a shrinking real suite looks healthy.
+    //
+    // Default excludes are restated because supplying `exclude` replaces them
+    // rather than extending them.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/worktrees/**', '**/.codex-reviews/**', '**/.git/**'],
   },
 });
