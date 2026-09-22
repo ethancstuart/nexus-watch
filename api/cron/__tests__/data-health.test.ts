@@ -20,6 +20,7 @@ const happyProbe = (over: Partial<ProbeResult> = {}): ProbeResult => ({
   recordCount: 42,
   freshnessSeconds: 60,
   error: null,
+  httpStatus: 200,
   ...over,
 });
 
@@ -32,6 +33,7 @@ describe('computeScore', () => {
     const probe: ProbeResult = {
       ok: false,
       latencyMs: 5000,
+      httpStatus: null,
       recordCount: null,
       freshnessSeconds: null,
       error: 'ECONNREFUSED',
@@ -250,6 +252,111 @@ describe('probeSource', () => {
     expect(result.ok).toBe(false);
     expect(result.error).toBe('ECONNREFUSED');
     expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  /**
+   * THE RETRY, AND THE REASON IT EXISTS.
+   *
+   * The OONI source failed 27.4% of its health probes over a week (46 of 168),
+   * every one of them "This operation was aborted" and none an HTTP status,
+   * while its successful probes ran p99 4,808ms against a 5,000ms timeout. It
+   * was not down; it was slower than the timeout about a quarter of the time,
+   * and /api/public/status published that to readers as red.
+   *
+   * api/status.ts already carries this lesson for the endpoint pingers. These
+   * assertions are what stop it being lost again here.
+   */
+  it('retries ONCE when the transport fails, and succeeds on the second attempt', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('This operation was aborted'))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([{ id: 1 }]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    const result = await probeSource(source, mockFetch);
+    expect(result.ok).toBe(true);
+    expect(result.attempts).toBe(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does NOT retry an HTTP error — that is a real answer', async () => {
+    // A 503 means the source replied. Retrying it would double the load on
+    // something already struggling and change nothing about the verdict.
+    const mockFetch = vi.fn().mockResolvedValue(new Response('oops', { status: 503 }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('HTTP 503');
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it('still fails when BOTH attempts fail, so a dead source is still dead', async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const result = await probeSource(source, mockFetch);
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('ECONNREFUSED');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports the total cost of a retried reading, not just the second attempt', async () => {
+    // Otherwise a retried probe looks as cheap as a first-attempt one in the
+    // latency figures, and the p99 that revealed this defect would hide the
+    // next one.
+    const mockFetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('aborted'))
+      .mockResolvedValueOnce(new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(result.attempts).toBe(2);
+  });
+
+  it('decides on the STATUS, not on how the error was worded', async () => {
+    // The first version tested `error.startsWith('HTTP ')`, so whether a 503
+    // got retried depended on the format of a human-readable string. An
+    // independent review named it. attemptProxyCacheBust in this same file
+    // already formats its errors differently (`HTTP 503: <body>`), so the
+    // divergence was one edit away from doubling load on a failing source.
+    //
+    // This asserts the decision survives a reworded message.
+    const mockFetch = vi.fn().mockResolvedValue(new Response('detail', { status: 503 }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.httpStatus).toBe(503);
+    expect(mockFetch).toHaveBeenCalledOnce();
+
+    // And that a transport failure — which has NO status — is the retried one.
+    const transport = vi.fn().mockRejectedValue(new Error('any wording at all'));
+    const r2 = await probeSource(source, transport);
+    expect(r2.httpStatus).toBeNull();
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the FIRST error when it retries, so the retry does not destroy evidence', async () => {
+    // The whole OONI diagnosis came from reading `error` out of stored
+    // data_health rows. A retry that overwrote the first error with the
+    // second would hide exactly that: a source timing out and then answering
+    // 503 would be filed as a plain 503 for ever.
+    const mockFetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('This operation was aborted'))
+      .mockResolvedValueOnce(new Response('nope', { status: 503 }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.httpStatus).toBe(503);
+    expect(result.retriedAfter).toBe('This operation was aborted');
+  });
+
+  it('a first-attempt success carries no retry marker', async () => {
+    // So the marker cannot become decoration on every row and stop meaning
+    // anything — the reason `sampled`, `truncated` and the flights `note` are
+    // all conditional too.
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }));
+    const result = await probeSource(source, mockFetch);
+    expect(result.retriedAfter).toBeUndefined();
+    expect(result.attempts).toBeUndefined();
   });
 
   it('does not crash on JSON bodies that fail to parse', async () => {

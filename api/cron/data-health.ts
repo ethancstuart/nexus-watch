@@ -31,6 +31,34 @@ export interface ProbeResult {
   recordCount: number | null;
   freshnessSeconds: number | null;
   error: string | null;
+  /** 2 when a transport failure was retried. Absent means one attempt. */
+  attempts?: number;
+  /**
+   * The HTTP status the source replied with, or null when the request never
+   * got an answer at all (abort, DNS, reset).
+   *
+   * THIS IS WHAT THE RETRY KEYS ON, and it is a field rather than a string
+   * match for a reason an independent review named: the first version tested
+   * `error.startsWith('HTTP ')`, so the decision to retry depended on the
+   * FORMAT OF A HUMAN-READABLE MESSAGE. Someone reformats that string — as
+   * attemptProxyCacheBust already does, appending the body — and a source
+   * returning 503 starts getting retried, doubling load on something already
+   * failing. The distinction "did it answer" is structural, so it is stored
+   * structurally.
+   */
+  httpStatus: number | null;
+  /**
+   * The FIRST attempt's error, kept only when a retry happened.
+   *
+   * Without it the retry quietly destroys evidence. This entire fix was
+   * diagnosed by reading `error` out of stored `data_health` rows — 46 of them
+   * all saying "This operation was aborted" is what identified the timeout.
+   * A retry that overwrites the first error with the second would have made
+   * that impossible to see: a source that aborts and then answers 503 would
+   * be recorded as a plain 503, and the timeout it is actually suffering from
+   * would never appear in the table at all. Named by an independent review.
+   */
+  retriedAfter?: string;
 }
 
 export interface CurrentRow {
@@ -202,11 +230,51 @@ function extractFreshness(candidate: unknown): number | null {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/**
+ * A TRANSPORT FAILURE IS RETRIED ONCE; AN HTTP ERROR IS NOT.
+ *
+ * Measured over 30 days of stored probes: the OONI source failed 27.4% of its
+ * health checks (46 of 168 in the last week alone) and the recorded error was
+ * always "This operation was aborted" — the 5s timeout, never an HTTP status.
+ * Its SUCCESSFUL probes have p50 1,012ms, p90 3,523ms, p99 4,808ms and a
+ * maximum of 4,972ms. A distribution pressed that flat against a 5,000ms
+ * ceiling is a truncated one: every probe slower than the timeout is recorded
+ * as a failure and never appears in the success figures at all.
+ *
+ * OONI was not down for a quarter of the last week. It is simply slower than
+ * five seconds from Vercel about that often — and `/api/public/status` is a
+ * PUBLIC page whose stated purpose is radical transparency about service
+ * health. It has been telling readers the source that resolves every
+ * censorship call is red, when it was answering.
+ *
+ * This is the same lesson as api/status.ts, which already carries it: "A SLOW
+ * ENDPOINT WAS REPORTED AS A DEAD ONE... the timeout is now 8s, and a
+ * TRANSPORT failure is retried ONCE before it counts. The retry is the part
+ * that matters." A genuinely dead source fails twice; a slow one answers the
+ * second time. An HTTP error response is a real answer and is never retried.
+ */
 export async function probeSource(
   source: LayerSource,
   fetchImpl: FetchLike = fetch,
   base?: string,
 ): Promise<ProbeResult> {
+  const first = await probeOnce(source, fetchImpl, base);
+  // An answer of any kind — 200 or 503 — is a reading. Only a request that
+  // never landed earns a second attempt.
+  if (first.httpStatus !== null) return first;
+  const second = await probeOnce(source, fetchImpl, base);
+  // Report the total cost of the reading, so a retried probe cannot look as
+  // cheap as a first-attempt one in the latency figures — and keep the first
+  // error, which is the evidence that a retry happened at all.
+  return {
+    ...second,
+    latencyMs: first.latencyMs + second.latencyMs,
+    attempts: 2,
+    retriedAfter: first.error ?? 'transport failure',
+  };
+}
+
+async function probeOnce(source: LayerSource, fetchImpl: FetchLike = fetch, base?: string): Promise<ProbeResult> {
   const url = resolveProbeUrl(source.probeUrl, base);
   const started = Date.now();
   const controller = new AbortController();
@@ -221,6 +289,7 @@ export async function probeSource(
         recordCount: null,
         freshnessSeconds: null,
         error: `HTTP ${res.status}`,
+        httpStatus: res.status,
       };
     }
     let body: unknown = null;
@@ -233,7 +302,7 @@ export async function probeSource(
       }
     }
     const { recordCount, freshnessSeconds } = inferFromBody(body);
-    return { ok: true, latencyMs, recordCount, freshnessSeconds, error: null };
+    return { ok: true, latencyMs, recordCount, freshnessSeconds, error: null, httpStatus: res.status };
   } catch (err) {
     return {
       ok: false,
@@ -241,6 +310,8 @@ export async function probeSource(
       recordCount: null,
       freshnessSeconds: null,
       error: err instanceof Error ? err.message : String(err),
+      // Never landed. This is the only shape that is retried.
+      httpStatus: null,
     };
   } finally {
     clearTimeout(timer);
@@ -762,7 +833,11 @@ async function probeLayer(
     score,
     lastSuccess: probe.ok ? now : prevState.last_success,
     lastFailure: probe.ok ? prevState.last_failure : now,
-    error: probe.error,
+    // The retry is folded INTO the stored error, because `error` is the only
+    // column data_health keeps and it is the one this whole fix was diagnosed
+    // from. A field the table never receives would be evidence destroyed just
+    // as surely as overwriting it.
+    error: probe.retriedAfter ? `${probe.error ?? 'ok'} (after retry: ${probe.retriedAfter})` : probe.error,
     fallbackUsed: source.name === layer.primary.name ? null : source.name,
     latencyMs: probe.latencyMs,
     recordCount: probe.recordCount,
