@@ -77,7 +77,22 @@ export const DATA_SOURCES: LayerConfig[] = [
       name: 'ooni-api',
       probeUrl:
         'https://api.ooni.io/api/v1/aggregation?probe_cc=TR&test_name=web_connectivity&since=2026-01-01&until=2026-01-02',
-      probeTimeoutMs: DEFAULT_TIMEOUT_MS,
+      // OONI GETS ITS OWN TIMEOUT, SET FROM ITS OWN MEASURED LATENCY.
+      //
+      // At the shared 5,000ms default it failed 27.4% of health probes over
+      // the last week (46 of 168), every one of them "This operation was
+      // aborted" and none an HTTP status. Its SUCCESSFUL probes over 30 days:
+      // p50 1,012ms, p90 3,523ms, p99 4,808ms, max 4,972ms. A success
+      // distribution that stops 28ms short of the timeout is a truncated one —
+      // everything slower was being recorded as a failure and excluded from
+      // the very figures that would have shown the problem.
+      //
+      // It is the slowest upstream by an order of magnitude (fx-rates p99
+      // 96ms, wikipedia 157ms, sanctions 2,471ms) because it aggregates over
+      // ~4M rows per request, and it is also the source that resolves every
+      // censorship call. Giving it the same five seconds as a currency feed
+      // was the error.
+      probeTimeoutMs: 12_000,
       freshnessWindowSeconds: FRESH_6H,
     },
     fallbacks: [],
