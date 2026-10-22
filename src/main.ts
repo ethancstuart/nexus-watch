@@ -216,6 +216,14 @@ router
   // 2026-08-31 the page module and /api/accuracy/stats are DELETED, so the
   // 90.3% "accuracy_rate" that endpoint published is no longer served
   // anywhere.
+  .on('/intel', () => {
+    import('./pages/nexuswatch.ts')
+      .then(async (m) => {
+        await transition(appRoot);
+        m.renderNexusWatch(appRoot);
+      })
+      .catch((err) => showRouteError(appRoot, err));
+  })
   .on('/ledger', () => {
     import('./pages/ledger.ts')
       .then(async (m) => {
