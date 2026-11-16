@@ -1146,7 +1146,7 @@ ${(() => {
           if (!briefText) {
             aiDebug = 'ai-empty-response';
             declaredSubject = null;
-            briefText = buildFallbackText(briefData);
+            briefText = buildFallbackText(briefData, FALLBACK_CAUSE['empty-response']);
           } else {
             // === Mechanical grounding gate (Phase 2) ===
             // Every numeral in the draft must be present in, or derivable
@@ -1164,7 +1164,7 @@ ${(() => {
               console.error('[daily-brief] GROUNDING GATE REFUSED THE DRAFT:', aiDebug);
               gateRefusal = true;
               declaredSubject = null;
-              briefText = buildFallbackText(briefData);
+              briefText = buildFallbackText(briefData, FALLBACK_CAUSE['grounding-refused']);
             } else if (!structure.pass) {
               // The section spine is a contract with the reader (and with the
               // renderer). A draft that resurrects Scenario Spotlight, drops
@@ -1174,7 +1174,7 @@ ${(() => {
               console.error('[daily-brief] STRUCTURE GATE REFUSED THE DRAFT:', aiDebug);
               gateRefusal = true;
               declaredSubject = null;
-              briefText = buildFallbackText(briefData);
+              briefText = buildFallbackText(briefData, FALLBACK_CAUSE['structure-refused']);
             } else {
               aiDebug = `ai-success (grounding ${grounding.unsupported.length}/${grounding.draftNumerals.length} unsupported)`;
             }
@@ -1183,16 +1183,16 @@ ${(() => {
           const errBody = await aiRes.text().catch(() => 'unknown');
           aiDebug = `ai-failed:${aiRes.status}:${errBody.slice(0, 300)}`;
           console.error(`AI brief failed: ${aiRes.status} — ${errBody.slice(0, 200)}`);
-          briefText = buildFallbackText(briefData);
+          briefText = buildFallbackText(briefData, FALLBACK_CAUSE['http-error']);
         }
       } catch (aiErr) {
         aiDebug = `ai-error:${aiErr instanceof Error ? aiErr.message : String(aiErr)}`;
         console.error('AI brief error:', aiErr instanceof Error ? aiErr.message : aiErr);
-        briefText = buildFallbackText(briefData);
+        briefText = buildFallbackText(briefData, FALLBACK_CAUSE['exception']);
       }
     } else {
       aiDebug = 'no-api-key';
-      briefText = buildFallbackText(briefData);
+      briefText = buildFallbackText(briefData, FALLBACK_CAUSE['no-api-key']);
     }
 
     // === The Ledger line (Phase 2) ===
@@ -2695,15 +2695,52 @@ export function formatResolvedCallLines(
   return lines;
 }
 
+/**
+ * Why the mechanical edition shipped, as the reader is told it. Two cases, not
+ * six: a reader needs to know whether a draft existed and was refused, or
+ * whether none was written. Nine days in November 2026 said "a publish gate
+ * withheld the draft" while the model API was failing and no draft existed.
+ */
+export type FallbackCause = 'draft-refused' | 'no-draft';
+
+/**
+ * Every path that reaches buildFallbackText, and the cause it must pass. A
+ * Record over a closed union, so a path added to the union without an entry
+ * here does not compile, and the call-site test fails a call that omits it.
+ * The cause is chosen here, at the call site, and never recovered from the
+ * aiDebug string (reading a string where a flag belonged caused two earlier
+ * bugs; see the fallback alarm below).
+ */
+export type FallbackPath =
+  | 'no-api-key'
+  | 'http-error'
+  | 'exception'
+  | 'empty-response'
+  | 'grounding-refused'
+  | 'structure-refused';
+
+export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
+  'no-api-key': 'no-draft',
+  'http-error': 'no-draft',
+  exception: 'no-draft',
+  'empty-response': 'no-draft',
+  'grounding-refused': 'draft-refused',
+  'structure-refused': 'draft-refused',
+};
+
 // weekday shape rather than Week in Review, because the fallback only fires
 // when Sonnet is fully unavailable and we want coverage parity over format.
-export function buildFallbackText(data: BriefData): string {
+export function buildFallbackText(data: BriefData, cause: FallbackCause = 'no-draft'): string {
   // The deterministic edition — published when the model draft fails a gate
-  // (grounding, structure) or the API fails. Same section spine as the model
+  // (grounding, structure) or no draft was produced (API failure, no key,
+  // empty reply). Same section spine as the model
   // version (brief-structure.ts), grounded by construction: every line below
   // is a restatement of a value already in BriefData. It says plainly that it
-  // is the mechanical edition; on a site whose brand is "we publish our
-  // misses", telling the reader the AI draft was refused today is a feature.
+  // is the mechanical edition, and why. An unspecified or unknown cause
+  // defaults to 'no-draft': claiming a gate refused a draft that never
+  // existed is the one thing this must not do.
+  const draftLine =
+    cause === 'draft-refused' ? 'the model draft was withheld today' : 'no model draft was produced today';
   const trendArrow = (c: CIIEntry) => {
     if (c.prevDeviation === null) return '';
     const d = c.deviation - c.prevDeviation;
@@ -2727,7 +2764,7 @@ export function buildFallbackText(data: BriefData): string {
   text += `${DAILY_SECTIONS[1]}\n\n`;
   if (data.newsHeadlines.length > 0) {
     const n = data.newsHeadlines[0];
-    text += `**${n.title}** (${n.source}). This is the mechanical edition — the model draft was withheld today, so we give you the lead as the wire carried it rather than a synthesis.\n\n`;
+    text += `**${n.title}** (${n.source}). This is the mechanical edition — ${draftLine}, so we give you the lead as the wire carried it rather than a synthesis.\n\n`;
   } else if (topCountry) {
     text += `**${topCountry.name} leads the board — structural ${topCountry.score}/100, +${topCountry.deviation} live today${trendArrow(topCountry)}.** ${data.topRiskCountries.filter((c) => c.score >= 50).length} countries sit above CII 50 of ${data.totalCountries} scored.\n\n`;
   } else {
@@ -2764,7 +2801,9 @@ export function buildFallbackText(data: BriefData): string {
   text += `**What would change our mind:** a confirmed OONI blocking event, or an FX reference-rate move past a stored threshold, in any country on the open book above — the resolvers check daily.\n\n`;
 
   text += `${DAILY_SECTIONS[3]}\n\n`;
-  text += `- This is the mechanical edition: the model draft was withheld by a publish gate, so today carries data without narrative.\n`;
+  text += `- This is the mechanical edition: ${
+    cause === 'draft-refused' ? 'the model draft was withheld by a publish gate' : 'no model draft was produced today'
+  }, so today carries data without narrative.\n`;
   text += `- Every mover above is unexplained by construction — we do not attribute causes mechanically.\n`;
   if (data.conflictHeadlines.length === 0)
     text += `- The conflict headline feed returned nothing today; that gap is a gap.\n`;

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   buildFallbackText,
+  FALLBACK_CAUSE,
+  type FallbackCause,
+  type FallbackPath,
   formatResolvedCallLines,
   spliceLedgerLine,
   type ResolvedCallRow,
@@ -96,6 +101,135 @@ describe('buildFallbackText — the safe harbor honours the structure contract',
   it('never attributes a driver — every mover line says so explicitly', () => {
     const text = buildFallbackText(base);
     expect(text).toContain("driver not identified in today's data.");
+  });
+});
+
+/**
+ * THE MECHANICAL EDITION MUST STATE THE REAL CAUSE.
+ *
+ * For nine days in November 2026 every fallback issue told subscribers "the
+ * model draft was withheld by a publish gate" while the model API was
+ * answering HTTP 400 (credit too low): no draft existed, so no gate had
+ * withheld anything. The sentence is true only when a gate refused a draft.
+ * The cause is passed as a typed argument from each call site, never
+ * recovered by parsing the aiDebug string.
+ */
+describe('buildFallbackText — the wording names the real cause', () => {
+  const FALSE_FOR_NO_DRAFT = ['withheld', 'publish gate', 'refused'];
+  const INTERNALS = ['400', 'credit', 'Anthropic', 'Claude', 'HTTP', 'API key', 'aiDebug'];
+
+  it('a refused draft says a publish gate withheld it', () => {
+    const text = buildFallbackText(base, 'draft-refused');
+    expect(text).toContain('the model draft was withheld by a publish gate, so today carries data without narrative.');
+    expect(text).toContain('the model draft was withheld today');
+    expect(text).not.toContain('no model draft was produced');
+  });
+
+  it('no draft says so, and never claims a gate withheld anything', () => {
+    const text = buildFallbackText(base, 'no-draft');
+    expect(text).toContain('no model draft was produced today, so today carries data without narrative.');
+    expect(text).toContain('no model draft was produced today, so we give you the lead');
+    for (const phrase of FALSE_FOR_NO_DRAFT) expect(text).not.toContain(phrase);
+  });
+
+  it('the no-draft wording also holds when the lead is a country, not a headline', () => {
+    const text = buildFallbackText({ ...base, newsHeadlines: [] }, 'no-draft');
+    expect(text).toContain('no model draft was produced today');
+    for (const phrase of FALSE_FOR_NO_DRAFT) expect(text).not.toContain(phrase);
+  });
+
+  it('an unspecified cause defaults to no-draft, never to the gate wording', () => {
+    expect(buildFallbackText(base)).toBe(buildFallbackText(base, 'no-draft'));
+    expect(buildFallbackText(base)).not.toContain('publish gate');
+  });
+
+  it('exposes no internals to readers, whatever the cause', () => {
+    for (const cause of ['draft-refused', 'no-draft'] as FallbackCause[]) {
+      const text = buildFallbackText(base, cause);
+      for (const word of INTERNALS) expect(text).not.toContain(word);
+    }
+  });
+
+  it('both causes keep the same section spine and pass the structure gate', () => {
+    for (const cause of ['draft-refused', 'no-draft'] as FallbackCause[]) {
+      const r = validateBriefStructure(buildFallbackText(base, cause), false);
+      expect(r.missing).toEqual([]);
+      expect(r.extra).toEqual([]);
+      expect(r.pass).toBe(true);
+    }
+  });
+
+  it('the cause changes only the two sentences about the draft', () => {
+    const a = buildFallbackText(base, 'draft-refused').split('\n');
+    const b = buildFallbackText(base, 'no-draft').split('\n');
+    expect(a.length).toBe(b.length);
+    expect(a.filter((line, i) => line !== b[i]).length).toBe(2);
+  });
+});
+
+describe('fallback call sites — every path to the fallback names its cause', () => {
+  const EXPECTED: Record<FallbackPath, FallbackCause> = {
+    'no-api-key': 'no-draft',
+    'http-error': 'no-draft',
+    exception: 'no-draft',
+    'empty-response': 'no-draft',
+    'grounding-refused': 'draft-refused',
+    'structure-refused': 'draft-refused',
+  };
+
+  it('only the two gate refusals map to the gate wording', () => {
+    expect(FALLBACK_CAUSE).toEqual(EXPECTED);
+  });
+
+  /**
+   * Every `buildFallbackText(` call in the handler source, with its argument
+   * text read to the balanced closing paren (so an object literal or a ternary
+   * argument is seen whole, not skipped), plus the source between the nearest
+   * preceding `aiDebug =` and the call. Only the function's own definition is
+   * excluded.
+   */
+  const readCallSites = () => {
+    const src = readFileSync(join(process.cwd(), 'api/cron/daily-brief.ts'), 'utf8');
+    const sites: { args: string; context: string }[] = [];
+    for (const m of src.matchAll(/buildFallbackText\(/g)) {
+      if (src.slice(Math.max(0, m.index - 16), m.index) === 'export function ') continue;
+      let depth = 1;
+      let i = m.index + m[0].length;
+      for (; i < src.length && depth > 0; i++) {
+        if (src[i] === '(') depth++;
+        else if (src[i] === ')') depth--;
+      }
+      const args = src.slice(m.index + m[0].length, i - 1);
+      sites.push({ args, context: src.slice(src.lastIndexOf('aiDebug =', m.index), m.index) });
+    }
+    return sites;
+  };
+
+  // Placement: each path's call must follow the aiDebug label that path sets.
+  // This reads the label string in the TEST only; the runtime never does.
+  const SET_BY: Record<FallbackPath, string> = {
+    'no-api-key': "aiDebug = 'no-api-key'",
+    'http-error': 'aiDebug = `ai-failed:',
+    exception: 'aiDebug = `ai-error:',
+    'empty-response': "aiDebug = 'ai-empty-response'",
+    'grounding-refused': 'aiDebug = `grounding-failed:',
+    'structure-refused': 'aiDebug = `structure-failed:',
+  };
+
+  it('every buildFallbackText call in the handler passes exactly FALLBACK_CAUSE[<path>], once per path', () => {
+    const sites = readCallSites();
+    // The only accepted shape (a trailing comma, as prettier may add, is fine).
+    // Anything else, including a spread, a literal cause or a ternary, fails.
+    const paths = sites.map((x) => /^briefData,\s*FALLBACK_CAUSE\['([a-z-]+)'\],?$/.exec(x.args.trim())?.[1]);
+    expect(paths.every((p) => p !== undefined)).toBe(true);
+    expect([...paths].sort()).toEqual(Object.keys(FALLBACK_CAUSE).sort());
+  });
+
+  it('each path label sits on the branch that sets its own aiDebug label (swapped labels fail)', () => {
+    for (const { args, context } of readCallSites()) {
+      const path = /FALLBACK_CAUSE\['([a-z-]+)'\]/.exec(args)?.[1] as FallbackPath;
+      expect(context.startsWith(SET_BY[path])).toBe(true);
+    }
   });
 });
 
