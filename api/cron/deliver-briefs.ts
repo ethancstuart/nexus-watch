@@ -195,15 +195,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Admin emails: deliver at 13:00 UTC+ (6am PDT / 5am PST — early enough for morning review).
   // Today's brief only, as before: the admin copy is never carried over.
   if (adminEmails.length > 0 && currentUtcHour >= 13 && !carriedOver) {
+    // One mailbox, however it is spelled: ADMIN_EMAILS is typed by hand and the
+    // stored subscriber address is whatever the form kept, so every comparison
+    // below is on the trimmed, lower-cased key. Exact-string matching sent that
+    // person two copies.
+    const keyOf = (e: string) => e.trim().toLowerCase();
+    // The spelling to send to is the stored subscriber's where one exists
+    // (including a subscriber whose window is not open yet, who is in
+    // `undelivered`), else the admin's own.
+    const storedSpelling = new Map<string, string>();
+    for (const s of undelivered) storedSpelling.set(keyOf(String(s.email)), String(s.email));
+    const dueKeys = new Set(subscribers.map((s) => keyOf(String(s.email))));
+    const adminByKey = new Map<string, string>();
+    for (const e of adminEmails) if (!adminByKey.has(keyOf(e))) adminByKey.set(keyOf(e), e);
+
+    // Case-insensitive on the stored side too: a claim written under another
+    // spelling is still this person's copy for the day.
     const adminDelivered = await sql`
       SELECT subscriber_email FROM brief_subscriber_delivery
       WHERE brief_date = ${briefDate}
-        AND subscriber_email = ANY(${adminEmails})
+        AND lower(subscriber_email) = ANY(${Array.from(adminByKey.keys())})
     `;
-    const alreadySent = new Set(adminDelivered.map((r) => r.subscriber_email as string));
-    adminEmails.forEach((e) => {
-      if (!alreadySent.has(e)) allEmails.add(e);
-    });
+    const alreadySent = new Set(adminDelivered.map((r) => keyOf(String(r.subscriber_email))));
+    for (const [key, typed] of adminByKey) {
+      if (alreadySent.has(key) || dueKeys.has(key)) continue; // the subscriber path sends it
+      allEmails.add(storedSpelling.get(key) ?? typed);
+    }
   }
 
   if (allEmails.size === 0) {

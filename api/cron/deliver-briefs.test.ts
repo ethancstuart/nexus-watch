@@ -63,7 +63,7 @@ const SQL = {
       AND EXISTS ( SELECT 1 FROM brief_subscriber_delivery prior
         WHERE prior.subscriber_email = es.email AND prior.brief_date < $? )`),
   adminSent: norm(`SELECT subscriber_email FROM brief_subscriber_delivery
-    WHERE brief_date = $? AND subscriber_email = ANY($?)`),
+    WHERE brief_date = $? AND lower(subscriber_email) = ANY($?)`),
   claim: norm(`INSERT INTO brief_subscriber_delivery (subscriber_email, brief_date, channel)
     SELECT e, $?::date, 'resend' FROM unnest($?::text[]) AS e
     ON CONFLICT (subscriber_email, brief_date) DO NOTHING
@@ -97,8 +97,13 @@ function fakeSql(strings: TemplateStringsArray, ...values: unknown[]): unknown[]
       });
     }
     case SQL.adminSent: {
-      const [date, emails] = values as [string, string[]];
-      return emails.filter((e) => db.claims.has(`${e}|${date}`)).map((e) => ({ subscriber_email: e }));
+      // lower(subscriber_email) = ANY(keys): the stored spelling comes back.
+      const [date, keys] = values as [string, string[]];
+      return [...db.claims]
+        .filter((k) => k.endsWith(`|${date}`))
+        .map((k) => k.slice(0, -`|${date}`.length))
+        .filter((e) => keys.includes(e.toLowerCase()))
+        .map((e) => ({ subscriber_email: e }));
     }
     case SQL.claim: {
       // One statement per chunk: (date, emails[]) → only the rows it inserted.
@@ -520,5 +525,59 @@ describe('deliver-briefs: admin copy timing is unchanged', () => {
     db.subscribers = [];
     const { recipients } = await runAt('2026-11-16T13:00:39Z');
     expect(recipients).toEqual(['admin@example.test']);
+  });
+});
+
+describe('deliver-briefs: an admin address that differs only by case is one person', () => {
+  // ADMIN_EMAILS is typed by hand; the subscriber row is whatever the form
+  // stored. Same mailbox, different spelling: one copy, not two.
+  it('mixed-case admin + lower-case subscriber → one send, to the stored subscriber spelling', async () => {
+    vi.stubEnv('ADMIN_EMAILS', 'London@Example.test');
+    const { recipients } = await runAt('2026-11-16T13:00:39Z'); // London is due; admin from 13Z
+    expect(recipients.filter((r) => r.toLowerCase() === 'london@example.test')).toEqual(['london@example.test']);
+  });
+
+  it('admin who is not a subscriber → still one send, trimmed, as typed', async () => {
+    vi.stubEnv('ADMIN_EMAILS', '  Owner@Example.test  ');
+    db.subscribers = [];
+    const { recipients } = await runAt('2026-11-16T13:00:39Z');
+    expect(recipients).toEqual(['Owner@Example.test']);
+  });
+
+  it('two admin entries differing only by case → one send', async () => {
+    vi.stubEnv('ADMIN_EMAILS', 'Owner@Example.test, owner@example.test');
+    db.subscribers = [];
+    const { recipients } = await runAt('2026-11-16T13:00:39Z');
+    expect(recipients).toEqual(['Owner@Example.test']);
+  });
+
+  it('a re-run the same day does not send the admin copy again', async () => {
+    vi.stubEnv('ADMIN_EMAILS', 'Owner@Example.test');
+    db.subscribers = [];
+    const first = await runAt('2026-11-16T13:00:39Z');
+    expect(first.recipients).toEqual(['Owner@Example.test']);
+    fetchMock.mockClear();
+    const second = await runAt('2026-11-16T14:00:39Z');
+    expect(second.recipients).toEqual([]);
+  });
+
+  it('a subscriber already sent today (their own spelling) is not sent a second, admin-spelled copy', async () => {
+    vi.stubEnv('ADMIN_EMAILS', 'London@Example.test');
+    db.subscribers = [{ email: 'london@example.test', timezone: 'Europe/London' }];
+    const first = await runAt('2026-11-16T12:00:39Z'); // before 13Z: the subscriber path only
+    expect(first.recipients).toEqual(['london@example.test']);
+    fetchMock.mockClear();
+    const second = await runAt('2026-11-16T13:00:39Z');
+    expect(second.recipients).toEqual([]);
+  });
+
+  it('a subscriber not yet due gets the admin copy under their stored spelling, and no second copy when due', async () => {
+    vi.stubEnv('ADMIN_EMAILS', 'TOKYO@Example.test');
+    db.subscribers = [{ email: 'tokyo@example.test', timezone: 'Asia/Tokyo' }]; // due 22:00Z
+    const early = await runAt('2026-11-16T13:00:39Z');
+    expect(early.recipients).toEqual(['tokyo@example.test']);
+    fetchMock.mockClear();
+    const due = await runAt('2026-11-16T22:00:39Z');
+    expect(due.recipients).toEqual([]);
   });
 });
