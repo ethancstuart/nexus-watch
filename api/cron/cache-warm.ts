@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { requireCron } from '../_cron-utils.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 25 };
 
@@ -27,11 +28,7 @@ export const config = { runtime: 'nodejs', maxDuration: 25 };
 const TARGETS = ['/api/cii'];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.authorization;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ error: 'unauthorized' });
-  }
+  if (!requireCron(req, res)) return;
 
   const host = req.headers.host || 'nexuswatch.dev';
   const start = Date.now();

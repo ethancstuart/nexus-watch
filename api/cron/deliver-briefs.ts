@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { personalizeUnsubscribe, unsubscribeUrl } from '../_lib/unsubscribe-token.js';
 import { renderDossierEmail } from './daily-brief.js';
+import { requireCron } from '../_cron-utils.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 120 };
 
@@ -17,11 +18,7 @@ export const config = { runtime: 'nodejs', maxDuration: 120 };
  * Schedule: 0 * * * * (every hour on the hour)
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Cron auth
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!requireCron(req, res)) return;
 
   const sql = neon(process.env.DATABASE_URL!);
   const now = new Date();

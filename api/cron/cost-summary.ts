@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { raiseAlert } from '../_lib/alert.js';
+import { requireCron } from '../_cron-utils.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 30 };
 
@@ -66,11 +67,7 @@ const PROVIDERS = [
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.authorization;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ error: 'unauthorized' });
-  }
+  if (!requireCron(req, res)) return;
 
   const lines = PROVIDERS.map((p) => `• ${p.name} — ${p.note}\n  → ${p.dashboardUrl}`);
   const body = ['Weekly check-in for the past 7 days. Open each link and verify usage and balance.', '', ...lines].join(

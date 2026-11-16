@@ -165,8 +165,11 @@ function secretCheckGates(src: string): boolean {
 const violations: string[] = [];
 const exempt: Array<{ path: string; reason: string }> = [];
 const missing: string[] = [];
-const legacy: string[] = [];
 let checked = 0;
+
+// `if (!requireCron(req, res)) return;`, braced or not. A bare
+// `requireCron(req, res);` discards the answer and gates nothing.
+const GATED_REQUIRE_CRON_RE = /\bif\s*\(\s*!\s*requireCron\s*\([^)]*\)\s*\)\s*(?:\{\s*)?return\b/;
 
 for (const cron of crons) {
   // "/api/cron/foo" -> "api/cron/foo.ts"
@@ -185,31 +188,33 @@ for (const cron of crons) {
     continue;
   }
 
-  // The property: the handler must CALL the shared fail-closed check. Merely
-  // importing it is not enough — that is the mistake check-llm-spend.ts made
-  // by testing for the presence of a string rather than its use.
-  if (/requireCron\s*\(/.test(src)) continue;
+  // The property: the handler must CALL the shared fail-closed check AND stop
+  // when it refuses. Merely importing it is not enough — that is the mistake
+  // check-llm-spend.ts made by testing for the presence of a string rather than
+  // its use — and neither is a call whose result is discarded, or one named in
+  // a comment. So read code with comments and strings blanked, and require the
+  // documented form: `if (!requireCron(req, res)) return;`.
+  const code = stripCommentsAndStrings(src);
+  if (GATED_REQUIRE_CRON_RE.test(code)) continue;
 
-  // TWO CLASSES, and conflating them would make this guard a liar. On its
-  // first run it reported 24 endpoints as "do not authenticate" — but most of
-  // them DO, using an older idiom. A guard whose message is false is one
-  // nobody trusts the second time.
-  //
-  //  - No mention of CRON_SECRET at all: genuinely open to the internet today.
-  //    That FAILS.
-  //  - A legacy idiom: authenticated in practice, because CRON_SECRET is set
-  //    in production — but it accepts the secret via ?token= (logged in Vercel
-  //    access logs and leaked in Referer headers) and it passes when the
-  //    secret is UNSET, because `undefined !== undefined` is false. That is a
-  //    migration WARNING, not a build break.
-  if (!src.includes('CRON_SECRET')) {
+  // Every other shape FAILS. There used to be a third tier, "legacy idiom":
+  // an inline CRON_SECRET check that gates, reported as a warning with exit 0.
+  // Thirteen handlers sat in it while the check passed whenever the secret was
+  // unset (`cronSecret && …` skips the test; `undefined !== undefined` is
+  // false), and CI printed OK. Authenticated-in-practice is not fail-closed.
+  // The messages stay distinct so none of them is false.
+  if (/\brequireCron\b/.test(code)) {
+    violations.push(`${cron.path}  (${rel})  — mentions requireCron but does not return when it refuses`);
+  } else if (!src.includes('CRON_SECRET')) {
     violations.push(`${cron.path}  (${rel})  — no authentication at all`);
   } else if (!secretCheckGates(src)) {
     // Mentions the secret but no branch testing it returns: the comparison is
-    // decorative and the endpoint is open. That is a FAILURE, not a warning.
+    // decorative and the endpoint is open.
     violations.push(`${cron.path}  (${rel})  — tests CRON_SECRET but the branch does not return`);
   } else {
-    legacy.push(cron.path);
+    violations.push(
+      `${cron.path}  (${rel})  — inline CRON_SECRET check: it lets every request through when CRON_SECRET is unset. Use requireCron`,
+    );
   }
 }
 
@@ -236,18 +241,8 @@ Or, if it is genuinely safe to call unauthenticated, say why in the file:
   process.exit(1);
 }
 
-if (legacy.length > 0) {
-  console.warn(
-    `\n[check-cron-auth] ${legacy.length} endpoint(s) still use the legacy idiom. They authenticate ` +
-      `today only because CRON_SECRET is set; they accept the secret as a query parameter and they ` +
-      `PASS when it is unset. Migrate to requireCron():\n`,
-  );
-  for (const l of legacy) console.warn(`  ${l}`);
-}
-
 console.log(
   `[check-cron-auth] OK — ${checked} scheduled endpoint(s) authenticate` +
-    (legacy.length ? ` (${legacy.length} via the legacy idiom — migrate)` : '') +
     (exempt.length ? `, ${exempt.length} exempt with a recorded reason` : '') +
     (missing.length ? `, ${missing.length} scheduled path(s) missing a handler` : ''),
 );
