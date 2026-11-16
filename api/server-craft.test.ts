@@ -41,13 +41,14 @@ const HISTORY = [
 ];
 
 let callRow: Record<string, unknown> = RESOLVED_MISS;
+let historyRows: Record<string, unknown>[] = HISTORY;
 function fakeSql(strings: TemplateStringsArray): unknown[] {
   const q = strings.join(' ').replace(/\s+/g, ' ');
   if (q.includes('COUNT(*) FILTER')) {
     return [{ open: 928, resolved: 4963, hits: 1454, next_resolves: '2026-11-16', first_call: '2026-08-22' }];
   }
   if (q.includes('FROM calls WHERE id =')) return [callRow];
-  if (q.includes('WHERE country_code =')) return HISTORY;
+  if (q.includes('WHERE country_code =')) return historyRows;
   return [];
 }
 vi.mock('@neondatabase/serverless', () => ({ neon: () => fakeSql }));
@@ -83,6 +84,75 @@ async function renderCall(row: Record<string, unknown>): Promise<string> {
 
 beforeEach(() => {
   process.env.DATABASE_URL = 'postgres://stub';
+  historyRows = HISTORY;
+});
+
+/** The page without its <style> blocks, whose comments legitimately name MISS and HIT. */
+const withoutStyle = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, '');
+
+describe('/call/:id never asserts an outcome it does not have', () => {
+  const UNRESOLVABLE = {
+    ...RESOLVED_MISS,
+    status: 'unresolvable',
+    evidence_count: null,
+    void_reason: 'Synthetic coverage: observed on 2 of 14 days, below the line.',
+  };
+
+  it('an unresolvable call says so: the word, the reason, not scored, and no hit or miss', async () => {
+    historyRows = [];
+    const html = await renderCall(UNRESOLVABLE);
+    expect(html).toContain('<div class="v wide">UNRESOLVABLE</div>');
+    expect(html).toContain('Synthetic coverage: observed on 2 of 14 days, below the line.');
+    expect(html).toContain('not scored');
+    expect(withoutStyle(html)).not.toMatch(/\bMISS\b/);
+    expect(withoutStyle(html)).not.toMatch(/\bHIT\b/);
+    expect(html).not.toMatch(/class="mark"/);
+    expect(html).not.toMatch(/[□■]/);
+  });
+
+  it('an unresolvable call with no recorded reason says that rather than inventing one', async () => {
+    historyRows = [];
+    const html = await renderCall({ ...UNRESOLVABLE, void_reason: null });
+    expect(html).toContain('no reason recorded');
+  });
+
+  it('the meta description does not call an unresolvable call a result', async () => {
+    historyRows = [];
+    const html = await renderCall(UNRESOLVABLE);
+    const description = /<meta name="description" content="([^"]*)"/.exec(html)?.[1] ?? '';
+    expect(description).toContain('not scored');
+    expect(description).not.toMatch(/MISS|HIT|UNRESOLVABLE/);
+  });
+
+  it('a status this page does not know asserts no outcome', async () => {
+    historyRows = [];
+    const html = await renderCall({ ...RESOLVED_MISS, status: 'cancelled' });
+    expect(html).toContain('NO OUTCOME RECORDED');
+    expect(withoutStyle(html)).not.toMatch(/\bMISS\b/);
+    expect(withoutStyle(html)).not.toMatch(/\bHIT\b/);
+    expect(html).not.toMatch(/[□■]/);
+    const description = /<meta name="description" content="([^"]*)"/.exec(html)?.[1] ?? '';
+    expect(description).not.toMatch(/MISS|HIT|CANCELLED/);
+  });
+
+  it('history rows for unresolvable and unknown statuses carry no outcome word or mark', async () => {
+    historyRows = [
+      { id: 4601, made_on: '2026-10-21', probability: 0.4, status: 'unresolvable', resolves_on: '2026-11-04' },
+      { id: 4602, made_on: '2026-10-22', probability: 0.5, status: 'cancelled', resolves_on: '2026-11-05' },
+    ];
+    const html = await renderCall({ ...RESOLVED_MISS, status: 'pending' });
+    expect(html).toMatch(/call #4601<\/span><span class="trail">UNRESOLVABLE</);
+    expect(html).toMatch(/call #4602<\/span><span class="trail">NO OUTCOME RECORDED</);
+    expect(html).not.toMatch(/CANCELLED/);
+    expect(html).not.toMatch(/[□■]/);
+  });
+
+  it('hit and miss are unchanged beside the new statuses', async () => {
+    const miss = await renderCall(RESOLVED_MISS);
+    expect(miss).toContain('<div class="v"><span class="mark" aria-hidden="true">□</span>MISS</div>');
+    const hit = await renderCall({ ...RESOLVED_MISS, status: 'hit' });
+    expect(hit).toContain('<div class="v"><span class="mark" aria-hidden="true">■</span>HIT</div>');
+  });
 });
 
 describe('/call/:id outcomes are word plus shape, never hue', () => {
