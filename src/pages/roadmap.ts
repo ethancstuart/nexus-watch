@@ -54,11 +54,6 @@ export function renderRoadmap(root: HTMLElement): void {
       title: 'Explore',
       desc: 'Browse weather, markets, news, sports, predictions, and AI chat from one command center.',
     },
-    {
-      num: '3',
-      title: 'Customize',
-      desc: 'Sign in to save preferences and sync across devices.',
-    },
   ];
   for (const s of stepItems) {
     const step = createElement('div', { className: 'roadmap-step' });
@@ -101,12 +96,6 @@ export function renderRoadmap(root: HTMLElement): void {
     {
       status: 'shipped',
       label: 'Shipped',
-      title: 'Auth',
-      desc: 'Google/GitHub OAuth, free for everyone',
-    },
-    {
-      status: 'shipped',
-      label: 'Shipped',
       title: 'Landing & Waitlist',
       desc: 'Product page, waitlist signup, roadmap, feature comparison',
     },
@@ -131,12 +120,6 @@ export function renderRoadmap(root: HTMLElement): void {
     {
       status: 'shipped',
       label: 'Shipped',
-      title: 'Notes & Alerts',
-      desc: 'Quick-capture notes panel with to-dos, price alerts with browser notifications',
-    },
-    {
-      status: 'shipped',
-      label: 'Shipped',
       title: 'Config & Analytics',
       desc: 'Export/import dashboard config, lightweight usage analytics with 30-day rolling window',
     },
@@ -155,12 +138,6 @@ export function renderRoadmap(root: HTMLElement): void {
     {
       status: 'shipped',
       label: 'Shipped',
-      title: 'Sign-In Value',
-      desc: 'Cross-device sync via Vercel KV, custom news sources, multiple weather locations, dashboard sharing',
-    },
-    {
-      status: 'shipped',
-      label: 'Shipped',
       title: 'Quality & Reliability',
       desc: 'ESLint + Prettier, full CI pipeline, listener leak cleanup, reactive settings (panels refresh immediately on preference changes)',
     },
@@ -168,7 +145,7 @@ export function renderRoadmap(root: HTMLElement): void {
       status: 'shipped',
       label: 'Shipped',
       title: 'Launch',
-      desc: 'Google Calendar integration, advanced alert conditions, OG image generation',
+      desc: 'OG image generation',
     },
     {
       status: 'active',

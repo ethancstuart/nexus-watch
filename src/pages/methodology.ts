@@ -159,9 +159,11 @@ export function renderMethodology(root: HTMLElement): void {
         <li><strong>Wikipedia pageviews</strong> — daily, as an attention signal.</li>
       </ul>
       <p>
-        Nothing else is read. ACLED, GDELT, NASA FIRMS, WHO, Open-Meteo, OpenSky, AIS, Polymarket, Cloudflare
-        Radar and UNHCR appeared on this page for months after their collectors were deleted. They are not
-        inputs and have not been for some time.
+        Calls and their resolution read only those seven. The daily brief reads more: WHO disease-outbreak news,
+        GDELT headlines (when GDELT answers), market quotes and a set of news RSS feeds, listed in
+        <code>api/cron/daily-brief.ts</code>. No call is resolved from any of it. Open-Meteo, OpenSky, AIS,
+        Cloudflare Radar and UNHCR appeared on this page for months after their
+        collectors were deleted. They are not inputs and have not been for some time.
       </p>
 
       <h2 class="brief-section-header">The Components</h2>
@@ -192,7 +194,6 @@ export function renderMethodology(root: HTMLElement): void {
             <span class="method-component-range">0–8 pts</span>
           </div>
           <p>Wikipedia pageview z-score spikes only. The old "sentiment" definition (conflict×0.5 + disasters×0.3) was retired 2026-08-23: it was an echo of other components, not a signal, and it silently raised the effective conflict weight to 30/100 while this page said 20.</p>
-          <p class="method-formula">Score = conflict × 0.5 + disasters × 0.3, capped at 15</p>
         </div>
 
         <div class="method-component">
@@ -200,8 +201,7 @@ export function renderMethodology(root: HTMLElement): void {
             <span class="method-component-name">Infrastructure / Censorship (deviation)</span>
             <span class="method-component-range">0–15 pts</span>
           </div>
-          <p>Infrastructure disruption risk. Currently sourced from <strong>IODA internet outage monitoring</strong>. Critical outages score 15, high outages score 10, moderate score 5. Countries with frequent communications blackouts during crises score persistently high.</p>
-          <p class="method-formula">Score = severity-based: critical=15, high=10, moderate=5, low=1</p>
+          <p>Confirmed censorship, from <strong>OONI</strong> measurements over the last three days.</p>
         </div>
 
         <div class="method-component">
@@ -223,10 +223,6 @@ export function renderMethodology(root: HTMLElement): void {
         </div>
       </div>
 
-      <h2 class="brief-section-header">How Scores Are Computed</h2>
-      <p><strong>CII = Conflict + Disasters + Sentiment + Infrastructure + Governance + Market Exposure</strong></p>
-      <p>Maximum theoretical score: 100 (20 + 15 + 15 + 15 + 15 + 20). In practice, no country currently scores above 60.</p>
-
       <h2 class="brief-section-header">Threat Levels</h2>
       <div class="method-levels">
         <div class="method-level"><span class="method-level-tag is-critical">&#x1f534; Critical</span> — CII ≥ 70. Active crisis requiring immediate attention.</div>
@@ -235,16 +231,8 @@ export function renderMethodology(root: HTMLElement): void {
         <div class="method-level"><span class="method-level-tag is-low">&#x1f7e2; Low</span> — CII < 30. Stable conditions with manageable risk.</div>
       </div>
 
-      <h2 class="brief-section-header">Data Sources</h2>
-      <table class="method-table">
-        <tr><td>ACLED</td><td>Armed conflict events — <strong>feed offline</strong>; conflict currently baseline + GDELT-derived</td><td>Unavailable</td></tr>
-        <tr><td>USGS</td><td>Earthquake events, magnitude, location</td><td>Every 5 min</td></tr>
-        <tr><td>IODA</td><td>Internet outage monitoring by country</td><td>Hourly</td></tr>
-        <tr><td>NexusWatch Baselines</td><td>Conflict, governance, market exposure weights</td><td>Updated monthly</td></tr>
-      </table>
-
       <h2 class="brief-section-header">Update Frequency</h2>
-      <p>CII scores are recomputed <strong>every 5 minutes</strong> via a Vercel cron job. Historical scores are stored in a PostgreSQL database with timestamps, enabling 7-day, 14-day, and 30-day trend analysis.</p>
+      <p>CII scores are recomputed <strong>every hour</strong> via a Vercel cron job. Historical scores are stored in a PostgreSQL database with timestamps, enabling 7-day, 14-day, and 30-day trend analysis.</p>
       <p>The daily NexusWatch Brief includes CII trajectory analysis — identifying which countries are rising, falling, or volatile over the past week.</p>
 
       <h2 class="brief-section-header">Live CII Scores</h2>
@@ -257,10 +245,7 @@ export function renderMethodology(root: HTMLElement): void {
 
       <h2 class="brief-section-header">Limitations & Future Work</h2>
       <ul class="method-list">
-        <li><strong>Sentiment</strong> is currently approximated from conflict/disaster intensity. GDELT news tone analysis will provide true media sentiment when IP access is restored.</li>
-        <li><strong>Infrastructure</strong> primarily covers internet outages. Future versions will incorporate power grid, water, and healthcare facility data.</li>
         <li><strong>Baseline scores</strong> for conflict, governance, and market exposure are manually curated. An automated calibration system using historical event data is planned.</li>
-        <li><strong>50 countries</strong> are monitored. Coverage will expand based on user demand and data source availability.</li>
       </ul>
 
       <h2 class="brief-section-header">Open Source</h2>
@@ -326,7 +311,7 @@ export function renderMethodology(root: HTMLElement): void {
               })
               .join('')}
           </table>
-          <p class="method-cii-meta">Showing top 20 of ${scores.length} monitored countries. Updated every 5 minutes.</p>
+          <p class="method-cii-meta">Showing top 20 of ${scores.length} monitored countries. Updated every hour.</p>
         `;
       })
       .catch(() => {

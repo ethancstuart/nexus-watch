@@ -167,7 +167,7 @@ export const PAGE_SEO = {
   mcp: {
     title: 'MCP Server for AI Agents',
     description:
-      'Connect Claude Code, Cursor, or any MCP client to NexusWatch. 9 geopolitical intelligence tools — country risk, scenarios, portfolio exposure. No auth. Free.',
+      'Connect Claude Code, Cursor, or any MCP client to NexusWatch: the call ledger, country risk and the daily brief. No auth. Free.',
     canonicalPath: '/mcp',
   },
   status: {

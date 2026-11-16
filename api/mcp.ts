@@ -79,7 +79,7 @@ async function callApi(
 // Tool definitions
 // ---------------------------------------------------------------------------
 
-const TOOLS: ToolDef[] = [
+export const TOOLS: ToolDef[] = [
   {
     name: 'get_call_ledger',
     description:
@@ -243,8 +243,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       name: 'nexuswatch',
       version: '1.0.0',
       protocol: 'MCP (Model Context Protocol)',
-      description:
-        'Geopolitical intelligence for AI agents — 9 tools covering country risk, scenarios, portfolio exposure, alerts, and prediction accuracy.',
+      // Derived from TOOLS, never typed: this sentence said "9 tools" (scenarios,
+      // portfolio, alerts) for months after six of them were retired.
+      description: `NexusWatch for AI agents — ${TOOLS.length} tools: ${TOOLS.map((t) => t.name).join(', ')}.`,
       tools: TOOLS.map((t) => t.name),
       connect: 'claude mcp add --transport http nexus-watch https://nexuswatch.dev/api/mcp',
       auth_required: false,

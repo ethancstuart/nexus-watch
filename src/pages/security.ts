@@ -28,14 +28,9 @@ export function renderSecurity(root: HTMLElement): void {
       <section>
         <h2>Data we collect</h2>
         <ul>
-          <li><strong>If you don't sign in:</strong> nothing personal. Only standard
+          <li><strong>If you visit:</strong> nothing personal. Only standard
             web logs (IP for rate-limiting, user-agent for browser-compat
             decisions). No cookies set.</li>
-          <li><strong>If you sign in:</strong> your OAuth provider (Google or GitHub)
-            email, profile id, and display name. We never receive your password.</li>
-          <li><strong>If you watchlist countries or save alerts:</strong> the country
-            codes you chose, the alert thresholds you set. Stored in our
-            Postgres DB, scoped to your account.</li>
           <li><strong>If you subscribe to the brief:</strong> your email goes to
             beehiiv (our newsletter provider). You can unsubscribe at any
             time from any brief.</li>

@@ -118,7 +118,7 @@ function renderInterestsEditor(draft: DraftState): HTMLElement {
   wrap.innerHTML = `
     <div class="dossier-kicker" style="text-align: left; margin-bottom: 8px;">INTERESTS</div>
     <h2 style="font-family: ${dossierFonts.serif}; font-size: 22px; font-weight: 600; color: ${dossierColors.textPrimary}; margin: 0 0 8px 0;">What are you watching?</h2>
-    <p style="${leadStyle()}">These drive your personalized Watchlist in the daily brief and filter which alerts we surface. You can change them any time.</p>
+    <p style="${leadStyle()}">Saved in this browser. You can change them any time.</p>
 
     <div style="margin: 20px 0;">
       <span style="${legendStyle()}">Regions</span>
@@ -187,7 +187,7 @@ function renderDeliveryEditor(draft: DraftState): HTMLElement {
   wrap.innerHTML = `
     <div class="dossier-kicker" style="text-align: left; margin-bottom: 8px;">DELIVERY</div>
     <h2 style="font-family: ${dossierFonts.serif}; font-size: 22px; font-weight: 600; color: ${dossierColors.textPrimary}; margin: 0 0 8px 0;">How often should we send it?</h2>
-    <p style="${leadStyle()}">Change the cadence any time. Takes effect with the next brief cycle.</p>
+    <p style="${leadStyle()}">Saved in this browser.</p>
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
       ${freqOption('daily', 'Daily', 'Every morning at 5 AM ET. Best for active watchers.')}
       ${freqOption('mwf', 'Monday / Wednesday / Friday', 'Three per week. A lighter cadence.')}
