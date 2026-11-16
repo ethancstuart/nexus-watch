@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { channelsToAlert, formatAlertBody } from '../_lib/delivery-health.js';
 import { raiseAlert, clearAlert } from '../_lib/alert.js';
+import { archiveContent } from '../_lib/brief-edition.js';
 import { groundDraft, type GroundingReport } from '../_lib/grounding.js';
 import {
   DAILY_SECTIONS,
@@ -1321,9 +1322,11 @@ ${(() => {
     const onFallback = !(aiDebug ?? '').startsWith('ai-success');
     const subject = onFallback ? fallbackSubject(today, ledgerRecord) : chooseSubject(declaredSubject, briefText);
     const archiveT0 = Date.now();
+    // The edition travels with the stored content (from the same flag, not the
+    // text) so /api/status can report it without parsing anything.
     await sql`
       UPDATE daily_briefs
-      SET content = ${JSON.stringify({ ...briefData, briefText, subject })},
+      SET content = ${JSON.stringify(archiveContent(briefData, briefText, subject, onFallback))},
           summary = ${briefHtml}
       WHERE brief_date = ${today}
     `;
