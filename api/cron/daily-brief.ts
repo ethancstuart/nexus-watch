@@ -4,6 +4,14 @@ import { channelsToAlert, formatAlertBody } from '../_lib/delivery-health.js';
 import { raiseAlert, clearAlert } from '../_lib/alert.js';
 import { archiveContent, editionFor, type BriefEdition } from '../_lib/brief-edition.js';
 import { groundDraft, type GroundingReport } from '../_lib/grounding.js';
+import { checkComparativeClaims, comparativeClaimLabel } from '../_lib/comparative-claims.js';
+import {
+  summariseCensorship,
+  formatCensorshipLine,
+  censorshipWindowLabel,
+  OONI_DAY_GRAIN_SINCE,
+  type OoniDayRow,
+} from '../_lib/censorship-context.js';
 import {
   DAILY_SECTIONS,
   SUNDAY_SECTIONS,
@@ -168,7 +176,7 @@ const BRIEF_RSS_FEEDS: BriefFeed[] = [
 const STATE_MEDIA_SOURCES = new Set(BRIEF_RSS_FEEDS.filter((f) => f.stateMedia).map((f) => f.source));
 
 // === The NexusWatch Brief — AI Prompt ===
-function getBriefSystemPrompt(now: Date): string {
+export function getBriefSystemPrompt(now: Date): string {
   // UTC day index. 0=Sun, 1=Mon ... 5=Fri, 6=Sat. The cron runs at 10:00 UTC
   // (5:00 AM ET) so UTC day and US-East day match for the whole publication.
   const dayOfWeek = now.getUTCDay();
@@ -237,17 +245,21 @@ CRITICAL RULES:
   sentences has been invented — including a "2018 Sulawesi moved the CII
   equivalent by 28 points" that predates the product by eight years. A brief
   whose entire claim is a published record cannot invent its own record.
+  The one exception is the censorship comparison the context computes for you
+  (previous 7 days, highest share, MARKERS); see below.
 - NO RETROSPECTIVE CLAIMS AT ALL unless the item is in today's context. No past
   price moves, no historical analogies, no "in 2019...". You cannot check them
   and neither can the reader.
 - ATTRIBUTE IN THE SENTENCE, not in a footnote. Any non-trivial factual claim
-  names its source inline: "OONI recorded 2,136 confirmed blocks in Russia this
-  week", not "Russia is tightening controls". Never name a source that is not in
-  the context — published briefs have carried "ACLED reports 400+ civilian
-  casualties" when ACLED has never been contacted by this system.
-- SEPARATE OBSERVED FROM ASSESSED. "OONI recorded X" is observed. "We read this
-  as pre-emptive posture" is assessed, and assessment carries a confidence word
-  and a reason: "moderate confidence — single source, no corroboration yet."
+  names its source inline: "OONI confirmed 2,136 test measurements in Russia
+  as blocked this week", not "Russia is tightening controls". Never name a
+  source that is not in the context — published briefs have carried "ACLED
+  reports 400+ civilian casualties" when ACLED has never been contacted by this
+  system.
+- SEPARATE OBSERVED FROM ASSESSED. "OONI recorded X" is observed. "We read the
+  higher count as more testing, since the share did not move" is assessed, and
+  assessment carries a confidence word and a reason: "moderate confidence —
+  single source, no corroboration yet."
 - DO synthesize and connect dots — this is analysis, not aggregation.
 - LEAD WITH STATE BEHAVIOUR. The Top Signal covers something a government,
   bloc or armed actor DID or DECIDED — a designation, a vote, a deployment, a
@@ -256,9 +268,30 @@ CRITICAL RULES:
   or disruption to energy, nuclear, port or cable infrastructure. "An earthquake
   occurred 180km from a facility" is a distance calculation, not news.
 - The POLITICAL SIGNAL section is the highest-value input in the data context.
-  Censorship and network interference are among the most reliable open leading
-  indicators of a political crackdown, and they are frequently days ahead of any
-  wire report. Use them.
+  Use it for what it measures: how often OONI's volunteer tests found sites
+  blocked, and how that compares with the previous week. It does not say why,
+  who ordered it, which services, or what follows. Never present censorship as
+  a predictor of a crackdown, protest or arrest; nothing in the context
+  supports that.
+- CENSORSHIP NUMBERS ARE MEASUREMENTS. Each OONI figure counts test
+  measurements (one volunteer probe testing one site once) that OONI confirmed
+  as blocked. It goes up when volunteers run more tests, with no change in
+  censorship. Write "N measurements confirmed blocked", never "N blocks",
+  "network blocks", or a number of sites, services or events. Give the share
+  (confirmed of total), which is the comparable figure, beside the count. Name
+  no service, ISP or category the context does not list.
+- COMPARISONS ONLY WHERE MARKED. About censorship, write a record or a high
+  ("record", "highest", "new high", "peak", "all-time", "since launch") only
+  when that country's context line carries highest-share or highest-count
+  (lowest-… for a low), and then state the span the section header gives
+  ("the highest 7-day share since 2026-09-12"). Write a change against last
+  week ("rose", "fell", "spiked", "up from") only when the line carries
+  share-up, share-down, count-up or count-down ("doubled" needs count-doubled,
+  "tripled" count-tripled). A share claim needs a share
+  marker and a count claim a count marker. A higher count with a flat share is
+  more testing, not more censorship. A draft that makes an unmarked
+  comparison, or calls measurements "blocks", is refused before it reaches a
+  reader.
 - Be specific: numbers, country names, magnitudes, percentages.
 - If data is thin on a topic, say less, not vaguer things.
 - "Your Watchlist" is NOT generated by you. Ignore any user-specific content in your output — the template layer appends a per-user Watchlist section after your output.`;
@@ -282,7 +315,6 @@ Rules for it: 40-65 characters. It names the specific thing that happened today,
 in plain words a busy professional would understand at a glance in an inbox. No
 markdown, no date, no publication name, no section label, no colon-prefixed
 category. It is a headline, not a topic.
-Good:  Russia and Iran hit record censorship in the same week
 Good:  We are calling Thailand at 52% against a 70% base rate
 Bad:   Why it matters          (a transition phrase, not a story)
 Bad:   Thailand                (a label, not a headline)
@@ -317,7 +349,8 @@ ${SUNDAY_SECTIONS[4]}
 Never speculate under the guise of restraint. If there is nothing to withhold, say "Nothing withheld this week — the data covered what moved."
 
 ${SUNDAY_SECTIONS[5]}
-5-6 things to watch Monday through Friday. Specific events, thresholds, and dates. This section should feel like a Monday morning prep sheet.`;
+5-6 things to watch Monday through Friday. Specific events, thresholds, and dates. This section should feel like a Monday morning prep sheet.
+Never frame a censorship watch item as a record in waiting ("would be the longest", "would mark a new high"): give the threshold and the date, not a superlative.`;
   }
 
   // ---------------------------------------------------------------------------
@@ -349,7 +382,6 @@ Rules for it: 40-65 characters. It names the specific thing that happened today,
 in plain words a busy professional would understand at a glance in an inbox. No
 markdown, no date, no publication name, no section label, no colon-prefixed
 category. It is a headline, not a topic.
-Good:  Russia and Iran hit record censorship in the same week
 Good:  We are calling Thailand at 52% against a 70% base rate
 Bad:   Why it matters          (a transition phrase, not a story)
 Bad:   Thailand                (a label, not a headline)
@@ -412,7 +444,7 @@ rule in the brief and it overrides every stylistic instruction above.
   out, so a fall is usually decay rather than de-escalation. Never narrate
   decay as an event.
 
-Correct, with evidence:  **Iran** 61 (▲+4) — OONI recorded 1,611 confirmed blocking measurements this week, up from 340.
+Correct, with evidence:  **Iran** 61 (▲+4) — OONI confirmed 1,611 of 9,800 measurements as blocked (16.4%) in the last 7 days, up from 3.6% the 7 days before.
 Correct, without:        **South Korea** 13 (▲+8) — driver not identified in today's data.
 
 **Crises** — active crises and escalation risks, 2-4 bullets max, each: **bold
@@ -454,9 +486,15 @@ ${DAILY_SECTIONS[4]}
 One slow-building development, 2-3 sentences — something visible in the 7-day
 trajectories, the censorship series, or repeated headlines, that is weeks from
 mattering rather than hours. Forward-looking and conditional ("if X continues
-through month-end, Y").
+through month-end, Y"). Y is something the data will show (a call resolving, a
+threshold crossed), never a crackdown, protest, arrest or attack that the
+censorship figures are said to foretell: they do not foretell anything.
+Never frame the censorship series as a record in waiting: no "would be the
+longest", "would mark the highest", "record" or "new high" in a forecast.
+Give the threshold and the date instead.
 NO HISTORICAL PRECEDENTS. Do not cite past events, past price moves, or past
-NexusWatch observations here or anywhere else in the brief. A precedent
+NexusWatch observations here or anywhere else in the brief, beyond the
+censorship comparison the context computes. A precedent
 recalled from memory is unverifiable, and the attribution rules forbid hedging
 it, so the two instructions together would manufacture confident false
 statements. Nothing retrospective.`;
@@ -870,23 +908,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // both dated, and both already in the database.
         //
         // Non-fatal: a query failure costs a section, never the brief.
-        let censorshipLines: string[] = [];
+        // Replaced on a successful query. Until then the model is told the
+        // data is missing, never that nothing was blocked.
+        let censorshipLines: string[] = [
+          'OONI data unavailable today: the query failed. Make no censorship statement.',
+        ];
+        // Last complete UTC day; today's row is still filling. History starts
+        // at the day-grain fix and reaches back at most 180 days.
+        const censorshipEndDate = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+        const censorshipHistorySince = [
+          OONI_DAY_GRAIN_SINCE,
+          new Date(now.getTime() - 180 * 86_400_000).toISOString().slice(0, 10),
+        ].sort()[1];
         let openCallLines: string[] = [];
         let sanctionsLines: string[] = [];
         try {
+          // Totals, shares, the previous week and the stored history — not one
+          // 7-day sum. A sum alone could carry no honest comparison, and the
+          // model wrote "record" on it anyway (censorship-context.ts).
           const nameOf = new Map(allCII.map((c) => [c.code, c.name]));
-          const blocks = (await sql`
-            SELECT country_code, SUM(confirmed_blocked)::int AS blocked, MAX(measurement_date)::text AS last_seen
+          const ooniRows = (await sql`
+            SELECT country_code, measurement_date::text AS measurement_date,
+                   confirmed_blocked::int AS confirmed_blocked, total_measurements::int AS total_measurements
             FROM ooni_measurements
-            WHERE measurement_date > NOW() - INTERVAL '7 days' AND confirmed_blocked > 0
-            GROUP BY country_code
-            ORDER BY blocked DESC
-            LIMIT 12
-          `) as unknown as Array<{ country_code: string; blocked: number; last_seen: string }>;
-          censorshipLines = blocks.map(
-            (b) =>
-              `${nameOf.get(b.country_code) ?? b.country_code} (${b.country_code}): ${b.blocked} confirmed blocking measurement${b.blocked === 1 ? '' : 's'} in the last 7d, latest ${b.last_seen.slice(0, 10)}`,
-          );
+            WHERE test_name = 'web_connectivity'
+              AND measurement_date >= ${censorshipHistorySince}::date AND measurement_date <= ${censorshipEndDate}::date
+          `) as unknown as OoniDayRow[];
+          censorshipLines = summariseCensorship(ooniRows, {
+            endDate: censorshipEndDate,
+            historySince: censorshipHistorySince,
+          })
+            .slice(0, 12)
+            .map((c) => formatCensorshipLine(c, nameOf.get(c.code) ?? c.code));
 
           // Ordered by DIVERGENCE from the base rate, not by probability.
           // Sorting by probability surfaced seven identical 84% calls — the
@@ -1067,8 +1120,9 @@ ${topCII.map((c) => `${c.name}: level ${c.score}/100 · today +${c.deviation}${t
 === BIGGEST DEVIATION MOVES (24h) ===
 ${movers.length > 0 ? movers.map((m) => `${m.name}: deviation ${m.delta > 0 ? '+' : ''}${m.delta.toFixed(0)} (${m.prevDeviation?.toFixed(0)} → ${m.deviation}) on structural level ${m.score}`).join('\n') : 'No significant deviation moves (±3 threshold)'}
 
-=== POLITICAL SIGNAL — NETWORK INTERFERENCE (OONI, last 7 days) ===
-${censorshipLines.length > 0 ? censorshipLines.join('\n') : 'No confirmed blocking events recorded in the last 7 days.'}
+=== POLITICAL SIGNAL — NETWORK INTERFERENCE (OONI web_connectivity; ${censorshipWindowLabel(censorshipEndDate, censorshipHistorySince)}) ===
+Each figure counts OONI test MEASUREMENTS that OONI confirmed as blocked. It rises when volunteers run more tests; the share is the comparable figure. MARKERS are computed from the stored history and the previous window; a comparison not marked here is not supported.
+${censorshipLines.length > 0 ? censorshipLines.join('\n') : `No OONI measurements confirmed as blocked in the 7 complete days to ${censorshipEndDate}.`}
 
 === RESOLVED CALLS (settled against external ground truth — ${isSunday ? 'the last 7 days' : 'today'}) ===
 ${briefData.resolvedCallLines.length > 0 ? briefData.resolvedCallLines.join('\n') : isSunday ? 'No calls resolved this week.' : 'No calls resolved today.'}
@@ -1202,6 +1256,13 @@ ${(() => {
             // rather than silently shipping invention.
             grounding = groundDraft(briefText, dataContext);
             const structure = validateBriefStructure(briefText, isSunday);
+            // Record claims are checked on the subject too: the false
+            // "record censorship" headlines were subject lines.
+            const comparative = checkComparativeClaims(
+              `${declaredSubject ?? ''}\n${briefText}`,
+              dataContext,
+              allCII.map((c) => c.name),
+            );
             if (!grounding.pass) {
               aiDebug = `grounding-failed: ${grounding.unsupported.length}/${grounding.draftNumerals.length} unsupported numerals [${grounding.unsupported.slice(0, 8).join(', ')}]`;
               console.error('[daily-brief] GROUNDING GATE REFUSED THE DRAFT:', aiDebug);
@@ -1218,6 +1279,14 @@ ${(() => {
               gateRefusal = true;
               declaredSubject = null;
               briefText = buildFallbackText(briefData, FALLBACK_CAUSE['structure-refused']);
+            } else if (!comparative.pass) {
+              // A "record" the computed markers do not carry, or a measurement
+              // count restated as "blocks" — refused like an invented number.
+              aiDebug = comparativeClaimLabel(comparative);
+              console.error('[daily-brief] COMPARATIVE-CLAIM GATE REFUSED THE DRAFT:', aiDebug);
+              gateRefusal = true;
+              declaredSubject = null;
+              briefText = buildFallbackText(briefData, FALLBACK_CAUSE['comparative-refused']);
             } else {
               aiDebug = `ai-success (grounding ${grounding.unsupported.length}/${grounding.draftNumerals.length} unsupported)`;
             }
@@ -2755,6 +2824,7 @@ export type FallbackPath =
   | 'empty-response'
   | 'grounding-refused'
   | 'structure-refused'
+  | 'comparative-refused'
   | 'incomplete-reply';
 
 export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
@@ -2764,6 +2834,8 @@ export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
   'empty-response': 'no-draft',
   'grounding-refused': 'draft-refused',
   'structure-refused': 'draft-refused',
+  // An unmarked "record" or "N blocks": a draft existed and a gate refused it.
+  'comparative-refused': 'draft-refused',
   // Cut off, refused by the model, or an unexpected stop_reason: no complete
   // draft exists, and no gate withheld one.
   'incomplete-reply': 'no-draft',

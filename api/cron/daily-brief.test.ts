@@ -175,10 +175,11 @@ describe('fallback call sites — every path to the fallback names its cause', (
     'empty-response': 'no-draft',
     'grounding-refused': 'draft-refused',
     'structure-refused': 'draft-refused',
+    'comparative-refused': 'draft-refused',
     'incomplete-reply': 'no-draft',
   };
 
-  it('only the two gate refusals map to the gate wording', () => {
+  it('only the gate refusals map to the gate wording', () => {
     expect(FALLBACK_CAUSE).toEqual(EXPECTED);
   });
 
@@ -215,6 +216,7 @@ describe('fallback call sites — every path to the fallback names its cause', (
     'empty-response': "aiDebug = 'ai-empty-response'",
     'grounding-refused': 'aiDebug = `grounding-failed:',
     'structure-refused': 'aiDebug = `structure-failed:',
+    'comparative-refused': 'aiDebug = comparativeClaimLabel(',
     'incomplete-reply': 'aiDebug = `${reply.label}:',
   };
 

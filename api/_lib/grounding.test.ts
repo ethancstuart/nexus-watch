@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractNumerals, groundDraft } from './grounding.js';
+import { extractNumerals, groundDraft, PAIRWISE_CAP } from './grounding.js';
 
 describe('extractNumerals', () => {
   it('reads plain, comma-grouped, decimal, percent, currency and plus-suffixed forms', () => {
@@ -74,5 +74,22 @@ describe('groundDraft — the fabrications it exists to catch', () => {
     const r = groundDraft('A quiet day. Nothing moved that the data can explain.', context);
     expect(r.unsupportedRate).toBe(0);
     expect(r.pass).toBe(true);
+  });
+});
+
+describe('groundDraft — the pairwise cap', () => {
+  // Filler numerals whose sums and differences can never make 23.3.
+  const filler = (n: number) => Array.from({ length: n }, (_, i) => (100000 + i * 1000.5).toFixed(1)).join(' ');
+
+  it(`derives a difference from two numerals at positions ${PAIRWISE_CAP - 1} and ${PAIRWISE_CAP}`, () => {
+    expect(PAIRWISE_CAP).toBe(800);
+    const context = `${filler(PAIRWISE_CAP - 2)} 52.1 75.4`;
+    expect(groundDraft('Iran jumped 23.3 points.', context).unsupported).toEqual([]);
+  });
+
+  it('past the cap the pair still grounds itself, but the derived figure does not', () => {
+    const context = `${filler(PAIRWISE_CAP)} 52.1 75.4`;
+    expect(groundDraft('Iran at 75.4, from 52.1.', context).unsupported).toEqual([]);
+    expect(groundDraft('Iran jumped 23.3 points.', context).unsupported).toEqual([23.3]);
   });
 });
