@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { personalizeUnsubscribe, unsubscribeUrl } from '../_lib/unsubscribe-token.js';
-import { renderDossierEmail } from './daily-brief.js';
+import { editionFromStoredContent, renderDossierEmail } from './daily-brief.js';
 import { requireCron } from '../_cron-utils.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 120 };
@@ -93,6 +93,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         time: '10:00 UTC',
         markets: Array.isArray(content.markets) ? (content.markets as never[]) : [],
         archiveUrl: `https://nexuswatch.dev/brief/${today}`,
+        // From the archived row, written at generation time. Without it the
+        // re-render would silently turn a mechanical day into a model one.
+        edition: editionFromStoredContent(row.content),
       });
       briefHtml = rendered.emailHtml;
       briefPlain = rendered.plainText;

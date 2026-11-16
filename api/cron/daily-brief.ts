@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { channelsToAlert, formatAlertBody } from '../_lib/delivery-health.js';
 import { raiseAlert, clearAlert } from '../_lib/alert.js';
-import { archiveContent } from '../_lib/brief-edition.js';
+import { archiveContent, editionFor, type BriefEdition } from '../_lib/brief-edition.js';
 import { groundDraft, type GroundingReport } from '../_lib/grounding.js';
 import {
   DAILY_SECTIONS,
@@ -1010,12 +1010,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 'resolve-calls may not have run; the brief will say so rather than go quiet',
             );
           }
-          briefData.resolvedCallLines = formatResolvedCallLines(resolvedRows, duePending, nameOf, {
-            ...(resolvedTotals[0] ?? { total: resolvedRows.length, hits: 0 }),
-            corrections: windowCorrections.filter(
-              (r) => correctedOutcomeOf(r.status, r.corrected_status) !== undefined,
-            ),
-          });
+          briefData.resolvedCallLines = formatResolvedCallLines(
+            resolvedRows,
+            duePending,
+            nameOf,
+            {
+              ...(resolvedTotals[0] ?? { total: resolvedRows.length, hits: 0 }),
+              corrections: windowCorrections.filter(
+                (r) => correctedOutcomeOf(r.status, r.corrected_status) !== undefined,
+              ),
+            },
+            undefined,
+            isSunday ? 'in the last 7 days' : 'today',
+          );
 
           // Designation deltas — real adds/removes/updates from the rebuilt
           // sanctions collector (a diff against the stored snapshot, not a
@@ -1326,11 +1333,16 @@ ${(() => {
     // the DB archive summary. All paths (AI success, AI failure, no key)
     // go through the same dossier pipeline so the archive, email, and
     // beehiiv post are visually identical.
+    // Decided here, before the render: the renderer is told the edition, and
+    // the archive row records it so a delivery-time re-render can be told too.
+    const onFallback = !(aiDebug ?? '').startsWith('ai-success');
+    const edition = editionFor(onFallback);
     const dossier = renderDossierEmail({
       briefText,
       date: today,
       time: utcTime,
       markets,
+      edition,
     });
     const briefHtml = dossier.beehiivHtml;
 
@@ -1346,7 +1358,6 @@ ${(() => {
     // is the lead news headline verbatim, and for three mornings in September
     // 2026 that was a Chinatown murder story sent to every subscriber as the
     // subject of this register. See fallbackSubject.
-    const onFallback = !(aiDebug ?? '').startsWith('ai-success');
     const subject = onFallback ? fallbackSubject(today, ledgerRecord) : chooseSubject(declaredSubject, briefText);
     const archiveT0 = Date.now();
     // The edition travels with the stored content (from the same flag, not the
@@ -1710,8 +1721,37 @@ export interface WatchlistCountry {
   topThreat?: 'conflict' | 'disasters' | 'disease' | 'cyber' | 'markets' | 'space';
 }
 
+/**
+ * The edition is told to the renderer by its caller, never sniffed from the
+ * text (the BriefEdition type and editionFor live in _lib/brief-edition.ts).
+ * The mechanical edition's own prose can change, and a renderer that searched
+ * for it would silently stop marking the edition the day the wording moved.
+ *
+ * The edition recorded in the archive row's `content`, for any path that
+ * re-renders from the archive (deliver-briefs). Only an exact 'mechanical' is
+ * read as mechanical. Rows archived before this field existed carry none: the
+ * edition of those is UNKNOWN from stored data, and they render as they always
+ * did, as the model edition.
+ */
+export function editionFromStoredContent(content: unknown): BriefEdition {
+  const edition = (content as { edition?: unknown } | null)?.edition;
+  return edition === 'mechanical' ? 'mechanical' : 'model';
+}
+
+/**
+ * The one line that names the mechanical edition at the top of every output.
+ * Reader-facing, so it needs the owner's sign-off. Kept short on purpose: it
+ * sits in the 10px kicker style, where a sentence of ~100 characters wraps to
+ * two lines at 640px and more on a phone. It says only what is true of the
+ * mechanical edition (no model wrote today) and claims nothing about cause or
+ * about what the body contains.
+ */
+export const MECHANICAL_EDITION_LINE = 'Mechanical edition: no narrative today.';
+
 export interface RenderBriefOptions {
   briefText: string; // Markdown body (Sonnet output or buildFallbackText)
+  /** Defaults to the model edition so every existing caller is unchanged. */
+  edition?: BriefEdition;
   date: string; // YYYY-MM-DD
   time: string; // "10:00 UTC"
   markets: MarketQuote[];
@@ -2154,7 +2194,16 @@ function renderSection(section: BriefSection, dateForImage?: string): string {
  * beehiivHtml — beehiiv writes its own). Shows the wordmark, date, and a
  * parchment-gold rule that anchors the dossier aesthetic.
  */
-function renderMasthead(date: string, time: string): string {
+function renderEditionLine(): string {
+  return `<div ${styleAttr(
+    typeStyle(type.kicker, {
+      color: colors.accent,
+      margin: `${space.md} 0 0 0`,
+    }),
+  )}>${escapeHtml(MECHANICAL_EDITION_LINE)}</div>`;
+}
+
+function renderMasthead(date: string, time: string, edition: BriefEdition = 'model'): string {
   return (
     `<div ${styleAttr(style({ margin: `0 0 ${space.xl} 0`, textAlign: 'center' }))}>` +
     `<div ${styleAttr(
@@ -2182,6 +2231,7 @@ function renderMasthead(date: string, time: string): string {
         color: colors.textTertiary,
       }),
     )}>${escapeHtml(date)} · ${escapeHtml(time)}</div>` +
+    (edition === 'mechanical' ? renderEditionLine() : '') +
     `</div>`
   );
 }
@@ -2284,7 +2334,13 @@ function renderFooter(date: string, archiveUrl: string): string {
  * treat a plain-text alternative as a deliverability signal. Preserves
  * section structure and reading order without trying to ASCII-art it.
  */
-function renderPlainText(briefText: string, date: string, time: string, archiveUrl: string): string {
+function renderPlainText(
+  briefText: string,
+  date: string,
+  time: string,
+  archiveUrl: string,
+  edition: BriefEdition = 'model',
+): string {
   // Strip bold/italic markers but keep the plain text. Section headers
   // already use `## ` and read fine as-is in a mono client.
   const stripped = briefText
@@ -2295,6 +2351,7 @@ function renderPlainText(briefText: string, date: string, time: string, archiveU
   return [
     `NEXUSWATCH SITUATION BRIEF`,
     `${date} · ${time}`,
+    ...(edition === 'mechanical' ? [MECHANICAL_EDITION_LINE] : []),
     `──────────────────────────────────────────`,
     '',
     stripped,
@@ -2333,7 +2390,12 @@ function renderDossierInner(
   date: string,
   interests?: Interests,
   watchlistCountries?: WatchlistCountry[],
+  edition: BriefEdition = 'model',
 ): string {
+  // The mechanical edition's own body already prints every market with its
+  // price (buildFallbackText, "Markets"), from the same array. Market Pulse
+  // would print the same changes a second time with less information.
+  if (edition === 'mechanical') markets = [];
   const sections = parseSections(briefText);
   if (sections.length === 0) {
     // Fallback: wrap the whole body as a single paragraph block.
@@ -2402,8 +2464,9 @@ const EMAIL_COLOR_SCHEME = 'light';
  */
 export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
   const { briefText, date, time, markets, interests, watchlistCountries } = opts;
+  const edition: BriefEdition = opts.edition ?? 'model';
   const archiveUrl = opts.archiveUrl ?? `https://nexuswatch.dev/#/brief/${date}`;
-  const inner = renderDossierInner(briefText, markets, date, interests, watchlistCountries);
+  const inner = renderDossierInner(briefText, markets, date, interests, watchlistCountries, edition);
 
   // Full standalone email shell for Resend transactional path.
   const emailHtml = `<!DOCTYPE html>
@@ -2440,7 +2503,7 @@ export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
         }),
       )}>
         <tr><td>
-          ${renderMasthead(date, time)}
+          ${renderMasthead(date, time, edition)}
           ${inner}
           ${renderCTA()}
           ${renderFooter(date, archiveUrl)}
@@ -2461,9 +2524,9 @@ export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
       padding: space.md,
       maxWidth: layout.contentWidth,
     }),
-  )}>${inner}${renderCTA()}</div>`;
+  )}>${edition === 'mechanical' ? renderEditionLine() : ''}${inner}${renderCTA()}</div>`;
 
-  const plainText = renderPlainText(briefText, date, time, archiveUrl);
+  const plainText = renderPlainText(briefText, date, time, archiveUrl, edition);
 
   return { emailHtml, beehiivHtml, plainText };
 }
@@ -2607,6 +2670,11 @@ export function formatResolvedCallLines(
   // published counts stand; the corrections are stated beside them.
   totals: { total: number; hits: number; corrections?: Array<{ status: string; corrected_status: string }> },
   cap = 12,
+  // The window the totals cover, as a phrase ("today", "in the last 7 days").
+  // The aggregate used to print no window, so beside the ledger line's "N
+  // resolved today" a reader saw two unlabelled counts and could not tell why
+  // they differed (on Sundays the totals span 7 days, the ledger line one).
+  windowLabel?: string,
 ): string[] {
   const total = totals.total;
   const hits = totals.hits;
@@ -2634,7 +2702,7 @@ export function formatResolvedCallLines(
   const correctionNote =
     corrections.length > 0 ? ` The counts are as published; ${describeCorrections(corrections)}.` : '';
   lines.push(
-    `${total} calls settled against external ground truth: ${hits} hit, ${total - hits} miss.${correctionNote}${graceNote}`,
+    `${total} calls settled${windowLabel ? ` ${windowLabel}` : ''} against external ground truth: ${hits} hit, ${total - hits} miss.${correctionNote}${graceNote}`,
   );
   const byInfo = [...rows].sort(
     (a, b) =>
