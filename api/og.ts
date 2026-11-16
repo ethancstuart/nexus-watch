@@ -275,13 +275,32 @@ export function renderLedgerCard(f: LedgerFacts | null): string {
 
 export function renderCallCard(c: CallFacts): string {
   const color = statusColor(c.status);
-  const verdict = c.status === 'hit' ? 'HIT' : c.status === 'miss' ? 'MISS' : c.status === 'void' ? 'VOID' : 'OPEN';
+  // OPEN only for a call that is open. This used to be the fallback for every
+  // other status, so an unresolvable call's card said OPEN.
+  const verdict =
+    c.status === 'hit'
+      ? 'HIT'
+      : c.status === 'miss'
+        ? 'MISS'
+        : c.status === 'void'
+          ? 'VOID'
+          : c.status === 'unresolvable'
+            ? 'UNRESOLVABLE'
+            : c.status === 'pending'
+              ? 'OPEN'
+              : 'NO OUTCOME RECORDED';
   const stated = `${Math.round(c.probability * 100)}%`;
   // Truncated in JS, not by CSS: Satori has no reliable line-clamp, and a
   // claim that overflows the card is a claim nobody can read.
   const claim = escapeHtml(c.claim.length > 130 ? `${c.claim.slice(0, 129)}…` : c.claim);
+  // Void keeps its existing "RESOLVED <date>" line; only the statuses that
+  // could not be scored say so.
   const resolutionLine =
-    c.status === 'pending' ? `RESOLVES ${escapeHtml(c.resolvesOn)}` : `RESOLVED ${escapeHtml(c.resolvesOn)}`;
+    c.status === 'pending'
+      ? `RESOLVES ${escapeHtml(c.resolvesOn)}`
+      : ['hit', 'miss', 'void'].includes(c.status)
+        ? `RESOLVED ${escapeHtml(c.resolvesOn)}`
+        : 'NOT SCORED';
   return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:${C.bgPage};border-top:8px solid ${C.divider};padding:56px 72px 64px 72px;font-family:${MONO};">
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <span style="color:${C.textSecondary};font-size:18px;font-weight:700;letter-spacing:0.18em;">NEXUSWATCH · CALL #${c.id}</span>
