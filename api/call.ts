@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
+import { outcomeMarks } from '../src/styles/register-tokens.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 15 };
 
@@ -82,13 +83,22 @@ function statusBlock(c: CallRow): string {
       `<div class="p">voids stay on the page — a deleted call is a moved goalpost</div></div>`
     );
   }
-  const hit = c.status === 'hit';
+  // Word plus shape, never hue (register-tokens.ts outcomeMarks). This used to
+  // carry style="color:var(--up|down)"; neither token exists in the shell, so
+  // it rendered in ink by accident and would have brought the colour back the
+  // day someone defined them.
   return (
-    `<div class="stat"><div class="v" style="color:var(--${hit ? 'up' : 'down'})">${hit ? 'HIT' : 'MISS'}</div>` +
+    `<div class="stat"><div class="v">${outcomeMark(c.status)}${c.status === 'hit' ? 'HIT' : 'MISS'}</div>` +
     `<div class="l">resolved ${c.resolved_at ? esc(c.resolved_at.slice(0, 10)) : esc(c.resolves_on)}</div>` +
     `<div class="d">${evidenceLine(c.kind, c.evidence_count)}</div>` +
     `<div class="p">resolver: ${esc(c.resolver)}</div></div>`
   );
+}
+
+/** The shape for a scored outcome; nothing for any other status. */
+function outcomeMark(status: string): string {
+  const mark = status === 'hit' ? outcomeMarks.hit : status === 'miss' ? outcomeMarks.miss : '';
+  return mark ? `<span class="mark" aria-hidden="true">${mark}</span>` : '';
 }
 
 /**
@@ -190,7 +200,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `<div class="stat"><div class="v">${pct(c.base_rate)}</div><div class="l">how often it happens anyway</div>` +
           `<div class="d">${esc(c.country_code)}'s own base rate at issue` +
           `${divergence !== null ? ` — we sit ${divergence >= 0 ? '+' : ''}${divergence}pts from it` : ''}</div>` +
-          `<div class="p">calls table · base_rate</div></div>`,
+          `<div class="p">calls table · base rate</div></div>`,
       );
     }
     parts.push(statusBlock(c));
@@ -215,7 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? `${pct(h.probability)} · resolves ${esc(h.resolves_on)}`
             : h.status === 'void'
               ? 'VOID'
-              : `said ${pct(h.probability)} · ${h.status.toUpperCase()}`;
+              : `said ${pct(h.probability)} · ${outcomeMark(h.status)}${h.status.toUpperCase()}`;
         parts.push(
           `<a class="row ${state}" href="/call/${h.id}"><span class="lead">${esc(h.made_on)}</span>` +
             `<span class="det">call #${h.id}</span><span class="trail">${trail}</span></a>`,

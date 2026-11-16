@@ -7,6 +7,7 @@ import { registerPwaInstall } from './ui/pwaInstall.ts';
 import { initDataToasts } from './ui/dataToast.ts';
 import { initSentry, captureError } from './services/sentry.ts';
 import { initWebAnalytics } from './services/webAnalytics.ts';
+import { openServerLedger } from './utils/serverLedger.ts';
 
 applyTheme();
 applyDensity();
@@ -32,6 +33,9 @@ registerCommandPalette();
 registerPwaInstall();
 
 const router = new Router();
+// Where the host served this document, before the router rewrites any hash.
+// openServerLedger reads it to avoid reloading /ledger into itself.
+const SERVED_AT_PATH = window.location.pathname;
 const appRoot = document.getElementById('app')!;
 
 /** Crossfade page transition — fade out, swap, fade in. */
@@ -151,6 +155,15 @@ function show404(root: HTMLElement) {
   root.appendChild(container);
 }
 
+function renderSpaLedger(): void {
+  import('./pages/ledger.ts')
+    .then(async (m) => {
+      await transition(appRoot);
+      void m.renderLedgerPage(appRoot);
+    })
+    .catch((err) => showRouteError(appRoot, err));
+}
+
 router
   .on('/', () => {
     import('./pages/landing.ts')
@@ -216,22 +229,12 @@ router
   // 2026-08-31 the page module and /api/accuracy/stats are DELETED, so the
   // 90.3% "accuracy_rate" that endpoint published is no longer served
   // anywhere.
-  .on('/ledger', () => {
-    import('./pages/ledger.ts')
-      .then(async (m) => {
-        await transition(appRoot);
-        void m.renderLedgerPage(appRoot);
-      })
-      .catch((err) => showRouteError(appRoot, err));
-  })
-  .on('/accuracy', () => {
-    import('./pages/ledger.ts')
-      .then(async (m) => {
-        await transition(appRoot);
-        void m.renderLedgerPage(appRoot);
-      })
-      .catch((err) => showRouteError(appRoot, err));
-  })
+  //
+  // Both now hand the reader to the server-rendered /ledger with a full load
+  // (src/utils/serverLedger.ts). The SPA renderer runs only where the host has
+  // no /ledger rewrite (local vite), so it cannot loop.
+  .on('/ledger', () => openServerLedger(SERVED_AT_PATH, (url) => window.location.replace(url), renderSpaLedger))
+  .on('/accuracy', () => openServerLedger(SERVED_AT_PATH, (url) => window.location.replace(url), renderSpaLedger))
   .on('/api', () => {
     import('./pages/apidocs.ts')
       .then(async (m) => {

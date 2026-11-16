@@ -101,6 +101,20 @@ export function shell(body: string, opts: ShellOptions): string {
   .lede { font-size:17px; line-height:1.62; color:var(--ink2); max-width:62ch; margin:16px 0 0; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:32px; margin:32px 0; }
   .stat .v { font-family:${fonts.mono}; font-variant-numeric:tabular-nums; font-size:clamp(48px,8vw,96px); line-height:1; letter-spacing:-.02em; }
+  /* A fraction such as 1454/4963 is nine mono characters: about 520px at 96px,
+     in a column of about 280px when three stats share the row, so it ran into
+     the next figure ("1454/4963104"). A wide figure is sized from its own
+     column (cqi), so it fits eleven characters however many columns there
+     are; the first declaration is the fallback for browsers without container
+     units, and fits nine characters in three columns at the 940px wrap. */
+  .stat { container-type:inline-size; }
+  .stat .v.wide { font-size:clamp(28px,3.4vw,48px); font-size:clamp(28px,14cqi,64px); }
+  /* Same box height as the other figures, text on its baseline, so the labels
+     beneath a row of stats still line up. */
+  .stat .v.wide { display:flex; align-items:flex-end; min-height:clamp(48px,8vw,96px); }
+  /* Half size: the shape is the signal, and a full-size mark pushed "MISS"
+     past a third-column edge. */
+  .stat .v .mark { font-size:.5em; margin-right:.3em; }
   .stat .l { font-family:${fonts.serif}; font-size:20px; margin-top:10px; }
   .stat .d { font-size:14px; color:var(--ink2); margin-top:4px; }
   .stat .p { font-family:${fonts.mono}; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink3); margin-top:12px; }

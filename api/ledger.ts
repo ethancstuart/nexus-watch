@@ -28,9 +28,10 @@ export const config = { runtime: 'nodejs', maxDuration: 20 };
  * being findable — "the only geopolitical platform that publishes its own track
  * record" is worth nothing if the record is invisible to search.
  *
- * Both paths coexist the way /brief/:date already does: an in-app navigation
- * pushState's and the SPA renders, while a direct load or a crawl hits this
- * function and gets real HTML with no JavaScript required.
+ * Both paths coexisted the way /brief/:date does, and drifted. Since
+ * 2026-11-16 this page is the only public ledger: the SPA's /ledger and
+ * /accuracy routes hand off here with a full load (src/utils/serverLedger.ts),
+ * and the SPA renderer runs only where no /ledger rewrite exists (local vite).
  *
  * THE PALETTE COMES FROM src/styles/register-tokens.ts via ssr-shell — the dark
  * web palette, deliberately NOT the email's, which stays light. Formerly the daily
@@ -350,7 +351,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // be withheld, which is the more honest artifact anyway.
       const br = baseRate(scored);
       parts.push(
-        `<div class="stat"><div class="v">${t.hits}/${t.resolved}</div><div class="l">calls that landed</div>` +
+        `<div class="stat"><div class="v wide">${t.hits}/${t.resolved}</div><div class="l">calls that landed</div>` +
           `<div class="d">${Number.isFinite(br) ? `stated base rate ${pct(br)}` : ''}</div>` +
           `<div class="p">as of ${asOf} · calls table</div></div>`,
       );
