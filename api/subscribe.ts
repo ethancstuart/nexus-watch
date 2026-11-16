@@ -15,7 +15,7 @@ import {
   styleAttrOf as s,
   typeStyleAttr as ts,
 } from '../src/styles/email-tokens.js';
-import { beehiivPublicationId } from './_lib/beehiiv-config.js';
+import { describeBeehiivIssues, resolveBeehiivPublicationId } from './_lib/beehiiv-config.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -58,10 +58,19 @@ function shell(title: string, inner: string): string {
  * record, beehiiv is a mirror, and a mirror being down must never fail a
  * subscription.
  */
-async function syncBeehiiv(email: string, source: string): Promise<void> {
+export async function syncBeehiiv(email: string, source: string): Promise<void> {
   const beehiivKey = process.env.BEEHIIV_API_KEY;
-  const beehiivPubId = beehiivPublicationId();
-  if (!beehiivKey || !beehiivPubId) return;
+  if (!beehiivKey) return;
+  const resolution = resolveBeehiivPublicationId();
+  if (!resolution.configured) return;
+  const beehiivPubId = resolution.id;
+  if (!beehiivPubId) {
+    // A malformed id earns an opaque 400, so do not ask. LOG only — never
+    // alert here: this runs once per sign-up, and the daily brief raises the
+    // single keyed alert for this fault (see _lib/beehiiv-publish.ts).
+    console.error(`[subscribe] beehiiv sync skipped, no request sent: ${describeBeehiivIssues(resolution).join('; ')}`);
+    return;
+  }
   try {
     const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/subscriptions`, {
       method: 'POST',

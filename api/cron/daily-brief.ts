@@ -1427,103 +1427,9 @@ ${(() => {
     }
 
     // === Publish to beehiiv ===
-    const beehiivKey = process.env.BEEHIIV_API_KEY;
-    const beehiivPubId = beehiivPublicationId();
-    if (beehiivKey && beehiivPubId) {
-      const beehiivT0 = Date.now();
-      try {
-        // beehiiv rejects a malformed publication id with an opaque 400 that
-        // names a regex and nothing else. Production ran that 400 every day
-        // for 34 consecutive days (brief_delivery_log, since 2026-07-09)
-        // because the error was recorded and never surfaced. Check the shape
-        // ourselves and say which env var is wrong and what it should look
-        // like — a config error should read as a config error.
-        if (!BEEHIIV_PUB_ID_RE.test(beehiivPubId)) {
-          throw new Error(
-            'BEEHIIV_PUBLICATION_ID is malformed: expected the publication id in the ' +
-              'form pub_<uuid> (copy it from beehiiv → Settings → API). ' +
-              `Got a ${beehiivPubId.length}-character value starting ` +
-              `"${beehiivPubId.slice(0, 4)}". Fix the env var in Vercel; ` +
-              'no request was sent.',
-          );
-        }
-        // Extract Good Morning line for subtitle. The ledger line is spliced
-        // into the FIRST section (see spliceLedgerLine), which on Sundays is
-        // Good Morning — strip it here or the subtitle becomes the stat line
-        // instead of the greeting. Caught by the rule-2 review of the splice
-        // change; the greeting, not the record, is the subtitle's job.
-        const subtitleMatch = briefText.match(/## ☕ Good Morning\n+([\s\S]*?)(?=\n##|\n\n##)/);
-        const subtitle = subtitleMatch
-          ? subtitleMatch[1]
-              .replace(/^\*\*The Ledger\*\*.*$/m, '')
-              .trim()
-              .slice(0, 200)
-          : `Your daily geopolitical intelligence scan — ${today}`;
-
-        const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/posts`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${beehiivKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            title: `The NexusWatch Brief — ${today}`,
-            subtitle,
-            // Light Intel Dossier inner modules. beehiiv wraps with its own
-            // masthead/footer/unsubscribe chrome, so we ship just the content.
-            content_html: dossier.beehiivHtml,
-            // 'draft' works on all beehiiv plans. 'confirmed' + send_to requires Enterprise.
-            // Drafts appear in beehiiv dashboard for review + manual send.
-            // To auto-send: upgrade beehiiv to Enterprise and change to status: 'confirmed', send_to: 'all'.
-            status: 'draft',
-          }),
-          signal: AbortSignal.timeout(15000),
-        });
-
-        if (!beehiivRes.ok) {
-          const body = await beehiivRes.text().catch(() => '');
-          // beehiiv POST API requires Enterprise plan. Log and skip gracefully.
-          if (beehiivRes.status === 403) {
-            console.log(
-              '[daily-brief] beehiiv API requires Enterprise plan — skipping. Brief delivered via other channels.',
-            );
-            await logDelivery({
-              channel: 'beehiiv',
-              status: 'partial',
-              latencyMs: Date.now() - beehiivT0,
-              metadata: { reason: 'enterprise_plan_required' },
-            });
-          } else {
-            throw new Error(`beehiiv ${beehiivRes.status}: ${body.slice(0, 200)}`);
-          }
-        }
-
-        // Parse post ID for traceability — not fatal if the shape changes.
-        let postId: string | undefined;
-        try {
-          const beehiivData = (await beehiivRes.json()) as { data?: { id?: string } };
-          postId = beehiivData.data?.id;
-        } catch {
-          /* ignore parse errors */
-        }
-
-        await logDelivery({
-          channel: 'beehiiv',
-          status: 'success',
-          latencyMs: Date.now() - beehiivT0,
-          metadata: { post_id: postId, subtitle_length: subtitle.length },
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error('[daily-brief] beehiiv publish failed:', msg);
-        await logDelivery({
-          channel: 'beehiiv',
-          status: 'failed',
-          error: msg,
-          latencyMs: Date.now() - beehiivT0,
-        });
-      }
-    }
+    // The request, the configuration check and the alert on a bad id live in
+    // _lib/beehiiv-publish.ts so they can be tested with fetch stubbed.
+    await publishToBeehiiv({ today, briefText, contentHtml: dossier.beehiivHtml, logDelivery });
 
     // The Buffer/X channel was DELETED with the marketing subsystem
     // (2026-09-05, plan witty-finding-crystal PR-3). It was building its post
@@ -1747,7 +1653,7 @@ import {
   type RegionId,
 } from '../../src/services/interests-types.js';
 import { requireCron } from '../_cron-utils.js';
-import { BEEHIIV_PUB_ID_RE, beehiivPublicationId } from '../_lib/beehiiv-config.js';
+import { publishToBeehiiv } from '../_lib/beehiiv-publish.js';
 
 export interface RenderedBrief {
   emailHtml: string;
