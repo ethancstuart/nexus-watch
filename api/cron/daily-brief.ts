@@ -1480,9 +1480,10 @@ ${(() => {
     // The social_queue dual-write went with it.
 
     // === Email delivery delegated to deliver-briefs.ts (D-2, 2026-04-18) ===
-    // Resend batch sending removed. The deliver-briefs hourly cron handles
-    // timezone-aware delivery at 7am local per subscriber. This cron only
-    // generates content + archives to daily_briefs table.
+    // Resend batch sending removed. The deliver-briefs hourly cron sends each
+    // subscriber this brief at their 07:00 local, or at the first run after
+    // it is archived if their 07:00 came earlier (api/_lib/brief-window.ts).
+    // This cron only generates content + archives to daily_briefs table.
     await logDelivery({
       channel: 'resend',
       status: 'success',

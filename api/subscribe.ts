@@ -164,13 +164,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // SHAPE IS NOT VALIDITY. This used to test the string against a regex for
   // the shape of an IANA name, and the comment right here claimed that made
   // an unknown zone fall back to UTC. It did not: `America/Not_A_Zone` is
-  // perfectly IANA-shaped. deliver-briefs buckets on
+  // perfectly IANA-shaped. deliver-briefs then bucketed on
   // `NOW() AT TIME ZONE es.timezone`, and Postgres answers an unrecognised
   // zone with an ERROR that aborts the whole subscriber query — so one public
   // POST could stop the brief reaching EVERY subscriber, indefinitely, until
   // someone found and deleted the row. Verified against production on
   // 2026-09-12: the regex accepts it and Postgres raises
-  // `time zone "America/Not_A_Zone" not recognized`.
+  // `time zone "America/Not_A_Zone" not recognized`. (deliver-briefs no
+  // longer passes the zone to Postgres; it falls back to UTC per row.)
   //
   // Ask the platform's own zone database instead of describing it. Intl
   // throws on a zone it does not know, which is the property we actually
