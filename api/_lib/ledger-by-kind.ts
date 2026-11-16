@@ -32,7 +32,14 @@
  * cannot stand behind instead of footnoting them, because a footnote does not
  * survive being quoted.
  */
-import { brierScore, independentUnits, resolutionBatches, publishableSkill, type ScoredCall } from './calls.js';
+import {
+  brierScore,
+  correctedReadingOf,
+  independentUnits,
+  resolutionBatches,
+  publishableSkill,
+  type ScoredCall,
+} from './calls.js';
 
 /** One row of the per-kind GROUP BY over `calls`. Counts, no row detail. */
 export interface KindCountRow {
@@ -204,17 +211,12 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
     // `scoring_complete` gate as the first — a corrected Brier over a partial
     // set would be as misleading as a published one, and more so for sitting
     // next to a number that is whole.
-    const correctedCount = rows.filter((r) => r.correctedOutcome !== undefined).length;
-    if (correctedCount > 0) {
-      const correctedCalls: ScoredCall[] = rows.map((r) => ({
-        probability: r.probability,
-        outcome: r.correctedOutcome ?? r.outcome,
-        baseRate: r.baseRate,
-      }));
+    const reading = correctedReadingOf(rows.map((r, i) => ({ ...calls[i], correctedOutcome: r.correctedOutcome })));
+    if (reading) {
       out[kind].corrected = {
-        brier: calls.length > 0 ? num(brierScore(correctedCalls)) : null,
-        hits: correctedCalls.reduce((acc, c) => acc + c.outcome, 0),
-        corrections_applied: correctedCount,
+        brier: reading.brier,
+        hits: reading.hits,
+        corrections_applied: reading.corrections_applied,
         // Deliberately not computed. See CorrectedReading: the reference these
         // would be scored against is each unit's base rate, and those were
         // estimated from the same evidence the corrections repair.
@@ -229,32 +231,5 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
   return out;
 }
 
-/**
- * What moved, counted per DIRECTION rather than assumed from the first row.
- *
- * The first version of this line read the published verdict off `corrected[0]`
- * and asserted it of all of them — true today, when every correction is a MISS
- * the evidence records as a HIT, and silently false the first time a single
- * correction runs the other way. An independent review named it. A sentence
- * about a set is derived from the set.
- *
- * `corrected_status` is REQUIRED rather than nullable. A row with no correction
- * is not a correction, and accepting null here would let a caller hand one over
- * and get "records as " rendered into published copy. The caller narrows with a
- * type predicate, so the filter and this signature are checked against each
- * other by the compiler instead of by a comment.
- */
-export function describeCorrections(rows: Array<{ status: string; corrected_status: string }>): string {
-  const byDirection = new Map<string, number>();
-  for (const r of rows) {
-    const key = `${r.status.toUpperCase()}|${r.corrected_status.toUpperCase()}`;
-    byDirection.set(key, (byDirection.get(key) ?? 0) + 1);
-  }
-  return [...byDirection]
-    .sort((a, b) => b[1] - a[1])
-    .map(([key, n]) => {
-      const [published, evidence] = key.split('|');
-      return `${n} call${n === 1 ? '' : 's'} published ${published} that the evidence records as ${evidence}`;
-    })
-    .join('; ');
-}
+// Moved to calls.ts so the daily brief can use it; re-exported so callers are unchanged.
+export { describeCorrections } from './calls.js';

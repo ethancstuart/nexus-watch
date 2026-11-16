@@ -14,6 +14,9 @@ import {
 } from '../_lib/brief-structure.js';
 import {
   formatLedgerSummary,
+  toLedgerSummaryRow,
+  correctedOutcomeOf,
+  describeCorrections,
   CALIBRATION_KINDS,
   SCORED_STATUSES,
   type Call,
@@ -962,16 +965,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calibrationKinds}))
               AND resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
           `) as unknown as Array<{ total: number; hits: number }>;
+          // Corrections ride along (see the ledger line below): the model must
+          // be handed the corrected reading with the published verdict, or it
+          // can restate a verdict the register has recorded as wrong.
           const resolvedRows = (await sql`
-            SELECT kind, country_code, probability::float AS probability,
-                   base_rate::float AS base_rate, status,
-                   resolves_on::text AS resolves_on, evidence_count
-            FROM calls
-            WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calibrationKinds}))
-              AND resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
-            ORDER BY ABS(probability - COALESCE(base_rate, probability)) DESC
+            SELECT c.kind, c.country_code, c.probability::float AS probability,
+                   c.base_rate::float AS base_rate, c.status,
+                   c.resolves_on::text AS resolves_on, c.evidence_count, cc.corrected_status
+            FROM calls c
+            LEFT JOIN (
+              SELECT DISTINCT ON (call_id) call_id, corrected_status
+              FROM call_corrections ORDER BY call_id, issued_on DESC
+            ) cc ON cc.call_id = c.id
+            WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calibrationKinds}))
+              AND c.resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
+            ORDER BY ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC
             LIMIT 40
           `) as unknown as ResolvedCallRow[];
+          // The aggregate's corrections come from the whole window, not the
+          // 40-row page, for the same reason `resolvedTotals` does.
+          const windowCorrections = (await sql`
+            SELECT c.status, cc.corrected_status
+            FROM calls c
+            JOIN (
+              SELECT DISTINCT ON (call_id) call_id, corrected_status
+              FROM call_corrections ORDER BY call_id, issued_on DESC
+            ) cc ON cc.call_id = c.id
+            WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calibrationKinds}))
+              AND c.resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
+          `) as unknown as Array<{ status: string; corrected_status: string }>;
           // Due-but-unresolved: matured rows still pending. Includes the
           // coverage-grace holds (expected, and the formatter says so) — and,
           // in the failure case, a resolver that did not run. Either way the
@@ -988,12 +1010,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 'resolve-calls may not have run; the brief will say so rather than go quiet',
             );
           }
-          briefData.resolvedCallLines = formatResolvedCallLines(
-            resolvedRows,
-            duePending,
-            nameOf,
-            resolvedTotals[0] ?? { total: resolvedRows.length, hits: 0 },
-          );
+          briefData.resolvedCallLines = formatResolvedCallLines(resolvedRows, duePending, nameOf, {
+            ...(resolvedTotals[0] ?? { total: resolvedRows.length, hits: 0 }),
+            corrections: windowCorrections.filter(
+              (r) => correctedOutcomeOf(r.status, r.corrected_status) !== undefined,
+            ),
+          });
 
           // Designation deltas — real adds/removes/updates from the rebuilt
           // sanctions collector (a diff against the stored snapshot, not a
@@ -1244,17 +1266,28 @@ ${(() => {
       // per kind and gates on the number of distinct resolution batches. The
       // previous query selected neither, which is why the brief could only
       // produce one pooled, ungated number.
+      //
+      // Corrections ride along, as they do on /ledger and /api/calls/ledger:
+      // 54 of the censorship verdicts are recorded as wrong (call_corrections)
+      // and the line must carry the corrected reading beside the published
+      // one. DISTINCT ON keeps a call that ever acquired a second cause from
+      // appearing twice and moving a published number.
       const allScoredRows = (await sql`
-        SELECT kind, probability::float AS probability, base_rate::float AS base_rate,
-               status, resolved_at::text AS resolved_at
-        FROM calls
-        WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calKinds}))
+        SELECT c.kind, c.probability::float AS probability, c.base_rate::float AS base_rate,
+               c.status, c.resolved_at::text AS resolved_at, cc.corrected_status
+        FROM calls c
+        LEFT JOIN (
+          SELECT DISTINCT ON (call_id) call_id, corrected_status
+          FROM call_corrections ORDER BY call_id, issued_on DESC
+        ) cc ON cc.call_id = c.id
+        WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calKinds}))
       `) as unknown as Array<{
         kind: string;
         probability: number;
         base_rate: number | null;
         status: string;
         resolved_at: string | null;
+        corrected_status: string | null;
       }>;
 
       // "next resolves" must be a FUTURE date. A bare MIN(resolves_on) over
@@ -1270,13 +1303,7 @@ ${(() => {
         FROM calls WHERE status = 'pending' AND NOT (kind = ANY(${calKinds}))
       `) as unknown as Array<{ n: number; next_resolves: string | null }>;
 
-      const scoredRows: LedgerSummaryRow[] = allScoredRows.map((r) => ({
-        kind: r.kind,
-        probability: r.probability,
-        outcome: (r.status === 'hit' ? 1 : 0) as 0 | 1,
-        baseRate: r.base_rate ?? undefined,
-        resolvedOn: (r.resolved_at ?? '').slice(0, 10),
-      }));
+      const scoredRows: LedgerSummaryRow[] = allScoredRows.map(toLedgerSummaryRow);
 
       const ledger = formatLedgerSummary({
         resolvedToday: resolvedToday as unknown as Call[],
@@ -2522,6 +2549,8 @@ export interface ResolvedCallRow {
   status: string;
   resolves_on: string;
   evidence_count: number | null;
+  /** From call_corrections, when the call has one. Never replaces `status`. */
+  corrected_status?: string | null;
 }
 
 /**
@@ -2572,11 +2601,16 @@ export function formatResolvedCallLines(
   // omitting totals silently fell back to rows.length — a PAGE — which is the
   // by_kind page-size defect with a default parameter for a disguise. The
   // aggregate comes from COUNT(*) or the caller does not compile.
-  totals: { total: number; hits: number },
+  //
+  // `corrections` are the window's calls the evidence records differently from
+  // the published verdict, counted over the whole window like the totals. The
+  // published counts stand; the corrections are stated beside them.
+  totals: { total: number; hits: number; corrections?: Array<{ status: string; corrected_status: string }> },
   cap = 12,
 ): string[] {
   const total = totals.total;
   const hits = totals.hits;
+  const corrections = totals.corrections ?? [];
   if (total === 0 && stillDuePending === 0) return [];
   const lines: string[] = [];
   // "Under the coverage-grace rule" was WRONG on 2026-09-06: 63 of the 74
@@ -2595,7 +2629,13 @@ export function formatResolvedCallLines(
     lines.push(`${stillDuePending} calls came due and none has resolved yet.${graceNote}`);
     return lines;
   }
-  lines.push(`${total} calls settled against external ground truth: ${hits} hit, ${total - hits} miss.${graceNote}`);
+  // Same words /ledger uses (describeCorrections). The verdicts above are as
+  // published; the model is told which of them the evidence says otherwise.
+  const correctionNote =
+    corrections.length > 0 ? ` The counts are as published; ${describeCorrections(corrections)}.` : '';
+  lines.push(
+    `${total} calls settled against external ground truth: ${hits} hit, ${total - hits} miss.${correctionNote}${graceNote}`,
+  );
   const byInfo = [...rows].sort(
     (a, b) =>
       Math.abs((b.probability ?? 0) - (b.base_rate ?? b.probability ?? 0)) -
@@ -2603,7 +2643,12 @@ export function formatResolvedCallLines(
   );
   for (const r of byInfo.slice(0, cap)) {
     const name = nameOf?.get(r.country_code) ?? r.country_code;
-    const outcome = r.status === 'hit' ? 'HIT' : 'MISS';
+    const published = r.status === 'hit' ? 'HIT' : 'MISS';
+    const recorded = correctedOutcomeOf(r.status, r.corrected_status ?? null);
+    const outcome =
+      recorded === undefined
+        ? published
+        : `${published} as published, the evidence records as ${recorded === 1 ? 'HIT' : 'MISS'}`;
     const base = r.base_rate !== null ? ` (base rate ${(r.base_rate * 100).toFixed(0)}%)` : '';
     const evidence =
       r.kind === 'censorship_event' && r.evidence_count !== null && r.status === 'hit'

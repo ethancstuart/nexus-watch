@@ -9,34 +9,11 @@ import {
   murphyDecomposition,
   CALIBRATION_KINDS,
   isScored,
+  correctedOutcomeOf,
   SCORED_STATUSES,
   type ScoredCall,
 } from '../_lib/calls.js';
 import { assembleByKind } from '../_lib/ledger-by-kind.js';
-
-/**
- * The outcome the evidence records, when it differs from the published one.
- *
- * Returns undefined when there is no correction OR when the correction agrees
- * with the published verdict — a correction that changes nothing is not one,
- * and letting it through would inflate `corrections_applied`, which is a
- * number readers will quote.
- */
-function correctedOutcomeOf(published: string, corrected: string | null): 0 | 1 | undefined {
-  // DERIVED FROM isScored, NOT AN ENUMERATION OF hit/miss.
-  //
-  // The first version of this tested `corrected !== 'hit' && corrected !== 'miss'`,
-  // which is precisely the shape SCORED_STATUSES' own docstring warns about:
-  // a status added later would be collapsed into "no correction" and the row
-  // would proceed as though the register had never been wrong about it —
-  // passing by omission, silently, in a number readers quote. An independent
-  // review named it. Scope now comes from the same allow-list every other
-  // scoring path in this file reads.
-  if (corrected === null || !isScored(corrected)) return undefined;
-  const c = corrected === 'hit' ? 1 : 0;
-  const p = published === 'hit' ? 1 : 0;
-  return c === p ? undefined : (c as 0 | 1);
-}
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 

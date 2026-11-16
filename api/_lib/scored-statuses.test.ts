@@ -232,7 +232,8 @@ describe('the binary outcome model', () => {
     // Deliberately a message, not a mechanism. If this file is being edited to
     // add a third status, these are the mappings that silently score it 0:
     //
-    //   api/calls/ledger.ts    correctedOutcomeOf, and the by_kind outcome map
+    //   api/_lib/calls.ts      correctedOutcomeOf (used by api/calls/ledger.ts and the brief)
+    //   api/calls/ledger.ts    the by_kind outcome map
     //   api/ledger.ts          the SSR per-kind and corrected readings
     //   api/_lib/calls.ts      every ScoredCall construction
     //   api/og.ts              the share card's hit count
