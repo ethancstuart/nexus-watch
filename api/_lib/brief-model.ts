@@ -111,3 +111,60 @@ export function extractBriefText(
     .map((b) => b.text as string)
     .join('');
 }
+
+export type IncompleteLabel = 'ai-truncated' | 'ai-refused' | 'ai-unexpected-stop';
+
+/**
+ * What the model's reply amounts to. Only `complete: true` may reach the
+ * gates; the other arm carries the operator-facing label and note, and no text.
+ */
+export type BriefReply =
+  | { complete: true; text: string }
+  | { complete: false; label: IncompleteLabel; stopReason: string; operatorNote: string };
+
+/**
+ * Read a Messages response for the brief, gated on `stop_reason`. A normal end
+ * of turn (`end_turn`) is the only value that yields text. The docs list seven
+ * values (platform.claude.com/docs/en/build-with-claude/handling-stop-reasons)
+ * and the Sonnet 5.5 migration guide's checklist says to handle refusal, so:
+ *   - `max_tokens` / `model_context_window_exceeded`: cut off. A draft cut
+ *     inside the last section still passes the structure gate, so it must
+ *     never get that far.
+ *   - `refusal`: arrives as HTTP 200, often with empty content.
+ *   - anything else, including a missing or non-string value: fails closed.
+ *     This request sends no tools and no stop sequences, so none of the other
+ *     documented values should occur; if one does, nothing is shipped from it.
+ * Text is dropped on the incomplete arm on purpose.
+ */
+export function readBriefReply(res: {
+  content?: Parameters<typeof extractBriefText>[0];
+  stop_reason?: string | null;
+}): BriefReply {
+  const raw = res.stop_reason;
+  if (raw === 'end_turn') return { complete: true, text: extractBriefText(res.content) };
+  // The value comes off the wire and ends up in logs and an email: keep it short and printable.
+  const stopReason = typeof raw === 'string' && raw ? raw.replace(/[^\w.-]/g, '?').slice(0, 40) : 'missing';
+  const notCredit = 'This is not a credit or key problem.';
+  if (raw === 'max_tokens' || raw === 'model_context_window_exceeded') {
+    return {
+      complete: false,
+      label: 'ai-truncated',
+      stopReason,
+      operatorNote: `The model's reply stopped before it finished (stop_reason ${stopReason}), so it was discarded. ${notCredit} Check the prompt size and max_tokens against the usage recorded for this run.`,
+    };
+  }
+  if (raw === 'refusal') {
+    return {
+      complete: false,
+      label: 'ai-refused',
+      stopReason,
+      operatorNote: `The model declined to write the brief (stop_reason refusal, returned as HTTP 200). ${notCredit} Read the data context for content that may have tripped a safety classifier.`,
+    };
+  }
+  return {
+    complete: false,
+    label: 'ai-unexpected-stop',
+    stopReason,
+    operatorNote: `The API returned a stop_reason this code does not accept (${stopReason}), so nothing was shipped from it. ${notCredit} Compare with the documented stop_reason values.`,
+  };
+}

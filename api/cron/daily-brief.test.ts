@@ -175,6 +175,7 @@ describe('fallback call sites — every path to the fallback names its cause', (
     'empty-response': 'no-draft',
     'grounding-refused': 'draft-refused',
     'structure-refused': 'draft-refused',
+    'incomplete-reply': 'no-draft',
   };
 
   it('only the two gate refusals map to the gate wording', () => {
@@ -214,6 +215,7 @@ describe('fallback call sites — every path to the fallback names its cause', (
     'empty-response': "aiDebug = 'ai-empty-response'",
     'grounding-refused': 'aiDebug = `grounding-failed:',
     'structure-refused': 'aiDebug = `structure-failed:',
+    'incomplete-reply': 'aiDebug = `${reply.label}:',
   };
 
   it('every buildFallbackText call in the handler passes exactly FALLBACK_CAUSE[<path>], once per path', () => {
@@ -230,6 +232,35 @@ describe('fallback call sites — every path to the fallback names its cause', (
       const path = /FALLBACK_CAUSE\['([a-z-]+)'\]/.exec(args)?.[1] as FallbackPath;
       expect(context.startsWith(SET_BY[path])).toBe(true);
     }
+  });
+});
+
+describe('stop_reason — the handler reaches the model text only through readBriefReply', () => {
+  const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const code = strip(readFileSync(join(process.cwd(), 'api/cron/daily-brief.ts'), 'utf8'));
+
+  it('never calls extractBriefText itself, so text cannot be read past a stop_reason check', () => {
+    expect(code).not.toMatch(/extractBriefText\(/);
+    expect(code).toMatch(/readBriefReply\(/);
+  });
+
+  it('checks the reply after recording spend (a cut-off reply is still billed) and before any gate', () => {
+    const spend = code.indexOf('recordAnthropicSpend(briefRequest');
+    const read = code.indexOf('readBriefReply(');
+    const grounding = code.indexOf('groundDraft(');
+    const structure = code.indexOf('validateBriefStructure(briefText');
+    expect(spend).toBeGreaterThan(-1);
+    expect(read).toBeGreaterThan(spend);
+    expect(grounding).toBeGreaterThan(read);
+    expect(structure).toBeGreaterThan(read);
+  });
+
+  it('an incomplete reply is not a gate refusal: it never sets gateRefusal, and the alert says why', () => {
+    const branch = /if \(!reply\.complete\) \{[\s\S]*?\n\s{10}\} else if/.exec(code)?.[0] ?? '';
+    expect(branch).toContain("FALLBACK_CAUSE['incomplete-reply']");
+    expect(branch).not.toContain('gateRefusal');
+    expect(branch).toContain('stopNote = reply.operatorNote');
+    expect(code).toMatch(/gateRefusal\s*\?[\s\S]*?:\s*\(?\s*stopNote\s*\?\?/);
   });
 });
 

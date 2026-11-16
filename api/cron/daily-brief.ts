@@ -20,7 +20,7 @@ import {
 } from '../_lib/calls.js';
 import { UNSUB_PLACEHOLDER } from '../_lib/unsubscribe-token.js';
 import { checkBudget, recordAnthropicSpend } from '../_lib/llm-budget.js';
-import { buildBriefRequest, extractBriefText, BRIEF_TIMEOUT_MS } from '../_lib/brief-model.js';
+import { buildBriefRequest, readBriefReply, BRIEF_TIMEOUT_MS } from '../_lib/brief-model.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 300 };
 
@@ -839,6 +839,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // recovered afterwards from the label string. The fallback alarm reads
     // this to tell "the gates did their job" from "the machinery failed".
     let gateRefusal = false;
+    // Set when the model's reply never became a draft (cut off, refused, or an
+    // unexpected stop_reason). Not a gate refusal and not a credit failure, so
+    // the alarm says what actually happened instead of "check credit".
+    let stopNote: string | null = null;
     let grounding: GroundingReport | null = null;
     // The model's declared subject. Cleared if a gate refuses the draft — a
     // subject describing a refused issue must never ship with the fallback.
@@ -1127,22 +1131,32 @@ ${(() => {
         if (aiRes.ok) {
           const aiData = (await aiRes.json()) as {
             content?: Array<{ type?: string; text?: string }>;
+            stop_reason?: string | null;
             usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number };
           };
           // The single largest, most reliable Anthropic spend in the system —
           // a full Sonnet brief, every day at 10:00 UTC — and until now it
           // recorded nothing, leaving the $9/day kill-switch blind to it.
           await recordAnthropicSpend(briefRequest.body.model, aiData.usage, 'daily-brief');
-          // Text blocks, not content[0]: a response may open with a thinking
-          // block, which has no text.
-          const rawDraft = extractBriefText(aiData.content);
+          // Text blocks, not content[0] (a response may open with a thinking
+          // block), and only if stop_reason is a normal end of turn: a reply
+          // cut off at max_tokens inside the last section still passes the
+          // structure gate, and a refusal is a 200.
+          const reply = readBriefReply(aiData);
+          const rawDraft = reply.complete ? reply.text : '';
           // Strip the declared SUBJECT line before anything else reads the
           // draft: the gates must score the body, and the line must never
           // reach a reader.
           const parsedSubject = parseDeclaredSubject(rawDraft);
           declaredSubject = parsedSubject.subject;
           briefText = rawDraft ? parsedSubject.body : '';
-          if (!briefText) {
+          if (!reply.complete) {
+            aiDebug = `${reply.label}:${reply.stopReason}`;
+            console.error('[daily-brief] NO COMPLETE DRAFT:', aiDebug);
+            stopNote = reply.operatorNote;
+            declaredSubject = null;
+            briefText = buildFallbackText(briefData, FALLBACK_CAUSE['incomplete-reply']);
+          } else if (!briefText) {
             aiDebug = 'ai-empty-response';
             declaredSubject = null;
             briefText = buildFallbackText(briefData, FALLBACK_CAUSE['empty-response']);
@@ -1373,7 +1387,8 @@ ${(() => {
             `Cause: ${cause.slice(0, 400)}\n\n` +
             (gateRefusal
               ? 'A gate refused the draft. Read the archived brief and the grounding/structure report in brief_delivery_log.'
-              : 'This is the machinery failing, not a gate refusal — check Anthropic credit and the key before the next 10:00 UTC run.'),
+              : (stopNote ??
+                'This is the machinery failing, not a gate refusal — check Anthropic credit and the key before the next 10:00 UTC run.')),
         });
       } else {
         await clearAlert('brief:fallback', `${today}: the model wrote today's issue and it cleared every gate.`);
@@ -2716,7 +2731,8 @@ export type FallbackPath =
   | 'exception'
   | 'empty-response'
   | 'grounding-refused'
-  | 'structure-refused';
+  | 'structure-refused'
+  | 'incomplete-reply';
 
 export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
   'no-api-key': 'no-draft',
@@ -2725,6 +2741,9 @@ export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
   'empty-response': 'no-draft',
   'grounding-refused': 'draft-refused',
   'structure-refused': 'draft-refused',
+  // Cut off, refused by the model, or an unexpected stop_reason: no complete
+  // draft exists, and no gate withheld one.
+  'incomplete-reply': 'no-draft',
 };
 
 // weekday shape rather than Week in Review, because the fallback only fires

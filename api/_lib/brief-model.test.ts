@@ -8,6 +8,7 @@ import {
   getBriefModel,
   buildBriefRequest,
   extractBriefText,
+  readBriefReply,
 } from './brief-model.js';
 import { anthropicFamily, estimateAnthropicCost } from './llm-budget.js';
 
@@ -177,6 +178,84 @@ describe('extractBriefText', () => {
     expect(extractBriefText(undefined)).toBe('');
     expect(extractBriefText([])).toBe('');
     expect(extractBriefText([{ type: 'thinking', thinking: '' }])).toBe('');
+  });
+});
+
+describe('readBriefReply — only a normal end of turn may reach the gates', () => {
+  // Every stop_reason value the Messages API documents
+  // (platform.claude.com/docs/en/build-with-claude/handling-stop-reasons),
+  // plus values the docs do not list.
+  const text = [{ type: 'text', text: 'A complete-looking draft.' }];
+
+  it('passes the text of an end_turn reply, unchanged', () => {
+    expect(readBriefReply({ content: text, stop_reason: 'end_turn' })).toEqual({
+      complete: true,
+      text: 'A complete-looking draft.',
+    });
+  });
+
+  it('a truncated reply is not complete, even when its text would pass every gate', () => {
+    const r = readBriefReply({ content: text, stop_reason: 'max_tokens' });
+    expect(r.complete).toBe(false);
+    if (!r.complete) {
+      expect(r.label).toBe('ai-truncated');
+      expect(r.stopReason).toBe('max_tokens');
+    }
+    expect(JSON.stringify(r)).not.toContain('complete-looking');
+  });
+
+  it('a context-window stop is a truncation too', () => {
+    const r = readBriefReply({ content: text, stop_reason: 'model_context_window_exceeded' });
+    expect(r.complete === false && r.label).toBe('ai-truncated');
+  });
+
+  it('a refusal is labelled as a refusal, with or without content', () => {
+    for (const content of [[], text, undefined]) {
+      const r = readBriefReply({ content, stop_reason: 'refusal' });
+      expect(r.complete === false && r.label).toBe('ai-refused');
+    }
+  });
+
+  it('the operator note for a stop is never the credit-and-key advice', () => {
+    for (const stop_reason of ['max_tokens', 'refusal', 'tool_use', undefined]) {
+      const r = readBriefReply({ content: text, stop_reason });
+      expect(r.complete).toBe(false);
+      if (!r.complete) {
+        expect(r.operatorNote).toMatch(/not a credit or key problem/i);
+      }
+    }
+  });
+
+  it.each(['stop_sequence', 'tool_use', 'pause_turn', 'some_future_reason', '', 'END_TURN'])(
+    'fails closed on %j',
+    (stop_reason) => {
+      const r = readBriefReply({ content: text, stop_reason });
+      expect(r.complete === false && r.label).toBe('ai-unexpected-stop');
+    },
+  );
+
+  it('fails closed when stop_reason is missing, null or not a string', () => {
+    for (const stop_reason of [undefined, null, 7, {}, ['end_turn']]) {
+      const r = readBriefReply({ content: text, stop_reason: stop_reason as never });
+      expect(r.complete).toBe(false);
+    }
+  });
+
+  it('keeps an odd stop_reason short and printable in the operator label', () => {
+    const r = readBriefReply({ content: text, stop_reason: 'x'.repeat(500) + '\n<script>' });
+    expect(r.complete === false && r.stopReason.length).toBeLessThanOrEqual(40);
+  });
+
+  it('an end_turn reply with no text is complete with empty text (the empty-response path still owns it)', () => {
+    expect(readBriefReply({ content: [], stop_reason: 'end_turn' })).toEqual({ complete: true, text: '' });
+  });
+
+  it('skips a leading thinking block on a normal reply, as extractBriefText does', () => {
+    const r = readBriefReply({
+      content: [{ type: 'thinking', thinking: 'x' }, ...text],
+      stop_reason: 'end_turn',
+    });
+    expect(r).toEqual({ complete: true, text: 'A complete-looking draft.' });
   });
 });
 
