@@ -162,6 +162,66 @@ function secretCheckGates(src: string): boolean {
   return false;
 }
 
+/** Index of the bracket that closes the one at `open`, or -1. Input has strings blanked. */
+function matchClose(code: string, open: number): number {
+  const pair = code[open] === '(' ? ['(', ')'] : ['{', '}'];
+  let depth = 0;
+  for (let i = open; i < code.length; i++) {
+    if (code[i] === pair[0]) depth++;
+    else if (code[i] === pair[1] && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/** The text between the braces of the exported handler, or null if it cannot be found. */
+function exportedHandlerBody(code: string): string | null {
+  let head = /\bexport\s+default\s+(?:async\s+)?function\b[^(]*\(/.exec(code);
+  if (!head) {
+    // `export default handler;` with `function handler(` declared elsewhere.
+    const ref = /\bexport\s+default\s+([A-Za-z_$][\w$]*)\s*;/.exec(code);
+    if (ref) head = new RegExp(`\\bfunction\\s+${ref[1]}\\s*\\(`).exec(code);
+  }
+  let from: number;
+  if (head) {
+    const close = matchClose(code, head.index + head[0].length - 1);
+    if (close < 0) return null;
+    from = code.indexOf('{', close);
+  } else {
+    // `export default async (req, res) => {`
+    const arrow = /\bexport\s+default\s+(?:async\s+)?\([^)]*\)\s*(?::[^=]*)?=>\s*\{/.exec(code);
+    if (!arrow) return null;
+    from = arrow.index + arrow[0].length - 1;
+  }
+  if (from < 0) return null;
+  const end = matchClose(code, from);
+  return end < 0 ? null : code.slice(from + 1, end);
+}
+
+// The one thing allowed ahead of the gate: reading the clock. cron-health
+// captures `new Date()` before raising any alert, and that does no I/O. A
+// method check that only returns is NOT allowed: none of the 17 handlers has
+// one, and a gate behind `if (req.method …)` is exactly what this exists to refuse.
+const CLOCK_READ_RE = /^(?:const|let)\s+[A-Za-z_$][\w$]*\s*=\s*(?:new\s+Date\s*\(\s*\)|Date\.now\s*\(\s*\))\s*;/;
+const FIRST_GATE_RE = /^if\s*\(\s*!\s*requireCron\s*\([^)]*\)\s*\)\s*(?:\{\s*)?return\b/;
+
+/**
+ * The gated call must be the handler's own first effective statement: at the
+ * top level of its body, not inside a condition, not in a helper the handler
+ * may or may not call, and not after a query, fetch or send. The comment in
+ * _cron-utils.ts says "FIRST statement of the handler, before any I/O"; a file
+ * that merely CONTAINS `if (!requireCron(req, res)) return;` anywhere used to
+ * pass.
+ */
+function gateIsFirstStatement(code: string): boolean {
+  const body = exportedHandlerBody(code);
+  if (body === null) return false;
+  let rest = body.trimStart();
+  for (let m = CLOCK_READ_RE.exec(rest); m !== null; m = CLOCK_READ_RE.exec(rest)) {
+    rest = rest.slice(m[0].length).trimStart();
+  }
+  return FIRST_GATE_RE.test(rest);
+}
+
 const violations: string[] = [];
 const exempt: Array<{ path: string; reason: string }> = [];
 const missing: string[] = [];
@@ -195,7 +255,15 @@ for (const cron of crons) {
   // a comment. So read code with comments and strings blanked, and require the
   // documented form: `if (!requireCron(req, res)) return;`.
   const code = stripCommentsAndStrings(src);
-  if (GATED_REQUIRE_CRON_RE.test(code)) continue;
+  if (GATED_REQUIRE_CRON_RE.test(code)) {
+    // Present is not enough: it must come first, or a conditional or late call
+    // satisfies the guard while the endpoint stays open.
+    if (gateIsFirstStatement(code)) continue;
+    violations.push(
+      `${cron.path}  (${rel})  — requireCron is not the first statement of the exported handler (nested in a condition, after other work, or in a helper)`,
+    );
+    continue;
+  }
 
   // Every other shape FAILS. There used to be a third tier, "legacy idiom":
   // an inline CRON_SECRET check that gates, reported as a warning with exit 0.

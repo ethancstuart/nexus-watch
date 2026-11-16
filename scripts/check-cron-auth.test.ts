@@ -75,6 +75,78 @@ export default async function handler(req, res) {
   res.status(200).json({ ok: true });
 }
 `,
+  // The gated form exists, but a GET (or a non-POST) never reaches it.
+  'nested-in-method-check': `import { requireCron } from '../_cron-utils.js';
+export default async function handler(req, res) {
+  if (req.method === 'POST') {
+    if (!requireCron(req, res)) return;
+  }
+  res.status(200).json({ ok: true });
+}
+`,
+  // Work has already been done by the time the request is refused.
+  'after-await': `import { requireCron } from '../_cron-utils.js';
+export default async function handler(req, res) {
+  await sendEmailToEveryone();
+  if (!requireCron(req, res)) return;
+  res.status(200).json({ ok: true });
+}
+`,
+  // The gate lives in a helper, and the handler calls the helper only sometimes.
+  'helper-called-conditionally': `import { requireCron } from '../_cron-utils.js';
+function guard(req, res) {
+  if (!requireCron(req, res)) return false;
+  return true;
+}
+export default async function handler(req, res) {
+  if (req.method === 'POST' && !guard(req, res)) return;
+  res.status(200).json({ ok: true });
+}
+`,
+  // The gate is in a helper that nothing calls.
+  'helper-never-called': `import { requireCron } from '../_cron-utils.js';
+function unusedGuard(req, res) {
+  if (!requireCron(req, res)) return;
+}
+export default async function handler(req, res) {
+  res.status(200).json({ ok: true });
+}
+`,
+  // A side-effecting call before the gate, even without await.
+  'after-call': `import { requireCron } from '../_cron-utils.js';
+export default async function handler(req, res) {
+  const rows = loadEverything();
+  if (!requireCron(req, res)) return;
+  res.status(200).json({ rows });
+}
+`,
+};
+
+// Good shapes that must keep passing. cron-health reads the clock before the
+// gate on purpose (see its comment); that does no I/O, so it is the one
+// permitted statement ahead of the call.
+const GOOD_VARIANTS: Record<string, string> = {
+  'good-comments-first': `import { requireCron } from '../_cron-utils.js';
+export default async function handler(req, res) {
+  // Vercel cron auth
+  /* the first statement, as _cron-utils asks */
+  if (!requireCron(req, res)) return;
+  res.status(200).json({ ok: true });
+}
+`,
+  'good-clock-first': `import { requireCron } from '../_cron-utils.js';
+export default async function handler(req, res) {
+  const runStartedAt = new Date();
+  if (!requireCron(req, res)) return;
+  res.status(200).json({ at: runStartedAt });
+}
+`,
+  'good-typed-params': `import { requireCron } from '../_cron-utils.js';
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  if (!requireCron(req, res)) return;
+  res.status(200).json({ ok: true });
+}
+`,
 };
 
 let root: string;
@@ -105,6 +177,21 @@ describe('check-cron-auth', () => {
     const { code, out } = runGuard();
     expect(out).toContain('OK');
     expect(code).toBe(0);
+  });
+
+  it('passes the good shapes: comments first, a clock read first, typed parameters', () => {
+    rmSync(join(root, 'api'), { recursive: true, force: true });
+    writeRepo(GOOD_VARIANTS);
+    const { code, out } = runGuard();
+    expect(out).toContain('OK');
+    expect(code).toBe(0);
+  });
+
+  it('says the gate is misplaced, not missing, when it is nested or late', () => {
+    rmSync(join(root, 'api'), { recursive: true, force: true });
+    writeRepo({ 'after-await': BAD['after-await']! });
+    const { out } = runGuard();
+    expect(out).toMatch(/first statement/i);
   });
 
   it('honours a reasoned exemption', () => {
