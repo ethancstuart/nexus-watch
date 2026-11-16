@@ -120,6 +120,33 @@ export default async function handler(req, res) {
   res.status(200).json({ rows });
 }
 `,
+  // A gated function of the same name is nested inside a helper; the exported
+  // top-level handler is ungated. The first \`function handler(\` in the file is
+  // the wrong one (review of FU-H, finding 1).
+  'dup-name-nested-gate': `import { requireCron } from '../_cron-utils.js';
+function outer() {
+  function handler(req, res) {
+    if (!requireCron(req, res)) return;
+  }
+  return handler;
+}
+async function handler(req, res) {
+  await sendEmailToEveryone();
+  res.status(200).json({ ok: true });
+}
+export default handler;
+`,
+  // Two top-level declarations of the exported name: which one is exported is
+  // not something to guess, so the guard fails closed.
+  'dup-name-two-top-level': `import { requireCron } from '../_cron-utils.js';
+function handler(req, res) {
+  if (!requireCron(req, res)) return;
+}
+async function handler(req, res) {
+  await sendEmailToEveryone();
+}
+export default handler;
+`,
 };
 
 // Good shapes that must keep passing. cron-health reads the clock before the
@@ -146,6 +173,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   if (!requireCron(req, res)) return;
   res.status(200).json({ ok: true });
 }
+`,
+  // The \`export default <ident>;\` form, resolved to its one top-level declaration.
+  'good-export-default-ident': `import { requireCron } from '../_cron-utils.js';
+async function handler(req, res) {
+  if (!requireCron(req, res)) return;
+  res.status(200).json({ ok: true });
+}
+export default handler;
 `,
 };
 

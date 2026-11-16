@@ -173,13 +173,49 @@ function matchClose(code: string, open: number): number {
   return -1;
 }
 
-/** The text between the braces of the exported handler, or null if it cannot be found. */
+/** Bracket depth of `code` at `index`: 0 means top level of the module. */
+function depthAt(code: string, index: number): number {
+  let depth = 0;
+  for (let i = 0; i < index; i++) {
+    const c = code[i];
+    if (c === '(' || c === '{' || c === '[') depth++;
+    else if (c === ')' || c === '}' || c === ']') depth--;
+  }
+  return depth;
+}
+
+/**
+ * The ONE top-level `function <name>(` in the file, or null when there is none
+ * or more than one. A same-named function nested in a helper is not the
+ * exported one, and taking the first match let an ungated top-level handler
+ * pass on the strength of a gated shadow. Ambiguity fails closed.
+ */
+function topLevelFunction(code: string, name: string): RegExpExecArray | null {
+  const re = new RegExp(`\\bfunction\\s+${name}\\s*\\(`, 'g');
+  const found: RegExpExecArray[] = [];
+  for (let m = re.exec(code); m !== null; m = re.exec(code)) {
+    if (depthAt(code, m.index) === 0) found.push(m);
+  }
+  return found.length === 1 ? (found[0] as RegExpExecArray) : null;
+}
+
+/**
+ * The text between the braces of the exported handler, or null if it cannot be found.
+ *
+ * Refused BY DESIGN, even with the gate first (the message "not the first
+ * statement" is then misleading; the fix is to use a supported shape): wrapped
+ * exports (`export default withSentry(handler)`), `const handler = …;
+ * export default handler;`, and a return type containing an object literal
+ * (`Promise<{ ok: boolean } | void>`). Supported: `export default [async]
+ * function …`, an exported arrow, and `export default handler;` naming exactly
+ * one top-level `function handler(`.
+ */
 function exportedHandlerBody(code: string): string | null {
   let head = /\bexport\s+default\s+(?:async\s+)?function\b[^(]*\(/.exec(code);
   if (!head) {
-    // `export default handler;` with `function handler(` declared elsewhere.
+    // `export default handler;` with `function handler(` declared at top level.
     const ref = /\bexport\s+default\s+([A-Za-z_$][\w$]*)\s*;/.exec(code);
-    if (ref) head = new RegExp(`\\bfunction\\s+${ref[1]}\\s*\\(`).exec(code);
+    if (ref) head = topLevelFunction(code, ref[1] as string);
   }
   let from: number;
   if (head) {
