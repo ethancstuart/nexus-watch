@@ -20,6 +20,7 @@ import {
 } from '../_lib/calls.js';
 import { UNSUB_PLACEHOLDER } from '../_lib/unsubscribe-token.js';
 import { checkBudget, recordAnthropicSpend } from '../_lib/llm-budget.js';
+import { buildBriefRequest, extractBriefText, BRIEF_TIMEOUT_MS } from '../_lib/brief-model.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 300 };
 
@@ -1106,37 +1107,35 @@ ${(() => {
         // ship even at the cap — but the check still runs so the soft-warn
         // telemetry fires as spend approaches the limit.
         await checkBudget({ endpoint: 'daily-brief', bypassCap: true });
+        // One request object feeds both the call and the spend record below,
+        // so the two can never name different models.
+        const briefRequest = buildBriefRequest({
+          apiKey: anthropicKey,
+          system: getBriefSystemPrompt(now),
+          dataContext,
+        });
+        // The host stays a literal HERE, not in brief-model.ts: scripts/check-llm-spend.ts
+        // scopes billed call sites by that literal and then requires a gate and a
+        // spend record of this file.
         const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': anthropicKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-5-20250929',
-            max_tokens: 6000,
-            system: getBriefSystemPrompt(now),
-            messages: [
-              {
-                role: 'user',
-                content: `Generate today's intelligence briefing.\n\n${dataContext}`,
-              },
-            ],
-          }),
-          signal: AbortSignal.timeout(240000),
+          headers: briefRequest.headers,
+          body: JSON.stringify(briefRequest.body),
+          signal: AbortSignal.timeout(BRIEF_TIMEOUT_MS),
         });
 
         if (aiRes.ok) {
           const aiData = (await aiRes.json()) as {
-            content: Array<{ text: string }>;
+            content?: Array<{ type?: string; text?: string }>;
             usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number };
           };
           // The single largest, most reliable Anthropic spend in the system —
           // a full Sonnet brief, every day at 10:00 UTC — and until now it
           // recorded nothing, leaving the $9/day kill-switch blind to it.
-          await recordAnthropicSpend('claude-sonnet-4-5-20250929', aiData.usage, 'daily-brief');
-          const rawDraft = aiData.content?.[0]?.text || '';
+          await recordAnthropicSpend(briefRequest.body.model, aiData.usage, 'daily-brief');
+          // Text blocks, not content[0]: a response may open with a thinking
+          // block, which has no text.
+          const rawDraft = extractBriefText(aiData.content);
           // Strip the declared SUBJECT line before anything else reads the
           // draft: the gates must score the body, and the line must never
           // reach a reader.
