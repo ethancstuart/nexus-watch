@@ -6,9 +6,10 @@ import { fileURLToPath } from 'node:url';
 /**
  * EVERY LINK IN THE CII FEED OPENS A PAGE THAT EXISTS.
  *
- * Until 22 Nov 2026 the channel and all 86 daily items linked to `/#/intel`
- * and `/#/intel?country=XX`, the retired map. No `/intel` route is registered
- * and the live URL answered 404 (lanes2/GTM.md §1). The route table is read
+ * Until 22 Nov 2026 the channel and every item linked to `/#/intel` and
+ * `/#/intel?country=XX`, the retired map: 11 links in the 16 Nov capture, the
+ * channel and 10 items (lanes2/gtm-notes/live/_rss_cii.body). No `/intel`
+ * route is registered and the live URL answered 404 (lanes2/GTM.md §1). The route table is read
  * from src/main.ts, as scripts/check-route-rewrites.ts reads it, so a link to
  * a route that is later removed fails here too. Synthetic rows only.
  */
