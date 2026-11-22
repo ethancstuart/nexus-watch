@@ -11,7 +11,7 @@ import { markdownToHtml } from './_lib/markdown.js';
  * trace: no block, no label, no link, no marker, no JSON field, no sentence of
  * any such note, no word of an unpublished page introduction.
  *
- * WITH TODAY'S DATA THAT IS ALL 49, SO NOTHING APPEARS ANYWHERE: every note
+ * WITH TODAY'S DATA THAT IS ALL 67, SO NOTHING APPEARS ANYWHERE: every note
  * is a draft, the key lists are empty, the introduction is a draft, and
  * /corrections is a 404. _lib/corrections-data.test.ts pins that. This file
  * derives its scope from the gate, so approving a note needs no edit here: it

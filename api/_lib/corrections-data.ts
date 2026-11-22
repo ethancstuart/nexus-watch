@@ -30,8 +30,10 @@
  * stored: the code renders it from correctedOn and classification
  * (api/_lib/correction-words.ts), so the date is never typed into the prose.
  *
- * Generated 2026-11-22 from the drafts by a script kept outside this
- * repository; edit by hand from here on.
+ * Generated 2026-11-22 from the drafts by scripts kept outside this
+ * repository: the first 49 notes from the lead's CORRECTIONS-DRAFTS.md, then
+ * the 18 notes of 23 Aug–7 Sep and 21–22 Nov and the introduction from
+ * CORRECTIONS-DRAFTS-v2.md. Edit by hand from here on.
  */
 import type { CorrectionNote, CorrectionsPageIntro } from './correction-words.js';
 
@@ -445,16 +447,16 @@ export const CORRECTION_NOTES: readonly CorrectionNote[] = [
  * sections are owner choices still open, and are not here. Approve with
  * `status: 'approved'` plus `publishedOn: 'YYYY-MM-DD'`, INTRODUCTION_APPROVED
  * = true in corrections-approvals.ts, and INTRO_APPROVED = true in the test.
- * The first paragraph says each of the 49 carries a note, so the gate also
+ * The first paragraph says each of the 67 carries a note, so the gate also
  * withholds the introduction until every note is approved by both keys. Until
  * then the page, once any note is approved, carries only the heading
  * "Corrections" and the approved notes.
  */
 export const CORRECTIONS_PAGE_INTRO: CorrectionsPageIntro = {
   status: 'draft',
-  title: 'Corrections to our censorship reporting, 8 September to 6 November 2026',
+  title: 'Corrections to our censorship reporting, 23 August to 22 November 2026',
   paragraphs: [
-    "Between 8 September and 6 November our daily brief, written by a language model from figures we supplied, made claims about internet censorship that were wrong. Most said that censorship in Russia and Iran had reached a “record”. It had not. We checked all 57 model-written editions from that period against OONI's published daily totals. 49 contain at least one false or misleading claim of fact: 42 contain at least one false claim, and 7 only misleading ones. Each of the 49 carries a dated note beside its original text, which we have not changed. The other 8 were wrong only in wording.",
-    "OONI's count is the number of tests confirmed as blocked, so it rises when more tests are run. The share of tests confirmed blocked removes that effect. By that measure Russia stayed near 4% (between 3.95% and 4.72% in the weekly figures cited in our notes). Iran's was 29.6% in the week to 7 September, 35.6% in the week to 11 October (its highest of any week since 1 August up to that date) and 24.4% in the week to 1 November (its lowest up to that date).",
+    "Between 23 August and 22 November our daily brief, written by a language model from figures we supplied, made claims about internet censorship that were wrong. Most said that censorship in Russia and Iran had reached a “record”. It had not. We checked every model-written edition from the earliest we found in our archive (8 April 2026) to 22 November, 196 in all, against OONI's published daily totals. None before 23 August cited censorship measurements. Of the 75 model-written editions from 23 August, 67 contain at least one false or misleading claim of fact: 60 contain at least one false claim, and 7 only misleading ones. Each of the 67 carries a dated note beside its original text, which we have not changed. The other 8 were wrong only in wording.",
+    "OONI's count is the number of tests confirmed as blocked, so it rises when more tests are run. The share of tests confirmed blocked removes that effect. By that measure Russia stayed near 4% (between 3.74% and 4.83% in the weekly figures cited in our notes). Iran's was 29.6% in the week to 7 September, 35.6% in the week to 11 October (its highest of any week from 1 March to 21 November) and 21.7% in the week to 21 November (its lowest of any week since 1 August).",
   ],
 };

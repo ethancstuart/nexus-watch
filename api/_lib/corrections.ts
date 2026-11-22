@@ -88,9 +88,9 @@ export function correctionsNewestFirst(
 /**
  * The page introduction, or null. It needs its key, its own approval with a
  * real publishedOn, and EVERY note approved by both keys: the drafted
- * introduction says each of the 49 carries a dated note, which is untrue while
- * any is unpublished. So a note added later as a draft (21 or 22 Nov) takes the
- * introduction down until that note is approved too.
+ * introduction says each of the 67 carries a dated note, which is untrue while
+ * any is unpublished. So a note added later as a draft takes the introduction
+ * down until that note is approved too.
  */
 export function approvedIntro(
   intro: CorrectionsPageIntro = CORRECTIONS_PAGE_INTRO,

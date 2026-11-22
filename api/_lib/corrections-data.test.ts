@@ -150,7 +150,7 @@ describe('correction notes: integrity', () => {
     expect(approvedIntro() !== null).toBe(INTRO_APPROVED);
   });
 
-  // The drafted introduction says "Each of the 49 carries a dated note beside
+  // The drafted introduction says "Each of the 67 carries a dated note beside
   // its original text". Published with fewer notes live, that sentence is
   // false. The gate therefore withholds the introduction until every note is
   // approved; this states the same rule where the tests run.
