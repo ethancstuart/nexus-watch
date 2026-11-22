@@ -56,9 +56,11 @@ CREATE TABLE IF NOT EXISTS brief_dry_runs (
 
 CREATE INDEX IF NOT EXISTS idx_brief_dry_runs_brief_date ON brief_dry_runs (brief_date DESC);
 
+-- No semicolon inside the string: scripts/run-migrations.mjs splits on every
+-- semicolon outside a dollar-quoted block, quoted strings included.
 COMMENT ON TABLE brief_dry_runs IS
   'Private. One row per daily-brief run while BRIEF_MODEL_MODE is not live: the '
-  'model draft, each gate verdict and token counts. Nothing public reads it; '
+  'model draft, each gate verdict and token counts. Nothing public reads it, and '
   'the draft must never be copied into daily_briefs.';
 
 COMMIT;
