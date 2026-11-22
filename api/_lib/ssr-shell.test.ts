@@ -29,3 +29,16 @@ describe('shell() unfurl metadata', () => {
     expect(html).toContain('content="https://nexuswatch.dev/api/og?type=call&amp;id=47"');
   });
 });
+
+describe('shell() ledger footer', () => {
+  // The footer speaks of the call book. /ledger and /call/:id keep it; a page
+  // that is not the book (/corrections) opts out.
+  it('is emitted by default and when asked for, and omitted only on request', () => {
+    const plain = shell('<h1>x</h1>', OPTS);
+    expect(plain).toContain('<p class="foot">Daily snapshots of this book');
+    expect(shell('<h1>x</h1>', { ...OPTS, ledgerFooter: true })).toBe(plain);
+    const without = shell('<h1>x</h1>', { ...OPTS, ledgerFooter: false });
+    expect(without).not.toMatch(/class="foot"|ledger-snapshots/);
+    expect(without).toContain('<h1>x</h1>\n</div></body>');
+  });
+});

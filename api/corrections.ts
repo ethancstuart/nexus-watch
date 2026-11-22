@@ -43,6 +43,9 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       description: page.description,
       canonicalPath: CORRECTIONS_PATH,
       css: CORRECTIONS_PAGE_CSS,
+      // The shell's footer describes the call book ("this book", "stated
+      // probabilities and thresholds"), which this page is not.
+      ledgerFooter: false,
     }),
   );
 }

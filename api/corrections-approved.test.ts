@@ -223,6 +223,12 @@ describe('/corrections with approved notes', () => {
     expect(html).not.toMatch(/Synthetic intro|Published /);
   });
 
+  it('carries no ledger footer: the page is not the call book', async () => {
+    const html = (await call('./corrections.js')).body as string;
+    expect(html).not.toMatch(/class="foot"|Daily snapshots|ledger-snapshots|this book/);
+    expect(html).toMatch(/<\/section>\n<\/div><\/body>/);
+  });
+
   const INTRO: CorrectionsPageIntro = {
     status: 'approved',
     publishedOn: '2026-12-01',
