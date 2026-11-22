@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   buildFallbackText,
+  DRY_RUN_CLAUSE,
   FALLBACK_CAUSE,
   type FallbackCause,
   type FallbackPath,
@@ -165,6 +166,43 @@ describe('buildFallbackText — the wording names the real cause', () => {
     expect(a.length).toBe(b.length);
     expect(a.filter((line, i) => line !== b[i]).length).toBe(2);
   });
+
+  // BRIEF_MODEL_MODE is not `live` and the draft cleared every gate: a draft
+  // existed (so not "no draft was produced") and no gate withheld it (so not
+  // the gate wording). The third cause says what is true that day.
+  describe('dry run', () => {
+    const dry = buildFallbackText(base, 'dry-run');
+
+    it('says a draft is being tested and was not sent, in both sentences about the draft', () => {
+      expect(DRY_RUN_CLAUSE).toBe('a model-written draft is being tested and was not sent');
+      expect(dry).toContain(
+        '- This is the mechanical edition: a model-written draft is being tested and was not sent, so today carries data without narrative.',
+      );
+      expect(dry).toContain(
+        'This is the mechanical edition — a model-written draft is being tested and was not sent, so we give you the lead as the wire carried it rather than a synthesis.',
+      );
+    });
+
+    it('claims neither that no draft existed nor that a gate withheld one', () => {
+      expect(dry).not.toContain('no model draft was produced');
+      for (const phrase of FALSE_FOR_NO_DRAFT) expect(dry).not.toContain(phrase);
+    });
+
+    it('exposes no internals and keeps the section spine', () => {
+      for (const word of INTERNALS) expect(dry).not.toContain(word);
+      const r = validateBriefStructure(dry, false);
+      expect(r.missing).toEqual([]);
+      expect(r.extra).toEqual([]);
+      expect(r.pass).toBe(true);
+    });
+
+    it('changes only the same two sentences', () => {
+      const a = dry.split('\n');
+      const b = buildFallbackText(base, 'no-draft').split('\n');
+      expect(a.length).toBe(b.length);
+      expect(a.filter((line, i) => line !== b[i]).length).toBe(2);
+    });
+  });
 });
 
 describe('fallback call sites — every path to the fallback names its cause', () => {
@@ -177,6 +215,7 @@ describe('fallback call sites — every path to the fallback names its cause', (
     'structure-refused': 'draft-refused',
     'comparative-refused': 'draft-refused',
     'incomplete-reply': 'no-draft',
+    'dry-run': 'dry-run',
   };
 
   it('only the gate refusals map to the gate wording', () => {
@@ -218,6 +257,7 @@ describe('fallback call sites — every path to the fallback names its cause', (
     'structure-refused': 'aiDebug = `structure-failed:',
     'comparative-refused': 'aiDebug = comparativeClaimLabel(',
     'incomplete-reply': 'aiDebug = `${reply.label}:',
+    'dry-run': "aiDebug = 'dry-run'",
   };
 
   it('every buildFallbackText call in the handler passes exactly FALLBACK_CAUSE[<path>], once per path', () => {
