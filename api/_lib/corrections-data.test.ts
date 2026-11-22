@@ -112,10 +112,11 @@ describe('correction notes: integrity', () => {
     expect(approvedIntro() !== null).toBe(INTRO_APPROVED);
   });
 
-  it('an introduction that says every note is published is approved only when every note is', () => {
-    const claimsAll = CORRECTIONS_PAGE_INTRO.paragraphs.some((p) => /Each of the 49 carries a dated note/.test(p));
-    if (INTRO_APPROVED && claimsAll) expect(APPROVED_DATES).toHaveLength(CORRECTION_NOTES.length);
-    // Today the claim is in the draft and nothing is approved, so the page cannot make it.
-    expect(claimsAll).toBe(true);
+  // The drafted introduction says "Each of the 49 carries a dated note beside
+  // its original text". Published with fewer notes live, that sentence is
+  // false. So the introduction goes live only with every note. Rewording it to
+  // allow an earlier start is an owner decision, made by changing this test.
+  it('the introduction is approved only once every note is', () => {
+    if (INTRO_APPROVED) expect(APPROVED_DATES).toHaveLength(CORRECTION_NOTES.length);
   });
 });

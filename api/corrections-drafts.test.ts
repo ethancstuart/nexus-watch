@@ -1,24 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './_lib/corrections-data.js';
+import { approvedNotes } from './_lib/corrections.js';
 import { markdownToHtml } from './_lib/markdown.js';
 
 /**
- * WITH TODAY'S DATA, NOTHING APPEARS ANYWHERE. Every correction note in the
- * repository is a draft, and this renders every surface that could show one,
- * for every noted edition, against the real data module (nothing mocked but
- * the database), and finds no trace: no block, no label, no link, no marker,
- * no JSON field, no sentence of any note, no word of the page draft.
+ * A DRAFT NOTE NEVER SHOWS, ON ANY SURFACE. This renders every surface that
+ * could show a note, for every draft edition, against the real data module
+ * (nothing mocked but the database), and finds no trace: no block, no label,
+ * no link, no marker, no JSON field, no sentence of any draft, no word of a
+ * draft page introduction.
  *
- * When the owner approves a note this file still holds for every note that is
- * still a draft; the approved-note behaviour is pinned in
- * corrections-approved.test.ts and the approval itself in
- * _lib/corrections-data.test.ts.
+ * WITH TODAY'S DATA THAT IS ALL 49, SO NOTHING APPEARS ANYWHERE: every note
+ * is a draft, the introduction is a draft, and /corrections is a 404.
+ * _lib/corrections-data.test.ts pins that (APPROVED_DATES is empty). This
+ * file derives its scope from the data, so approving a note needs no edit
+ * here: it keeps holding for every note still in draft. What an approved
+ * note looks like is pinned in corrections-approved.test.ts.
  *
  * Synthetic brief rows only.
  */
 
 const DRAFTS = CORRECTION_NOTES.filter((n) => n.status === 'draft');
 const NOTED = DRAFTS.map((n) => n.date);
+const NONE_APPROVED = approvedNotes().length === 0;
 /** Two dates with no note: a wording-only edition and a mechanical one. */
 const UNNOTED = ['2026-09-18', '2026-11-07'];
 
@@ -85,25 +89,35 @@ async function call(mod: string, query: Record<string, string> = {}) {
   return res.state;
 }
 
-/** Text no surface may carry while every note is a draft. */
-const FORBIDDEN: string[] = [
+/** Words of a draft: no surface may ever carry them. */
+const DRAFT_WORDS: string[] = [
+  // A distinctive stretch from the middle of every draft note, past its date.
+  ...DRAFTS.map((n) => n.text.slice(20, 80)),
+  ...(CORRECTIONS_PAGE_INTRO.status === 'draft'
+    ? [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map((p) => p.slice(0, 60))]
+    : []),
+];
+
+/** What a correction looks like on a page or in JSON: absent for a draft or unnoted edition. */
+const MARKERS = [
   'Correction added',
   'This edition contained',
   'All corrections',
   '/corrections',
   'class="correction"',
+  '.correction {',
   'dossier-correction',
   'correctedOn',
   '"correction"',
-  CORRECTIONS_PAGE_INTRO.title,
-  ...CORRECTIONS_PAGE_INTRO.paragraphs.map((p) => p.slice(0, 60)),
-  // A distinctive stretch from the middle of every note, past its date.
-  ...DRAFTS.map((n) => n.text.slice(20, 80)),
 ];
 
+const asText = (out: unknown) => (typeof out === 'string' ? out : JSON.stringify(out));
+function expectNoDraftWords(surface: string, out: unknown) {
+  for (const f of DRAFT_WORDS) expect(asText(out).includes(f), `${surface} carries "${f}"`).toBe(false);
+}
 function expectNoTrace(surface: string, out: unknown) {
-  const text = typeof out === 'string' ? out : JSON.stringify(out);
-  for (const f of FORBIDDEN) expect(text.includes(f), `${surface} carries "${f}"`).toBe(false);
+  expectNoDraftWords(surface, out);
+  for (const f of MARKERS) expect(asText(out).includes(f), `${surface} carries "${f}"`).toBe(false);
 }
 
 beforeEach(() => {
@@ -113,13 +127,12 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('with every note a draft, no surface shows a correction', () => {
-  it('the data really is all draft today', () => {
-    expect(DRAFTS).toHaveLength(CORRECTION_NOTES.length);
-    expect(CORRECTIONS_PAGE_INTRO.status).toBe('draft');
+describe('a draft note never shows, on any surface', () => {
+  it('covers every note the gate does not pass', () => {
+    expect(DRAFTS.length + approvedNotes().length).toBe(CORRECTION_NOTES.length);
   });
 
-  it('/brief/:date, for every noted edition and two unnoted ones', async () => {
+  it('/brief/:date, for every draft edition and two unnoted ones', async () => {
     for (const date of [...NOTED, ...UNNOTED]) {
       const { status, body } = await call('./brief/og.js', { date });
       expect(status).toBe(200);
@@ -142,20 +155,27 @@ describe('with every note a draft, no surface shows a correction', () => {
     expectNoTrace('/brief (db down)', down.body);
   });
 
-  it('/corrections does not exist: 404, uncached, no page', async () => {
+  it('/corrections: a 404 while nothing is approved (today), and never a draft word', async () => {
     const { status, body, headers } = await call('./corrections.js');
-    expect(status).toBe(404);
-    expect(headers['Cache-Control']).toBe('no-store');
-    expect(body).toBe('not_found');
+    if (NONE_APPROVED) {
+      expect(status).toBe(404);
+      expect(headers['Cache-Control']).toBe('no-store');
+      expect(body).toBe('not_found');
+    } else {
+      expect(status).toBe(200);
+      expectNoDraftWords('/corrections', body);
+    }
   });
 
-  it('/api/briefs: no archive entry carries a marker', async () => {
+  it('/api/briefs: no draft or unnoted entry carries a marker', async () => {
     const list = await call('./briefs.js');
     expect(list.status).toBe(200);
     const briefs = (list.body as { briefs: Array<Record<string, unknown>> }).briefs;
     expect(briefs).toHaveLength(NOTED.length + UNNOTED.length);
-    for (const b of briefs) expect(Object.keys(b).sort()).toEqual(['date', 'generatedAt', 'preview', 'subject']);
-    expectNoTrace('/api/briefs', list.body);
+    for (const b of briefs) {
+      expect(Object.keys(b).sort()).toEqual(['date', 'generatedAt', 'preview', 'subject']);
+      expectNoTrace('/api/briefs entry', b);
+    }
 
     for (const date of NOTED) {
       const one = await call('./briefs.js', { date });
