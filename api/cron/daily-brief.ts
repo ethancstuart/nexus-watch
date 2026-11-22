@@ -535,7 +535,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
      * to avoid storing multi-KB API response bodies in Postgres.
      */
     async function logDelivery(params: {
-      channel: 'archive' | 'beehiiv' | 'resend' | 'notion';
+      channel: 'archive' | 'resend' | 'notion';
       status: 'success' | 'failed' | 'partial';
       recipientCount?: number;
       failedCount?: number;
@@ -1331,8 +1331,8 @@ ${(() => {
     // Unless the setting is exactly `live`, a draft that cleared every gate
     // does not ship. The day is handled exactly as a gate refusal is: a
     // non-success label, no declared subject, and the mechanical text with its
-    // own true cause line. The edition, the subject, the archive row, the email
-    // and beehiiv below are all built from those three, so all of them are the
+    // own true cause line. The edition, the subject, the archive row and the
+    // email below are all built from those three, so all of them are the
     // mechanical edition. Done here, after the gates and before the edition is
     // decided, and before anything is written or sent. The draft survives only
     // in `attempt`, for the private table and the operator's email.
@@ -1439,10 +1439,10 @@ ${(() => {
 
     // === Render Light Intel Dossier (Track B.3) ===
     // Single rendering pass produces all outputs: email shell for Resend,
-    // inner-modules HTML for beehiiv, plain-text multipart fallback, and
-    // the DB archive summary. All paths (AI success, AI failure, no key)
-    // go through the same dossier pipeline so the archive, email, and
-    // beehiiv post are visually identical.
+    // plain-text multipart fallback, and the inner-modules HTML stored as the
+    // DB archive summary. All paths (AI success, AI failure, no key) go
+    // through the same dossier pipeline so the archive and the email are
+    // visually identical.
     // Decided here, before the render: the renderer is told the edition, and
     // the archive row records it so a delivery-time re-render can be told too.
     const onFallback = !(aiDebug ?? '').startsWith('ai-success');
@@ -1615,10 +1615,9 @@ ${(() => {
       console.error('CII snapshot recording failed:', snapshotErr instanceof Error ? snapshotErr.message : snapshotErr);
     }
 
-    // === Publish to beehiiv ===
-    // The request, the configuration check and the alert on a bad id live in
-    // _lib/beehiiv-publish.ts so they can be tested with fetch stubbed.
-    await publishToBeehiiv({ today, briefText, contentHtml: dossier.beehiivHtml, logDelivery });
+    // The beehiiv mirror was RETIRED. It had failed on every run since
+    // 2026-07-09 because its publication id setting was malformed. No request
+    // goes to beehiiv from any path, whatever BEEHIIV_* variables are set.
 
     // The Buffer/X channel was DELETED with the marketing subsystem
     // (2026-09-05, plan witty-finding-crystal PR-3). It was building its post
@@ -1843,7 +1842,6 @@ import {
   type RegionId,
 } from '../../src/services/interests-types.js';
 import { requireCron } from '../_cron-utils.js';
-import { publishToBeehiiv } from '../_lib/beehiiv-publish.js';
 
 export interface RenderedBrief {
   emailHtml: string;

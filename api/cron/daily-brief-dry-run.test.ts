@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { SUBJECT_PATTERN } from '../_lib/brief-preview.js';
 import { DAILY_SECTIONS } from '../_lib/brief-structure.js';
-import { GOOD } from '../_lib/beehiiv-test-fixtures.js';
 
 /**
  * THE DRY RUN, END TO END (SEND-HOLD-DESIGN.md, Option 1, tests 1 to 9).
@@ -23,6 +22,11 @@ const WEBHOOK = 'https://discord.example.test/api/webhooks/1/synthetic';
 const MODEL_URL = 'https://api.anthropic.com/v1/messages';
 const RESEND_URL = 'https://api.resend.com/emails';
 const RESEND_BATCH_URL = 'https://api.resend.com/emails/batch';
+// beehiiv is retired. Its settings stay set below, as they are in production
+// until the owner deletes them, so every run here proves that nothing is sent
+// to beehiiv even with them present. Synthetic ids, never real values.
+const BEEHIIV_GOOD_ID = 'pub_00000000-1111-2222-3333-444444444444';
+const BEEHIIV_MALFORMED_ID = 'Qk7Xv-9mZp-W3tR-Lc8Yd-NbHs4-Ugj2';
 
 // Planted in the draft's declared subject and in its body (test 6).
 const SUBJECT_MARKER = 'QZXSUBJECTMARKERQZX';
@@ -241,7 +245,6 @@ const fetchStub = vi.fn(async (input: unknown, init?: { body?: unknown }) => {
   const url = String(input);
   sent.push({ url, body: typeof init?.body === 'string' ? init.body : '' });
   if (url === MODEL_URL) return json(net.model.status, net.model.body);
-  if (url.startsWith('https://api.beehiiv.com/')) return json(201, { data: { id: 'post_synthetic' } });
   if (url === RESEND_URL) {
     if (net.resendEmailThrows) throw new Error('synthetic network failure');
     return json(net.resendEmailStatus, { id: 'msg_synthetic' });
@@ -253,6 +256,8 @@ const fetchStub = vi.fn(async (input: unknown, init?: { body?: unknown }) => {
 });
 
 const to = (url: string) => sent.filter((s) => s.url === url);
+/** Any request to a beehiiv host, or any payload that mentions beehiiv (an alert about it, say). */
+const beehiivTraffic = () => sent.filter((s) => /beehiiv/i.test(new URL(s.url).hostname) || /beehiiv/i.test(s.body));
 const parsed = (s: Sent) => JSON.parse(s.body) as Record<string, unknown>;
 const isOperatorEmail = (s: Sent) =>
   s.url === RESEND_URL && String(parsed(s).subject).startsWith('[INFO] DRY RUN, not sent to readers');
@@ -330,12 +335,6 @@ async function readerSurfaces(): Promise<Record<string, string>> {
   out['email subject'] = email.subject;
   out['email HTML'] = email.html;
   out['email plain text'] = email.text;
-  const beehiiv = to('https://api.beehiiv.com/v2/publications/' + GOOD + '/posts');
-  expect(beehiiv).toHaveLength(1);
-  const post = parsed(beehiiv[0]);
-  out['beehiiv title'] = String(post.title);
-  out['beehiiv subtitle'] = String(post.subtitle);
-  out['beehiiv content'] = String(post.content_html);
   return out;
 }
 
@@ -368,7 +367,7 @@ beforeEach(() => {
     BRIEF_MODEL: undefined,
     BRIEF_MODEL_MODE: undefined,
     BEEHIIV_API_KEY: 'synthetic-beehiiv-key',
-    BEEHIIV_PUBLICATION_ID: GOOD,
+    BEEHIIV_PUBLICATION_ID: BEEHIIV_GOOD_ID,
     BEEHIIV_PUB_ID: undefined,
     RESEND_API_KEY: 'synthetic-resend-key',
     ADMIN_EMAILS: ADMIN,
@@ -394,7 +393,7 @@ const content = () => db.row!.content as { edition?: string; subject?: string; b
 // ---------------------------------------------------------------------------
 
 describe('1. mode unset, the draft clears every gate: readers get the mechanical edition', () => {
-  it('archives the mechanical edition, sends beehiiv the mechanical text, and records one dry run', async () => {
+  it('archives the mechanical edition, sends nothing to beehiiv, and records one dry run', async () => {
     const out = await runBrief();
     expect(out.status).toBe(200);
     expect((out.body as { ai: string }).ai).toBe('dry-run');
@@ -409,11 +408,7 @@ describe('1. mode unset, the draft clears every gate: readers get the mechanical
       for (const m of MARKERS) expect(field).not.toContain(m);
     }
 
-    const beehiiv = sent.filter((s) => s.url.startsWith('https://api.beehiiv.com/'));
-    expect(beehiiv).toHaveLength(1);
-    expect(String(parsed(beehiiv[0]).content_html)).toContain(MECHANICAL_EDITION_LINE);
-    expect(String(parsed(beehiiv[0]).content_html)).toContain(DRY_RUN_CLAUSE);
-    expect(containsAnyMarker(beehiiv[0].body)).toBe(false);
+    expect(beehiivTraffic()).toEqual([]);
 
     expect(db.dryRuns).toHaveLength(1);
     const r = db.dryRuns[0];
@@ -479,7 +474,7 @@ describe('4. a gate refuses the draft in dry-run mode: the existing true cause, 
     vi.stubEnv('BRIEF_MODEL_MODE', 'live');
     const live = await runBrief(text);
     const liveRow = rowText();
-    const liveBeehiiv = sent.filter((s) => s.url.startsWith('https://api.beehiiv.com/')).map((s) => s.body);
+    expect(beehiivTraffic()).toEqual([]);
     const liveAlerts = to(RESEND_URL).map((s) => String(parsed(s).subject));
 
     db.row = null;
@@ -494,7 +489,7 @@ describe('4. a gate refuses the draft in dry-run mode: the existing true cause, 
     expect(rowText()).toBe(liveRow);
     expect(content().edition).toBe('mechanical');
     expect(content().briefText).toContain('the model draft was withheld by a publish gate');
-    expect(sent.filter((s) => s.url.startsWith('https://api.beehiiv.com/')).map((s) => s.body)).toEqual(liveBeehiiv);
+    expect(beehiivTraffic()).toEqual([]);
 
     // The record: which gate, and why.
     expect(db.dryRuns).toHaveLength(1);
@@ -557,7 +552,6 @@ describe('6. a marker in the draft subject and body reaches no reader surface', 
       'Atom feed',
       'email HTML',
       'email plain text',
-      'beehiiv content',
     ]) {
       expect(s[name], name).toContain(BODY_MARKER);
     }
@@ -565,16 +559,16 @@ describe('6. a marker in the draft subject and body reaches no reader surface', 
     expect(s['archive list (/api/briefs)']).toContain(SUBJECT_MARKER);
   });
 
-  it('dry run: in no field of daily_briefs, the brief page, the public JSON, either feed, the email or beehiiv', async () => {
+  it('dry run: in no field of daily_briefs, the brief page, the public JSON, either feed or the email', async () => {
     await runBrief();
     for (const m of MARKERS) expect(rowText()).not.toContain(m);
     const s = await readerSurfaces();
-    expect(Object.keys(s)).toHaveLength(13);
+    expect(Object.keys(s)).toHaveLength(10);
     for (const [name, text] of Object.entries(s)) {
       expect(text.length, name).toBeGreaterThan(0);
       for (const m of MARKERS) expect(text, `${name} carries ${m}`).not.toContain(m);
     }
-    expect(s['beehiiv title']).toBe(`The NexusWatch Brief — ${TODAY}`);
+    expect(beehiivTraffic()).toEqual([]);
     expect(s['email subject']).toBe(`The Ledger, unchanged — mechanical edition, ${TODAY} — The NexusWatch Brief`);
   });
 });
@@ -673,8 +667,8 @@ describe('fail safe: when the model call fails, behaviour is exactly as today, a
     expect(dry.body).toEqual(live.body);
     expect(rowText()).toBe(liveRow);
     expect(content().briefText).toContain('no model draft was produced today');
-    // Every outbound payload (beehiiv, the critical alert) is the same; no
-    // operator email, no DRY RUN alert: there was no draft.
+    // Every outbound payload (the critical alert) is the same; no operator
+    // email, no DRY RUN alert: there was no draft.
     expect(sent.filter((s) => s.url !== MODEL_URL).map((s) => s.body)).toEqual(liveOut);
     expect(to(RESEND_URL).map((s) => String(parsed(s).subject))).toEqual([
       expect.stringMatching(/^\[CRITICAL\] The brief shipped as the mechanical edition/),
@@ -804,5 +798,53 @@ describe('review 6, should-fix 2: an earlier mechanical-edition alarm is stood d
     // The harness does see a stale condition: the next failure reports it.
     const again = await day('2026-11-25', creditFailure);
     expect(String(again[0].text)).toContain('Ongoing for about 48h');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// beehiiv is retired (RETIRE-BEEHIIV). Every brief path, with its old settings
+// still present: nothing is sent to beehiiv, nothing about it is written or
+// alerted, and the archive and the delivery still happen.
+// ---------------------------------------------------------------------------
+
+describe('beehiiv is retired: no brief path sends to it or alerts about it', () => {
+  const credit = { status: 400, body: { error: { message: 'synthetic credit too low' } } };
+  const productionShaped = { BEEHIIV_PUBLICATION_ID: undefined, BEEHIIV_PUB_ID: BEEHIIV_MALFORMED_ID };
+  const cases: Array<
+    [string, string | undefined, { status: number; body: unknown }, Record<string, string | undefined>]
+  > = [
+    ['dry run, the draft clears every gate', undefined, { status: 200, body: modelReply(DRAFTS.passing) }, {}],
+    ['live, the draft ships', 'live', { status: 200, body: modelReply(DRAFTS.passing) }, {}],
+    ['live, a gate refuses the draft', 'live', { status: 200, body: modelReply(DRAFTS.structure) }, {}],
+    ['live, the model call fails', 'live', credit, {}],
+    [
+      'live, the malformed id production holds today',
+      'live',
+      { status: 200, body: modelReply(DRAFTS.passing) },
+      productionShaped,
+    ],
+    ['dry run, the malformed id production holds today', undefined, credit, productionShaped],
+  ];
+
+  it.each(cases)('%s', async (_, mode, model, env) => {
+    vi.stubEnv('BRIEF_MODEL_MODE', mode as string);
+    for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v as string);
+    net.model = model;
+    vi.setSystemTime(new Date(`${TODAY}T10:00:00Z`));
+    const out = await call(dailyBrief, { ...cron, method: 'POST' });
+    expect(out.status).toBe(200);
+
+    // The delivery job, an hour later: the reader still gets today's brief.
+    db.subscribers = [{ email: READER, timezone: 'UTC' }];
+    vi.setSystemTime(new Date(`${TODAY}T11:00:00Z`));
+    await call(deliverBriefs, cron);
+    expect(to(RESEND_BATCH_URL)).toHaveLength(1);
+    expect(db.row!.summary.length).toBeGreaterThan(0);
+
+    // No request to a beehiiv host, and no alert or other payload about it.
+    expect(beehiivTraffic()).toEqual([]);
+    // No delivery-log row, alert_state row or any other statement names it.
+    expect(JSON.stringify(db.queries)).not.toMatch(/beehiiv/i);
+    expect([...db.alerts.keys()].filter((k) => /beehiiv/i.test(k))).toEqual([]);
   });
 });
