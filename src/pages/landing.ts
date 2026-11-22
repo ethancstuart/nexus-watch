@@ -216,7 +216,7 @@ export function renderLanding(root: HTMLElement): void {
       </p>
     </section>
 
-    <section class="nw-reveal" aria-label="Newsletter">
+    <section class="nw-reveal" aria-label="Newsletter" id="subscribe">
       <span class="nw-section-eyebrow">Subscribe</span>
       <h2 class="nw-section-heading">Get the daily brief in your inbox. Free.</h2>
       <div class="nw-signup">
@@ -351,6 +351,18 @@ export function renderLanding(root: HTMLElement): void {
     reveals.forEach((el) => io.observe(el));
   } else {
     reveals.forEach((el) => el.classList.add('is-revealed'));
+  }
+
+  // ── Arriving to subscribe ──
+  // Every SUBSCRIBE link elsewhere on the site points here, at `/#subscribe`.
+  // They used to point at our `brief.` subdomain, a CNAME to beehiiv that
+  // answered HTTP 403 when checked on 2026-11-22: a refusal, not a sign-up
+  // form. This page is drawn after load, so the browser's own jump to the
+  // fragment finds nothing to jump to: make it here, once the section exists.
+  if (window.location.hash === '#subscribe') {
+    const signup = main.querySelector<HTMLElement>('#subscribe');
+    signup?.classList.add('is-revealed');
+    signup?.scrollIntoView({ block: 'start' });
   }
 
   // ── Newsletter form ──

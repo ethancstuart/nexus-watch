@@ -25,7 +25,7 @@ export function renderMethodology(root: HTMLElement): void {
       <div class="briefs-nav-links">
         <a href="#/ledger" class="briefs-nav-link">LEDGER</a>
         <a href="#/briefs" class="briefs-nav-link">BRIEFS</a>
-        <a href="https://brief.nexuswatch.dev" target="_blank" class="briefs-nav-link briefs-nav-subscribe">SUBSCRIBE</a>
+        <a href="/#subscribe" class="briefs-nav-link briefs-nav-subscribe">SUBSCRIBE</a>
       </div>
     </nav>
 

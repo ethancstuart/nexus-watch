@@ -227,7 +227,7 @@ export function renderBrief(root: HTMLElement, date: string): void {
       <div class="dossier-nav-links">
         <a href="#/briefs" class="dossier-nav-link">ALL BRIEFS</a>
         <a href="#/ledger" class="dossier-nav-link">LEDGER</a>
-        <a href="https://brief.nexuswatch.dev" target="_blank" rel="noopener" class="dossier-nav-link dossier-nav-subscribe">SUBSCRIBE</a>
+        <a href="/#subscribe" class="dossier-nav-link dossier-nav-subscribe">SUBSCRIBE</a>
       </div>
     </nav>
 
