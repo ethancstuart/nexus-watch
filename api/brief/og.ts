@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { markdownToHtml } from '../_lib/markdown.js';
+import { MECHANICAL_SUBJECT_MARKER } from '../_lib/brief-edition.js';
 import { approvedNoteFor, correctionBlockHtml, CORRECTION_BLOCK_CSS } from '../_lib/corrections.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
@@ -39,6 +40,8 @@ interface BriefContent {
   briefText?: string;
   /** The edition's subject line, archived by the brief cron (archiveContent). */
   subject?: unknown;
+  /** 'model' or 'mechanical'; absent on rows archived before 2026-11-16. */
+  edition?: unknown;
 }
 
 function escapeHtml(s: string): string {
@@ -66,22 +69,46 @@ function escapeHtml(s: string): string {
  * so search results showed raw Markdown ("## 🎯 Today's Call …").
  * Source: lanes2/GTM.md §1.
  *
- * Now the title is the edition's archived subject and its date (the subject
- * is the line the /briefs archive card already shows as the edition's
- * headline), and the description is the brief's own opening as plain text.
- * Without a subject, or without the brief, the title is the date title these
- * pages already used, and the description repeats it. No other words.
+ * Now the description is the brief's own opening as plain text, and the
+ * title is the date title these pages already used, or, for the mechanical
+ * edition only, its archived subject.
+ *
+ * WHY NOT EVERY SUBJECT. A model-written subject is a headline the model
+ * wrote, and the unpublished correction drafts quote eight of them from 13 Sep
+ * to 1 Nov as false or misleading ("Russia and Iran hit record censorship in
+ * the same week"). /briefs lists only the latest 30 editions, so most of
+ * those subjects appear on no page today; as titles they would become the
+ * headline and the search result of each edition, with no correction beside
+ * them while the drafts are unpublished. This page cannot know
+ * which editions are under correction: drafts are readable only through the
+ * corrections gate, and only once approved. The mechanical subject is written
+ * by code from the ledger's counts (fallbackSubject, "67 calls settled, 22 hit
+ * — mechanical edition, 2026-11-15"), so it is safe to repeat. Widening this
+ * to model subjects is the owner's decision.
  */
 
-/** The title of an edition with no archived subject; also the fallback description. */
+/** The title of an edition without a usable subject; also the fallback description. */
 export function dateTitle(date: string): string {
   return `NexusWatch Situation Brief · ${date}`;
 }
 
-/** `NexusWatch · <subject> · <date>`; the date is not repeated when the subject carries it. */
-export function briefTitle(date: string, subject: unknown): string {
-  const s = typeof subject === 'string' ? subject.replace(/\s+/g, ' ').trim() : '';
-  if (!s) return dateTitle(date);
+/**
+ * Mechanical by its `edition` flag; for rows archived before the flag existed,
+ * by the wording fallbackSubject always uses, as brief-edition.ts infers it.
+ */
+function isMechanical(edition: unknown, subject: string): boolean {
+  if (edition === 'mechanical') return true;
+  if (edition === 'model') return false;
+  return subject.toLowerCase().includes(MECHANICAL_SUBJECT_MARKER);
+}
+
+/**
+ * `NexusWatch · <subject>` for the mechanical edition (its subject carries
+ * the date; the date is appended if it ever does not), else the date title.
+ */
+export function briefTitle(date: string, content: { subject?: unknown; edition?: unknown }): string {
+  const s = typeof content.subject === 'string' ? content.subject.replace(/\s+/g, ' ').trim() : '';
+  if (!s || !isMechanical(content.edition, s)) return dateTitle(date);
   return s.includes(date) ? `NexusWatch · ${s}` : `NexusWatch · ${s} · ${date}`;
 }
 
@@ -313,7 +340,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         bodyHtml = markdownToHtml(content.briefText);
       }
 
-      title = briefTitle(date, content.subject);
+      title = briefTitle(date, content);
     }
 
     return res.send(

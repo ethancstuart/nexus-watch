@@ -7,7 +7,9 @@ import handler, { briefDescription, briefTitle, dateTitle } from './og.js';
  * Live on 15 Nov 2026 (lanes2/GTM.md §1): the title was "NexusWatch · Yemen ·
  * 2026-11-15", from the top-scored country, which the brief does not mention;
  * the description was raw Markdown, "## 🎯 Today's Call The Ledger — …".
- * The fallbacks said "Daily geopolitical intelligence". Synthetic rows only.
+ * The fallbacks said "Daily geopolitical intelligence". Now: the date title,
+ * or the mechanical edition's code-written subject; never a model-written
+ * subject (see og.ts for why). Synthetic rows only.
  */
 
 const DATE = '2026-11-15';
@@ -64,27 +66,37 @@ beforeEach(() => {
   row = null;
 });
 
+/** fallbackSubject's wording (api/_lib/brief-structure.ts). */
+const MECHANICAL = `67 calls settled, 22 hit — mechanical edition, ${DATE}`;
+/** A model subject the drafts quote as false (13 Sep 2026). */
+const MODEL = 'Russia and Iran hit record censorship in the same week';
+
 describe('briefTitle', () => {
-  it('is the archived subject and the date', () => {
-    expect(briefTitle(DATE, '64 calls settled today — 33 hit, 31 miss')).toBe(
-      `NexusWatch · 64 calls settled today — 33 hit, 31 miss · ${DATE}`,
-    );
+  it("is the mechanical edition's subject, which carries the date", () => {
+    expect(briefTitle(DATE, { subject: MECHANICAL, edition: 'mechanical' })).toBe(`NexusWatch · ${MECHANICAL}`);
+    // Rows archived before the edition flag: fallbackSubject's wording decides.
+    expect(briefTitle(DATE, { subject: MECHANICAL })).toBe(`NexusWatch · ${MECHANICAL}`);
   });
 
-  it('does not repeat a date the subject already carries', () => {
-    const s = `67 calls settled, 22 hit — mechanical edition, ${DATE}`;
-    expect(briefTitle(DATE, s)).toBe(`NexusWatch · ${s}`);
+  it('appends the date if a mechanical subject ever lacks it, and collapses whitespace', () => {
+    expect(
+      briefTitle(DATE, { subject: '  The Ledger,\n unchanged — mechanical edition ', edition: 'mechanical' }),
+    ).toBe(`NexusWatch · The Ledger, unchanged — mechanical edition · ${DATE}`);
+  });
+
+  it('never repeats a model-written subject: the date title instead', () => {
+    expect(briefTitle(DATE, { subject: MODEL, edition: 'model' })).toBe(dateTitle(DATE));
+    expect(briefTitle(DATE, { subject: MODEL })).toBe(dateTitle(DATE));
+    expect(briefTitle(DATE, { subject: '64 calls settled today — 33 hit, 31 miss' })).toBe(dateTitle(DATE));
+    // The flag wins over wording: a model brief may discuss the mechanical edition.
+    expect(briefTitle(DATE, { subject: 'Back from the mechanical edition', edition: 'model' })).toBe(dateTitle(DATE));
   });
 
   it('falls back to the date title without a usable subject', () => {
-    for (const s of [undefined, null, '', '   ', 42, { subject: 'x' }]) {
-      expect(briefTitle(DATE, s)).toBe(`NexusWatch Situation Brief · ${DATE}`);
+    for (const subject of [undefined, null, '', '   ', 42, { subject: 'x' }]) {
+      expect(briefTitle(DATE, { subject, edition: 'mechanical' })).toBe(dateTitle(DATE));
     }
     expect(dateTitle(DATE)).toBe(`NexusWatch Situation Brief · ${DATE}`);
-  });
-
-  it('collapses whitespace in the subject', () => {
-    expect(briefTitle(DATE, '  a\n  b  ')).toBe(`NexusWatch · a b · ${DATE}`);
   });
 });
 
@@ -122,18 +134,19 @@ describe('briefDescription', () => {
 });
 
 describe('/brief/:date', () => {
-  it('titles the page from the subject, not the top-scored country', async () => {
+  it('titles a mechanical edition from its subject, not the top-scored country', async () => {
     row = {
       brief_date: DATE,
       summary: '<p>x</p>',
       content: JSON.stringify({
         briefText: WEEKDAY,
-        subject: '67 forecasts settled today — 10 hit, 57 miss',
+        subject: MECHANICAL,
+        edition: 'mechanical',
         topRiskCountries: [{ name: 'Yemen', score: 80 }],
       }),
     };
     const html = await page({ date: DATE });
-    const title = `NexusWatch · 67 forecasts settled today — 10 hit, 57 miss · ${DATE}`;
+    const title = `NexusWatch · ${MECHANICAL}`;
     expect(titleOf(html)).toBe(title);
     expect(html).not.toContain('Yemen');
     expect(tag(html, /<meta property="og:title" content="([^"]*)">/)).toBe(title);
@@ -148,6 +161,20 @@ describe('/brief/:date', () => {
     expect(jsonLdOf(html).description).toBe(desc);
   });
 
+  it('titles a model edition by its date: its subject is not repeated anywhere on the page', async () => {
+    row = {
+      brief_date: DATE,
+      summary: '',
+      content: JSON.stringify({ briefText: WEEKDAY, subject: MODEL, topRiskCountries: [{ name: 'Yemen' }] }),
+    };
+    const html = await page({ date: DATE });
+    expect(titleOf(html)).toBe(dateTitle(DATE));
+    expect(tag(html, /<h1>([^<]*)<\/h1>/)).toBe(dateTitle(DATE));
+    expect(jsonLdOf(html).headline).toBe(dateTitle(DATE));
+    expect(html).not.toContain('record censorship');
+    expect(html).not.toContain('Yemen');
+  });
+
   it('a row stored before subjects were archived gets the date title', async () => {
     row = { brief_date: DATE, summary: '', content: { briefText: SUNDAY, topRiskCountries: [{ name: 'Yemen' }] } };
     const html = await page({ date: DATE });
@@ -156,8 +183,12 @@ describe('/brief/:date', () => {
   });
 
   it('keeps the structured data a single, parseable script whatever the subject says', async () => {
-    const subject = '</script><script>alert(1)</script> & "quotes"';
-    row = { brief_date: DATE, summary: '', content: JSON.stringify({ briefText: WEEKDAY, subject }) };
+    const subject = '</script><script>alert(1)</script> & "quotes" — mechanical edition';
+    row = {
+      brief_date: DATE,
+      summary: '',
+      content: JSON.stringify({ briefText: WEEKDAY, subject, edition: 'mechanical' }),
+    };
     const html = await page({ date: DATE });
     expect(html.match(/<script/g)).toHaveLength(1);
     expect(jsonLdOf(html).headline).toBe(`NexusWatch · ${subject} · ${DATE}`);
