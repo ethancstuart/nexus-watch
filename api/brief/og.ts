@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { markdownToHtml, markdownToText } from '../_lib/markdown.js';
+import { approvedNoteFor, correctionBlockHtml, CORRECTION_BLOCK_CSS } from '../_lib/corrections.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -75,8 +76,16 @@ function renderShell(opts: {
   spaRedirectUrl: string;
   /** Full brief, already rendered to semantic HTML. Empty when unavailable. */
   bodyHtml?: string;
+  /**
+   * An approved correction note, already rendered and escaped
+   * (api/_lib/corrections.ts). It sits ABOVE the brief and never inside it:
+   * the brief's own HTML is emitted exactly as it would be without it. When
+   * empty, neither the block nor its CSS is emitted, so the page is byte for
+   * byte what it was before corrections existed.
+   */
+  correctionHtml?: string;
 }): string {
-  const { date, title, description, imageUrl, canonicalUrl, spaRedirectUrl, bodyHtml } = opts;
+  const { date, title, description, imageUrl, canonicalUrl, spaRedirectUrl, bodyHtml, correctionHtml } = opts;
   const t = escapeHtml(title);
   const d = escapeHtml(description);
   const img = escapeHtml(imageUrl);
@@ -147,13 +156,13 @@ function renderShell(opts: {
     p { font-size: 15px; line-height: 1.6; color: #3b4252; margin: 0 0 24px 0; }
     a { color: #9a1b1b; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; border: 1px solid #c9c3b4; padding: 12px 24px; border-radius: 4px; display: inline-block; }
     a:hover { border-color: #9a1b1b; }
-  </style>
+${correctionHtml ? CORRECTION_BLOCK_CSS : ''}  </style>
 </head>
 <body>
   <article class="wrap">
     <div class="kicker">SITUATION BRIEF · ${escapeHtml(date)}</div>
     <h1>${t}</h1>
-    ${bodyHtml ? `<div class="brief">${bodyHtml}</div>` : `<p>${d}</p>`}
+    ${correctionHtml ? `${correctionHtml}\n    ` : ''}${bodyHtml ? `<div class="brief">${bodyHtml}</div>` : `<p>${d}</p>`}
     <p class="more"><a href="${redirect}">Open NexusWatch →</a></p>
   </article>
 </body>
@@ -188,6 +197,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
   }
 
+  // An approved correction for this edition, if the owner has approved one.
+  // Drafts never get past approvedNoteFor. It is shown on every path below,
+  // including the soft-fail shells, so a database hiccup cannot hide it.
+  const note = approvedNoteFor(date);
+  const correctionHtml = note ? correctionBlockHtml(note) : '';
+
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return res.send(
@@ -198,6 +213,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
         canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
+        correctionHtml,
       }),
     );
   }
@@ -253,6 +269,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
         bodyHtml,
+        correctionHtml,
       }),
     );
   } catch (err) {
@@ -266,6 +283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
         canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
+        correctionHtml,
       }),
     );
   }
