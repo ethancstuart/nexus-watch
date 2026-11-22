@@ -30,7 +30,29 @@ export const config = { runtime: 'nodejs', maxDuration: 10 };
  *
  * Do not "fix" a Date here with toISOString().slice(0, 10) — that reads the
  * UTC date, which rolls forward a day west of Greenwich. Cast in SQL.
+ *
+ * EVERY PAGE, NOT THE NEWEST 5,000. Until 22 Nov 2026 the calls query ended
+ * `LIMIT 5000` and the briefs query `LIMIT 365`. On 16 Nov the live file held
+ * call IDs 1,608–6,652 only, so every older /call/N page had dropped out, and
+ * more dropped out each day (lanes2/GTM.md §1); briefs would have started
+ * dropping out at the 366th. Both queries now return every row.
+ *
+ * ONE FILE HOLDS AT MOST MAX_URLS_PER_FILE URLs. Below that, /sitemap.xml is
+ * one <urlset>, as before. Above it, /sitemap.xml is a <sitemapindex> whose
+ * files are /sitemap.xml?page=1, ?page=2, … — kept on the root path because a
+ * sitemap may only list URLs under its own directory. Every URL is in exactly
+ * one file at the moment of each request; a day's new rows can move a
+ * boundary between the fetch of the index and the fetch of a file.
  */
+
+/**
+ * The most URLs in one file. The protocol allows 50,000 (and 50 MB). The
+ * tighter bound is the response itself: a Vercel Function response is limited
+ * to 4.5 MB (Vercel's documented limit as remembered on 22 Nov 2026, not
+ * re-checked), and the live file measured 858 KB for 5,229 URLs on 16 Nov,
+ * about 164 bytes a URL, so 20,000 URLs is about 3.3 MB.
+ */
+export const MAX_URLS_PER_FILE = 20_000;
 
 /**
  * Rows as the DRIVER actually hands them over, not as we wish it would.
@@ -118,6 +140,67 @@ export function buildBriefEntries(rows: BriefRow[], base: string): string[] {
     .filter((e): e is string => e !== null);
 }
 
+interface CallRow {
+  id: number;
+  made_on: string;
+  status: string;
+  resolved_at: string | null;
+}
+
+/** One entry per call. Exported so the full list is testable without a database. */
+export function buildCallEntries(calls: CallRow[], base: string): string[] {
+  return calls.map((c) =>
+    urlEntry(
+      `${base}/call/${c.id}`,
+      c.resolved_at ? c.resolved_at.slice(0, 10) : c.made_on,
+      c.status === 'pending' ? 'daily' : 'yearly',
+      c.status === 'pending' ? '0.5' : '0.6',
+    ),
+  );
+}
+
+function urlset(entries: string[]): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries.join('\n')}
+</urlset>
+`;
+}
+
+function sitemapIndex(base: string, files: number): string {
+  const items = Array.from(
+    { length: files },
+    (_, i) => `  <sitemap>
+    <loc>${escapeXml(`${base}/sitemap.xml?page=${i + 1}`)}</loc>
+  </sitemap>`,
+  );
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${items.join('\n')}
+</sitemapindex>
+`;
+}
+
+/**
+ * What one request for /sitemap.xml gets, given every entry. With no `page`,
+ * the whole list when it fits one file, else the index. With `page=N`, the
+ * N-th file of at most `max` entries; any other `page` is a 404.
+ */
+export function sitemapResponse(
+  entries: string[],
+  base: string,
+  page: unknown,
+  max: number = MAX_URLS_PER_FILE,
+): { status: number; body: string } {
+  const files = Math.max(1, Math.ceil(entries.length / max));
+  if (page === undefined) {
+    return { status: 200, body: files === 1 ? urlset(entries) : sitemapIndex(base, files) };
+  }
+  const n = typeof page === 'string' && /^[1-9]\d*$/.test(page) ? Number(page) : 0;
+  if (n < 1 || n > files) return { status: 404, body: 'not_found' };
+  return { status: 200, body: urlset(entries.slice((n - 1) * max, n * max)) };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -140,7 +223,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         SELECT brief_date::text AS brief_date, generated_at::text AS generated_at
         FROM daily_briefs
         ORDER BY brief_date DESC
-        LIMIT 365
       `) as unknown as BriefRow[];
 
       briefEntries = buildBriefEntries(rows, base);
@@ -164,34 +246,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Per-call pages — the citeable unit. Resolved calls are immutable documents
   // (changefreq yearly); open calls change once, on their resolution date.
+  // Every call, by id, so the order is the same on every request.
   let callEntries: string[] = [];
   if (dbUrl) {
     try {
       const sql = neon(dbUrl);
       const calls = (await sql`
         SELECT id, made_on::text AS made_on, status, resolved_at::text AS resolved_at
-        FROM calls ORDER BY made_on DESC LIMIT 5000
-      `) as unknown as Array<{ id: number; made_on: string; status: string; resolved_at: string | null }>;
-      callEntries = calls.map((c) =>
-        urlEntry(
-          `${base}/call/${c.id}`,
-          c.resolved_at ? c.resolved_at.slice(0, 10) : c.made_on,
-          c.status === 'pending' ? 'daily' : 'yearly',
-          c.status === 'pending' ? '0.5' : '0.6',
-        ),
-      );
-    } catch {
-      // Soft-fail
+        FROM calls ORDER BY id
+      `) as unknown as CallRow[];
+      callEntries = buildCallEntries(calls, base);
+    } catch (err) {
+      // Soft-fail, but say so: a quiet failure here is how the brief archive
+      // went unadvertised for months (see the header).
+      console.error('[sitemap] calls query failed:', err instanceof Error ? err.message : err);
     }
   }
 
-  const body = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${[...staticEntries, ...briefEntries, ...countryEntries, ...callEntries].join('\n')}
-</urlset>
-`;
+  const { status, body } = sitemapResponse(
+    [...staticEntries, ...briefEntries, ...countryEntries, ...callEntries],
+    base,
+    req.query?.page,
+  );
 
-  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Content-Type', status === 200 ? 'application/xml; charset=utf-8' : 'text/plain; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
-  return res.status(200).send(body);
+  return res.status(status).send(body);
 }
