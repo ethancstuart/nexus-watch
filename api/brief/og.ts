@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { markdownToHtml, markdownToText } from '../_lib/markdown.js';
+import { markdownToHtml } from '../_lib/markdown.js';
 import { approvedNoteFor, correctionBlockHtml, CORRECTION_BLOCK_CSS } from '../_lib/corrections.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
@@ -37,7 +37,8 @@ interface BriefRow {
 
 interface BriefContent {
   briefText?: string;
-  topRiskCountries?: Array<{ name?: string; score?: number }>;
+  /** The edition's subject line, archived by the brief cron (archiveContent). */
+  subject?: unknown;
 }
 
 function escapeHtml(s: string): string {
@@ -53,18 +54,78 @@ function escapeHtml(s: string): string {
   });
 }
 
-function extractHook(briefText: string): string {
-  // Pull the Good Morning paragraph as the OG description. Strip
-  // markdown markers and limit to ~200 chars so Twitter's preview
-  // shows the whole hook instead of truncating mid-sentence.
-  const gmMatch = briefText.match(/##\s*☕?\s*Good Morning\s*\n+([\s\S]*?)(?=\n##|$)/i);
-  const raw = gmMatch ? gmMatch[1] : briefText;
-  return raw
+/**
+ * TITLE AND DESCRIPTION COME FROM THE EDITION ITSELF.
+ *
+ * The title used to be `NexusWatch · <topRiskCountries[0]> · <date>`: the
+ * country with the highest index score that morning, which the brief often
+ * did not mention (15 Nov 2026 was titled "Yemen"; the brief does not say
+ * Yemen). The description fell back to the whole brief with only bold and
+ * italics stripped whenever there was no "Good Morning" section, which since
+ * the 23 Aug restructure only the Sunday model edition has (brief-structure.ts),
+ * so search results showed raw Markdown ("## 🎯 Today's Call …").
+ * Source: lanes2/GTM.md §1.
+ *
+ * Now the title is the edition's archived subject and its date (the subject
+ * is the line the /briefs archive card already shows as the edition's
+ * headline), and the description is the brief's own opening as plain text.
+ * Without a subject, or without the brief, the title is the date title these
+ * pages already used, and the description repeats it. No other words.
+ */
+
+/** The title of an edition with no archived subject; also the fallback description. */
+export function dateTitle(date: string): string {
+  return `NexusWatch Situation Brief · ${date}`;
+}
+
+/** `NexusWatch · <subject> · <date>`; the date is not repeated when the subject carries it. */
+export function briefTitle(date: string, subject: unknown): string {
+  const s = typeof subject === 'string' ? subject.replace(/\s+/g, ' ').trim() : '';
+  if (!s) return dateTitle(date);
+  return s.includes(date) ? `NexusWatch · ${s}` : `NexusWatch · ${s} · ${date}`;
+}
+
+/**
+ * Plain text of some brief Markdown: headings, rules and list markers dropped,
+ * the inline marks markdown.ts renders (links, bold, italics, code) reduced to
+ * their words, cut at a word near 200 characters. Everything else is kept as
+ * written: `fx_rates` keeps its underscore and "Iran > 30%" keeps its `>`,
+ * which markdownToText would delete. The page escapes the result.
+ */
+function proseText(md: string, max = 200): string {
+  const text = md
+    .split('\n')
+    .filter((line) => !/^\s*#{1,6}\s/.test(line) && !/^\s*[-*—]{3,}\s*$/.test(line))
+    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, ''))
+    .join(' ')
+    .replace(/\[([^\]]+)\]\([^)\s]*\)/g, '$1')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2')
+    .replace(/`([^`]+)`/g, '$1')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 200);
+    .trim();
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > max / 2 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:·—–-]+$/, '')}…`;
+}
+
+/**
+ * The meta description: the "Good Morning" paragraph when the edition has
+ * one, else the brief's opening prose. Plain text: no Markdown, no tags.
+ */
+export function briefDescription(date: string, briefText: string): string {
+  const gm = briefText.match(/##\s*☕?\s*Good Morning\s*\n+([\s\S]*?)(?=\n##|$)/i);
+  return (gm ? proseText(gm[1] ?? '') : '') || proseText(briefText) || dateTitle(date);
+}
+
+/**
+ * JSON for inside a <script> element. JSON.stringify leaves `<` alone, so a
+ * title carrying `</script>` would end the element. Each `<` becomes its JSON
+ * unicode escape, which a JSON parser reads back as the same string.
+ */
+function scriptJson(v: string): string {
+  return JSON.stringify(v).replace(/</g, '\\u003c');
 }
 
 function renderShell(opts: {
@@ -121,9 +182,9 @@ function renderShell(opts: {
   {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
-    "headline": ${JSON.stringify(title)},
-    "description": ${JSON.stringify(description)},
-    "image": ${JSON.stringify(imageUrl)},
+    "headline": ${scriptJson(title)},
+    "description": ${scriptJson(description)},
+    "image": ${scriptJson(imageUrl)},
     "datePublished": "${escapeHtml(date)}T10:00:00Z",
     "dateModified": "${escapeHtml(date)}T10:00:00Z",
     "author": { "@type": "Organization", "name": "NexusWatch" },
@@ -132,7 +193,7 @@ function renderShell(opts: {
       "name": "NexusWatch",
       "logo": { "@type": "ImageObject", "url": "https://nexuswatch.dev/icon-512.png" }
     },
-    "mainEntityOfPage": ${JSON.stringify(canonicalUrl)}
+    "mainEntityOfPage": ${scriptJson(canonicalUrl)}
   }
   </script>
 
@@ -162,7 +223,7 @@ ${correctionHtml ? CORRECTION_BLOCK_CSS : ''}  </style>
   <article class="wrap">
     <div class="kicker">SITUATION BRIEF · ${escapeHtml(date)}</div>
     <h1>${t}</h1>
-    ${correctionHtml ? `${correctionHtml}\n    ` : ''}${bodyHtml ? `<div class="brief">${bodyHtml}</div>` : `<p>${d}</p>`}
+    ${correctionHtml ? `${correctionHtml}\n    ` : ''}${bodyHtml ? `<div class="brief">${bodyHtml}</div>` : d !== t ? `<p>${d}</p>` : ''}
     <p class="more"><a href="${redirect}">Open NexusWatch →</a></p>
   </article>
 </body>
@@ -187,9 +248,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.send(
       renderShell({
         date: new Date().toISOString().slice(0, 10),
-        title: 'The NexusWatch Brief — Daily Geopolitical Intelligence',
-        description:
-          'NexusWatch publishes a daily three-minute geopolitical intelligence scan every morning at 5 AM ET.',
+        // The archive's own title (src/utils/seo.ts, /briefs), since this
+        // shell's canonical is /briefs. It replaces "Daily Geopolitical
+        // Intelligence" and a three-minute, 5 AM ET claim.
+        title: 'Daily Briefs · NexusWatch',
+        description: 'Daily Briefs · NexusWatch',
         imageUrl: 'https://nexuswatch.dev/api/brief/screenshot?size=og',
         canonicalUrl: 'https://nexuswatch.dev/briefs',
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
@@ -208,8 +271,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.send(
       renderShell({
         date,
-        title: `NexusWatch Situation Brief · ${date}`,
-        description: 'Daily geopolitical intelligence from NexusWatch.',
+        title: dateTitle(date),
+        description: dateTitle(date),
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
         canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
@@ -227,9 +290,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       LIMIT 1
     `) as unknown as BriefRow[];
 
-    let title = `NexusWatch Situation Brief · ${date}`;
-    let description =
-      'Daily geopolitical intelligence from NexusWatch — what changed overnight, why it matters, what to watch.';
+    let title = dateTitle(date);
+    let description = dateTitle(date);
     let bodyHtml = '';
 
     if (rows.length > 0) {
@@ -244,20 +306,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         /* non-JSON content — leave defaults */
       }
 
-      if (content.briefText) {
-        const hook = extractHook(content.briefText);
-        if (hook) description = hook;
+      if (typeof content.briefText === 'string' && content.briefText) {
+        description = briefDescription(date, content.briefText);
         // The whole point: the article is the page, not a teaser in front of a
-        // redirect. markdownToText is the fallback description when there is no
-        // "Good Morning" hook to extract.
+        // redirect.
         bodyHtml = markdownToHtml(content.briefText);
-        if (!hook) description = markdownToText(content.briefText).slice(0, 200);
       }
 
-      const top = content.topRiskCountries?.[0];
-      if (top?.name) {
-        title = `NexusWatch · ${top.name} · ${date}`;
-      }
+      title = briefTitle(date, content.subject);
     }
 
     return res.send(
@@ -278,8 +334,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.send(
       renderShell({
         date,
-        title: `NexusWatch Situation Brief · ${date}`,
-        description: 'Daily geopolitical intelligence from NexusWatch.',
+        title: dateTitle(date),
+        description: dateTitle(date),
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
         canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',

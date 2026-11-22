@@ -156,7 +156,7 @@ describe('an unpublished note never shows, on any surface', () => {
       expect(status).toBe(200);
       expectNoTrace(`/brief/${date}`, body);
       // The brief is rendered exactly as its markdown renders, and nothing sits in front of it.
-      expect(body as string).toContain(`<h1>NexusWatch · Synthland · ${date}</h1>\n    <div class="brief">`);
+      expect(body as string).toContain(`<h1>NexusWatch Situation Brief · ${date}</h1>\n    <div class="brief">`);
       expect(body as string).toContain(`<div class="brief">${markdownToHtml(briefText(date))}</div>`);
     }
   });
