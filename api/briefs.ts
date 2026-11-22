@@ -1,8 +1,19 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { briefPreviewText, SUBJECT_PATTERN, decodeSubject } from './_lib/brief-preview.js';
+import { approvedNoteFor, briefDateKey } from './_lib/corrections.js';
 
 export const config = { runtime: 'nodejs' };
+
+/**
+ * `{ correctedOn }` when the owner has approved a correction note for this
+ * edition, else nothing: the /briefs card shows "Correction added <date>." from
+ * it. Every other brief's entry is exactly what it was.
+ */
+function correctedMarker(briefDate: unknown): { correctedOn?: string } {
+  const note = approvedNoteFor(briefDateKey(briefDate));
+  return note ? { correctedOn: note.correctedOn } : {};
+}
 
 // Public brief archive — SEO-indexable, no auth required
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -26,6 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         date: rows[0].brief_date,
         summary: rows[0].summary,
         generatedAt: rows[0].generated_at,
+        ...correctedMarker(rows[0].brief_date),
       });
     }
 
@@ -57,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         subject: decodeSubject(r.subject_json),
         preview: briefPreviewText(String(r.head ?? '')),
         generatedAt: r.generated_at,
+        ...correctedMarker(r.brief_date),
       })),
       count: rows.length,
     });
