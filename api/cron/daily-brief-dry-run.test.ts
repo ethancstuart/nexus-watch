@@ -79,6 +79,8 @@ const db = {
   claims: new Set<string>(),
   /** alert_state, by fingerprint; times in ms on the (fake) clock. */
   alerts: new Map<string, { title: string; firstSeen: number; lastSent: number | null }>(),
+  /** What the delivery-channel health check reads from brief_delivery_log. */
+  deliveryLog: [] as Array<{ channel: string; brief_date: string; status: string; error: string | null }>,
 };
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -197,7 +199,12 @@ async function fakeSql(strings: TemplateStringsArray, ...values: unknown[]): Pro
     return [];
   }
 
-  // Everything else (CII, OONI, calls, ledger, delivery log, snapshots): empty.
+  // daily-brief's delivery-channel health check reads the whole log.
+  if (text.startsWith('SELECT channel, brief_date::text AS brief_date, status, error FROM brief_delivery_log')) {
+    return db.deliveryLog;
+  }
+
+  // Everything else (CII, OONI, calls, ledger, delivery-log writes, snapshots): empty.
   return [];
 }
 
@@ -353,6 +360,7 @@ beforeEach(() => {
   db.subscribers = [];
   db.claims = new Set();
   db.alerts = new Map();
+  db.deliveryLog = [];
   sent = [];
   net.resendEmailStatus = 200;
   net.resendEmailThrows = false;
@@ -846,5 +854,35 @@ describe('beehiiv is retired: no brief path sends to it or alerts about it', () 
     // No delivery-log row, alert_state row or any other statement names it.
     expect(JSON.stringify(db.queries)).not.toMatch(/beehiiv/i);
     expect([...db.alerts.keys()].filter((k) => /beehiiv/i.test(k))).toEqual([]);
+  });
+});
+
+describe('beehiiv is retired: its frozen failure streak in the log never pages', () => {
+  /** N consecutive failed days for a channel, ending the day before TODAY. */
+  const failedDays = (channel: string, days: number, error: string) =>
+    Array.from({ length: days }, (_, i) => {
+      const d = new Date('2026-11-22T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() - (days - 1 - i));
+      return { channel, brief_date: d.toISOString().slice(0, 10), status: 'failed', error };
+    });
+  const streakMail = () =>
+    to(RESEND_URL)
+      .map(parsed)
+      .filter((m) => String(m.subject).startsWith('NexusWatch: '));
+
+  it('199 failed beehiiv days (a repeat boundary) are in the log: no alert names beehiiv', async () => {
+    db.deliveryLog = failedDays('beehiiv', 199, 'beehiiv 400: publicationid pattern does not match');
+    vi.stubEnv('BRIEF_MODEL_MODE', 'live');
+    const out = await runBrief();
+    expect(out.status).toBe(200);
+    expect(streakMail()).toEqual([]);
+    expect(beehiivTraffic()).toEqual([]);
+  });
+
+  it('guard: the same frozen streak on a live channel does page, so the check really ran', async () => {
+    db.deliveryLog = failedDays('notion', 199, 'notion page create 401: unauthorized');
+    vi.stubEnv('BRIEF_MODEL_MODE', 'live');
+    await runBrief();
+    expect(streakMail().map((m) => m.subject)).toEqual(['NexusWatch: notion delivery has failed 199 days running']);
   });
 });

@@ -4,6 +4,7 @@ import {
   shouldAlert,
   channelsToAlert,
   formatAlertBody,
+  RETIRED_CHANNELS,
   type DeliveryRow,
 } from './delivery-health.js';
 
@@ -107,13 +108,12 @@ describe('the beehiiv outage it was written for', () => {
 
   it('selects only the broken channel out of a real mixed run', () => {
     const rows = [
-      ...failedRun('beehiiv', 3, 'beehiiv 400: publicationid pattern does not match'),
+      ...failedRun('notion', 3, 'notion page create 401: unauthorized'),
       row('resend', '2026-08-03', 'success'),
-      row('notion', '2026-08-03', 'success'),
       row('archive', '2026-08-03', 'success'),
       row('buffer', '2026-08-03', 'partial'),
     ];
-    expect(channelsToAlert(rows).map((c) => c.channel)).toEqual(['beehiiv']);
+    expect(channelsToAlert(rows).map((c) => c.channel)).toEqual(['notion']);
   });
 
   it('is silent when everything is healthy', () => {
@@ -163,5 +163,54 @@ describe('a clamped streak defeats the cadence', () => {
   it('a streak that keeps counting reaches a boundary once per repeat interval', () => {
     const fired = [45, 46, 47, 48, 49, 50, 51, 52].filter((s) => shouldAlert(s));
     expect(fired).toEqual([45, 52]);
+  });
+});
+
+/**
+ * A RETIRED channel's streak is frozen: its old rows stay, and nothing new is
+ * written. Frozen on a boundary, it would page daily forever, by the same
+ * arithmetic as the clamp above. beehiiv was retired with an alert reporting
+ * 199 consecutive failures, and 199 is a boundary.
+ */
+describe('a retired channel never alerts', () => {
+  /** N consecutive failed days for one channel, ending on `last`. */
+  const failedUntil = (channel: string, days: number, last: string, error = 'boom'): DeliveryRow[] =>
+    Array.from({ length: days }, (_, i) => {
+      const d = new Date(`${last}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - (days - 1 - i));
+      return row(channel, d.toISOString().slice(0, 10), 'failed', error);
+    });
+
+  it('beehiiv is retired', () => {
+    expect(RETIRED_CHANNELS.has('beehiiv')).toBe(true);
+  });
+
+  it("beehiiv's frozen 199-day streak sits on a boundary, and still raises nothing", () => {
+    expect(shouldAlert(199)).toBe(true);
+    const frozen = failedUntil('beehiiv', 199, '2026-11-22', 'beehiiv 400: publicationid pattern does not match');
+    expect(computeFailureStreaks(frozen)[0].streak).toBe(199);
+    expect(channelsToAlert(frozen)).toEqual([]);
+  });
+
+  it('on every later day, with the live channels healthy, nothing names beehiiv', () => {
+    const frozen = failedUntil('beehiiv', 199, '2026-11-22');
+    for (const day of ['2026-11-23', '2026-11-24', '2026-11-30', '2027-01-01']) {
+      const rows = [...frozen, ...['archive', 'resend'].map((c) => row(c, day, 'success'))];
+      expect(channelsToAlert(rows)).toEqual([]);
+    }
+  });
+
+  it('whatever its frozen length, and whatever its last error said', () => {
+    // Some old rows carry the `config_fault:` marker the retired publisher
+    // wrote; some do not. Neither matters any more.
+    for (let n = 1; n <= 400; n++) {
+      const error = n % 2 ? `config_fault: day ${n}` : 'beehiiv 400: publicationid pattern does not match';
+      expect(channelsToAlert(failedUntil('beehiiv', n, '2026-11-22', error)), `streak ${n}`).toEqual([]);
+    }
+  });
+
+  it('a live channel failing beside it still alerts, alone', () => {
+    const rows = [...failedUntil('beehiiv', 199, '2026-11-22'), ...failedUntil('notion', 3, '2026-11-25')];
+    expect(channelsToAlert(rows).map((c) => c.channel)).toEqual(['notion']);
   });
 });
