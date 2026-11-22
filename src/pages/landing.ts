@@ -17,6 +17,8 @@ import { createElement } from '../utils/dom.ts';
 import { trackEvent } from '../services/analytics.ts';
 import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 import { capture, installSurfaces } from '../ui/kit/index.ts';
+// Fixed words only; never the correction data, which must not enter the bundle.
+import { correctionAdded, isIsoDate } from '../../api/_lib/correction-words.ts';
 
 const FALLBACK_BRIEF = {
   date: 'Sample',
@@ -29,6 +31,8 @@ interface BriefResponse {
   date?: string;
   headline?: string;
   summary?: string;
+  /** Present only when an approved correction note sits beside this brief (api/v1/brief.ts). */
+  correction?: { correctedOn?: unknown };
 }
 
 /**
@@ -429,6 +433,17 @@ export function renderLanding(root: HTMLElement): void {
           briefExcerpt.textContent = text + (data.summary.length > 340 ? '…' : '');
         }
         if (data.date && briefDate) briefDate.textContent = formatBriefDate(data.date);
+        // The latest brief may carry an approved correction (22 Nov could).
+        // Say so on its own line under the meta row, in that row's style; the
+        // excerpt itself is the brief's text, unchanged.
+        const correctedOn = data.correction?.correctedOn;
+        const meta = main.querySelector<HTMLElement>('.nw-brief-meta');
+        if (meta && isIsoDate(correctedOn)) {
+          const mark = document.createElement('div');
+          mark.className = 'nw-brief-meta nw-brief-corrected';
+          mark.textContent = correctionAdded(correctedOn);
+          meta.after(mark);
+        }
       })
       .catch(() => {
         // Fallback copy already present.
