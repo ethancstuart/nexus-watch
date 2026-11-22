@@ -27,6 +27,16 @@ const NOTED = DRAFTS.map((n) => n.date);
 const NONE_APPROVED = PUBLISHED.size === 0;
 /** Two dates with no note: a wording-only edition and a mechanical one. */
 const UNNOTED = ['2026-09-18', '2026-11-07'];
+/**
+ * The single date the no-database, database-down and latest-brief checks use:
+ * the latest unpublished noted edition while one exists. ONCE EVERY NOTE IS
+ * APPROVED (the state the introduction needs) none is left, so they use an
+ * edition that has no note at all, explicitly, rather than an undefined date
+ * that would test the generic shell or an error response by accident.
+ */
+const PROBE_DATE = NOTED.length > 0 ? NOTED[NOTED.length - 1] : UNNOTED[0];
+/** Every date whose surfaces must show no correction: never empty. */
+const NO_NOTE_DATES = [...NOTED, ...UNNOTED];
 
 const briefText = (date: string) =>
   `## ☕ Good Morning\n\nSynthetic edition for ${date}. Iran and Russia, by the numbers.\n\n## The Ledger\n\n- one call settled\n- another opened`;
@@ -134,8 +144,14 @@ describe('an unpublished note never shows, on any surface', () => {
     expect(DRAFTS.length + approvedNotes().length).toBe(CORRECTION_NOTES.length);
   });
 
+  it('probes a real date in every state, including every note approved', () => {
+    if (NOTED.length === 0) expect(PROBE_DATE).toBe(UNNOTED[0]);
+    else expect(PROBE_DATE).toBe(NOTED[NOTED.length - 1]);
+    expect(PROBE_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it('/brief/:date, for every unpublished edition and two unnoted ones', async () => {
-    for (const date of [...NOTED, ...UNNOTED]) {
+    for (const date of NO_NOTE_DATES) {
       const { status, body } = await call('./brief/og.js', { date });
       expect(status).toBe(200);
       expectNoTrace(`/brief/${date}`, body);
@@ -147,13 +163,15 @@ describe('an unpublished note never shows, on any surface', () => {
 
   it('/brief/:date without a database and when the database fails', async () => {
     delete process.env.DATABASE_URL;
-    const noDb = await call('./brief/og.js', { date: NOTED[0] });
+    const noDb = await call('./brief/og.js', { date: PROBE_DATE });
+    expect(noDb.body as string).toContain(`SITUATION BRIEF · ${PROBE_DATE}`);
     expectNoTrace('/brief (no db)', noDb.body);
     process.env.DATABASE_URL = 'postgres://stub';
     failDb = true;
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const down = await call('./brief/og.js', { date: NOTED[0] });
+    const down = await call('./brief/og.js', { date: PROBE_DATE });
     expect(down.status).toBe(200);
+    expect(down.body as string).toContain(`SITUATION BRIEF · ${PROBE_DATE}`);
     expectNoTrace('/brief (db down)', down.body);
   });
 
@@ -179,7 +197,7 @@ describe('an unpublished note never shows, on any surface', () => {
       expectNoTrace('/api/briefs entry', b);
     }
 
-    for (const date of NOTED) {
+    for (const date of NO_NOTE_DATES) {
       const one = await call('./briefs.js', { date });
       expect(Object.keys(one.body as object).sort()).toEqual(['date', 'generatedAt', 'summary']);
       expectNoTrace(`/api/briefs?date=${date}`, one.body);
@@ -187,14 +205,15 @@ describe('an unpublished note never shows, on any surface', () => {
   });
 
   it('/api/v1/brief: the response is the stored row and nothing more, by date and latest', async () => {
-    for (const date of NOTED) {
+    for (const date of NO_NOTE_DATES) {
       const { status, body } = await call('./v1/brief.js', { date });
       expect(status).toBe(200);
       expect(Object.keys(body as object).sort()).toEqual(['brief_date', 'content', 'generated_at', 'summary']);
       expectNoTrace(`/api/v1/brief?date=${date}`, body);
     }
-    latestDate = NOTED[NOTED.length - 1];
+    latestDate = PROBE_DATE;
     const latest = await call('./v1/brief.js');
+    expect(latest.status).toBe(200);
     expect(Object.keys(latest.body as object).sort()).toEqual(['brief_date', 'content', 'generated_at', 'summary']);
     expectNoTrace('/api/v1/brief (latest)', latest.body);
   });
