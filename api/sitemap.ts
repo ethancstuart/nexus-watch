@@ -37,12 +37,20 @@ export const config = { runtime: 'nodejs', maxDuration: 10 };
  * more dropped out each day (lanes2/GTM.md §1); briefs would have started
  * dropping out at the 366th. Both queries now return every row.
  *
+ * Listing every call includes the 54 censorship calls published as misses
+ * that call_corrections records as hits. Their pages show the dated
+ * correction beside the published verdict (api/call.ts), so they stay listed
+ * (lead's decision, 22 Nov 2026, review M3).
+ *
  * ONE FILE HOLDS AT MOST MAX_URLS_PER_FILE URLs. Below that, /sitemap.xml is
  * one <urlset>, as before. Above it, /sitemap.xml is a <sitemapindex> whose
- * files are /sitemap.xml?page=1, ?page=2, … — kept on the root path because a
- * sitemap may only list URLs under its own directory. Every URL is in exactly
- * one file at the moment of each request; a day's new rows can move a
- * boundary between the fetch of the index and the fetch of a file.
+ * files are /sitemap-1.xml, /sitemap-2.xml, … (vercel.json rewrites each to
+ * /api/sitemap?page=N, the same path-parameter mechanism as /call/:id). They
+ * sit on the root path because a sitemap may only list URLs under its own
+ * directory. Every URL is in exactly one file at the moment of each request;
+ * a day's new rows can move a boundary between the fetch of the index and the
+ * fetch of a file. A page that does not exist is a 404 that is never cached,
+ * so a transient short list cannot pin a missing file at the edge.
  */
 
 /**
@@ -171,7 +179,7 @@ function sitemapIndex(base: string, files: number): string {
   const items = Array.from(
     { length: files },
     (_, i) => `  <sitemap>
-    <loc>${escapeXml(`${base}/sitemap.xml?page=${i + 1}`)}</loc>
+    <loc>${escapeXml(`${base}/sitemap-${i + 1}.xml`)}</loc>
   </sitemap>`,
   );
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -270,6 +278,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   );
 
   res.setHeader('Content-Type', status === 200 ? 'application/xml; charset=utf-8' : 'text/plain; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+  res.setHeader('Cache-Control', status === 200 ? 'public, max-age=3600, s-maxage=3600' : 'no-store');
   return res.status(status).send(body);
 }

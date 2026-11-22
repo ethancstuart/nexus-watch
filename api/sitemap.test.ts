@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import handler, {
   buildBriefEntries,
   buildCallEntries,
@@ -189,12 +192,14 @@ describe('the sitemap lists every page it claims to', () => {
     const files = locs(index.body);
     expect(files).toHaveLength(Math.ceil(total / MAX_URLS_PER_FILE));
     // On the root path, so each file may list any URL on the site.
-    files.forEach((f, i) => expect(f).toBe(`${BASE}/sitemap.xml?page=${i + 1}`));
+    files.forEach((f, i) => expect(f).toBe(`${BASE}/sitemap-${i + 1}.xml`));
 
     const seen: string[] = [];
     for (const f of files) {
-      const page = new URL(f).searchParams.get('page') as string;
-      const one = await get({ page });
+      // Reached the way a crawler reaches it: through vercel.json's rewrite.
+      const r = rewrite(new URL(f).pathname);
+      expect(r?.destination, f).toBe('/api/sitemap');
+      const one = await get(r?.query);
       expect(one.status).toBe(200);
       expect(one.body).toContain('<urlset ');
       const urls = locs(one.body);
@@ -215,11 +220,61 @@ describe('the sitemap lists every page it claims to', () => {
       const r = await get({ page });
       expect(r.status, `page=${JSON.stringify(page)}`).toBe(404);
       expect(r.body).toBe('not_found');
+      // Never cached: a transient short list must not pin a missing file at the edge.
+      expect(r.headers['Cache-Control']).toBe('no-store');
     }
     // page=1 of a one-file sitemap is the whole file.
     const one = await get({ page: '1' });
     expect(one.status).toBe(200);
+    expect(one.headers['Cache-Control']).toBe('public, max-age=3600, s-maxage=3600');
     expect(locs(one.body)).toHaveLength(STATIC_COUNT + 1 + 10);
+  });
+});
+
+/**
+ * THE FILES ARE PATHS, NOT QUERY STRINGS (review S1). Whether Vercel passes a
+ * query string through the /sitemap.xml rewrite was never verified. A path
+ * parameter is the mechanism /call/:id and /brief/:date already rely on. This
+ * applies vercel.json's rewrites with a matcher for the two shapes it uses
+ * (literal paths, and `:name(regex)` parameters): it checks the config and the
+ * index agree, not Vercel's own matcher.
+ */
+const VERCEL = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'vercel.json'), 'utf8')) as {
+  rewrites: Array<{ source: string; destination: string }>;
+};
+
+function rewrite(path: string): { destination: string; query: Record<string, string> } | null {
+  for (const r of VERCEL.rewrites) {
+    const names: string[] = [];
+    const pattern = r.source
+      .replace(/\./g, '\\.')
+      .replace(/:([A-Za-z]+)\(((?:[^()]|\([^()]*\))+)\)/g, (_m, name: string, re: string) => {
+        names.push(name);
+        return `(${re})`;
+      });
+    const m = new RegExp(`^${pattern}$`).exec(path);
+    if (!m) continue;
+    let dest = r.destination;
+    names.forEach((n, i) => {
+      dest = dest.replace(`:${n}`, m[i + 1] as string);
+    });
+    const u = new URL(dest, BASE);
+    return { destination: u.pathname, query: Object.fromEntries(u.searchParams) };
+  }
+  return null;
+}
+
+describe('vercel.json serves every sitemap file the index names', () => {
+  it('/sitemap.xml is still the sitemap, with no page', () => {
+    expect(rewrite('/sitemap.xml')).toEqual({ destination: '/api/sitemap', query: {} });
+  });
+
+  it('/sitemap-N.xml is page N; anything else is not a sitemap file', () => {
+    expect(rewrite('/sitemap-1.xml')).toEqual({ destination: '/api/sitemap', query: { page: '1' } });
+    expect(rewrite('/sitemap-12.xml')).toEqual({ destination: '/api/sitemap', query: { page: '12' } });
+    for (const p of ['/sitemap-x.xml', '/sitemap-.xml', '/sitemap-1.xmlx', '/sitemap-1Xxml']) {
+      expect(rewrite(p), p).toBeNull();
+    }
   });
 });
 
@@ -234,7 +289,7 @@ describe('sitemapResponse', () => {
     expect(sitemapResponse(entries(5), BASE, undefined, 5).body).toContain('<urlset ');
     const two = sitemapResponse(entries(6), BASE, undefined, 5).body;
     expect(two).toContain('<sitemapindex ');
-    expect(locs(two)).toEqual([`${BASE}/sitemap.xml?page=1`, `${BASE}/sitemap.xml?page=2`]);
+    expect(locs(two)).toEqual([`${BASE}/sitemap-1.xml`, `${BASE}/sitemap-2.xml`]);
     expect(locs(sitemapResponse(entries(6), BASE, '2', 5).body)).toEqual([`${BASE}/call/6`]);
   });
 
