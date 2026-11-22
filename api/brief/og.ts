@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { markdownToHtml } from '../_lib/markdown.js';
-import { MECHANICAL_SUBJECT_MARKER } from '../_lib/brief-edition.js';
 import { approvedNoteFor, correctionBlockHtml, CORRECTION_BLOCK_CSS } from '../_lib/corrections.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
@@ -69,81 +68,71 @@ function escapeHtml(s: string): string {
  * so search results showed raw Markdown ("## 🎯 Today's Call …").
  * Source: lanes2/GTM.md §1.
  *
- * Now the description is the brief's own opening as plain text, and the
- * title is the date title these pages already used, or, for the mechanical
- * edition only, its archived subject.
+ * NOTHING THE BRIEF SAYS IS REPEATED IN THE TITLE OR THE DESCRIPTION. Both
+ * are one of exactly two things:
+ *   - the date title these pages already used, for every edition; or
+ *   - for a mechanical edition whose archived subject is in fallbackSubject's
+ *     COUNTED form, "<N> calls settled, <H> hit — mechanical edition, <date>",
+ *     that subject: code wrote it from the day's resolved-call counts.
  *
- * WHY NOT EVERY SUBJECT. A model-written subject is a headline the model
- * wrote, and the unpublished correction drafts quote eight of them from 13 Sep
- * to 1 Nov as false or misleading ("Russia and Iran hit record censorship in
- * the same week"). /briefs lists only the latest 30 editions, so most of
- * those subjects appear on no page today; as titles they would become the
- * headline and the search result of each edition, with no correction beside
- * them while the drafts are unpublished. This page cannot know
- * which editions are under correction: drafts are readable only through the
- * corrections gate, and only once approved. The mechanical subject is written
- * by code from the ledger's counts (fallbackSubject, "67 calls settled, 22 hit
- * — mechanical edition, 2026-11-15"), so it is safe to repeat. Widening this
- * to model subjects is the owner's decision.
+ * WHY NOT THE BRIEF'S OWN WORDS (independent review, 22 Nov 2026, M1). Every
+ * edition since 8 Sep opens with the Ledger line, which code splices in and
+ * which carries "OONI Brier 0.058 over 263, -2% vs base rate": 54 of those 263
+ * verdicts are wrong and /ledger prints a different figure (lanes2/LANE-K.md).
+ * Older editions open with "skill withheld" or "Your daily intelligence edge",
+ * and on Sundays the next sentence is the model's own record claim, which the
+ * correction drafts say was false (13 Sep, 11 Oct, 1 Nov). A description cut
+ * from the opening repeats whichever of these comes first.
+ *
+ * WHY NOT A MODEL SUBJECT. The unpublished correction drafts quote at least
+ * eight model subjects as false or misleading ("Russia and Iran hit record
+ * censorship in the same week"). As titles they would become each edition's
+ * headline and search result with no correction beside them, and this page
+ * cannot see which editions are under correction: drafts are readable only
+ * through the corrections gate, and only once approved.
+ *
+ * WHY ONLY THE COUNTED MECHANICAL FORM (review M2). fallbackSubject also
+ * writes "The Ledger, unchanged — mechanical edition, <date>" whenever the
+ * day's record is missing, which includes the day the resolved-calls query
+ * fails: calls may have settled while that subject says nothing changed. Any
+ * subject not in the counted form, for this page's date, gets the date title.
+ *
+ * Every possible output, for sign-off: `NexusWatch Situation Brief · <date>`
+ * (title and description), `NexusWatch · <N> calls settled, <H> hit —
+ * mechanical edition, <date>` (title) with `<N> calls settled, <H> hit —
+ * mechanical edition, <date>` (description), and, on the dateless shell,
+ * `Daily Briefs · NexusWatch`. real-editions.fixture.json holds real archived
+ * rows that og.test.ts renders to prove it.
  */
 
-/** The title of an edition without a usable subject; also the fallback description. */
+/** The title of every edition without a counted mechanical subject; also its description. */
 export function dateTitle(date: string): string {
   return `NexusWatch Situation Brief · ${date}`;
 }
 
-/**
- * Mechanical by its `edition` flag; for rows archived before the flag existed,
- * by the wording fallbackSubject always uses, as brief-edition.ts infers it.
- */
-function isMechanical(edition: unknown, subject: string): boolean {
-  if (edition === 'mechanical') return true;
-  if (edition === 'model') return false;
-  return subject.toLowerCase().includes(MECHANICAL_SUBJECT_MARKER);
-}
+const COUNTED_SUBJECT = /^(\d{1,7}) calls settled, (\d{1,7}) hit — mechanical edition, (\d{4}-\d{2}-\d{2})$/;
 
 /**
- * `NexusWatch · <subject>` for the mechanical edition (its subject carries
- * the date; the date is appended if it ever does not), else the date title.
+ * The archived subject when it is fallbackSubject's counted form for this
+ * date, on a row not flagged as a model edition; otherwise null.
  */
-export function briefTitle(date: string, content: { subject?: unknown; edition?: unknown }): string {
+export function countedSubject(date: string, content: { subject?: unknown; edition?: unknown }): string | null {
+  if (content.edition !== undefined && content.edition !== null && content.edition !== 'mechanical') return null;
   const s = typeof content.subject === 'string' ? content.subject.replace(/\s+/g, ' ').trim() : '';
-  if (!s || !isMechanical(content.edition, s)) return dateTitle(date);
-  return s.includes(date) ? `NexusWatch · ${s}` : `NexusWatch · ${s} · ${date}`;
+  const m = COUNTED_SUBJECT.exec(s);
+  if (!m || m[3] !== date || Number(m[2]) > Number(m[1])) return null;
+  return s;
 }
 
-/**
- * Plain text of some brief Markdown: headings, rules and list markers dropped,
- * the inline marks markdown.ts renders (links, bold, italics, code) reduced to
- * their words, cut at a word near 200 characters. Everything else is kept as
- * written: `fx_rates` keeps its underscore and "Iran > 30%" keeps its `>`,
- * which markdownToText would delete. The page escapes the result.
- */
-function proseText(md: string, max = 200): string {
-  const text = md
-    .split('\n')
-    .filter((line) => !/^\s*#{1,6}\s/.test(line) && !/^\s*[-*—]{3,}\s*$/.test(line))
-    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, ''))
-    .join(' ')
-    .replace(/\[([^\]]+)\]\([^)\s]*\)/g, '$1')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (text.length <= max) return text;
-  const cut = text.slice(0, max);
-  const lastSpace = cut.lastIndexOf(' ');
-  return `${(lastSpace > max / 2 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:·—–-]+$/, '')}…`;
+/** `NexusWatch · <counted subject>`, else the date title. */
+export function briefTitle(date: string, content: { subject?: unknown; edition?: unknown }): string {
+  const s = countedSubject(date, content);
+  return s ? `NexusWatch · ${s}` : dateTitle(date);
 }
 
-/**
- * The meta description: the "Good Morning" paragraph when the edition has
- * one, else the brief's opening prose. Plain text: no Markdown, no tags.
- */
-export function briefDescription(date: string, briefText: string): string {
-  const gm = briefText.match(/##\s*☕?\s*Good Morning\s*\n+([\s\S]*?)(?=\n##|$)/i);
-  return (gm ? proseText(gm[1] ?? '') : '') || proseText(briefText) || dateTitle(date);
+/** The counted subject, else the date title. Never the brief's text. */
+export function briefDescription(date: string, content: { subject?: unknown; edition?: unknown }): string {
+  return countedSubject(date, content) ?? dateTitle(date);
 }
 
 /**
@@ -334,13 +323,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (typeof content.briefText === 'string' && content.briefText) {
-        description = briefDescription(date, content.briefText);
         // The whole point: the article is the page, not a teaser in front of a
         // redirect.
         bodyHtml = markdownToHtml(content.briefText);
       }
 
       title = briefTitle(date, content);
+      description = briefDescription(date, content);
     }
 
     return res.send(
