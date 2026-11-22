@@ -42,8 +42,10 @@ CREATE TABLE IF NOT EXISTS brief_dry_runs (
   structure_reason TEXT,
   claims_verdict TEXT NOT NULL CHECK (claims_verdict IN ('pass', 'refused', 'not-run')),
   claims_reason TEXT,
-  -- The draft exactly as the model wrote it, and the subject line it declared.
+  -- The subject the draft declared, as it would have shipped (NULL when the
+  -- line was missing or unusable as a subject).
   draft_subject TEXT,
+  -- The reply exactly as the model wrote it, its SUBJECT line included.
   draft_text TEXT,
   -- As the API reported them, so the cost of a brief is known.
   input_tokens INTEGER,

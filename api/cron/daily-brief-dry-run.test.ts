@@ -399,8 +399,8 @@ describe('1. mode unset, the draft clears every gate: readers get the mechanical
     });
     expect(String(r.outcome)).toMatch(/^ai-success/);
     expect(r.draft_subject).toBe(`A dry run ${SUBJECT_MARKER} subject for a test day`);
-    expect(String(r.draft_text)).toContain(BODY_MARKER);
-    expect(String(r.draft_text)).not.toContain('SUBJECT:');
+    // Exactly as the model wrote it, SUBJECT line included.
+    expect(r.draft_text).toBe(DRAFTS.passing);
   });
 });
 

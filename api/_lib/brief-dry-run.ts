@@ -76,9 +76,9 @@ export interface DryRunAttempt {
   model: string | null;
   usage: { input_tokens?: unknown; output_tokens?: unknown; cache_read_input_tokens?: unknown } | null;
   stopReason: string | null;
-  /** The declared subject the draft carried, if it was usable as one. */
+  /** The declared subject as it would have shipped; null when unusable or absent. */
   draftSubject: string | null;
-  /** The draft body exactly as the model wrote it, subject line removed. */
+  /** The reply exactly as the model wrote it, its SUBJECT line included. */
   draftText: string | null;
   /** Null until all three gates have scored a draft. */
   gates: DryRunGates | null;

@@ -1249,8 +1249,10 @@ ${(() => {
           const parsedSubject = parseDeclaredSubject(rawDraft);
           declaredSubject = parsedSubject.subject;
           briefText = rawDraft ? parsedSubject.body : '';
+          // Kept for a dry run: the reply as the model wrote it, SUBJECT line
+          // included, and the subject as it would have shipped.
           attempt.draftSubject = declaredSubject;
-          attempt.draftText = briefText;
+          attempt.draftText = rawDraft;
           if (!reply.complete) {
             aiDebug = `${reply.label}:${reply.stopReason}`;
             console.error('[daily-brief] NO COMPLETE DRAFT:', aiDebug);
