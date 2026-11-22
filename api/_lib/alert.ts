@@ -352,6 +352,34 @@ async function deliver(a: AlertInput): Promise<AlertResult> {
   return { delivered: false, channel: 'none', detail: why };
 }
 
+/**
+ * Email ADMIN_EMAILS directly: the email branch only, never Discord.
+ *
+ * For content that must reach the operator and nobody else, such as the
+ * model's draft on a dry-run day (api/_lib/brief-dry-run.ts). deliver() posts
+ * to a Discord webhook first whenever one is set, and who reads that channel
+ * is not known here, so it cannot carry anything private. Same Resend call and
+ * the same one log line as every alert; no deduplication. Never throws.
+ */
+export async function emailAdmins(a: AlertInput): Promise<AlertResult> {
+  let result: AlertResult;
+  try {
+    const resendKey = process.env.RESEND_API_KEY;
+    // Parsed exactly as deliver() parses it.
+    const admins = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (!resendKey) result = { delivered: false, channel: 'none', detail: 'RESEND_API_KEY unset' };
+    else if (admins.length === 0) result = { delivered: false, channel: 'none', detail: 'ADMIN_EMAILS empty' };
+    else result = await viaEmail(resendKey, admins, a);
+  } catch (err) {
+    result = { delivered: false, channel: 'email', detail: err instanceof Error ? err.message : String(err) };
+  }
+  logOutcome(a, result);
+  return result;
+}
+
 /** How much of a provider body is ever examined; far more than a reason needs. */
 const SCRUB_INPUT_MAX = 4096;
 
