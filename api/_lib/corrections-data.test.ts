@@ -19,22 +19,51 @@ const APPROVED_DATES: string[] = [];
 const INTRO_APPROVED = false;
 
 /**
- * The 57 model-written editions of 8 Sep to 6 Nov 2026, copied from the public
- * archive capture of 16 Nov (the lead's evidence/E2-archive-editions.tsv, rows
- * marked "model"). The 12 mechanical editions (10–12 Sep, 7–15 Nov) are not in
- * it and must never carry a note from this set.
+ * The 196 model-written editions of 8 Apr to 22 Nov 2026, copied from the
+ * lead's archive lists:
+ *   - lanes7/presep-notes/archive-pre-sep.tsv, rows MODEL and MODEL-SUMMARY:
+ *     137 editions, 8 Apr to 7 Sep;
+ *   - evidence/E2-archive-editions.tsv, the public archive capture of 16 Nov,
+ *     rows marked "model": 57 editions, 8 Sep to 6 Nov;
+ *   - evidence/2026-11-22/SUMMARY.md: 21 and 22 Nov.
+ * Not in it, and never to carry a note from this set: the 11 "pending" stubs of
+ * 17–27 Jul (no edition text) and the mechanical editions of 10–12 Sep and
+ * 7–20 Nov.
  */
 // prettier-ignore
 const MODEL_EDITIONS = [
-  '2026-09-08', '2026-09-09', '2026-09-13', '2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18',
-  '2026-09-19', '2026-09-20', '2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25', '2026-09-26',
-  '2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04',
-  '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12',
-  '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20',
-  '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27', '2026-10-28',
-  '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05',
-  '2026-11-06',
+  '2026-04-08', '2026-04-09', '2026-04-10', '2026-04-11', '2026-04-17', '2026-04-18', '2026-04-19', '2026-04-20',
+  '2026-04-21', '2026-04-22', '2026-04-23', '2026-04-24', '2026-04-25', '2026-04-26', '2026-04-27', '2026-04-28',
+  '2026-04-29', '2026-04-30', '2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05', '2026-05-06',
+  '2026-05-07', '2026-05-08', '2026-05-09', '2026-05-10', '2026-05-11', '2026-05-12', '2026-05-13', '2026-05-14',
+  '2026-05-15', '2026-05-16', '2026-05-17', '2026-05-18', '2026-05-19', '2026-05-20', '2026-05-21', '2026-05-22',
+  '2026-05-23', '2026-05-24', '2026-05-25', '2026-05-26', '2026-05-27', '2026-05-28', '2026-05-29', '2026-05-30',
+  '2026-05-31', '2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04', '2026-06-05', '2026-06-06', '2026-06-07',
+  '2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11', '2026-06-12', '2026-06-13', '2026-06-14', '2026-06-15',
+  '2026-06-16', '2026-06-17', '2026-06-18', '2026-06-19', '2026-06-20', '2026-06-21', '2026-06-22', '2026-06-23',
+  '2026-06-24', '2026-06-25', '2026-06-26', '2026-06-27', '2026-06-28', '2026-06-29', '2026-06-30', '2026-07-01',
+  '2026-07-02', '2026-07-03', '2026-07-04', '2026-07-05', '2026-07-06', '2026-07-07', '2026-07-08', '2026-07-09',
+  '2026-07-10', '2026-07-11', '2026-07-12', '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-28',
+  '2026-07-29', '2026-07-30', '2026-07-31', '2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05',
+  '2026-08-06', '2026-08-07', '2026-08-08', '2026-08-09', '2026-08-10', '2026-08-11', '2026-08-12', '2026-08-13',
+  '2026-08-14', '2026-08-15', '2026-08-16', '2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20', '2026-08-21',
+  '2026-08-22', '2026-08-23', '2026-08-24', '2026-08-25', '2026-08-26', '2026-08-27', '2026-08-28', '2026-08-29',
+  '2026-08-30', '2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06',
+  '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-13', '2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17',
+  '2026-09-18', '2026-09-19', '2026-09-20', '2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25',
+  '2026-09-26', '2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03',
+  '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11',
+  '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19',
+  '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27',
+  '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04',
+  '2026-11-05', '2026-11-06', '2026-11-21', '2026-11-22',
 ];
+
+/**
+ * The first edition with a censorship claim. The 121 model-written editions
+ * before it make none, so they carry no note (lanes7/AUDIT-PRE-SEP.md §2).
+ */
+const FIRST_CLAIM = '2026-08-23';
 
 /** Wrong only in wording: covered by the page, no note (CORRECTIONS-RECONCILIATION). */
 // prettier-ignore
@@ -43,22 +72,28 @@ const WORDING_ONLY = [
 ];
 
 describe('correction notes: integrity', () => {
-  it('holds 49 entries with unique dates (the 21 and 22 Nov notes are added later)', () => {
-    expect(MODEL_EDITIONS).toHaveLength(57);
-    expect(CORRECTION_NOTES).toHaveLength(49);
-    expect(new Set(CORRECTION_NOTES.map((n) => n.date)).size).toBe(49);
+  it('holds 67 entries with unique dates, in date order', () => {
+    expect(MODEL_EDITIONS).toHaveLength(196);
+    expect(new Set(MODEL_EDITIONS).size).toBe(196);
+    expect(CORRECTION_NOTES).toHaveLength(67);
+    const dates = CORRECTION_NOTES.map((n) => n.date);
+    expect(new Set(dates).size).toBe(67);
+    expect(dates).toEqual([...dates].sort());
   });
 
-  it('notes every model-written edition except the 8 wording-only ones, and nothing else', () => {
+  it('notes every model-written edition from 23 Aug except the 8 wording-only ones, and nothing else', () => {
     const noted = CORRECTION_NOTES.map((n) => n.date);
     for (const d of noted) expect(MODEL_EDITIONS, d).toContain(d);
-    expect([...noted, ...WORDING_ONLY].sort()).toEqual([...MODEL_EDITIONS].sort());
+    const withClaims = MODEL_EDITIONS.filter((d) => d >= FIRST_CLAIM);
+    expect(withClaims).toHaveLength(75);
+    expect(MODEL_EDITIONS.filter((d) => d < FIRST_CLAIM)).toHaveLength(121);
+    expect([...noted, ...WORDING_ONLY].sort()).toEqual([...withClaims].sort());
   });
 
-  it('classifies 42 editions with a false claim and 7 misleading only', () => {
+  it('classifies 60 editions with a false claim and 7 misleading only', () => {
     const misleading = CORRECTION_NOTES.filter((n) => n.classification === 'misleading').length;
     const withFalse = CORRECTION_NOTES.filter((n) => n.classification !== 'misleading').length;
-    expect([withFalse, misleading]).toEqual([42, 7]);
+    expect([withFalse, misleading]).toEqual([60, 7]);
     for (const n of CORRECTION_NOTES)
       expect(['false', 'false-and-misleading', 'misleading']).toContain(n.classification);
   });

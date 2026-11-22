@@ -37,6 +37,102 @@ import type { CorrectionNote, CorrectionsPageIntro } from './correction-words.js
 
 export const CORRECTION_NOTES: readonly CorrectionNote[] = [
   {
+    date: '2026-08-23',
+    status: 'draft',
+    classification: 'false',
+    text: "On 23 Aug 2026 we wrote “2,136 confirmed blocking measurements over the past week — the highest sustained level we've tracked since March”. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 47,533 (we said 2,136), Iran 40,962 (we said 1,662), Turkey 1,889 (we said 112) and Myanmar 195 (we said 11). Not a record: Russia's 7-day count ranked 34th of 169 rolling 7-day periods since 1 Mar and its blocked share (4.6%) 4th. No spike in Turkey: its count fell 8% week on week (2,050 to 1,889). We also claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-08-24',
+    status: 'draft',
+    classification: 'false',
+    text: "On 24 Aug 2026 we wrote “OONI recorded 2,183 confirmed blocking measurements in Russia over the last seven days and 1,808 in Iran…”. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 48,376 (we said 2,183), Iran 42,367 (we said 1,808), Turkey 1,929 (we said 117) and Myanmar 206 (we said 11). We also claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-08-25',
+    status: 'draft',
+    classification: 'false',
+    text: "On 25 Aug 2026 we wrote “OONI recorded 1,821 confirmed blocking measurements in the last 7 days, the highest count in the dataset”. Until 12 Sep our collector kept one hour of each day, so our figure was far too low: OONI's 6-day total for Iran was 42,444 (we said 1,821). Iran's 7-day count was its highest since 1 Mar, but its blocked share (29.1%) ranked 17th of 171 rolling 7-day periods, and our comparison used stored data that held one hour per day. We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-08-26',
+    status: 'draft',
+    classification: 'false',
+    text: "On 26 Aug 2026 we wrote “Iran → OONI censorship measurements jumped to 1,933 in the last 7 days, the highest volume in today's data”. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Iran 43,262 (we said 1,933) and Russia 44,939 (we said 1,994). Russia, not Iran, had the highest count, in OONI's totals and in our own figures. We also claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-08-27',
+    status: 'draft',
+    classification: 'false',
+    text: "On 27 Aug 2026 we wrote “…the highest weekly total we're seeing globally and nearly triple the volume Russia recorded in the same window”. Of the 23 countries we checked, Russia (44,840), not Iran (43,768), had the highest count, so Russia was not second after Iran; Iran's count was 0.98 times Russia's, not nearly triple (1.13 times on our own figures). Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 44,840 (we said 1,734), Iran 43,768 (we said 1,960) and Turkey 1,926 (we said 125). We also claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-08-28',
+    status: 'draft',
+    classification: 'false',
+    text: "On 28 Aug 2026 we wrote “Turkey 43 (▼-5) — OONI recorded 133 confirmed blocks this week, down from prior week”. Turkey's count did not fall: it rose 4% week on week (1,903 to 1,984). Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Iran 43,525 (we said 1,919), Russia 42,013 (we said 1,842) and Turkey 1,984 (we said 133). We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-08-29',
+    status: 'draft',
+    classification: 'false',
+    text: "On 29 Aug 2026 we wrote “Russia and Iran hit record censorship in the same week”. Not a record: Russia's 7-day count ranked 46th of 175 rolling 7-day periods since 1 Mar and its blocked share (4.3%) 18th; Iran's count ranked 3rd and its blocked share (29.6%) 4th. No surge: Iran's count rose only 3% week on week. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 42,972 (we said 2,282) and Iran 42,064 (we said 1,863). We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-08-30',
+    status: 'draft',
+    classification: 'false',
+    text: "On 30 Aug 2026 we wrote “Iran and Russia hold record censorship in the same week”. Not a record: Iran's 7-day count ranked 6th of 176 rolling 7-day periods since 1 Mar and its blocked share (29.5%) 6th; Russia's count ranked 50th and its blocked share (4.1%) 40th. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Iran 41,252 (we said 1,879), Russia 40,278 (we said 1,789) and China 362 (we said 4). We also wrote that OONI recorded no blocks in Thailand that week, from 11 measurements; OONI confirmed blocking in 178 of 63,236 tests. We also wrote that OONI had recorded no blocks in Bangladesh that week and had not confirmed any in Uzbekistan; OONI's totals show 1 in Bangladesh (26 Aug) and 2 in Uzbekistan (28 Aug). We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-08-31',
+    status: 'draft',
+    classification: 'false-and-misleading',
+    text: "On 31 Aug 2026 we wrote “Russia and Iran hit record censorship in the same week”. Not a record: Iran's 7-day count ranked 6th of 177 rolling 7-day periods since 1 Mar and its blocked share (29.6%) 5th; Russia's count ranked 49th and its blocked share (4.1%) 44th. Russia led on count, but 4.1% of its tests were confirmed blocked, against 29.6% in Iran. No surge: Iran's count fell 2% week on week. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 42,270 (we said 2,179), Iran 41,600 (we said 1,722), Turkey 1,940 (we said 112), China 320 (we said 4) and Myanmar 97 (we said 5). We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-09-01',
+    status: 'draft',
+    classification: 'false',
+    text: "On 1 Sep 2026 we wrote “Russia and Iran hit record censorship in the same week”. Not a record: Iran's 7-day count ranked 10th of 178 rolling 7-day periods since 1 Mar and its blocked share (29.5%) 6th; Russia's count ranked 42nd and its blocked share (4.3%) 19th. Nor were they the highest in weeks: Iran's count was higher in the week to 30 Aug and Russia's in the week to 27 Aug. No surge: Iran's count fell 11% week on week (43,262 to 38,328), not up from 340. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 46,165 (we said 2,454), Iran 38,328 (we said 1,344) and Turkey 1,935 (we said 103). We also wrote that OONI showed only 11 measurements for Thailand that week; OONI confirmed blocking in 220 of 58,520 tests. We also claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-09-02',
+    status: 'draft',
+    classification: 'false-and-misleading',
+    text: "On 2 Sep 2026 we wrote “Russia and Iran hit record censorship in the same week”. Not a record: Iran's 7-day count ranked 12th of 179 rolling 7-day periods since 1 Mar and its blocked share (29.7%) 4th; Russia's count ranked 36th and its blocked share (4.4%) 13th. No spike in Iran: its count fell 21% week on week. Turkey's count did not fall; it was flat (1,926 to 1,930). Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 46,089 (we said 2,503), Iran 34,611 (we said 1,238) and Turkey 1,930 (we said 99). We also wrote that our figures captured DNS tampering, TCP/IP blocking and TLS disruption across multiple probe types. They were OONI's confirmed count from a single test type, web connectivity; OONI's data reports anomalies and failures separately. We also claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-09-03',
+    status: 'draft',
+    classification: 'false-and-misleading',
+    text: "On 3 Sep 2026 we wrote “Russia and Iran hit record censorship in the same week”. Not a record: Iran's 7-day count ranked 15th of 180 rolling 7-day periods since 1 Mar and its blocked share (28.8%) 32nd; Russia's count ranked 37th and its blocked share (4.4%) 13th. Iran's count was not up 244%: it fell 25% week on week (43,525 to 32,668). Russia's count rose 13% week on week, but its blocked share barely changed (4.35% to 4.47%), and its daily count did not rise seven days straight: it fell on 29 Aug, 1 Sep and 2 Sep. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 47,270 (we said 2,733) and Iran 32,668 (we said 1,166), and OONI recorded 6,671 for Russia on 27 Aug (we said 18). We also claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-09-04',
+    status: 'draft',
+    classification: 'false',
+    text: "On 4 Sep 2026 we wrote “Russia and Iran hit record censorship in the same week”. Not a record: Iran's 7-day count ranked 14th of 181 rolling 7-day periods since 1 Mar and its blocked share (28.8%) 32nd; Russia's count ranked 34th and its blocked share (4.5%) 12th. Iran's blocking neither spiked nor persisted: its count fell 20% week on week (42,064 to 33,748). Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 47,800 (we said 2,241) and Iran 33,748 (we said 1,138). We also claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-09-05',
+    status: 'draft',
+    classification: 'false-and-misleading',
+    text: "On 5 Sep 2026 we wrote “Russia and Iran run record censorship in the same week”. Not a record: Iran's 7-day count ranked 14th of 182 rolling 7-day periods since 1 Mar and its blocked share (29.1%) 24th; Russia's count ranked 36th and its blocked share (4.6%) 12th. Iran's count was neither surging nor sustained: it fell 17% week on week (41,252 to 34,040). It was 1.4 times its July average, not triple, and its 7-day count was 16% above mid-August's (34,667 in the week to 15 Aug), not up from about 300. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 49,991 (we said 2,769) and Iran 34,040 (we said 1,137). We also wrote that OONI measures failed VPN handshakes, TLS resets and HTTP timeouts; the figures we cited were OONI's confirmed count from a single test type, web connectivity, and OONI's data reports anomalies and failures separately. We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-09-06',
+    status: 'draft',
+    classification: 'false',
+    text: "On 6 Sep 2026 we wrote “Russia and Iran log record censorship in one week”. Not a record: Russia's 7-day count ranked 33rd of 183 rolling 7-day periods since 1 Mar, though its blocked share (4.8%) was its highest since 1 Mar; Iran's count ranked 15th and its blocked share (29.1%) 24th. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 49,407 (we said 2,346) and Iran 33,184 (we said 1,019). We also wrote that OONI recorded no confirmed blocking in Bangladesh or Uzbekistan by 5 Sep, and blocking in Thailand on 3 days. OONI's totals for 24 Aug to 4 Sep show confirmed blocking in Bangladesh on 4 days, in Uzbekistan on 2 days and in Thailand on all 12. We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-09-07',
+    status: 'draft',
+    classification: 'false',
+    text: "On 7 Sep 2026 we wrote “OONI's India count is up from near-zero the week prior, concentrated around government-critical platforms”. India's count did not rise from near zero: it rose 2% week on week (3,369 to 3,447). Of the 23 countries we checked, India's count was the third-highest, ahead of Turkey's (1,929), not fourth behind it. No surge in Iran: its count fell 8% week on week. Until 12 Sep our collector kept one hour of each day, so our figures were far too low: OONI's 6-day totals were Russia 48,518 (we said 1,961), Iran 35,328 (we said 1,271) and India 3,447 (we said 68). We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
     date: '2026-09-08',
     status: 'draft',
     classification: 'false',
@@ -329,6 +425,18 @@ export const CORRECTION_NOTES: readonly CorrectionNote[] = [
     status: 'draft',
     classification: 'false-and-misleading',
     text: "On 5 Nov 2026 we wrote “…54,468 confirmed blocking measurements in seven days — the highest weekly censorship count in…”. Not a record: Russia's 7-day count ranked 17th of 90 rolling 7-day periods since 1 Aug and its blocked share (4.2%) 59th. No surge: Russia's count fell 5% week on week. We also wrote that Iran's censorship component “spiked”: Iran's count rose 17% (24,841 to 29,067) but its blocked share was flat (25.2% to 25.1%). We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-11-21',
+    status: 'draft',
+    classification: 'false',
+    text: "On 21 Nov 2026 we wrote “India 49 (▼-5) — OONI recorded 4,413 confirmed blocks in the last 7 days, down from prior week's pace…”. It did not fall: India's count rose 8% week on week (4,085 to 4,413). We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
+  },
+  {
+    date: '2026-11-22',
+    status: 'draft',
+    classification: 'false',
+    text: "On 22 Nov 2026 we wrote “Russia and Iran hit record censorship in the same week”. Not a record: Russia's 7-day count ranked 64th of 107 rolling 7-day periods since 1 Aug and its blocked share (3.7%) 103rd; Iran's count ranked 101st and its blocked share (21.7%) 107th. Their combined 7-day count (83,706) ranked 100th. We also called test measurements “blocks” and claimed motives the data cannot show. Original text unchanged. Source: OONI daily totals.",
   },
 ];
 
