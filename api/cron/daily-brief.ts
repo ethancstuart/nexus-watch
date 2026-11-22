@@ -1545,9 +1545,19 @@ ${(() => {
         // edition was the plan, not a failure, so this replaces the alarm
         // below. It goes by the general path, which may be Discord, so it
         // carries the date, each gate's verdict and DRY RUN, never the draft:
-        // dryRunAlert is not given the draft. The 'brief:fallback' condition is
-        // neither raised nor cleared on these days.
+        // dryRunAlert is not given the draft.
         await raiseAlert(dryRunAlert(today, attempt.gates, wouldHaveShipped));
+        // The draft cleared every gate, so the machinery is working: stand down
+        // an earlier "shipped as the mechanical edition" alarm (a credit outage,
+        // say) exactly as a live model day does. Without this, a failure weeks
+        // later would report the old outage as still ongoing. A refused draft
+        // clears nothing, as on a live day. The note carries no draft text.
+        if (wouldHaveShipped) {
+          await clearAlert(
+            'brief:fallback',
+            `${today}: dry run. The model wrote a draft and it cleared every gate; readers received the mechanical edition by design.`,
+          );
+        }
       } else if (onFallback) {
         const cause = aiDebug ?? 'unknown';
         // gateRefusal was set by the gate that refused, so a refusal is a

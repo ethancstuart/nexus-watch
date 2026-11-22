@@ -73,6 +73,8 @@ const db = {
   failDryRunInsert: false,
   subscribers: [] as Array<{ email: string; timezone: string }>,
   claims: new Set<string>(),
+  /** alert_state, by fingerprint; times in ms on the (fake) clock. */
+  alerts: new Map<string, { title: string; firstSeen: number; lastSent: number | null }>(),
 };
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -158,9 +160,38 @@ async function fakeSql(strings: TemplateStringsArray, ...values: unknown[]): Pro
     return inserted.map((e) => ({ subscriber_email: e }));
   }
 
-  // alert.ts: let every keyed alert claim its send, so it is delivered.
-  if (text.startsWith('UPDATE alert_state a SET last_sent'))
-    return [{ first_seen: new Date().toISOString(), prior: null }];
+  // alert.ts: alert_state, emulated per statement so a condition carries
+  // across runs (the reminder interval, first_seen, the all-clear).
+  const now = Date.now();
+  const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
+  if (text.startsWith('INSERT INTO alert_state')) {
+    const [key, title] = values as [string, string];
+    const a = db.alerts.get(key);
+    db.alerts.set(key, { title, firstSeen: a?.firstSeen ?? now, lastSent: a?.lastSent ?? null });
+    return [];
+  }
+  if (text.startsWith('UPDATE alert_state a SET last_sent')) {
+    const [key, hours] = values as [string, number];
+    const a = db.alerts.get(key);
+    if (!a || (a.lastSent !== null && now - a.lastSent < hours * 3_600_000)) return [];
+    const prior = a.lastSent;
+    a.lastSent = now;
+    return [{ first_seen: iso(a.firstSeen), prior: iso(prior) }];
+  }
+  if (text.startsWith('UPDATE alert_state SET last_sent')) {
+    const [prev, key] = values as [string | null, string];
+    const a = db.alerts.get(key);
+    if (a) a.lastSent = prev ? Date.parse(prev) : null;
+    return [];
+  }
+  if (text.startsWith('SELECT title, last_sent')) {
+    const a = db.alerts.get(values[0] as string);
+    return a ? [{ title: a.title, last_sent: iso(a.lastSent), ongoing_hours: (now - a.firstSeen) / 3_600_000 }] : [];
+  }
+  if (text.startsWith('DELETE FROM alert_state')) {
+    db.alerts.delete(values[0] as string);
+    return [];
+  }
 
   // Everything else (CII, OONI, calls, ledger, delivery log, snapshots): empty.
   return [];
@@ -322,6 +353,7 @@ beforeEach(() => {
   db.failDryRunInsert = false;
   db.subscribers = [];
   db.claims = new Set();
+  db.alerts = new Map();
   sent = [];
   net.resendEmailStatus = 200;
   net.resendEmailThrows = false;
@@ -630,7 +662,10 @@ describe('fail safe: when the model call fails, behaviour is exactly as today, a
     const liveRow = rowText();
     const liveOut = sent.filter((s) => s.url !== MODEL_URL).map((s) => s.body);
 
+    // A fresh morning for the comparison: the same keyed alarm at the same
+    // instant would otherwise be (rightly) deduplicated.
     db.row = null;
+    db.alerts = new Map();
     sent = [];
     vi.stubEnv('BRIEF_MODEL_MODE', undefined as unknown as string);
     const dry = await run();
@@ -668,5 +703,106 @@ describe('fail safe: the operator email fails', () => {
     expect(content().edition).toBe('mechanical');
     expect(containsAnyMarker(rowText())).toBe(false);
     expect(db.dryRuns).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review 6 (REVIEW-6.md, DRY-RUN), should-fix 1 and 2.
+// ---------------------------------------------------------------------------
+
+const subjects = (mail: Record<string, unknown>[]) => mail.map((m) => String(m.subject));
+/** Alert mail (not the operator email) sent since `before`. */
+const alertMailSince = (before: number) =>
+  sent
+    .slice(before)
+    .filter((s) => s.url === RESEND_URL && !isOperatorEmail(s))
+    .map(parsed);
+
+describe('review 6, should-fix 1: a reply that is only a SUBJECT line', () => {
+  it('is exactly as today, is recorded as written, and sends no operator email', async () => {
+    const subjectOnly = `SUBJECT: A dry run ${SUBJECT_MARKER} subject for a test day`;
+    vi.stubEnv('BRIEF_MODEL_MODE', 'live');
+    const live = await runBrief(subjectOnly);
+    const liveRow = rowText();
+    const liveOut = sent.filter((s) => s.url !== MODEL_URL).map((s) => s.body);
+
+    db.row = null;
+    db.alerts = new Map();
+    sent = [];
+    vi.stubEnv('BRIEF_MODEL_MODE', undefined as unknown as string);
+    const dry = await runBrief(subjectOnly);
+
+    expect((dry.body as { ai: string }).ai).toBe('ai-empty-response');
+    expect(dry.body).toEqual(live.body);
+    expect(rowText()).toBe(liveRow);
+    expect(containsAnyMarker(rowText())).toBe(false);
+    expect(sent.filter((s) => s.url !== MODEL_URL).map((s) => s.body)).toEqual(liveOut);
+    expect(sent.filter(isOperatorEmail)).toHaveLength(0);
+    expect(subjects(alertMailSince(0))).toEqual([
+      '[CRITICAL] The brief shipped as the mechanical edition (ai-empty-response)',
+    ]);
+    expect(db.dryRuns).toHaveLength(1);
+    expect(db.dryRuns[0]).toMatchObject({
+      outcome: 'ai-empty-response',
+      would_have_shipped: false,
+      grounding_verdict: 'not-run',
+      structure_verdict: 'not-run',
+      claims_verdict: 'not-run',
+      draft_text: subjectOnly,
+    });
+  });
+});
+
+describe('review 6, should-fix 2: an earlier mechanical-edition alarm is stood down', () => {
+  const creditFailure = { status: 400, body: { error: { message: 'synthetic credit too low' } } };
+  const day = async (date: string, model: { status: number; body: unknown }) => {
+    db.row = null;
+    net.model = model;
+    vi.setSystemTime(new Date(`${date}T10:00:00Z`));
+    const before = sent.length;
+    await call(dailyBrief, { ...cron, method: 'POST' });
+    return alertMailSince(before);
+  };
+  const ok = { status: 200, body: modelReply(DRAFTS.passing) };
+  const refused = { status: 200, body: modelReply(DRAFTS.structure) };
+
+  it.each([
+    ['a dry-run day', undefined, `2026-11-24: dry run. The model wrote a draft and it cleared every gate`],
+    ['a live model day (unchanged)', 'live', `2026-11-24: the model wrote today's issue and it cleared every gate.`],
+  ])('%s whose draft cleared every gate sends the all-clear', async (_, mode, note) => {
+    // Day 1: credit fails. The keyed alarm is raised.
+    vi.stubEnv('BRIEF_MODEL_MODE', undefined as unknown as string);
+    expect(subjects(await day('2026-11-23', creditFailure))).toEqual([
+      '[CRITICAL] The brief shipped as the mechanical edition (ai-failed)',
+    ]);
+    expect(db.alerts.has('brief:fallback')).toBe(true);
+
+    // Day 2: the draft clears every gate.
+    vi.stubEnv('BRIEF_MODEL_MODE', mode as string);
+    const mail = await day('2026-11-24', ok);
+    const resolved = mail.filter((m) => String(m.subject).includes('RESOLVED'));
+    expect(subjects(resolved)).toEqual([
+      '[WARNING] RESOLVED — The brief shipped as the mechanical edition (ai-failed)',
+    ]);
+    expect(String(resolved[0].text)).toContain(note);
+    expect(String(resolved[0].text)).toContain('It lasted about 24h.');
+    expect(db.alerts.has('brief:fallback')).toBe(false);
+    for (const m of mail) expect(containsAnyMarker(JSON.stringify(m))).toBe(false);
+
+    // Day 3: credit fails again. A new outage, not the old one "ongoing".
+    vi.stubEnv('BRIEF_MODEL_MODE', undefined as unknown as string);
+    const again = await day('2026-11-25', creditFailure);
+    expect(subjects(again)).toEqual(['[CRITICAL] The brief shipped as the mechanical edition (ai-failed)']);
+    expect(String(again[0].text)).not.toContain('Ongoing for about');
+  });
+
+  it('a dry-run day whose draft a gate refused clears nothing (as on a live day), so the old alarm stays open', async () => {
+    await day('2026-11-23', creditFailure);
+    const mail = await day('2026-11-24', refused);
+    expect(subjects(mail)).toEqual(['[INFO] DRY RUN 2026-11-24']);
+    expect(db.alerts.has('brief:fallback')).toBe(true);
+    // The harness does see a stale condition: the next failure reports it.
+    const again = await day('2026-11-25', creditFailure);
+    expect(String(again[0].text)).toContain('Ongoing for about 48h');
   });
 });
