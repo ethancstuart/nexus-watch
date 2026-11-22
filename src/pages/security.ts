@@ -31,9 +31,9 @@ export function renderSecurity(root: HTMLElement): void {
           <li><strong>If you visit:</strong> nothing personal. Only standard
             web logs (IP for rate-limiting, user-agent for browser-compat
             decisions). No cookies set.</li>
-          <li><strong>If you subscribe to the brief:</strong> your email goes to
-            beehiiv (our newsletter provider). You can unsubscribe at any
-            time from any brief.</li>
+          <li><strong>If you subscribe to the brief:</strong> your email address
+            is stored in our database and sent to Resend, which delivers the
+            brief. You can unsubscribe at any time from any brief.</li>
         </ul>
       </section>
 

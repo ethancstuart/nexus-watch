@@ -5,6 +5,7 @@ import { renderFaqPage } from './faq.ts';
 import { renderAbout } from './about.ts';
 import { renderSettings } from './settings.ts';
 import { renderRoadmap } from './roadmap.ts';
+import { renderPrivacyPage } from './privacy.ts';
 
 /**
  * Pages that kept describing accounts, sign-in, watchlists and alerts after
@@ -72,6 +73,18 @@ describe('no page describes accounts, sign-in, watchlists or alerts that do not 
     expect(t).not.toMatch(/personalized Watchlist/i);
     expect(t).not.toMatch(/filter which alerts/i);
     expect(t).not.toMatch(/Takes effect with the next brief cycle/i);
+  });
+
+  it('beehiiv is retired: security no longer says a subscriber’s email goes there', () => {
+    const t = textOf(renderSecurity);
+    expect(t).not.toMatch(/beehiiv/i);
+    expect(t).toMatch(/sent to Resend, which delivers the brief/);
+  });
+
+  it('beehiiv is retired: privacy no longer describes it as a working mirror', () => {
+    const t = textOf(renderPrivacyPage);
+    expect(t).not.toMatch(/a mirror of the brief, when it is configured/i);
+    expect(t).toMatch(/beehiiv — no longer used\./);
   });
 
   it('roadmap: no sign-in step, no Auth or Sign-In milestone, no Google Calendar', () => {
