@@ -54,11 +54,14 @@ function fakeSql(strings: TemplateStringsArray): unknown[] {
 }
 vi.mock('@neondatabase/serverless', () => ({ neon: () => fakeSql }));
 
-async function render(): Promise<{ status: number; body: string }> {
+async function render(): Promise<{ status: number; body: string; headers: Record<string, string> }> {
   const { default: handler } = await import('./call.js');
-  const state = { status: 200, body: '' };
+  const state = { status: 200, body: '', headers: {} as Record<string, string> };
   const res = {
-    setHeader: () => res,
+    setHeader: (k: string, v: string) => {
+      state.headers[k] = v;
+      return res;
+    },
     status: (n: number) => {
       state.status = n;
       return res;
@@ -147,9 +150,19 @@ describe('/call/:id shows its correction', () => {
   it('if the corrections cannot be read, the page fails rather than show the verdict alone', async () => {
     failCorrections = true;
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { status, body } = await render();
+    const { status, body, headers } = await render();
     expect(status).toBe(500);
     expect(body).not.toContain('MISS');
+    // Review R2: the resolved call's day-long cache header is set before this
+    // read; the failure must not inherit it.
+    expect(headers['Cache-Control']).toBe('no-store');
+  });
+
+  it('a 500 for a missing database is not cached either', async () => {
+    delete process.env.DATABASE_URL;
+    const { status, headers } = await render();
+    expect(status).toBe(500);
+    expect(headers['Cache-Control']).toBe('no-store');
   });
 
   it("a sibling call in the history carries the ledger's CORRECTED marker", async () => {
@@ -181,5 +194,90 @@ describe('/call/:id shows its correction', () => {
     expect(body).not.toMatch(/call #1200<\/span><span class="trail">[^<]*<span[^>]*>[^<]*<\/span>MISS · CORRECTED/);
     // The history reads one correction per call, as the ledger scores it.
     expect(queries.some((q) => q.includes('DISTINCT ON (call_id)') && q.includes('WHERE country_code ='))).toBe(true);
+  });
+});
+
+/**
+ * WHETHER A CORRECTION SHOWS IS THE LEDGER'S RULE (review R3): the latest
+ * call_corrections row only (the ledger's DISTINCT ON … issued_on DESC), and
+ * only when correctedOutcomeOf says it changes a scored verdict. The query
+ * returns rows newest first, so the fake does too.
+ */
+describe("/call/:id applies the ledger's correction rule", () => {
+  it('reads the rows newest first', async () => {
+    await render();
+    expect(
+      queries.some((q) => q.includes('FROM call_corrections WHERE call_id =') && q.includes('issued_on DESC')),
+    ).toBe(true);
+  });
+
+  it('a corrected status that is not scored changes nothing: no block, no added sentence', async () => {
+    for (const corrected_status of ['unresolvable', 'void']) {
+      correctionRows = [{ issued_on: '2026-09-13', corrected_status, evidence_note: NOTE }];
+      const { body } = await render();
+      expect(body, corrected_status).not.toContain('Correction · issued');
+      expect(description(body)).toMatch(/Result: MISS\.$/);
+    }
+  });
+
+  it('an earlier change followed by a later row that agrees with the published verdict is no correction', async () => {
+    correctionRows = [
+      {
+        issued_on: '2026-10-01',
+        corrected_status: 'miss',
+        evidence_note: 'Later reading agrees with the published miss.',
+      },
+      { issued_on: '2026-09-13', corrected_status: 'hit', evidence_note: NOTE },
+    ];
+    const { body } = await render();
+    expect(body).not.toContain('Correction · issued');
+    expect(body).not.toContain(NOTE);
+    expect(description(body)).toMatch(/Result: MISS\.$/);
+  });
+
+  it('a later change after an earlier agreeing row is shown, dated by the later row', async () => {
+    correctionRows = [
+      { issued_on: '2026-10-01', corrected_status: 'hit', evidence_note: NOTE },
+      { issued_on: '2026-09-13', corrected_status: 'miss', evidence_note: 'An earlier reading that agreed.' },
+    ];
+    const { body } = await render();
+    expect(body).toContain('<div class="kicker">Correction · issued 2026-10-01</div>');
+    expect(body).not.toContain('An earlier reading that agreed.');
+    expect(description(body)).toMatch(/Corrected 2026-10-01: the evidence says HIT\.$/);
+  });
+
+  it('two causes reaching the same verdict: one heading, both notes, oldest first', async () => {
+    correctionRows = [
+      { issued_on: '2026-09-13', corrected_status: 'hit', evidence_note: 'Second cause note.' },
+      { issued_on: '2026-09-13', corrected_status: 'hit', evidence_note: 'First cause note.' },
+    ];
+    const { body } = await render();
+    expect(body.match(/<h2>Published MISS; the evidence says HIT<\/h2>/g)).toHaveLength(1);
+    expect(body.indexOf('First cause note.')).toBeLessThan(body.indexOf('Second cause note.'));
+  });
+
+  it('a call that was not scored shows no correction, as the ledger scores only scored calls', async () => {
+    callRow = { ...CORRECTED, status: 'unresolvable', void_reason: 'too few observed days' };
+    correctionRows = [{ issued_on: '2026-09-13', corrected_status: 'hit', evidence_note: NOTE }];
+    const { body } = await render();
+    expect(body).not.toContain('Correction · issued');
+  });
+
+  it('a sibling whose latest reading is not scored carries no CORRECTED marker', async () => {
+    historyRows = [
+      {
+        id: 1300,
+        made_on: '2026-08-28',
+        probability: 0.4,
+        status: 'miss',
+        resolves_on: '2026-09-11',
+        corrected_status: 'unresolvable',
+      },
+    ];
+    const { body } = await render();
+    expect(body).toMatch(
+      /call #1300<\/span><span class="trail">said 40% · <span class="mark" aria-hidden="true">□<\/span>MISS</,
+    );
+    expect(body).not.toContain('CORRECTED');
   });
 });

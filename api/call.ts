@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
 import { outcomeMarks } from '../src/styles/register-tokens.js';
-import { isScored } from './_lib/calls.js';
+import { correctedOutcomeOf, isScored } from './_lib/calls.js';
+import { standingCorrection } from './_lib/call-correction.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 15 };
 
@@ -71,31 +72,29 @@ function verdictWord(status: string): string {
  * M3). 54 censorship calls were published as misses that the evidence records
  * as hits (call_corrections, issued 2026-09-13). The ledger showed the
  * correction; this page did not, so a reader arriving from a search result
- * read "MISS" and nothing else. The rule is the ledger's: the published
- * verdict stays exactly as it was, and the corrected reading sits beside it,
- * dated, with the evidence note. A row whose corrected status equals the
- * published one changes nothing and is not shown (correctedOutcomeOf's rule).
+ * read "MISS" and nothing else. The published verdict stays exactly as it
+ * was, and the corrected reading sits beside it, dated, with the evidence.
+ *
+ * WHETHER a correction is shown is the ledger's rule, reused from
+ * standingCorrection (api/_lib/call-correction.ts): the latest row only, and
+ * only when correctedOutcomeOf says it changes a scored verdict. The block
+ * prints that row's verdict, and the evidence note of every row that reached
+ * the same verdict (oldest first), so a call corrected for two causes keeps
+ * both notes.
  */
-function correctionBlock(published: string, corrections: CorrectionRow[]): string {
-  const changed = corrections.filter((k) => k.corrected_status !== published);
-  if (changed.length === 0) return '';
-  const parts = changed.map(
-    (k) =>
-      `<div class="rule"></div><div class="kicker">Correction · issued ${esc(k.issued_on)}</div>` +
-      `<h2>Published ${verdictWord(published)}; the evidence says ${verdictWord(k.corrected_status)}</h2>` +
-      `<p class="lede">${esc(k.evidence_note)}</p>`,
-  );
-  parts.push(
+function correctionBlock(published: string, standing: CorrectionRow | null, rowsNewestFirst: CorrectionRow[]): string {
+  if (!standing) return '';
+  const notes = rowsNewestFirst
+    .filter((k) => k.corrected_status === standing.corrected_status)
+    .reverse()
+    .map((k) => `<p class="lede">${esc(k.evidence_note)}</p>`);
+  return [
+    `<div class="rule"></div><div class="kicker">Correction · issued ${esc(standing.issued_on)}</div>` +
+      `<h2>Published ${verdictWord(published)}; the evidence says ${verdictWord(standing.corrected_status)}</h2>`,
+    ...notes,
     '<p class="lede">The verdict below is what we published and we have not rewritten it — ' +
       'the corrected reading sits beside it.</p>',
-  );
-  return parts.join('\n');
-}
-
-/** The latest correction that changes the verdict, for the meta description; else null. */
-function latestChange(published: string, corrections: CorrectionRow[]): CorrectionRow | null {
-  const changed = corrections.filter((k) => k.corrected_status !== published);
-  return changed.length > 0 ? (changed[changed.length - 1] as CorrectionRow) : null;
+  ].join('\n');
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -205,7 +204,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) return res.status(500).send('database_not_configured');
+  if (!dbUrl) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(500).send('database_not_configured');
+  }
 
   try {
     const sql = neon(dbUrl);
@@ -241,11 +243,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Read directly, as /ledger reads it: if this fails the page fails, rather
     // than showing a verdict without the correction recorded beside it.
+    // Newest first, for standingCorrection.
     const corrections = (await sql`
       SELECT issued_on::text AS issued_on, corrected_status, evidence_note
       FROM call_corrections WHERE call_id = ${id}
-      ORDER BY issued_on, id
+      ORDER BY issued_on DESC, id DESC
     `) as unknown as CorrectionRow[];
+    const standing = standingCorrection(c.status, corrections);
 
     // DISTINCT ON (call_id): one reading per call, as the ledger scores it.
     const history = (await sql`
@@ -264,7 +268,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const divergence = c.base_rate === null ? null : Math.round((c.probability - c.base_rate) * 100);
 
     // Above the record it corrects, as on /ledger. Empty for an uncorrected call.
-    const correction = correctionBlock(c.status, corrections);
+    const correction = correctionBlock(c.status, standing, corrections);
 
     const parts: string[] = [];
     parts.push(
@@ -327,8 +331,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? 'UNRESOLVABLE'
                 : isScored(h.status)
                   ? `said ${pct(h.probability)} · ${outcomeMark(h.status)}${h.status.toUpperCase()}` +
-                    // The ledger's marker, for a verdict the evidence has since changed.
-                    (h.corrected_status && h.corrected_status !== h.status ? ' · CORRECTED' : '')
+                    // The ledger's marker, for a verdict the evidence has since
+                    // changed: the latest reading (the query's DISTINCT ON), by
+                    // correctedOutcomeOf, as the call's own page decides it.
+                    (correctedOutcomeOf(h.status, h.corrected_status ?? null) !== undefined ? ' · CORRECTED' : '')
                   : 'NO OUTCOME RECORDED';
         parts.push(
           `<a class="row ${state}" href="/call/${h.id}"><span class="lead">${esc(h.made_on)}</span>` +
@@ -356,9 +362,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               : 'No outcome recorded; not scored.');
     // The search snippet carries the correction too: the published result
     // stays, and the corrected reading follows it.
-    const latest = latestChange(c.status, corrections);
-    const describedWithCorrection = latest
-      ? `${description} Corrected ${latest.issued_on}: the evidence says ${latest.corrected_status.toUpperCase()}.`
+    const describedWithCorrection = standing
+      ? `${description} Corrected ${standing.issued_on}: the evidence says ${standing.corrected_status.toUpperCase()}.`
       : description;
 
     // The unfurl card. /call/:id is the citeable unit — the thing a journalist
@@ -377,6 +382,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
   } catch (err) {
     console.error('[call] failed:', err instanceof Error ? err.message : err);
+    // The long cache header for a resolved call is set before the corrections
+    // and history reads; a failure after it must not be cached with it.
+    res.setHeader('Cache-Control', 'no-store');
     return res.status(500).send('call_unavailable');
   }
 }
