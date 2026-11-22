@@ -98,8 +98,10 @@ describe('the gate', () => {
     expect(approvedNotes([draft('2026-09-08')], { noteDates: ['2026-09-08'], introduction: false })).toEqual([]);
   });
 
-  it('with the repository keys, which list nothing today, nothing passes even an approved entry', () => {
-    expect(approvedNotes([approved('2026-09-09', '2026-12-01')])).toEqual([]);
+  it('with the repository keys, an approved entry whose date is not listed does not pass', () => {
+    // 1 Aug names no note, so it can never be on the repository's key list
+    // (corrections-data.test.ts requires every listed date to name a note).
+    expect(approvedNotes([approved('2026-08-01', '2026-12-01')])).toEqual([]);
   });
 
   it('fails closed on an approved entry it cannot render truthfully', () => {
@@ -152,8 +154,9 @@ describe('the gate', () => {
       expect(approvedIntro(ok, [all[0], draft('2026-09-13')], allKeys(all, true))).toBeNull();
       expect(approvedIntro(ok, all, { noteDates: ['2026-09-08'], introduction: true })).toBeNull();
       expect(approvedIntro(ok, [], { noteDates: [], introduction: true })).toBeNull();
-      // The repository's keys approve nothing today.
-      expect(approvedIntro(ok, all)).toBeNull();
+      // With the repository's keys, notes whose dates can never be listed keep it down.
+      const unlisted = [approved('2026-08-01', '2026-12-01')];
+      expect(approvedIntro(ok, unlisted)).toBeNull();
     });
   });
 });
