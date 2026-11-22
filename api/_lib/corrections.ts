@@ -1,4 +1,5 @@
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './corrections-data.js';
+import { APPROVED_NOTE_DATES, INTRODUCTION_APPROVED } from './corrections-approvals.js';
 import {
   ALL_CORRECTIONS_LINK,
   CORRECTION_LABEL,
@@ -21,19 +22,31 @@ import { esc } from './ssr-shell.js';
  * THE RULE IS ANNOTATE, NEVER REWRITE. A note is rendered BESIDE the brief it
  * corrects; nothing here touches the brief's own text.
  *
- * THE SAFETY PROPERTY. Only an entry whose status is 'approved' leaves this
- * module, so merging the data publishes nothing until the owner approves each
- * note. The gate fails closed: an approved entry with a malformed date,
- * correctedOn, classification or empty text is treated as not approved rather
- * than rendered with a guess. corrections-data.test.ts makes such an entry
- * fail CI as well, so it cannot sit there silently.
+ * THE SAFETY PROPERTY, ENFORCED HERE AT RUNTIME. A note leaves this module
+ * only when two keys agree: its entry is `status: 'approved'` and well-formed
+ * (corrections-data.ts), and its edition date is in APPROVED_NOTE_DATES
+ * (corrections-approvals.ts). The introduction needs INTRODUCTION_APPROVED,
+ * its own approval, and every note approved by both keys. These checks run on
+ * every request of every deployment, previews included, because no Vercel
+ * build runs the tests. Anything that disagrees or is malformed is treated as
+ * not approved and shown nowhere, rather than rendered with a guess. The
+ * integrity test (corrections-data.test.ts) also fails on such a state, but
+ * only where the tests run.
  */
 
 const CLASSIFICATIONS = new Set(['false', 'false-and-misleading', 'misleading']);
 
-function isPublishable(n: CorrectionNote): n is ApprovedCorrectionNote {
+/** The approval keys kept in source. Parameters below default to them; tests pass their own. */
+export interface ApprovalKeys {
+  readonly noteDates: readonly string[];
+  readonly introduction: boolean;
+}
+const sourceKeys = (): ApprovalKeys => ({ noteDates: APPROVED_NOTE_DATES, introduction: INTRODUCTION_APPROVED });
+
+function isPublishable(n: CorrectionNote, keys: ApprovalKeys): n is ApprovedCorrectionNote {
   return (
     n.status === 'approved' &&
+    keys.noteDates.includes(n.date) &&
     isIsoDate(n.date) &&
     isIsoDate(n.correctedOn) &&
     CLASSIFICATIONS.has(n.classification) &&
@@ -42,34 +55,51 @@ function isPublishable(n: CorrectionNote): n is ApprovedCorrectionNote {
   );
 }
 
-/** Approved, well-formed notes only. Defaults to the repository's data. */
-export function approvedNotes(notes: readonly CorrectionNote[] = CORRECTION_NOTES): ApprovedCorrectionNote[] {
-  return notes.filter(isPublishable);
+/** Notes approved by both keys and well-formed. Defaults to the repository's data and keys. */
+export function approvedNotes(
+  notes: readonly CorrectionNote[] = CORRECTION_NOTES,
+  keys: ApprovalKeys = sourceKeys(),
+): ApprovedCorrectionNote[] {
+  return notes.filter((n): n is ApprovedCorrectionNote => isPublishable(n, keys));
 }
 
 /** The approved note for one edition date, or null. */
 export function approvedNoteFor(
   date: string,
   notes: readonly CorrectionNote[] = CORRECTION_NOTES,
+  keys: ApprovalKeys = sourceKeys(),
 ): ApprovedCorrectionNote | null {
-  return approvedNotes(notes).find((n) => n.date === date) ?? null;
+  return approvedNotes(notes, keys).find((n) => n.date === date) ?? null;
 }
 
 /**
  * Newest first: the most recently added correction at the top, and among
  * notes added the same day, the latest edition first.
  */
-export function correctionsNewestFirst(notes: readonly CorrectionNote[] = CORRECTION_NOTES): ApprovedCorrectionNote[] {
-  return [...approvedNotes(notes)].sort((a, b) =>
+export function correctionsNewestFirst(
+  notes: readonly CorrectionNote[] = CORRECTION_NOTES,
+  keys: ApprovalKeys = sourceKeys(),
+): ApprovedCorrectionNote[] {
+  return [...approvedNotes(notes, keys)].sort((a, b) =>
     a.correctedOn !== b.correctedOn ? b.correctedOn.localeCompare(a.correctedOn) : b.date.localeCompare(a.date),
   );
 }
 
-/** The page introduction when approved and well-formed, else null. */
+/**
+ * The page introduction, or null. It needs its key, its own approval with a
+ * real publishedOn, and EVERY note approved by both keys: the drafted
+ * introduction says each of the 49 carries a dated note, which is untrue while
+ * any is unpublished. So a note added later as a draft (21 or 22 Nov) takes the
+ * introduction down until that note is approved too.
+ */
 export function approvedIntro(
   intro: CorrectionsPageIntro = CORRECTIONS_PAGE_INTRO,
+  notes: readonly CorrectionNote[] = CORRECTION_NOTES,
+  keys: ApprovalKeys = sourceKeys(),
 ): Extract<CorrectionsPageIntro, { status: 'approved' }> | null {
-  if (intro.status !== 'approved' || !isIsoDate(intro.publishedOn) || intro.title.trim() === '') return null;
+  if (!keys.introduction || intro.status !== 'approved') return null;
+  if (!isIsoDate(intro.publishedOn) || intro.title.trim() === '') return null;
+  if (notes.length === 0 || approvedNotes(notes, keys).length !== notes.length) return null;
   return intro;
 }
 

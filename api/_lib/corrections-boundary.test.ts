@@ -7,6 +7,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const DATA = join(ROOT, 'api/_lib/corrections-data.ts');
 const GATE = join(ROOT, 'api/_lib/corrections.ts');
 const WORDS = join(ROOT, 'api/_lib/correction-words.ts');
+const KEYS = join(ROOT, 'api/_lib/corrections-approvals.ts');
 
 /**
  * THE DRAFTS NEVER REACH A BROWSER, AND NOTHING BYPASSES THE GATE.
@@ -18,8 +19,9 @@ const WORDS = join(ROOT, 'api/_lib/correction-words.ts');
  *    The walk is DERIVED: every import of every src/ module, followed through
  *    api/, so a new import path is in scope the moment it is written.
  *
- * 2. On the server, only corrections.ts reads the data module. Every handler
- *    goes through its approved-only gate rather than reading the array itself.
+ * 2. On the server, only corrections.ts reads the data module and the approval
+ *    keys. Every handler goes through its two-key gate rather than reading
+ *    either itself.
  */
 
 function walk(dir: string, acc: string[] = []): string[] {
@@ -85,10 +87,16 @@ describe('the correction drafts stay on the server', () => {
     expect(specifiers(WORDS)).toEqual([]);
   });
 
-  it('on the server, only the gate imports the data', () => {
-    const importers = walk(join(ROOT, 'api'))
-      .filter((f) => specifiers(f).some((s) => resolveRelative(f, s) === DATA))
-      .map((f) => relative(ROOT, f));
-    expect(importers).toEqual(['api/_lib/corrections.ts']);
+  it('on the server, only the gate imports the data and the approval keys', () => {
+    for (const target of [DATA, KEYS]) {
+      const importers = walk(join(ROOT, 'api'))
+        .filter((f) => specifiers(f).some((s) => resolveRelative(f, s) === target))
+        .map((f) => relative(ROOT, f));
+      expect(importers, relative(ROOT, target)).toEqual(['api/_lib/corrections.ts']);
+    }
+  });
+
+  it('the approval keys import nothing at runtime', () => {
+    expect(specifiers(KEYS)).toEqual([]);
   });
 });

@@ -7,6 +7,7 @@ import {
   correctionBlockHtml,
   correctionPayload,
   correctionsNewestFirst,
+  type ApprovalKeys,
 } from './corrections.js';
 import {
   correctionAdded,
@@ -68,13 +69,37 @@ describe('the words', () => {
   });
 });
 
+/** The second key listing every given note's date: only the status then decides. */
+const allKeys = (notes: CorrectionNote[], introduction = false): ApprovalKeys => ({
+  noteDates: notes.map((n) => n.date),
+  introduction,
+});
+
 describe('the gate', () => {
   it('passes approved notes only', () => {
     const notes = [draft('2026-09-08'), approved('2026-09-09', '2026-12-01'), draft('2026-09-13')];
-    expect(approvedNotes(notes).map((n) => n.date)).toEqual(['2026-09-09']);
-    expect(approvedNoteFor('2026-09-08', notes)).toBeNull();
-    expect(approvedNoteFor('2026-09-09', notes)?.correctedOn).toBe('2026-12-01');
-    expect(approvedNoteFor('2026-09-10', notes)).toBeNull();
+    const k = allKeys(notes);
+    expect(approvedNotes(notes, k).map((n) => n.date)).toEqual(['2026-09-09']);
+    expect(approvedNoteFor('2026-09-08', notes, k)).toBeNull();
+    expect(approvedNoteFor('2026-09-09', notes, k)?.correctedOn).toBe('2026-12-01');
+    expect(approvedNoteFor('2026-09-10', notes, k)).toBeNull();
+  });
+
+  it('needs both keys: an approval typed on the wrong entry publishes nothing', () => {
+    // The owner approves 8 Sep in the key list but sets the status on 9 Sep.
+    const notes = [draft('2026-09-08'), approved('2026-09-09', '2026-12-01')];
+    const keys: ApprovalKeys = { noteDates: ['2026-09-08'], introduction: false };
+    expect(approvedNotes(notes, keys)).toEqual([]);
+    expect(approvedNoteFor('2026-09-08', notes, keys)).toBeNull();
+    expect(approvedNoteFor('2026-09-09', notes, keys)).toBeNull();
+    expect(correctionsNewestFirst(notes, keys)).toEqual([]);
+    // Status alone, or the list alone, is never enough.
+    expect(approvedNotes([approved('2026-09-09', '2026-12-01')], { noteDates: [], introduction: false })).toEqual([]);
+    expect(approvedNotes([draft('2026-09-08')], { noteDates: ['2026-09-08'], introduction: false })).toEqual([]);
+  });
+
+  it('with the repository keys, which list nothing today, nothing passes even an approved entry', () => {
+    expect(approvedNotes([approved('2026-09-09', '2026-12-01')])).toEqual([]);
   });
 
   it('fails closed on an approved entry it cannot render truthfully', () => {
@@ -87,13 +112,13 @@ describe('the gate', () => {
       // An approved entry missing correctedOn cannot be written in TypeScript; data from elsewhere can.
       { date: '2026-09-15', status: 'approved', classification: 'false', text: 'x' } as unknown as CorrectionNote,
     ];
-    expect(approvedNotes(notes)).toEqual([]);
+    expect(approvedNotes(notes, allKeys(notes))).toEqual([]);
   });
 
   it('the type refuses an approved note without correctedOn (tsc fails if this line ever compiles)', () => {
     // @ts-expect-error approved requires correctedOn
     const n: CorrectionNote = { date: '2026-09-08', status: 'approved', classification: 'false', text: 'x' };
-    expect(approvedNotes([n])).toEqual([]);
+    expect(approvedNotes([n], allKeys([n]))).toEqual([]);
   });
 
   it('lists newest correction first, then the latest edition among same-day corrections', () => {
@@ -103,14 +128,33 @@ describe('the gate', () => {
       approved('2026-09-20', '2026-12-05'),
       draft('2026-11-05'),
     ];
-    expect(correctionsNewestFirst(notes).map((n) => n.date)).toEqual(['2026-09-20', '2026-10-01', '2026-09-08']);
+    expect(correctionsNewestFirst(notes, allKeys(notes)).map((n) => n.date)).toEqual([
+      '2026-09-20',
+      '2026-10-01',
+      '2026-09-08',
+    ]);
   });
 
-  it('an introduction passes only when approved with a real publishedOn', () => {
+  describe('the introduction', () => {
     const base = { title: 'T', paragraphs: ['P'] };
-    expect(approvedIntro({ ...base, status: 'draft' })).toBeNull();
-    expect(approvedIntro({ ...base, status: 'approved', publishedOn: '2026-12-01' })?.title).toBe('T');
-    expect(approvedIntro({ ...base, status: 'approved', publishedOn: 'soon' })).toBeNull();
+    const ok = { ...base, status: 'approved' as const, publishedOn: '2026-12-01' };
+    const all = [approved('2026-09-08', '2026-12-01'), approved('2026-09-09', '2026-12-01')];
+
+    it('passes with its key, its own approval and every note approved by both keys', () => {
+      expect(approvedIntro(ok, all, allKeys(all, true))?.title).toBe('T');
+    });
+
+    it('fails closed on anything less', () => {
+      expect(approvedIntro({ ...base, status: 'draft' }, all, allKeys(all, true))).toBeNull();
+      expect(approvedIntro({ ...ok, publishedOn: 'soon' }, all, allKeys(all, true))).toBeNull();
+      expect(approvedIntro(ok, all, allKeys(all, false))).toBeNull(); // no introduction key
+      // One note still draft, or approved by its status but missing from the key list.
+      expect(approvedIntro(ok, [all[0], draft('2026-09-13')], allKeys(all, true))).toBeNull();
+      expect(approvedIntro(ok, all, { noteDates: ['2026-09-08'], introduction: true })).toBeNull();
+      expect(approvedIntro(ok, [], { noteDates: [], introduction: true })).toBeNull();
+      // The repository's keys approve nothing today.
+      expect(approvedIntro(ok, all)).toBeNull();
+    });
   });
 });
 

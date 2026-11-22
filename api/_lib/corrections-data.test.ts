@@ -1,16 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './corrections-data.js';
+import { APPROVED_NOTE_DATES, INTRODUCTION_APPROVED } from './corrections-approvals.js';
 import { approvedIntro, approvedNotes } from './corrections.js';
 import { formatCorrectionDate, isIsoDate } from './correction-words.js';
 
 /**
  * The correction notes are data, and this is their integrity check.
  *
- * APPROVAL IS PINNED HERE. APPROVED_DATES lists exactly the edition dates the
- * owner has approved; INTRO_APPROVED says whether the page introduction is.
- * Approving a note therefore takes two edits in one commit: the entry's status
- * and correctedOn in corrections-data.ts, and its date here. A status flipped
- * by accident fails CI instead of publishing a draft.
+ * THE TEST-SIDE PIN. Publication is decided at runtime by the gate, which
+ * needs two keys in source: the entry's status (corrections-data.ts) and its
+ * date in APPROVED_NOTE_DATES (corrections-approvals.ts); a disagreement shows
+ * nothing anywhere. APPROVED_DATES and INTRO_APPROVED below are a further
+ * check that runs only where the tests run: they must match both keys, so a
+ * half-done or mistyped approval fails here as well as being withheld by the
+ * gate. The full approval and withdrawal steps are in corrections-approvals.ts.
  */
 const APPROVED_DATES: string[] = [];
 const INTRO_APPROVED = false;
@@ -114,9 +117,17 @@ describe('correction notes: integrity', () => {
 
   // The drafted introduction says "Each of the 49 carries a dated note beside
   // its original text". Published with fewer notes live, that sentence is
-  // false. So the introduction goes live only with every note. Rewording it to
-  // allow an earlier start is an owner decision, made by changing this test.
+  // false. The gate therefore withholds the introduction until every note is
+  // approved; this states the same rule where the tests run.
   it('the introduction is approved only once every note is', () => {
     if (INTRO_APPROVED) expect(APPROVED_DATES).toHaveLength(CORRECTION_NOTES.length);
+  });
+
+  it('the runtime keys in source agree with the test pin', () => {
+    expect([...APPROVED_NOTE_DATES].sort()).toEqual([...APPROVED_DATES].sort());
+    expect(new Set(APPROVED_NOTE_DATES).size).toBe(APPROVED_NOTE_DATES.length);
+    const noted = new Set(CORRECTION_NOTES.map((n) => n.date));
+    for (const d of APPROVED_NOTE_DATES) expect(noted.has(d), `${d} names no note`).toBe(true);
+    expect(INTRODUCTION_APPROVED).toBe(INTRO_APPROVED);
   });
 });

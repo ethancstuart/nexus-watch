@@ -3,18 +3,26 @@
  * /corrections page. DATA, NOT CODE: one entry per edition date.
  *
  * NOTHING IN THIS FILE IS SHOWN TO A READER UNTIL THE OWNER APPROVES IT. Every
- * surface reads it through api/_lib/corrections.ts, which passes on only
- * entries whose status is 'approved' (and drops an approved entry whose
- * correctedOn is not a real date, rather than guess). The wording below is an
+ * surface reads it through api/_lib/corrections.ts, whose gate passes on a
+ * note only when TWO keys agree: its status here is 'approved' with a real
+ * correctedOn, AND its edition date is listed in APPROVED_NOTE_DATES in
+ * api/_lib/corrections-approvals.ts. The gate checks both on every request of
+ * every deployment, so a status changed here by accident, or an approval typed
+ * on the wrong entry, shows nothing anywhere. (The integrity test also fails
+ * on it, but no Vercel build runs the tests.) The wording below is an
  * unapproved draft.
  *
- * TO APPROVE ONE NOTE: on its entry, change `status: 'draft'` to
- * `status: 'approved'` and add `correctedOn: 'YYYY-MM-DD'`, the date the note
- * goes live. Readers see that date as "Correction added D Mon YYYY." The type
- * refuses an approved entry without correctedOn. Then add the same edition
- * date to APPROVED_DATES in api/_lib/corrections-data.test.ts: the suite pins
- * exactly which notes are approved, so a status changed by accident fails CI
- * instead of publishing.
+ * TO APPROVE ONE NOTE, in one commit: on its entry here, change
+ * `status: 'draft'` to `status: 'approved'` and add
+ * `correctedOn: 'YYYY-MM-DD'`, the date the note goes live (readers see it as
+ * "Correction added D Mon YYYY."; the type refuses an approved entry without
+ * it); add the edition date to APPROVED_NOTE_DATES in corrections-approvals.ts;
+ * and add it to APPROVED_DATES in corrections-data.test.ts.
+ * TO WITHDRAW ONE: set its status back to 'draft', delete its correctedOn
+ * line, and remove its date from both lists.
+ * NEVER PUSH A BRANCH CARRYING A TRIAL APPROVAL: every pushed branch gets a
+ * public Vercel preview, which runs no tests, so the note would be published
+ * at that preview's URL.
  *
  * `text` is the note after its opening sentence, copied exactly from the
  * private drafts (the drafting marker "[NEW]" removed). The opening sentence,
@@ -327,11 +335,12 @@ export const CORRECTION_NOTES: readonly CorrectionNote[] = [
 /**
  * The page's title and introduction. The draft's cause paragraph and its other
  * sections are owner choices still open, and are not here. Approve with
- * `status: 'approved'` plus `publishedOn: 'YYYY-MM-DD'`, and set
- * INTRO_APPROVED in the test. Until then the page, once any note is approved,
- * carries only the heading "Corrections" and the approved notes. The first
- * paragraph says each of the 49 carries a note, so it is true only once all 49
- * are approved.
+ * `status: 'approved'` plus `publishedOn: 'YYYY-MM-DD'`, INTRODUCTION_APPROVED
+ * = true in corrections-approvals.ts, and INTRO_APPROVED = true in the test.
+ * The first paragraph says each of the 49 carries a note, so the gate also
+ * withholds the introduction until every note is approved by both keys. Until
+ * then the page, once any note is approved, carries only the heading
+ * "Corrections" and the approved notes.
  */
 export const CORRECTIONS_PAGE_INTRO: CorrectionsPageIntro = {
   status: 'draft',

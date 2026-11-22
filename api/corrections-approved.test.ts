@@ -4,8 +4,9 @@ import { markdownToHtml } from './_lib/markdown.js';
 
 /**
  * What a reader sees once the owner approves a note, on every surface, with
- * the data module replaced by synthetic notes (the repository's own notes are
- * all draft; see corrections-drafts.test.ts). Synthetic brief rows only.
+ * the data module and the approval keys replaced by synthetic ones (the
+ * repository's own notes are all draft and its key lists empty; see
+ * corrections-drafts.test.ts). Synthetic brief rows only.
  */
 
 const data = vi.hoisted(() => ({
@@ -13,6 +14,9 @@ const data = vi.hoisted(() => ({
   intro: { status: 'draft', title: 'Synthetic intro title', paragraphs: ['Synthetic intro paragraph.'] } as
     | CorrectionsPageIntro
     | undefined,
+  /** The second key: corrections-approvals.ts. */
+  keyDates: [] as string[],
+  keyIntro: false,
 }));
 vi.mock('./_lib/corrections-data.js', () => ({
   get CORRECTION_NOTES() {
@@ -20,6 +24,14 @@ vi.mock('./_lib/corrections-data.js', () => ({
   },
   get CORRECTIONS_PAGE_INTRO() {
     return data.intro;
+  },
+}));
+vi.mock('./_lib/corrections-approvals.js', () => ({
+  get APPROVED_NOTE_DATES() {
+    return data.keyDates;
+  },
+  get INTRODUCTION_APPROVED() {
+    return data.keyIntro;
   },
 }));
 
@@ -116,6 +128,8 @@ beforeEach(() => {
   process.env.DATABASE_URL = 'postgres://stub';
   data.notes = APPROVED;
   data.intro = { status: 'draft', title: 'Synthetic intro title', paragraphs: ['Synthetic intro paragraph.'] };
+  data.keyDates = [A, B, C];
+  data.keyIntro = false;
   failDb = false;
   latestDate = B;
   vi.restoreAllMocks();
@@ -209,21 +223,43 @@ describe('/corrections with approved notes', () => {
     expect(html).not.toMatch(/Synthetic intro|Published /);
   });
 
-  it('with an approved introduction, shows it dated, and the latest correction as the update', async () => {
-    data.intro = {
-      status: 'approved',
-      publishedOn: '2026-12-01',
-      title: 'Synthetic intro <title>',
-      paragraphs: ['First & only paragraph.'],
-    };
+  const INTRO: CorrectionsPageIntro = {
+    status: 'approved',
+    publishedOn: '2026-12-01',
+    title: 'Synthetic intro <title>',
+    paragraphs: ['First & only paragraph.'],
+  };
+
+  it('with an approved introduction and every note approved, shows it dated, with the latest correction as the update', async () => {
+    data.notes = APPROVED.filter((n) => n.status === 'approved');
+    data.intro = INTRO;
+    data.keyIntro = true;
     const html = (await call('./corrections.js')).body as string;
     expect(html).toContain('<div class="kicker">Corrections</div><h1>Synthetic intro &lt;title&gt;</h1>');
     expect(html).toContain('<p class="lede dated">Published 1 Dec 2026. Updated 3 Dec 2026.</p>');
     expect(html).toContain('<p class="lede">First &amp; only paragraph.</p>');
   });
 
-  it('is 404 again when the only approved notes are withdrawn to draft', async () => {
+  it('withholds an approved introduction while any note is unpublished, or without its key', async () => {
+    const allApproved = APPROVED.filter((n) => n.status === 'approved');
+    for (const [notes, keyDates, keyIntro] of [
+      [APPROVED, [A, B, C], true], // D is still a draft
+      [allApproved, [A, B], true], // C approved by status, missing from the key list
+      [allApproved, [A, B, C], false], // every note published, introduction key not set
+    ] as const) {
+      data.notes = [...notes];
+      data.keyDates = [...keyDates];
+      data.keyIntro = keyIntro;
+      data.intro = INTRO;
+      const html = (await call('./corrections.js')).body as string;
+      expect(html).toContain('<h1>Corrections</h1>');
+      expect(html).not.toMatch(/Synthetic intro|First &amp; only|Published /);
+    }
+  });
+
+  it('is 404 again after the full withdrawal: status draft, no correctedOn, dates off the key list', async () => {
     data.notes = APPROVED.map((n) => ({ ...n, status: 'draft', correctedOn: undefined }) as CorrectionNote);
+    data.keyDates = [];
     const { status, body } = await call('./corrections.js');
     expect(status).toBe(404);
     expect(body).toBe('not_found');
@@ -234,6 +270,44 @@ describe('/corrections with approved notes', () => {
     const html = (await call('./corrections.js')).body as string;
     expect(html).not.toContain('<b onclick');
     expect(html).toContain('&lt;b onclick=x&gt;&quot;hi&quot;&lt;/b&gt;');
+  });
+});
+
+/**
+ * THE TWO KEYS, ON EVERY SURFACE. The reviewer's plant: the owner lists 8 Sep
+ * as approved but sets the status on 9 Sep. Neither note may appear anywhere,
+ * whether or not any test runs before the deploy.
+ */
+describe('a mismatched approval shows nothing on any surface', () => {
+  const MIS = '2026-09-09';
+  beforeEach(() => {
+    data.notes = [
+      { date: A, status: 'draft', classification: 'false', text: textFor(A, 'alpha-draft') },
+      { date: MIS, status: 'approved', correctedOn: '2026-12-01', classification: 'false', text: textFor(MIS, 'mis') },
+    ];
+    data.keyDates = [A];
+  });
+
+  it('on /brief/:date, /corrections, /api/v1/brief and /api/briefs', async () => {
+    for (const date of [A, MIS]) {
+      const html = await page(date);
+      expect(html).not.toMatch(/class="correction"|Correction added|\/corrections|alpha-draft|synthetic mis/);
+      const v1 = (await call('./v1/brief.js', { date })).body as object;
+      expect('correction' in v1).toBe(false);
+      const one = (await call('./briefs.js', { date })).body as object;
+      expect('correctedOn' in one).toBe(false);
+    }
+    const list = (await call('./briefs.js')).body as { briefs: object[] };
+    for (const b of list.briefs) expect('correctedOn' in b).toBe(false);
+    const corrections = await call('./corrections.js');
+    expect(corrections.status).toBe(404);
+  });
+
+  it('and only the key list, without the status, publishes nothing either', async () => {
+    data.notes = [{ date: A, status: 'draft', classification: 'false', text: textFor(A, 'alpha-draft') }];
+    data.keyDates = [A];
+    expect(await page(A)).not.toMatch(/class="correction"|alpha-draft/);
+    expect((await call('./corrections.js')).status).toBe(404);
   });
 });
 

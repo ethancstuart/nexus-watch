@@ -1,28 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './_lib/corrections-data.js';
-import { approvedNotes } from './_lib/corrections.js';
+import { approvedIntro, approvedNotes } from './_lib/corrections.js';
 import { markdownToHtml } from './_lib/markdown.js';
 
 /**
- * A DRAFT NOTE NEVER SHOWS, ON ANY SURFACE. This renders every surface that
- * could show a note, for every draft edition, against the real data module
- * (nothing mocked but the database), and finds no trace: no block, no label,
- * no link, no marker, no JSON field, no sentence of any draft, no word of a
- * draft page introduction.
+ * AN UNPUBLISHED NOTE NEVER SHOWS, ON ANY SURFACE. This renders every
+ * surface that could show a note, for every edition whose note the gate
+ * withholds (a draft, or an approval the second key does not confirm), against
+ * the real data and keys (nothing mocked but the database), and finds no
+ * trace: no block, no label, no link, no marker, no JSON field, no sentence of
+ * any such note, no word of an unpublished page introduction.
  *
  * WITH TODAY'S DATA THAT IS ALL 49, SO NOTHING APPEARS ANYWHERE: every note
- * is a draft, the introduction is a draft, and /corrections is a 404.
- * _lib/corrections-data.test.ts pins that (APPROVED_DATES is empty). This
- * file derives its scope from the data, so approving a note needs no edit
- * here: it keeps holding for every note still in draft. What an approved
- * note looks like is pinned in corrections-approved.test.ts.
+ * is a draft, the key lists are empty, the introduction is a draft, and
+ * /corrections is a 404. _lib/corrections-data.test.ts pins that. This file
+ * derives its scope from the gate, so approving a note needs no edit here: it
+ * keeps holding for every note still unpublished. What an approved note looks
+ * like is pinned in corrections-approved.test.ts.
  *
  * Synthetic brief rows only.
  */
 
-const DRAFTS = CORRECTION_NOTES.filter((n) => n.status === 'draft');
+const PUBLISHED = new Set(approvedNotes().map((n) => n.date));
+const DRAFTS = CORRECTION_NOTES.filter((n) => !PUBLISHED.has(n.date));
 const NOTED = DRAFTS.map((n) => n.date);
-const NONE_APPROVED = approvedNotes().length === 0;
+const NONE_APPROVED = PUBLISHED.size === 0;
 /** Two dates with no note: a wording-only edition and a mechanical one. */
 const UNNOTED = ['2026-09-18', '2026-11-07'];
 
@@ -89,11 +91,11 @@ async function call(mod: string, query: Record<string, string> = {}) {
   return res.state;
 }
 
-/** Words of a draft: no surface may ever carry them. */
+/** Words of an unpublished note or introduction: no surface may carry them. */
 const DRAFT_WORDS: string[] = [
-  // A distinctive stretch from the middle of every draft note, past its date.
+  // A distinctive stretch from the middle of every unpublished note, past its date.
   ...DRAFTS.map((n) => n.text.slice(20, 80)),
-  ...(CORRECTIONS_PAGE_INTRO.status === 'draft'
+  ...(approvedIntro() === null
     ? [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map((p) => p.slice(0, 60))]
     : []),
 ];
@@ -127,12 +129,12 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('a draft note never shows, on any surface', () => {
+describe('an unpublished note never shows, on any surface', () => {
   it('covers every note the gate does not pass', () => {
     expect(DRAFTS.length + approvedNotes().length).toBe(CORRECTION_NOTES.length);
   });
 
-  it('/brief/:date, for every draft edition and two unnoted ones', async () => {
+  it('/brief/:date, for every unpublished edition and two unnoted ones', async () => {
     for (const date of [...NOTED, ...UNNOTED]) {
       const { status, body } = await call('./brief/og.js', { date });
       expect(status).toBe(200);
