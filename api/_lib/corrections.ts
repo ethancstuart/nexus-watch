@@ -2,7 +2,9 @@ import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './corrections-data.js'
 import {
   ALL_CORRECTIONS_LINK,
   CORRECTION_LABEL,
+  CORRECTIONS_HEADING,
   CORRECTIONS_PATH,
+  formatCorrectionDate,
   fullNote,
   isIsoDate,
   type ApprovedCorrectionNote,
@@ -113,3 +115,53 @@ export const CORRECTION_BLOCK_CSS =
   '    .correction { margin: 0 0 40px; padding: 18px 22px; background: #f2efe6; border: 1px solid #c9c3b4; border-left: 3px solid #9a1b1b; }\n' +
   '    .correction p { font-size: 15px; line-height: 1.6; color: #12161c; margin: 0 0 16px 0; }\n' +
   '    .correction .correction-more { margin: 0; }\n';
+
+type ApprovedIntro = Extract<CorrectionsPageIntro, { status: 'approved' }>;
+
+/**
+ * The /corrections page body, title and description. The caller returns 404
+ * instead when `notes` is empty, so the page does not exist publicly until a
+ * note is approved. Without an approved introduction it carries only the
+ * heading and the notes: no draft words. Each note links to its brief; the
+ * link text is the brief page's own kicker.
+ */
+export function renderCorrectionsPage(
+  notes: readonly ApprovedCorrectionNote[],
+  intro: ApprovedIntro | null,
+): { body: string; title: string; description: string } {
+  const parts: string[] = ['<div class="rule"></div>'];
+  if (intro) {
+    const latest = notes.reduce((max, n) => (n.correctedOn > max ? n.correctedOn : max), intro.publishedOn);
+    parts.push(
+      `<div class="kicker">${esc(CORRECTIONS_HEADING)}</div><h1>${esc(intro.title)}</h1>` +
+        `<p class="lede dated">Published ${esc(formatCorrectionDate(intro.publishedOn))}.` +
+        (latest > intro.publishedOn ? ` Updated ${esc(formatCorrectionDate(latest))}.` : '') +
+        '</p>',
+    );
+    for (const p of intro.paragraphs) parts.push(`<p class="lede">${esc(p)}</p>`);
+  } else {
+    parts.push(`<h1>${esc(CORRECTIONS_HEADING)}</h1>`);
+  }
+  for (const n of notes) {
+    const href = `/brief/${n.date}`;
+    parts.push(
+      `<section class="corr" id="brief-${esc(n.date)}">` +
+        `<div class="kicker"><a href="${esc(href)}">Situation Brief · ${esc(n.date)}</a></div>` +
+        `<p class="lede">${esc(fullNote(n))}</p>` +
+        '</section>',
+    );
+  }
+  return {
+    body: parts.join('\n'),
+    title: intro ? intro.title : CORRECTIONS_HEADING,
+    description: intro ? (intro.paragraphs[0] ?? intro.title) : CORRECTIONS_HEADING,
+  };
+}
+
+/** Static CSS for the corrections page, on the register palette the shell defines. No interpolation. */
+export const CORRECTIONS_PAGE_CSS =
+  '  .corr { margin:40px 0 0; padding-top:20px; border-top:1px solid var(--rule); }\n' +
+  '  .corr .kicker a { color:var(--accent); text-decoration:none; }\n' +
+  '  .corr .kicker a:hover { text-decoration:underline; }\n' +
+  '  .corr .lede { margin-top:8px; }\n' +
+  '  .dated { font-size:14px; color:var(--ink3); }\n';

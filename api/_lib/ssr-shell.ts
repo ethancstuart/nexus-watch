@@ -38,6 +38,12 @@ export interface ShellOptions {
    * large one without having to remember to also change the card type.
    */
   ogImage?: string;
+  /**
+   * Static CSS for this page alone, appended inside the shell's <style> and
+   * ending in a newline. Never interpolate data into it. Absent, the shell is
+   * byte for byte what it was before the option existed.
+   */
+  css?: string;
 }
 
 export function shell(body: string, opts: ShellOptions): string {
@@ -138,7 +144,7 @@ export function shell(body: string, opts: ShellOptions): string {
   .masthead .wordmark { font-family:${fonts.serif}; font-weight:600; font-size:19px; color:var(--ink); text-decoration:none; }
   .masthead a { font-family:${fonts.mono}; font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink2); text-decoration:none; }
   .masthead a:hover { color:var(--accent); }
-</style>
+${opts.css ?? ''}</style>
 </head>
 <body><div class="wrap">
 <nav class="masthead" aria-label="Primary">
