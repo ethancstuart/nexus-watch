@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   BRIEF_MODEL_MODE_VAR,
   buildDryRunRecord,
+  draftReachedGates,
   dryRunAlert,
   getBriefModelMode,
   newDryRunAttempt,
@@ -339,10 +340,51 @@ describe('recordDryRun: stores privately, emails the operator, never throws', ()
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // Review 6, should-fix 1: a reply that is only a SUBJECT line is an empty
+  // response to the handler, but it is not empty text. The gates never saw a
+  // body, so there is nothing for the operator to read.
+  it('text the gates never scored (a reply that was only a SUBJECT line): stored as written, no email', async () => {
+    const subjectOnly = `SUBJECT: A dry run ${MARKER} subject for a test day`;
+    const r = record({
+      outcome: 'ai-empty-response',
+      wouldHaveShipped: false,
+      draftText: subjectOnly,
+      gates: buildDryRunRecord({
+        briefDate: 'd',
+        runId: 'r',
+        outcome: 'o',
+        wouldHaveShipped: false,
+        attempt: newDryRunAttempt(),
+      }).gates,
+    });
+    expect(draftReachedGates(r)).toBe(false);
+    const out = await recordDryRun(recordingSql, r);
+    expect(out).toEqual({ stored: true, emailed: null });
+    expect(statements).toHaveLength(1);
+    expect(statements[0].values).toContain(subjectOnly);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('a failed operator email is reported, not thrown', async () => {
     fetchMock.mockResolvedValue(new Response('down', { status: 503 }));
     const out = await recordDryRun(recordingSql, record());
     expect(out.stored).toBe(true);
     expect(out.emailed?.delivered).toBe(false);
+  });
+});
+
+describe('draftReachedGates: the operator email goes only for a draft the gates scored', () => {
+  const notRun = { verdict: 'not-run' as const, reason: null };
+  it.each([
+    ['passed every gate', record(), true],
+    [
+      'refused by a gate',
+      record({ wouldHaveShipped: false, gates: gatesFor(`${PASSING}\n\n9999 8888 7777 6666`) }),
+      true,
+    ],
+    ['no text at all', record({ draftText: null }), false],
+    ['text the gates never scored', record({ gates: { grounding: notRun, structure: notRun, claims: notRun } }), false],
+  ])('%s → %s', (_, r, expected) => {
+    expect(draftReachedGates(r)).toBe(expected);
   });
 });

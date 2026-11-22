@@ -238,6 +238,16 @@ export async function insertDryRun(sql: SqlTag, r: DryRunRecord): Promise<void> 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /**
+ * A draft body was scored: the gates ran on it (they run together, so one
+ * verdict other than not-run means all three did) and there is text to read.
+ * False for a failed call, a cut-off or refused reply, an empty reply and a
+ * reply that was only a SUBJECT line (the handler calls that empty).
+ */
+export function draftReachedGates(r: DryRunRecord): boolean {
+  return r.draftText !== null && r.gates.grounding.verdict !== 'not-run';
+}
+
+/**
  * Store the dry run and send the operator email. NEVER THROWS, and never
  * touches daily_briefs: by the time this runs the reader's edition is already
  * the mechanical one and archived.
@@ -245,8 +255,10 @@ const messageOf = (err: unknown) => (err instanceof Error ? err.message : String
  * Storage fails: logged (message scrubbed: a database error may quote a value)
  * and alerted without any draft text; the email still goes, saying so.
  * The email fails: logged by emailAdmins, as every alert outcome is.
- * No email when there is no draft: the model call failed, and the existing
- * alarm for that already fires.
+ * No email unless a draft body reached the gates (draftReachedGates): when
+ * the model call failed, or the reply was empty or only a SUBJECT line, the
+ * existing alarm already fires and there is nothing to read. The attempt is
+ * stored either way.
  */
 export async function recordDryRun(
   sql: SqlTag,
@@ -276,7 +288,7 @@ export async function recordDryRun(
 
   let emailed: AlertResult | null = null;
   try {
-    if (record.draftText) emailed = await emailAdmins(operatorEmail(record, stored));
+    if (draftReachedGates(record)) emailed = await emailAdmins(operatorEmail(record, stored));
   } catch (err) {
     emailed = { delivered: false, channel: 'email', detail: scrubForLog(messageOf(err)) };
   }
