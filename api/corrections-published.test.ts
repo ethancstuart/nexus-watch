@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createHash } from 'node:crypto';
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './_lib/corrections-data.js';
-import { approvedIntro, approvedNotes, briefDateKey } from './_lib/corrections.js';
-import { formatCorrectionDate, fullNote } from './_lib/correction-words.js';
+import { approvedIntro, approvedNotes, briefDateKey, pageParagraphText } from './_lib/corrections.js';
+import { CORRECTIONS_HEADING, formatCorrectionDate, fullNote } from './_lib/correction-words.js';
 import { esc } from './_lib/ssr-shell.js';
 
 /**
@@ -26,10 +26,21 @@ import { esc } from './_lib/ssr-shell.js';
  * and of every note as `date|classification|text`, joined the same way, in
  * date order. The same digests are recorded with the final reader text the
  * owner's decision of 23 Nov 2026 covers; change the text there and here
- * together.
+ * together. The page digest is of the WORDS: each paragraph with its list and
+ * lead-in markers removed (pageParagraphText). Adding those markers changed no
+ * word, so this digest did not change.
  */
 const PAGE_DIGEST = '9e4832f0d0de05c933e4f9dfd26c2bb5b384c483e596f80202a92ef7e6020b84';
 const NOTES_DIGEST = 'd801389b4ebbef978db04a1571dcc09e57a0ab8435d42501bc34534be950f413';
+/**
+ * sha256 of everything a reader sees on /corrections below the masthead, as
+ * visibleText() reads it: the kicker, title and dated line, the page text, then
+ * each note under its link. It equals the final reader text recorded with the
+ * owner's decision (every block, whitespace normalised), and the page as served
+ * before the lists and bold lead-ins existed. Markup may change; this may not,
+ * unless the words do.
+ */
+const VISIBLE_TEXT_DIGEST = '90d6ba60d2d91d4a86baf3124d1c98fe0b991b9c389d46aad8bae01d17e5da80';
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
 
@@ -88,8 +99,33 @@ async function call(mod: string, query: Record<string, string> = {}) {
   return res.state;
 }
 const count = (hay: string, needle: string) => hay.split(needle).length - 1;
-/** The reader paragraphs of a page, in order: every `<p class="lede">`, the dated line excluded. */
-const ledes = (html: string) => [...html.matchAll(/<p class="lede">([\s\S]*?)<\/p>/g)].map((m) => m[1]);
+/**
+ * The reader blocks of a page, in order: every `<p class="lede">` and every list
+ * item, the dated line excluded, with the bold of a lead-in removed. An item
+ * that holds a nested list ends where that list begins.
+ */
+const ledes = (html: string) =>
+  [...html.matchAll(/<p class="lede">([\s\S]*?)<\/p>|<li>([\s\S]*?)(?=<ul>|<\/li>)/g)].map((m) =>
+    (m[1] ?? m[2]).replace(/<\/?strong>/g, ''),
+  );
+const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+/**
+ * What a reader sees of a server page below its masthead: every tag removed (a
+ * block tag reads as a break, an inline tag, <strong> or <a>, as nothing), the
+ * five escapes esc() makes undone, and all whitespace collapsed to one space.
+ */
+function visibleText(html: string): string {
+  const from = html.indexOf('</nav>');
+  const to = html.lastIndexOf('</div></body>');
+  expect(from).toBeGreaterThan(0);
+  expect(to).toBeGreaterThan(from);
+  return html
+    .slice(from + '</nav>'.length, to)
+    .replace(/<[^>]*>/g, (tag) => (/^<\/?(?:strong|a)\b/.test(tag) ? '' : ' '))
+    .replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e])
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 beforeEach(() => {
   process.env.DATABASE_URL = 'postgres://stub';
@@ -97,7 +133,8 @@ beforeEach(() => {
 
 describe('the stored text is the signed-off final reader text', () => {
   it('the page text matches, by digest', () => {
-    expect(sha256([CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs].join('\n\n'))).toBe(PAGE_DIGEST);
+    const words = [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map(pageParagraphText)];
+    expect(sha256(words.join('\n\n'))).toBe(PAGE_DIGEST);
   });
 
   it('the 67 note texts and their classifications match, by digest', () => {
@@ -108,12 +145,25 @@ describe('the stored text is the signed-off final reader text', () => {
   });
 
   it('the page text is plain reader text: no drafting marks, owner notes or sources', () => {
-    for (const p of [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs]) {
+    for (const p of [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map(pageParagraphText)]) {
       expect(p).toBe(p.trim());
       expect(p).not.toMatch(
         /\[|\]|\*|`|OWNER|[Nn]ot for publication|[Bb]efore publication|publication date|Sources,|CSV|lanes\d|\.md\b/,
       );
     }
+  });
+
+  it('the only markup stored is a list marker and a bold lead-in, and a nested item always follows an item', () => {
+    const ps = CORRECTIONS_PAGE_INTRO.paragraphs;
+    ps.forEach((p, i) => {
+      const nested = p.startsWith('  - ');
+      const item = nested || p.startsWith('- ');
+      const body = p.slice(nested ? 4 : item ? 2 : 0);
+      expect(body, p).toBe(body.trim());
+      // At most one lead-in, at the start; pageParagraphText leaves no asterisk.
+      expect(body.replace(/^\*\*[^*]+\*\*/, ''), p).not.toContain('*');
+      if (nested) expect(i > 0 && (ps[i - 1].startsWith('- ') || ps[i - 1].startsWith('  - ')), p).toBe(true);
+    });
   });
 });
 
@@ -202,7 +252,9 @@ describe('every approved note renders, once, where it belongs', () => {
     const notes = [...approved].sort((a, b) =>
       a.correctedOn === b.correctedOn ? (a.date < b.date ? 1 : -1) : a.correctedOn < b.correctedOn ? 1 : -1,
     );
-    const expected = [...(intro ? intro.paragraphs : []), ...notes.map((n) => fullNote(n))].map(esc);
+    const expected = [...(intro ? intro.paragraphs.map(pageParagraphText) : []), ...notes.map((n) => fullNote(n))].map(
+      esc,
+    );
     expect(ledes(html)).toEqual(expected);
     // Each note sits under the link to its own brief.
     const linked = [...html.matchAll(/<a href="\/brief\/(\d{4}-\d{2}-\d{2})">Situation Brief · \1<\/a>/g)];
@@ -216,12 +268,130 @@ describe('every approved note renders, once, where it belongs', () => {
         (latest > intro.publishedOn ? ` Updated ${formatCorrectionDate(latest)}.` : '');
       expect(html).toContain(`<p class="lede dated">${dated}</p>`);
       // The page text comes before the first note.
-      expect(html.indexOf(esc(intro.paragraphs[intro.paragraphs.length - 1]))).toBeLessThan(
-        html.indexOf('<section class="corr"'),
-      );
+      const lastWords = esc(pageParagraphText(intro.paragraphs[intro.paragraphs.length - 1]).slice(-60));
+      expect(html.indexOf(lastWords)).toBeGreaterThan(0);
+      expect(html.indexOf(lastWords)).toBeLessThan(html.indexOf('<section class="corr"'));
     } else {
       expect(html).toContain('<h1>Corrections</h1>');
       expect(html).not.toContain('lede dated');
     }
+  });
+});
+
+/**
+ * THE WORDS ARE THE PUBLISHED WORDS; ONLY THE LAYOUT IS NEW. The page text
+ * carries two markers, a list item and a bold lead-in, which restore the
+ * draft's lists and bold lead-ins. What a reader sees, tags stripped and
+ * whitespace normalised, must equal the published text exactly.
+ */
+describe('/corrections: the published words, laid out as the draft laid them out', () => {
+  const newestFirst = () =>
+    [...approvedNotes()].sort((a, b) =>
+      a.correctedOn === b.correctedOn ? (a.date < b.date ? 1 : -1) : a.correctedOn < b.correctedOn ? 1 : -1,
+    );
+
+  it('the visible text, tags stripped and whitespace normalised, equals the published text exactly', async () => {
+    const { status, body } = await call('./corrections.js');
+    if (approvedNotes().length === 0) {
+      expect(status).toBe(404);
+      return;
+    }
+    const seen = visibleText(body as string);
+    const intro = approvedIntro();
+    const published = [
+      ...(intro
+        ? [
+            CORRECTIONS_HEADING,
+            intro.title,
+            `Published ${formatCorrectionDate(intro.publishedOn)}.`,
+            ...intro.paragraphs.map(pageParagraphText),
+          ]
+        : [CORRECTIONS_HEADING]),
+      ...newestFirst().flatMap((n) => [`Situation Brief · ${n.date}`, fullNote(n)]),
+    ]
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    // Against the stored words, whose digests are pinned above.
+    expect(seen).toBe(published);
+    // Against the final reader text itself, by digest.
+    if (intro) expect(sha256(seen)).toBe(VISIBLE_TEXT_DIGEST);
+  });
+
+  it("restores the draft's lists and bold lead-ins, and nothing else", async () => {
+    const html = (await call('./corrections.js')).body as string;
+    const intro = approvedIntro();
+    if (!intro) {
+      expect(html).not.toMatch(/<(?:ul|li|strong)[\s>]/);
+      return;
+    }
+    const page = html.slice(html.indexOf('</nav>'), html.indexOf('<section class="corr"'));
+    const strip = (s: string) => s.replace(/<[^>]*>/g, '');
+    // The bold lead-ins, in reading order.
+    expect([...page.matchAll(/<strong>([^<]*)<\/strong>/g)].map((m) => m[1])).toEqual([
+      'What was wrong.',
+      'Records.',
+      'Trends.',
+      'Counts.',
+      'The unit.',
+      'Motives and services.',
+      'Claims we could not check.',
+      'Blocking we said OONI had not recorded.',
+      'Subject lines.',
+      'The 67 editions with a note, one line each.',
+      'Wording only (8 editions, no note).',
+      'What we did not check.',
+      'Method and data.',
+    ]);
+    // Three lists: by kind, the 67 one-line entries, and what we did not check.
+    const lists = [...page.matchAll(/<ul class="lede">\n([\s\S]*?)\n<\/ul>(?=\n<p|$)/g)].map((m) => m[1]);
+    expect(lists).toHaveLength(3);
+    expect(count(page, '<ul class="lede">')).toBe(3);
+    const [byKind, entries, unchecked] = lists;
+    // By kind: eight items, and "Counts." holds its two sub-items.
+    const kinds = [...byKind.matchAll(/^<li><strong>([^<]*)<\/strong>/gm)].map((m) => m[1]);
+    expect(kinds).toEqual([
+      'Records.',
+      'Trends.',
+      'Counts.',
+      'The unit.',
+      'Motives and services.',
+      'Claims we could not check.',
+      'Blocking we said OONI had not recorded.',
+      'Subject lines.',
+    ]);
+    const counts = byKind.slice(
+      byKind.indexOf('<li><strong>Counts.</strong>'),
+      byKind.indexOf('<li><strong>The unit.'),
+    );
+    expect(counts).toMatch(/^<li><strong>Counts\.<\/strong> 210 of 313 quoted counts were right\.<ul>\n/);
+    expect([...counts.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1].slice(0, 22))).toEqual([
+      '90 were false: 86 prin',
+      '13 were misleading: a ',
+    ]);
+    expect(counts.trimEnd().endsWith('</ul></li>')).toBe(true);
+    // The 67 entries: one item per note, in edition order, each opening with its date.
+    const entryItems = [...entries.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]);
+    const byDate = [...approvedNotes()].sort((a, b) => a.date.localeCompare(b.date));
+    expect(entryItems).toHaveLength(byDate.length);
+    entryItems.forEach((item, i) =>
+      expect(item.startsWith(`${formatCorrectionDate(byDate[i].date).replace(/ \d{4}$/, '')}: `), item).toBe(true),
+    );
+    // What we did not check: seven items, none bold.
+    expect([...unchecked.matchAll(/<li>/g)]).toHaveLength(7);
+    expect(unchecked).not.toContain('<strong>');
+    // Each list sits straight after its lead-in paragraph.
+    for (const [leadEnd, list] of [
+      ['By kind:</p>', byKind],
+      ['unless marked seven-day.</p>', entries],
+      ['<strong>What we did not check.</strong></p>', unchecked],
+    ] as const) {
+      const before = page.slice(0, page.indexOf(`<ul class="lede">\n${list}`));
+      expect(before.endsWith(`${leadEnd}\n`), leadEnd).toBe(true);
+    }
+    // Every other block of the page text is a lede paragraph: 93 blocks in all.
+    expect(count(page, '<p class="lede">') + count(page, '<li>')).toBe(intro.paragraphs.length);
+    expect(intro.paragraphs).toHaveLength(93);
+    expect(strip(page)).not.toContain('**');
   });
 });

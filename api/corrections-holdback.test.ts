@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { CorrectionNote, CorrectionsPageIntro } from './_lib/correction-words.js';
 import { fullNote } from './_lib/correction-words.js';
 import { esc } from './_lib/ssr-shell.js';
-import { briefDateKey } from './_lib/corrections.js';
+import { briefDateKey, pageParagraphText } from './_lib/corrections.js';
 
 /**
  * HOLDING ONE NOTE BACK FROM A FULL PUBLICATION. The real 67 notes and the real
@@ -124,7 +124,13 @@ async function call(mod: string, query: Record<string, string> = {}) {
   await handler({ method: 'GET', query }, res);
   return res.state;
 }
-const ledes = (html: string) => [...html.matchAll(/<p class="lede">([\s\S]*?)<\/p>/g)].map((m) => m[1]);
+/** Every `<p class="lede">` and list item, in order, the bold of a lead-in removed (as in corrections-published). */
+const ledes = (html: string) =>
+  [...html.matchAll(/<p class="lede">([\s\S]*?)<\/p>|<li>([\s\S]*?)(?=<ul>|<\/li>)/g)].map((m) =>
+    (m[1] ?? m[2]).replace(/<\/?strong>/g, ''),
+  );
+/** The page text as a reader reads it: each paragraph with its list and lead-in markers removed. */
+const INTRO_WORDS = () => REAL_INTRO.paragraphs.map(pageParagraphText);
 /** Newest first, as the page orders notes added the same day: the latest edition first. */
 const newestFirst = (notes: readonly CorrectionNote[]) => [...notes].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -144,7 +150,7 @@ describe('the harness: a full publication shows the page text and all 67 notes',
     const html = body as string;
     expect(html).toContain(`<h1>${esc(REAL_INTRO.title)}</h1>`);
     expect(html).toContain('<p class="lede dated">Published 23 Nov 2026.</p>');
-    expect(ledes(html)).toEqual([...REAL_INTRO.paragraphs, ...newestFirst(REAL_NOTES).map(fullFor)].map(esc));
+    expect(ledes(html)).toEqual([...INTRO_WORDS(), ...newestFirst(REAL_NOTES).map(fullFor)].map(esc));
   });
 });
 
@@ -192,7 +198,8 @@ describe.each(HELD_CASES.map((h) => [h.join(' and '), h] as const))('holding %s 
       expect(html).toContain('<title>Corrections</title>');
       expect(html).not.toContain(esc(REAL_INTRO.title));
       expect(html).not.toContain('lede dated');
-      for (const p of REAL_INTRO.paragraphs) expect(html).not.toContain(esc(p));
+      for (const p of INTRO_WORDS()) expect(html).not.toContain(esc(p));
+      expect(html).not.toMatch(/<(?:ul|li|strong)[\s>]/);
       for (const date of held) expect(html).not.toContain(`/brief/${date}`);
     });
   }

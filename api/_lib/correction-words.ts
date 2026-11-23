@@ -35,7 +35,11 @@ export type ApprovedCorrectionNote = Extract<CorrectionNote, { status: 'approved
 
 interface IntroFields {
   title: string;
-  /** Plain-text paragraphs, in order. */
+  /**
+   * Plain-text paragraphs, in order. A paragraph may start with a list marker
+   * ("- ", or "  - " nested) and then a bold lead-in ("**Lead.**"); nothing
+   * else is markup (api/_lib/corrections.ts, pageTextHtml).
+   */
   paragraphs: readonly string[];
 }
 

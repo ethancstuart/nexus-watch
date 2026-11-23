@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './_lib/corrections-data.js';
-import { approvedIntro, approvedNotes } from './_lib/corrections.js';
+import { approvedIntro, approvedNotes, pageParagraphText } from './_lib/corrections.js';
 import { markdownToHtml } from './_lib/markdown.js';
 
 /**
@@ -123,7 +123,7 @@ const DRAFT_WORDS: string[] = [
   // A distinctive stretch from every unpublished note, past its date.
   ...DRAFTS.map(distinctiveStretch),
   ...(approvedIntro() === null
-    ? [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map((p) => p.slice(0, 60))]
+    ? [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map((p) => pageParagraphText(p).slice(0, 60))]
     : []),
 ];
 

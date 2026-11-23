@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './corrections-data.js';
 import { APPROVED_NOTE_DATES, INTRODUCTION_APPROVED } from './corrections-approvals.js';
-import { approvedIntro, approvedNotes } from './corrections.js';
+import { approvedIntro, approvedNotes, pageParagraphText } from './corrections.js';
 import { formatCorrectionDate, isIsoDate } from './correction-words.js';
 
 /**
@@ -212,7 +212,8 @@ describe('correction notes: integrity', () => {
   it('the page introduction carries no unresolved owner choice', () => {
     expect(CORRECTIONS_PAGE_INTRO.title.trim()).not.toBe('');
     expect(CORRECTIONS_PAGE_INTRO.paragraphs.length).toBeGreaterThan(0);
-    for (const p of [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs]) {
+    // The words, with the list and lead-in markers the renderer reads removed.
+    for (const p of [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map(pageParagraphText)]) {
       expect(p).not.toMatch(/\[|\]|\*\*|OWNER/);
     }
     expect(approvedIntro() !== null).toBe(INTRO_APPROVED);
