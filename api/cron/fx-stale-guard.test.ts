@@ -134,6 +134,13 @@ const h = vi.hoisted(() => {
       ];
     }
     if (text.startsWith('SELECT rate_vs_usd FROM fx_rates')) return [];
+    if (text.includes('WHERE date = (SELECT MAX(date) FROM fx_rates WHERE date < ?)')) {
+      const before = state.fx.filter((r) => r.date < String(values[0])).map((r) => r.date);
+      const prevDate = before.sort()[before.length - 1];
+      return state.fx
+        .filter((r) => r.date === prevDate)
+        .map((r) => ({ currency_code: r.currency_code, rate: r.rate, date: r.date }));
+    }
     if (text.startsWith('INSERT INTO fx_rates')) {
       const [currency, country, date, rate] = values as [string, string, string, number];
       state.fx = state.fx.filter((r) => !(r.currency_code === currency && r.date === date));
@@ -164,7 +171,7 @@ const h = vi.hoisted(() => {
     channel: 'email',
     detail: 'stubbed',
   }));
-  const clearAlert = vi.fn(async (_key: string) => ({
+  const clearAlert = vi.fn(async (_key: string, _note?: string) => ({
     delivered: false,
     channel: 'suppressed',
     detail: 'nothing_to_clear',
@@ -232,7 +239,7 @@ const providerBody = (updatedAt: Date | null) => ({
       }
     : {}),
   base_code: 'USD',
-  rates: { USD: 1, ARS: 1575.9572, TRY: 42.402, AED: 3.6725 },
+  rates: { USD: 1, ARS: 1575.9572, TRY: 42.402, AED: 3.6725 } as Record<string, number>,
 });
 let provider: ReturnType<typeof providerBody> = providerBody(null);
 const fetchSpy = vi.fn(async (url: string) => {
@@ -427,6 +434,23 @@ describe('3. the 21 Nov shape — a quote dated the previous day — is caught',
     await collectAt('2026-11-21T05:00:00Z');
     await resolveAt('2026-11-21T09:45:00Z');
     expect(h.state.calls[0]).toMatchObject({ status: 'hit', evidence_count: 198 });
+  });
+
+  it('shape C — a fresh update time over the previous day’s values — is NOT prevented: stored, alerted, scored', async () => {
+    // The known limit, pinned so it cannot be forgotten. The provider stamps a
+    // fresh update but repeats 20 Nov's values. The collector cannot refuse it
+    // without a value rule (Sundays and pegs repeat honestly), so it stores
+    // the rows and raises its warning; the resolver then scores on them, as
+    // it did on 21 Nov.
+    h.state.calls = [arCall()];
+    h.state.fx = [...AR_THROUGH_20];
+    provider = { ...providerBody(new Date(Date.UTC(2026, 10, 21, 0, 2, 31))), rates: { USD: 1, ARS: 1562.98 } };
+    await collectAt('2026-11-21T05:00:00Z');
+    const warn = h.raiseAlert.mock.calls.map(([a]) => a).filter((a) => a.key === 'collector:source-fx-rates');
+    expect(warn).toHaveLength(1);
+    expect(warn[0].body).toContain('equal those stored for 2026-11-20');
+    await resolveAt('2026-11-21T09:45:00Z');
+    expect(h.state.calls[0]).toMatchObject({ status: 'miss', evidence_count: 114 });
   });
 });
 

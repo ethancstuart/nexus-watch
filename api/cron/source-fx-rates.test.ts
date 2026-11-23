@@ -103,6 +103,7 @@ const inserts = () => h.statements.filter((s) => s.text.startsWith('INSERT INTO 
 const raised = () => h.raiseAlert.mock.calls.map(([a]) => a).filter((a) => a.key === FX_COLLECTOR_ALERT_KEY);
 const cleared = () => h.clearAlert.mock.calls.filter(([k]) => k === FX_COLLECTOR_ALERT_KEY);
 let logSpy: ReturnType<typeof vi.spyOn>;
+const logged = () => logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
 
 let saved: { secret?: string; db?: string; fetch: typeof fetch };
 beforeEach(() => {
@@ -201,6 +202,7 @@ describe('source-fx-rates: freshness by the update’s age, not its calendar dat
     ]);
     expect(raised()).toHaveLength(0);
     expect(cleared()).toHaveLength(1);
+    expect(cleared()[0][1]).toContain('stored in full');
   });
 
   it('a failed fetch stores nothing, answers 502 and alerts — it used to answer 200 silently', async () => {
@@ -231,7 +233,7 @@ describe('source-fx-rates: freshness by the update’s age, not its calendar dat
   });
 });
 
-describe('source-fx-rates: the provider’s update time is logged', () => {
+describe('source-fx-rates: diagnostics that store as before and only alert', () => {
   it('logs the provider’s update time on every run: fresh, stale and failed', async () => {
     reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
     await collectAt('2026-11-21T05:00:00Z');
@@ -244,6 +246,74 @@ describe('source-fx-rates: the provider’s update time is logged', () => {
     expect(lines[0]).toContain('provider update 2026-11-21T00:02:31.000Z (5.0 h old)');
     expect(lines[1]).toContain('provider update 2026-11-20T00:02:31.000Z (29.0 h old)');
     expect(lines[2]).toContain('provider update none');
+  });
+
+  it('the 21 Nov shape under a fresh stamp: every rate equals the previous day’s → stored anyway, alerted', async () => {
+    h.prevRows = [
+      { currency_code: 'ARS', rate: 1575.9572, date: '2026-11-20' },
+      { currency_code: 'TRY', rate: 42.402, date: '2026-11-20' },
+      { currency_code: 'AED', rate: 3.6725, date: '2026-11-20' },
+    ];
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
+    const res = await collectAt('2026-11-21T05:00:00Z');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ ingested: 3, errors: [] }); // measurement unchanged
+    expect(inserts()).toHaveLength(3);
+    expect(raised()).toHaveLength(1);
+    expect(raised()[0].title).toContain('stored with 1 warning');
+    expect(raised()[0].body).toContain('all 3 rates stored equal those stored for 2026-11-20');
+    expect(raised()[0].body).toContain('will be scored');
+    expect(cleared()).toHaveLength(0);
+    expect(logged()).toContain('same as 2026-11-20: 3/3');
+  });
+
+  it('an ordinary day — pegs unchanged, floating rates moved — does not alert', async () => {
+    h.prevRows = [
+      { currency_code: 'ARS', rate: 1570.1, date: '2026-11-20' },
+      { currency_code: 'TRY', rate: 42.39, date: '2026-11-20' },
+      { currency_code: 'AED', rate: 3.6725, date: '2026-11-20' }, // the peg never moves
+    ];
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
+    await collectAt('2026-11-21T05:00:00Z');
+    expect(raised()).toHaveLength(0);
+    expect(cleared()).toHaveLength(1);
+    expect(logged()).toContain('same as 2026-11-20: 1/3');
+  });
+
+  it('a currency stored yesterday but missing today keeps the alert up (rows still stored)', async () => {
+    h.prevRows = [
+      { currency_code: 'ARS', rate: 1570.1, date: '2026-11-20' },
+      { currency_code: 'TRY', rate: 42.39, date: '2026-11-20' },
+      { currency_code: 'AED', rate: 3.6725, date: '2026-11-20' },
+    ];
+    const body = providerBody(at('2026-11-21T00:02:31Z'));
+    delete body.rates.TRY;
+    reply = { ok: true, status: 200, body };
+    const res = await collectAt('2026-11-21T05:00:00Z');
+    expect(res.statusCode).toBe(200);
+    expect(inserts()).toHaveLength(2);
+    expect(raised()).toHaveLength(1);
+    expect(raised()[0].body).toContain('missing today: TRY');
+    expect(cleared()).toHaveLength(0);
+  });
+
+  it('a currency that fails to store keeps the alert up', async () => {
+    h.failInsert = new Set(['TRY']);
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
+    const res = await collectAt('2026-11-21T05:00:00Z');
+    expect(res.statusCode).toBe(200);
+    expect(res.body?.ingested).toBe(2);
+    expect(raised()).toHaveLength(1);
+    expect(raised()[0].body).toContain('1 currency(ies) failed to store');
+  });
+
+  it('a failed previous-day read skips the diagnostics and stores as normal', async () => {
+    h.prevThrows = true;
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
+    const res = await collectAt('2026-11-21T05:00:00Z');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ ingested: 3, errors: [] });
+    expect(raised()).toHaveLength(0);
   });
 });
 

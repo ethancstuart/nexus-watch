@@ -146,6 +146,9 @@ export function providerUpdatedAt(body: { time_last_update_unix?: unknown }): Da
 /** This collector's own key on the existing alert path. */
 export const FX_COLLECTOR_ALERT_KEY = 'collector:source-fx-rates';
 
+/** Equal at the column's precision: rate_vs_usd is NUMERIC(16,6). */
+const sameStoredRate = (a: number, b: number) => Math.round(a * 1e6) === Math.round(b * 1e6);
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireCron(req, res)) return;
 
@@ -159,6 +162,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Logged on every run: the provider's own update time, the one fact that
   // tells a stale-stamp morning from a fresh-stamp, stale-values morning.
   let providerUpdate = 'none';
+  // DIAGNOSTICS, alert-only. The previous stored day's rates, to notice the
+  // 21 Nov shape when it arrives under a fresh update time. Nothing here
+  // changes what is stored.
+  let prevDate: string | null = null;
+  const prev = new Map<string, number>();
+  const stored = new Set<string>();
+  let compared = 0;
+  let identical = 0;
 
   try {
     // Fetch latest rates from open.er-api.com (free, no auth, reliable)
@@ -188,6 +199,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
     }
     const rates = latestData.rates || {};
+
+    try {
+      const rows = (await sql`
+        SELECT currency_code, rate_vs_usd::float AS rate, date::text AS date
+        FROM fx_rates
+        WHERE date = (SELECT MAX(date) FROM fx_rates WHERE date < ${today})
+      `) as unknown as Array<{ currency_code: string; rate: number; date: string }>;
+      for (const r of rows) {
+        prev.set(r.currency_code, r.rate);
+        prevDate = r.date;
+      }
+    } catch (diagErr) {
+      console.error('[source-fx-rates] previous-day read failed; diagnostics skipped:', diagErr);
+    }
 
     // Upsert today's rates
     for (const [currency, rate] of Object.entries(rates)) {
@@ -222,6 +247,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             volatility_7d = EXCLUDED.volatility_7d
         `;
         result.ingested++;
+        stored.add(currency);
+        const before = prev.get(currency);
+        if (before !== undefined) {
+          compared++;
+          if (sameStoredRate(rate, before)) identical++;
+        }
       } catch (err) {
         result.errors.push(`${currency}: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -234,8 +265,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // the reason in a body nobody reads, and every FX call due today is then
   // held. Now it raises an alert on the existing path, keyed so a continuing
   // failure is one notice plus reminders, and stood down by the first run that
-  // stores rates. The alert is fail-open: it never stops the collector.
+  // stores rates in full. The alert is fail-open: it never stops the collector.
+  //
+  // A run that stored rows can still be wrong in ways worth a look, and these
+  // are reported on the same key without changing what was stored:
+  //  - a currency failed to store, or one stored the previous day is missing,
+  //    so its calls will be held;
+  //  - EVERY stored rate equals the previous stored day's. Before 21 Nov that
+  //    happened on no day in 92, weekends included; the most on any other day
+  //    was 6 of 65 (both Sundays). A fresh update time carrying the previous
+  //    day's values passes the age test above, and this is the only sign of it.
   const storedNothing = result.ingested === 0;
+  const missing = [...prev.keys()].filter((c) => !stored.has(c)).sort();
+  const allIdentical = compared > 0 && compared === result.ingested && identical === compared;
+  const concerns: string[] = [];
+  if (!storedNothing) {
+    if (result.errors.length > 0) {
+      concerns.push(`${result.errors.length} currency(ies) failed to store, e.g. ${scrubForLog(result.errors[0])}`);
+    }
+    if (missing.length > 0) {
+      concerns.push(
+        `${missing.length} currency(ies) stored for ${prevDate} are missing today: ${missing.slice(0, 12).join(', ')}` +
+          `${missing.length > 12 ? ' …' : ''}; their FX calls due today will be held`,
+      );
+    }
+    if (allIdentical) {
+      concerns.push(
+        `all ${compared} rates stored equal those stored for ${prevDate}. The provider may have repeated ` +
+          'the values of the previous day under a new update time, as on 21 Nov. The rows are stored and will be scored',
+      );
+    }
+  }
   try {
     if (storedNothing) {
       await raiseAlert({
@@ -250,8 +310,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `${FX_QUOTE_MAX_AGE_HOURS} hours old; the next resolve-calls run then picks the calls up. A held call ` +
           `is settled as unresolvable, never scored, ${UNRESOLVABLE_GRACE_DAYS} days after its date.`,
       });
+    } else if (concerns.length > 0) {
+      await raiseAlert({
+        key: FX_COLLECTOR_ALERT_KEY,
+        severity: 'warning',
+        title: `[source-fx-rates] FX rates for ${today} stored with ${concerns.length} warning(s)`,
+        body: `${concerns.join('. ')}. Provider update: ${providerUpdate}.`,
+      });
     } else {
-      await clearAlert(FX_COLLECTOR_ALERT_KEY);
+      await clearAlert(
+        FX_COLLECTOR_ALERT_KEY,
+        `Rates for ${today} were stored in full. A day that stored nothing stays missing: FX calls due ` +
+          `that day are held and, unless a rate for it is stored, settled unresolvable after ` +
+          `${UNRESOLVABLE_GRACE_DAYS} days.`,
+      );
     }
   } catch (alertErr) {
     console.error('[source-fx-rates] alert failed (non-fatal):', alertErr);
@@ -259,7 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   console.log(
     `[source-fx-rates] provider update ${providerUpdate}; ingested=${result.ingested}, ` +
-      `errors=${result.errors.length}`,
+      `errors=${result.errors.length}, same as ${prevDate ?? 'no previous day'}: ${identical}/${compared}`,
   );
   return res.status(storedNothing ? 502 : 200).json(result);
 }
