@@ -29,6 +29,8 @@ import {
  *
  * A held call never waits forever: at the existing grace it is settled
  * unresolvable, never scored (section 6).
+ * Held calls go to the back of the due page, so a backlog cannot starve the
+ * calls that can be resolved (section 7).
  *
  * The AR fixture is SYNTHETIC: a reference and a window built to reproduce
  * the two figures the independent check derived (114 bp stale, +1.98% fresh,
@@ -80,9 +82,25 @@ const h = vi.hoisted(() => {
 
     if (text.startsWith('SELECT id, kind, country_code') && text.includes('FROM calls')) {
       const limit = Number(values[values.length - 1]);
+      // The held-last key is applied ONLY when the statement carries it, as the
+      // pending predicates are: remove it from the SQL and the page test fails.
+      const heldLast =
+        /ORDER BY \(kind = 'fx_devaluation' AND resolves_on > CURRENT_DATE - \?::int AND NOT EXISTS \(SELECT 1 FROM fx_rates f WHERE f\.country_code = calls\.country_code AND f\.date = calls\.resolves_on\)\) ASC, resolves_on ASC/.test(
+          text,
+        );
+      const graceStart = new Date(`${state.today}T00:00:00Z`);
+      graceStart.setUTCDate(graceStart.getUTCDate() - Number(values[0]));
+      const floor = graceStart.toISOString().slice(0, 10);
+      const held = (c: CallRow) =>
+        heldLast &&
+        c.kind === 'fx_devaluation' &&
+        c.resolves_on > floor &&
+        !state.fx.some((f) => f.country_code === c.country_code && f.date === c.resolves_on)
+          ? 1
+          : 0;
       return state.calls
         .filter((c) => (!onlyPending || c.status === 'pending') && c.resolves_on <= state.today)
-        .sort((a, b) => a.resolves_on.localeCompare(b.resolves_on))
+        .sort((a, b) => held(a) - held(b) || a.resolves_on.localeCompare(b.resolves_on))
         .slice(0, limit)
         .map((c) => ({
           id: c.id,
@@ -614,5 +632,41 @@ describe('6. a held call never waits forever: settled unresolvable at the existi
     h.state.calls = [arCall()];
     const v = ledgerTruthVerdict(ledgerReadingAt(dayAt(PAST_GRACE_DAYS + 1).replace('09:45', '10:30')));
     expect(v.map((a) => a.key)).toContain(OVERDUE_KEY);
+  });
+});
+
+describe('7. held calls cannot starve the 500-row page', () => {
+  it('600 held FX calls ahead in date order do not block 3 resolvable calls, or 2 due for settlement', async () => {
+    const held: CallRow[] = Array.from({ length: 600 }, (_, i) =>
+      arCall({
+        id: 10_000 + i,
+        country_code: 'VE',
+        made_on: `2026-11-0${1 + (i % 6)}`,
+        resolves_on: `2026-11-${15 + (i % 6)}`, // 15–20 Nov: inside grace on 21 Nov
+      }),
+    );
+    const pastGrace = [
+      arCall({ id: 9001, country_code: 'VE', made_on: '2026-10-31', resolves_on: '2026-11-14' }),
+      arCall({ id: 9002, country_code: 'VE', made_on: '2026-10-31', resolves_on: '2026-11-14' }),
+    ];
+    const resolvable = [arCall({ id: 1 }), arCall({ id: 2, threshold_pct: 1.5 }), arCall({ id: 3, threshold_pct: 5 })];
+    h.state.calls = [...held, ...pastGrace, ...resolvable];
+    h.state.fx = [...AR_THROUGH_20, AR_FRESH_21]; // no VE quotes at all
+
+    const res = await resolveAt('2026-11-21T09:45:00Z');
+
+    expect(res.body).toMatchObject({ due: 605, taken: 500, truncated: true });
+    // Every resolvable call was taken and scored exactly as before.
+    expect(h.state.calls.filter((c) => c.id <= 3).map((c) => c.status)).toEqual(['hit', 'hit', 'miss']);
+    // Past-grace calls were reached and settled, never scored.
+    expect(h.state.calls.filter((c) => c.id >= 9001 && c.id <= 9002).map((c) => c.status)).toEqual([
+      'unresolvable',
+      'unresolvable',
+    ]);
+    // The held ones fill only what is left, and stay pending.
+    expect(res.body?.fx_awaiting_quote).toBe(495);
+    expect(h.state.calls.filter((c) => c.id >= 10_000).every((c) => c.status === 'pending')).toBe(true);
+    // The truncation alarm still fires: the backlog is visible, not hidden.
+    expect(h.raiseAlert.mock.calls.some(([a]) => a.key === 'resolver:truncated')).toBe(true);
   });
 });

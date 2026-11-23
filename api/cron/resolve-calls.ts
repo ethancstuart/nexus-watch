@@ -60,7 +60,8 @@ export function fxEvidenceBasisPoints(movedPct: number): number {
  * It never waits forever. After UNRESOLVABLE_GRACE_DAYS it is settled as
  * unresolvable, never scored, by the same statement and the same grace as a
  * coverage-held censorship call, so ledger-truth's past-grace check holds for
- * it too.
+ * it too. And the due page puts held FX calls last (see the query), so a
+ * backlog of them cannot crowd out calls that can be resolved.
  */
 export function fxQuoteIsFreshFor(newestQuoteDate: string | null, resolvesOn: string): boolean {
   return newestQuoteDate !== null && newestQuoteDate >= resolvesOn;
@@ -119,13 +120,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = neon(dbUrl);
 
   try {
+    // HELD FX CALLS GO LAST. An FX call inside its grace window with no quote
+    // dated its resolution day can only be held again, so it is ordered after
+    // every row this run can act on: resolvable calls, other kinds, and FX
+    // calls past grace (which this run settles). Every other row keeps its
+    // oldest-first order. Without this, a backlog of held FX calls, about 66
+    // per lost day, would fill the 500-row page oldest-first and starve the
+    // calls that can be resolved. The test is the one fxQuoteIsFreshFor
+    // applies, written in SQL.
     const due = (await sql`
       SELECT id, kind, country_code, made_on::text AS made_on, resolves_on::text AS resolves_on,
              horizon_days, threshold, threshold_pct::float AS threshold_pct,
              reference_value::float AS reference_value, resolver_params
       FROM calls
       WHERE status = 'pending' AND resolves_on <= CURRENT_DATE
-      ORDER BY resolves_on ASC
+      ORDER BY
+        (kind = 'fx_devaluation'
+          AND resolves_on > CURRENT_DATE - ${UNRESOLVABLE_GRACE_DAYS}::int
+          AND NOT EXISTS (SELECT 1 FROM fx_rates f
+                          WHERE f.country_code = calls.country_code AND f.date = calls.resolves_on)) ASC,
+        resolves_on ASC
       LIMIT ${DUE_PAGE_SIZE}
     `) as unknown as DueCall[];
 
