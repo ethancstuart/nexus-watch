@@ -38,7 +38,26 @@ export interface ShellOptions {
    * large one without having to remember to also change the card type.
    */
   ogImage?: string;
+  /**
+   * Static CSS for this page alone, appended inside the shell's <style> and
+   * ending in a newline. Never interpolate data into it. Absent, the shell is
+   * byte for byte what it was before the option existed.
+   */
+  css?: string;
+  /**
+   * false omits the ledger-snapshots footer, which speaks of "this book" and
+   * its stated probabilities and is untrue on a page that is not the call
+   * book (/corrections). Absent or true, the footer is emitted exactly as before.
+   */
+  ledgerFooter?: boolean;
 }
+
+/** The call book's footer: on /ledger and /call/:id, not on pages that are not the book. */
+const LEDGER_FOOTER = `<p class="foot">Daily snapshots of this book are committed to the public repository —
+<a href="https://github.com/ethancstuart/nexus-watch/tree/main/ledger-snapshots">ledger-snapshots/</a> —
+so the stated probabilities and thresholds carry GitHub's timestamps, not ours. A reader can verify
+no call moved between issuance and resolution without trusting us.</p>
+`;
 
 export function shell(body: string, opts: ShellOptions): string {
   const canonical = `https://nexuswatch.dev${opts.canonicalPath}`;
@@ -138,7 +157,7 @@ export function shell(body: string, opts: ShellOptions): string {
   .masthead .wordmark { font-family:${fonts.serif}; font-weight:600; font-size:19px; color:var(--ink); text-decoration:none; }
   .masthead a { font-family:${fonts.mono}; font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink2); text-decoration:none; }
   .masthead a:hover { color:var(--accent); }
-</style>
+${opts.css ?? ''}</style>
 </head>
 <body><div class="wrap">
 <nav class="masthead" aria-label="Primary">
@@ -149,10 +168,6 @@ export function shell(body: string, opts: ShellOptions): string {
   <a href="https://nexuswatch.dev/about">About</a>
 </nav>
 ${body}
-<p class="foot">Daily snapshots of this book are committed to the public repository —
-<a href="https://github.com/ethancstuart/nexus-watch/tree/main/ledger-snapshots">ledger-snapshots/</a> —
-so the stated probabilities and thresholds carry GitHub's timestamps, not ours. A reader can verify
-no call moved between issuance and resolution without trusting us.</p>
-</div></body>
+${opts.ledgerFooter === false ? '' : LEDGER_FOOTER}</div></body>
 </html>`;
 }

@@ -41,6 +41,55 @@ export function fxEvidenceBasisPoints(movedPct: number): number {
   return Math.round(movedPct * 100);
 }
 
+/**
+ * AN FX CALL IS SCORED ONLY ON A QUOTE DATED ITS RESOLUTION DAY.
+ *
+ * On Sat 21 Nov 2026 every currency (65 of 65) repeated its 20 Nov value, and
+ * this job scored the 66 calls due that day at 09:45 with no quote fresher
+ * than 20 Nov. The harm is one-sided, as on the censorship leg: the verdict
+ * is the PEAK over the window, so a missing last day can only turn a
+ * would-be hit into a miss. AR 6047 was published MISS at 114 bp against
+ * 1.64%; at the next fresh quote it read +1.98%.
+ *
+ * So the window's newest stored quote must be dated on or after resolves_on.
+ * The window, the threshold and the reference are unchanged. A call without
+ * that quote stays pending and is retried on the next run. source-fx-rates
+ * stores a provider update as today's row only if it is under
+ * FX_QUOTE_MAX_AGE_HOURS old. So a row dated resolves_on holds the provider's
+ * daily update collected that morning: published about 00:02 UTC, and for a
+ * currency fixed on business days, its latest fixing. The reference rate
+ * follows the same convention. Three things it does not prove:
+ *  - that the update is that day's. If the previous day's update was published
+ *    more than about 9 hours late and nothing newer followed, it is stored
+ *    under the later date (the collector warns);
+ *  - that the values changed. An update can repeat the previous day's (the
+ *    collector warns);
+ *  - that every earlier day of the window has a row. A gap mid-window is
+ *    scored as before.
+ *
+ * A call held for want of that quote never waits forever. After
+ * UNRESOLVABLE_GRACE_DAYS it is settled as unresolvable, never scored, by the
+ * same statement and the same grace as a coverage-held censorship call, so
+ * ledger-truth's past-grace check holds for it too. And the due page puts held
+ * FX calls last (see the query), so a backlog of them cannot crowd out calls
+ * that can be resolved. (An FX call with no frozen reference or threshold is a
+ * different, older path: it is left pending, as before this change.)
+ */
+export function fxQuoteIsFreshFor(newestQuoteDate: string | null, resolvesOn: string): boolean {
+  return newestQuoteDate !== null && newestQuoteDate >= resolvesOn;
+}
+
+/**
+ * How many days an FX call may wait past its resolution date for that quote
+ * before a person is told. source-fx-rates only ever stores the current day,
+ * so a call still waiting the day after it was due will not resolve unless
+ * someone stores that quote; otherwise it is settled unresolvable at grace.
+ */
+export const FX_STALE_ALERT_AFTER_DAYS = 1;
+
+/** Stable key on the existing alert path: one notice, reminders, one all-clear. */
+export const FX_STALE_ALERT_KEY = 'resolver:fx-stale-quote';
+
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 /**
@@ -83,13 +132,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = neon(dbUrl);
 
   try {
+    // HELD FX CALLS GO LAST. An FX call inside its grace window with no quote
+    // dated its resolution day can only be held again, so it is ordered after
+    // every row this run can act on: resolvable calls, other kinds, and FX
+    // calls past grace (which this run settles). Every other row keeps its
+    // oldest-first order. Without this, a backlog of held FX calls, about 66
+    // per lost day, would fill the 500-row page oldest-first and starve the
+    // calls that can be resolved. The test is the one fxQuoteIsFreshFor
+    // applies, written in SQL.
     const due = (await sql`
       SELECT id, kind, country_code, made_on::text AS made_on, resolves_on::text AS resolves_on,
              horizon_days, threshold, threshold_pct::float AS threshold_pct,
              reference_value::float AS reference_value, resolver_params
       FROM calls
       WHERE status = 'pending' AND resolves_on <= CURRENT_DATE
-      ORDER BY resolves_on ASC
+      ORDER BY
+        (kind = 'fx_devaluation'
+          AND resolves_on > CURRENT_DATE - ${UNRESOLVABLE_GRACE_DAYS}::int
+          AND NOT EXISTS (SELECT 1 FROM fx_rates f
+                          WHERE f.country_code = calls.country_code AND f.date = calls.resolves_on)) ASC,
+        resolves_on ASC
       LIMIT ${DUE_PAGE_SIZE}
     `) as unknown as DueCall[];
 
@@ -139,6 +201,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Thin coverage, but inside the grace window — still pending, not settled.
     let stillWaiting = 0;
     let errored = 0;
+    // FX calls held for want of a quote dated their resolution day.
+    const fxHeld: Array<{ country: string; resolvesOn: string; overdueBy: number }> = [];
 
     for (const call of due) {
       try {
@@ -155,18 +219,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // was about. Both the threshold and the reference rate were fixed at
           // creation, so nothing here can move the bar.
           const peak = (await sql`
-          SELECT MAX(rate_vs_usd)::float AS peak
+          SELECT MAX(rate_vs_usd)::float AS peak, MAX(date)::text AS newest
           FROM fx_rates
           WHERE country_code = ${call.country_code}
             AND date >= ${call.made_on}::date
             AND date <= ${call.resolves_on}::date
-        `) as unknown as Array<{ peak: number | null }>;
+        `) as unknown as Array<{ peak: number | null; newest: string | null }>;
 
           const ref = call.reference_value;
           const pct = call.threshold_pct;
-          if (ref === null || pct === null || peak[0]?.peak == null) {
+          if (ref === null || pct === null) {
             // Unresolvable through no fault of the call — leave it pending
             // rather than record a miss we cannot justify.
+            continue;
+          }
+          // No quote dated the last day of the window: wait, never score.
+          // See fxQuoteIsFreshFor.
+          const newest = peak[0]?.newest ?? null;
+          if (!fxQuoteIsFreshFor(newest, call.resolves_on) || peak[0]?.peak == null) {
+            const why =
+              `no fresh quote: no exchange rate dated ${call.resolves_on}, the last day of the window, ` +
+              `was stored (newest in window: ${newest ?? 'none'})`;
+            const overdueBy = daysSinceResolution(call.resolves_on);
+            if (overdueBy < UNRESOLVABLE_GRACE_DAYS) {
+              console.warn(`[resolve-calls] call ${call.id} (${call.country_code}) held — ${why}; not scored`);
+              fxHeld.push({ country: call.country_code, resolvesOn: call.resolves_on, overdueBy });
+              stillWaiting++;
+              continue;
+            }
+            // GRACE PASSED: settled exactly as a coverage-held censorship call
+            // is below: same status, same statement, same predicate, same
+            // fallback. Never a hit or a miss.
+            console.warn(`[resolve-calls] call ${call.id} (${call.country_code}) unresolvable — ${why}`);
+            try {
+              await sql`
+              UPDATE calls
+              SET status = 'unresolvable', void_reason = ${why}, resolved_at = NOW()
+              WHERE id = ${call.id} AND status = 'pending'
+            `;
+              unresolvable++;
+            } catch (e) {
+              console.error(
+                `[resolve-calls] could not mark call ${call.id} unresolvable (migration not applied?) — ` +
+                  `left pending, still NOT scored: ${e instanceof Error ? e.message : String(e)}`,
+              );
+              stillWaiting++;
+            }
             continue;
           }
           const moved = fxDepreciationPct(ref, peak[0].peak);
@@ -398,10 +496,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // FX calls still waiting for their quote past FX_STALE_ALERT_AFTER_DAYS.
+    // Same path and shape as the truncation alert above: a stable key, raised
+    // while the condition holds and cleared on the first run without it. Fails
+    // open — the alert must never break resolution.
+    const fxOverdue = fxHeld.filter((c) => c.overdueBy >= FX_STALE_ALERT_AFTER_DAYS);
+    try {
+      if (fxOverdue.length > 0) {
+        const oldest = fxOverdue.map((c) => c.resolvesOn).sort()[0];
+        const countries = [...new Set(fxOverdue.map((c) => c.country))].sort();
+        const named =
+          countries.slice(0, 20).join(', ') + (countries.length > 20 ? ` and ${countries.length - 20} more` : '');
+        await raiseAlert({
+          key: FX_STALE_ALERT_KEY,
+          severity: 'warning',
+          title: `[resolve-calls] ${fxOverdue.length} FX call(s) held: no quote dated their resolution day`,
+          body:
+            `${fxOverdue.length} FX call(s) are still pending at least ${FX_STALE_ALERT_AFTER_DAYS} day(s) after ` +
+            `their resolution date, because fx_rates holds no quote dated that day for their currency. The oldest ` +
+            `was due ${oldest}. Countries: ${named}. They are not scored. source-fx-rates stores only the current ` +
+            'day, so they resolve only if a quote dated the resolution day is stored; otherwise each is settled ' +
+            `as unresolvable (never scored) ${UNRESOLVABLE_GRACE_DAYS} days after its date.`,
+        });
+      } else if (!truncated) {
+        // Not while truncated: held calls sort last, so some may not be in
+        // this page and an empty fxHeld would not mean none are held.
+        await clearAlert(
+          FX_STALE_ALERT_KEY,
+          'No FX call is now held past a day. Each was resolved on a stored quote or settled as unresolvable ' +
+            '(never scored) at grace; /ledger shows which.',
+        );
+      }
+    } catch (alertErr) {
+      console.error('[resolve-calls] fx stale-quote alert failed (non-fatal):', alertErr);
+    }
+
     console.log(
       `[resolve-calls] due ${due.length} — ${hits} hit, ${misses} miss, ` +
         `${unresolvable} unresolvable (settled, never scored), ` +
-        `${stillWaiting} awaiting late evidence (still pending), ${errored} errored`,
+        `${stillWaiting} awaiting late evidence (still pending; ${fxHeld.length} of them FX awaiting a quote), ` +
+        `${errored} errored`,
     );
     if (errored > 0) {
       // A resolver error is a resolution that silently didn't happen, on the
@@ -438,6 +572,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       unresolvable,
       /** Still pending: matured but inside the grace window, or awaiting retry. */
       still_waiting: stillWaiting,
+      /** Of still_waiting: FX calls with no quote dated their resolution day. */
+      fx_awaiting_quote: fxHeld.length,
       errored,
     });
   } catch (err) {

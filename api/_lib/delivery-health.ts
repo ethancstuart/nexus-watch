@@ -109,17 +109,14 @@ export function shouldAlert(
 }
 
 /**
- * A failed row whose `error` starts with this was a CONFIGURATION fault that
- * a keyed alert (api/_lib/beehiiv-config.ts, raised through alert.ts) has
- * already put in front of a person. That alert owns the condition: it fires on
- * day one, reminds daily, and sends an all-clear. The streak alert would
- * arrive on day three saying the same thing again, so it stands aside.
- *
- * The publisher only writes this prefix when the keyed alert actually reached
- * someone (delivered, or deduplicated against an earlier delivery). An alert
- * that reached nobody leaves the row unmarked, so this safety net still fires.
+ * Channels the brief no longer publishes to. Their old rows stay in
+ * `brief_delivery_log`, and nothing new is written for them, so a retired
+ * channel's streak is FROZEN at whatever it was on its last run. A frozen
+ * streak that sits on a repeat boundary would page every single day, forever
+ * (see "the clamp trap" in the tests), and the 199 consecutive failures an
+ * alert reported for beehiiv is one. A retired channel is never alerted on.
  */
-export const CONFIG_FAULT_ERROR_PREFIX = 'config_fault:';
+export const RETIRED_CHANNELS: ReadonlySet<string> = new Set(['beehiiv']);
 
 /** Channels that are both broken and due an alert on this run. */
 export function channelsToAlert(
@@ -128,7 +125,7 @@ export function channelsToAlert(
   repeatEvery: number = DEFAULT_REPEAT_EVERY,
 ): ChannelStreak[] {
   return computeFailureStreaks(rows).filter(
-    (c) => shouldAlert(c.streak, threshold, repeatEvery) && !c.lastError?.startsWith(CONFIG_FAULT_ERROR_PREFIX),
+    (c) => !RETIRED_CHANNELS.has(c.channel) && shouldAlert(c.streak, threshold, repeatEvery),
   );
 }
 

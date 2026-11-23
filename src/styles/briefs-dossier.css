@@ -251,6 +251,16 @@
   color: var(--accent);
   text-transform: uppercase;
 }
+/* Shown only when the server sends an approved correction for the brief. */
+.briefs-dossier .dossier-card-corrected {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
 
 .briefs-dossier .dossier-empty {
   text-align: center;
@@ -291,6 +301,31 @@
   text-align: left;
   font-size: 36px;
   margin-bottom: 24px;
+}
+
+/* An approved correction note, above the brief and outside its body. */
+.briefs-dossier .dossier-correction {
+  margin: 0 0 32px;
+  padding: 18px 22px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+}
+.briefs-dossier .dossier-correction .dossier-kicker {
+  margin-bottom: 8px;
+}
+.briefs-dossier .dossier-correction p {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+.briefs-dossier .dossier-correction p:last-child {
+  margin-bottom: 0;
+}
+.briefs-dossier .dossier-correction a {
+  color: var(--accent);
 }
 
 .briefs-dossier .dossier-map-image {

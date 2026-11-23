@@ -2,6 +2,17 @@ import '../styles/briefs-dossier.css';
 import { createElement } from '../utils/dom.ts';
 import { escapeHtml, renderBriefBody } from '../utils/briefRenderer.ts';
 import { setPageSeo, setJsonLd, PAGE_SEO } from '../utils/seo.ts';
+// The fixed words and date format only. NEVER corrections-data.ts or
+// corrections.ts: whatever this file imports ships in the public bundle, drafts
+// included. An approved note reaches this page only in the server's JSON.
+import {
+  ALL_CORRECTIONS_LINK,
+  CORRECTION_LABEL,
+  CORRECTIONS_PATH,
+  correctionAdded,
+  isIsoDate,
+  type CorrectionPayload,
+} from '../../api/_lib/correction-words.ts';
 
 /**
  * Brief archive pages. The single-brief page keeps the Light Intel Dossier
@@ -29,6 +40,8 @@ interface BriefListItem {
   /** The day's email subject, or null for briefs stored before subjects were. */
   subject?: string | null;
   generatedAt?: string;
+  /** Present only when an approved correction note sits beside this brief. */
+  correctedOn?: string;
 }
 
 interface BriefDetailResponse {
@@ -36,6 +49,25 @@ interface BriefDetailResponse {
   summary: string | null;
   content?: unknown;
   generated_at: string | null;
+  /** Present only when an approved correction note sits beside this brief. */
+  correction?: CorrectionPayload;
+}
+
+/**
+ * The correction block above a brief, from the server's payload. Fails closed:
+ * anything that is not a well-formed payload renders nothing. The note is
+ * escaped here; the brief's own body is untouched.
+ */
+function renderCorrectionBlock(c: unknown): string {
+  if (!c || typeof c !== 'object') return '';
+  const { correctedOn, note } = c as Partial<CorrectionPayload>;
+  if (!isIsoDate(correctedOn) || typeof note !== 'string' || note.trim() === '') return '';
+  return `
+        <aside class="dossier-correction" aria-label="${escapeHtml(CORRECTION_LABEL)}">
+          <div class="dossier-kicker">${escapeHtml(CORRECTION_LABEL)}</div>
+          <p>${escapeHtml(note)}</p>
+          <p><a href="${escapeHtml(CORRECTIONS_PATH)}">${escapeHtml(ALL_CORRECTIONS_LINK)}</a></p>
+        </aside>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,9 +150,14 @@ export function renderBriefs(root: HTMLElement): void {
       day: 'numeric',
       year: 'numeric',
     });
+    // A brief with an approved correction says so on its card. Only the server
+    // sends correctedOn, and only for an approved note.
+    const corrected = isIsoDate(b.correctedOn)
+      ? `<div class="dossier-card-corrected">${escapeHtml(correctionAdded(b.correctedOn))}</div>`
+      : '';
     return `
       <a href="#/brief/${encodeURIComponent(date)}" class="dossier-card">
-        <div class="dossier-card-date">${escapeHtml(dayName)}</div>
+        <div class="dossier-card-date">${escapeHtml(dayName)}</div>${corrected}
         <h2 class="dossier-card-headline">${escapeHtml(headline)}</h2>
         ${previewText ? `<p class="dossier-card-preview">${escapeHtml(previewText)}</p>` : ''}
         <div class="dossier-card-read">Read full brief →</div>
@@ -294,9 +331,9 @@ export function renderBrief(root: HTMLElement, date: string): void {
       articleEl.innerHTML = `
         <div class="dossier-kicker">SITUATION BRIEF</div>
         <h1 class="dossier-title">NexusWatch · ${escapeHtml(briefDate)}</h1>
-        <div class="dossier-article-date">${escapeHtml(dayName)}</div>
+        <div class="dossier-article-date">${escapeHtml(dayName)}</div>${renderCorrectionBlock(data.correction)}
         <div class="dossier-byline" style="font-size:12px;color:#8b8478;margin-top:32px;padding-top:16px;border-top:1px solid #e5e0d4;line-height:1.6;">
-          Written by a model from the day's collected data, then checked against it.<br>
+          Written by a model from the day's collected data.<br>
           Sources: OONI, USGS, UCDP, OFAC and the UN list, World Bank governance, Wikipedia pageviews, and daily
           FX reference rates. <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>
         </div>

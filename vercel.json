@@ -9,6 +9,10 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/sitemap-:page(\\d+).xml",
+      "destination": "/api/sitemap?page=:page"
+    },
+    {
       "source": "/feed.xml",
       "destination": "/api/feed"
     },
@@ -47,6 +51,10 @@
     {
       "source": "/ledger",
       "destination": "/api/ledger"
+    },
+    {
+      "source": "/corrections",
+      "destination": "/api/corrections"
     },
     {
       "source": "/accuracy",

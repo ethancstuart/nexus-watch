@@ -14,7 +14,18 @@ export const config = { runtime: 'nodejs' };
  *
  * Use case: analysts subscribe in Feedly/NetNewsWire to get daily
  * CII movement alerts without logging in or paying.
+ *
+ * WHERE THE LINKS GO. Every link here used to be `/#/intel` or
+ * `/#/intel?country=XX`, the map that was retired; no `/intel` route is
+ * registered (src/main.ts) and the live URL answered 404, so every item in
+ * the feed linked to a dead page. There is no per-country page today. The
+ * page that explains the index and lists its live scores is /methodology, so
+ * the channel and every item link there. cii.test.ts checks that each link is
+ * a route the router serves.
  */
+
+/** The live page for the index: its method and its current scores. */
+export const CII_PAGE_URL = 'https://nexuswatch.dev/methodology';
 
 const NAME_MAP: Record<string, string> = {
   UA: 'Ukraine',
@@ -123,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>NexusWatch CII Daily Updates</title>
-    <link>https://nexuswatch.dev/#/intel</link>
+    <link>${CII_PAGE_URL}</link>
     <atom:link href="https://nexuswatch.dev/rss/cii" rel="self" type="application/rss+xml" />
     <description>Daily Country Instability Index score changes for 86 nations. Tracks geopolitical risk movements worldwide.</description>
     <language>en-us</language>
@@ -155,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return `
     <item>
       <title>${escapeXml(title)}</title>
-      <link>https://nexuswatch.dev/#/intel?country=${r.country_code}</link>
+      <link>${CII_PAGE_URL}</link>
       <guid isPermaLink="false">nw-cii-${r.country_code}-${dateStr}</guid>
       <pubDate>${new Date(r.latest_date || dateStr).toUTCString()}</pubDate>
       <description>${escapeXml(desc)}</description>
@@ -181,7 +192,7 @@ function emptyFeed(note: string): string {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>NexusWatch CII Daily Updates</title>
-    <link>https://nexuswatch.dev/#/intel</link>
+    <link>${CII_PAGE_URL}</link>
     <atom:link href="https://nexuswatch.dev/rss/cii" rel="self" type="application/rss+xml" />
     <description>${note}. Subscribe for daily geopolitical risk score updates.</description>
     <language>en-us</language>

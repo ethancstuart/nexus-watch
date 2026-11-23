@@ -56,3 +56,57 @@ describe('landing hero stays at full strength', () => {
     expect(root.querySelector('a[href="#/ledger"]')).toBeNull();
   });
 });
+
+/**
+ * The landing excerpt shows the latest brief, which can be a corrected one
+ * (22 Nov is affected). It says so only when the server's JSON carries an
+ * approved correction. Synthetic responses.
+ */
+describe('landing excerpt and correction notes', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.textContent = '';
+  });
+
+  async function renderWithBrief(brief: Record<string, unknown>): Promise<HTMLElement> {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          String(url).includes('/api/v1/brief')
+            ? new Response(JSON.stringify(brief), { status: 200 })
+            : new Response('{}', { status: 503 }),
+        ),
+      ),
+    );
+    const root = render();
+    await vi.waitFor(() => {
+      if (root.querySelector('#nw-brief-excerpt')?.textContent !== 'Synthetic summary.') throw new Error('not yet');
+    });
+    return root;
+  }
+
+  it('marks a corrected latest brief on its own line, in the meta style', async () => {
+    const root = await renderWithBrief({
+      summary: 'Synthetic summary.',
+      correction: { correctedOn: '2026-12-01', classification: 'false', note: 'n' },
+    });
+    const marks = root.querySelectorAll('.nw-brief-corrected');
+    expect(marks).toHaveLength(1);
+    expect(marks[0].textContent).toBe('Correction added 1 Dec 2026.');
+    expect(marks[0].classList.contains('nw-brief-meta')).toBe(true);
+    expect(root.querySelector('#nw-brief-excerpt')?.textContent).toBe('Synthetic summary.');
+  });
+
+  it('shows no mark without an approved correction, or with a malformed one', async () => {
+    for (const brief of [
+      { summary: 'Synthetic summary.' },
+      { summary: 'Synthetic summary.', correction: { correctedOn: '<b>soon</b>' } },
+    ]) {
+      const root = await renderWithBrief(brief);
+      expect(root.querySelector('.nw-brief-corrected')).toBeNull();
+      expect(root.textContent).not.toMatch(/Correction added/);
+      document.body.textContent = '';
+    }
+  });
+});

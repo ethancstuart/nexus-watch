@@ -33,6 +33,14 @@ import {
 import { UNSUB_PLACEHOLDER } from '../_lib/unsubscribe-token.js';
 import { checkBudget, recordAnthropicSpend } from '../_lib/llm-budget.js';
 import { buildBriefRequest, readBriefReply, BRIEF_TIMEOUT_MS } from '../_lib/brief-model.js';
+import {
+  buildDryRunRecord,
+  dryRunAlert,
+  getBriefModelMode,
+  newDryRunAttempt,
+  recordDryRun,
+  summariseGates,
+} from '../_lib/brief-dry-run.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 300 };
 
@@ -527,7 +535,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
      * to avoid storing multi-KB API response bodies in Postgres.
      */
     async function logDelivery(params: {
-      channel: 'archive' | 'beehiiv' | 'resend' | 'notion';
+      channel: 'archive' | 'resend' | 'notion';
       status: 'success' | 'failed' | 'partial';
       recipientCount?: number;
       failedCount?: number;
@@ -889,6 +897,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // The model's declared subject. Cleared if a gate refuses the draft — a
     // subject describing a refused issue must never ship with the fallback.
     let declaredSubject: string | null = null;
+    // What a dry run records (api/_lib/brief-dry-run.ts), filled in as the
+    // call proceeds. Read only when BRIEF_MODEL_MODE is not `live`, and never
+    // by anything that reaches a reader.
+    const attempt = newDryRunAttempt();
 
     if (anthropicKey) {
       try {
@@ -1202,6 +1214,7 @@ ${(() => {
           system: getBriefSystemPrompt(now),
           dataContext,
         });
+        attempt.model = briefRequest.body.model;
         // The host stays a literal HERE, not in brief-model.ts: scripts/check-llm-spend.ts
         // scopes billed call sites by that literal and then requires a gate and a
         // spend record of this file.
@@ -1222,11 +1235,13 @@ ${(() => {
           // a full Sonnet brief, every day at 10:00 UTC — and until now it
           // recorded nothing, leaving the $9/day kill-switch blind to it.
           await recordAnthropicSpend(briefRequest.body.model, aiData.usage, 'daily-brief');
+          attempt.usage = aiData.usage ?? null;
           // Text blocks, not content[0] (a response may open with a thinking
           // block), and only if stop_reason is a normal end of turn: a reply
           // cut off at max_tokens inside the last section still passes the
           // structure gate, and a refusal is a 200.
           const reply = readBriefReply(aiData);
+          attempt.stopReason = reply.complete ? 'end_turn' : reply.stopReason;
           const rawDraft = reply.complete ? reply.text : '';
           // Strip the declared SUBJECT line before anything else reads the
           // draft: the gates must score the body, and the line must never
@@ -1234,6 +1249,10 @@ ${(() => {
           const parsedSubject = parseDeclaredSubject(rawDraft);
           declaredSubject = parsedSubject.subject;
           briefText = rawDraft ? parsedSubject.body : '';
+          // Kept for a dry run: the reply as the model wrote it, SUBJECT line
+          // included, and the subject as it would have shipped.
+          attempt.draftSubject = declaredSubject;
+          attempt.draftText = rawDraft;
           if (!reply.complete) {
             aiDebug = `${reply.label}:${reply.stopReason}`;
             console.error('[daily-brief] NO COMPLETE DRAFT:', aiDebug);
@@ -1263,6 +1282,7 @@ ${(() => {
               dataContext,
               allCII.map((c) => c.name),
             );
+            attempt.gates = summariseGates(grounding, structure, comparative);
             if (!grounding.pass) {
               aiDebug = `grounding-failed: ${grounding.unsupported.length}/${grounding.draftNumerals.length} unsupported numerals [${grounding.unsupported.slice(0, 8).join(', ')}]`;
               console.error('[daily-brief] GROUNDING GATE REFUSED THE DRAFT:', aiDebug);
@@ -1305,6 +1325,27 @@ ${(() => {
     } else {
       aiDebug = 'no-api-key';
       briefText = buildFallbackText(briefData, FALLBACK_CAUSE['no-api-key']);
+    }
+
+    // === Dry run: BRIEF_MODEL_MODE (api/_lib/brief-dry-run.ts) ===
+    // Unless the setting is exactly `live`, a draft that cleared every gate
+    // does not ship. The day is handled exactly as a gate refusal is: a
+    // non-success label, no declared subject, and the mechanical text with its
+    // own true cause line. The edition, the subject, the archive row and the
+    // email below are all built from those three, so all of them are the
+    // mechanical edition. Done here, after the gates and before the edition is
+    // decided, and before anything is written or sent. The draft survives only
+    // in `attempt`, for the private table and the operator's email.
+    // A gate refusal and a failed model call are left exactly as they were.
+    const briefMode = getBriefModelMode();
+    const wouldHaveShipped = (aiDebug ?? '').startsWith('ai-success');
+    const attemptOutcome = aiDebug ?? 'unknown';
+    // The draft reached a verdict: it cleared every gate, or a gate refused it.
+    const draftJudged = wouldHaveShipped || gateRefusal;
+    if (briefMode !== 'live' && wouldHaveShipped) {
+      aiDebug = 'dry-run';
+      declaredSubject = null;
+      briefText = buildFallbackText(briefData, FALLBACK_CAUSE['dry-run']);
     }
 
     // === The Ledger line (Phase 2) ===
@@ -1398,10 +1439,10 @@ ${(() => {
 
     // === Render Light Intel Dossier (Track B.3) ===
     // Single rendering pass produces all outputs: email shell for Resend,
-    // inner-modules HTML for beehiiv, plain-text multipart fallback, and
-    // the DB archive summary. All paths (AI success, AI failure, no key)
-    // go through the same dossier pipeline so the archive, email, and
-    // beehiiv post are visually identical.
+    // plain-text multipart fallback, and the inner-modules HTML stored as the
+    // DB archive summary. All paths (AI success, AI failure, no key) go
+    // through the same dossier pipeline so the archive and the email are
+    // visually identical.
     // Decided here, before the render: the renderer is told the edition, and
     // the archive row records it so a delivery-time re-render can be told too.
     const onFallback = !(aiDebug ?? '').startsWith('ai-success');
@@ -1469,6 +1510,26 @@ ${(() => {
       },
     });
 
+    // === The dry run's private record and the operator's email ===
+    // Only on a dry-run day, and only after the reader's edition is archived.
+    // Every attempt is recorded, a failed model call included; the email goes
+    // only when there is a draft to read, and only to ADMIN_EMAILS. Nothing
+    // here touches daily_briefs or can undo the swap above. recordDryRun never
+    // throws; the catch is for anything around it that might.
+    if (briefMode !== 'live') {
+      try {
+        await recordDryRun(
+          sql,
+          buildDryRunRecord({ briefDate: today, runId, outcome: attemptOutcome, wouldHaveShipped, attempt }),
+        );
+      } catch (dryRunErr) {
+        console.error(
+          '[daily-brief] dry-run record failed (non-fatal, readers unaffected):',
+          dryRunErr instanceof Error ? dryRunErr.message : dryRunErr,
+        );
+      }
+    }
+
     // === Say so when the model did not write today ===
     // The archive row above records "success" whether the model wrote the
     // issue or the mechanical edition went out instead, and nothing else
@@ -1479,7 +1540,25 @@ ${(() => {
     // is an operator problem and pages CRITICAL; a gate refusing the draft is
     // the gates working, and is a WARNING worth knowing about.
     try {
-      if (onFallback) {
+      if (briefMode !== 'live' && draftJudged) {
+        // A dry-run day on which the draft reached the gates. The mechanical
+        // edition was the plan, not a failure, so this replaces the alarm
+        // below. It goes by the general path, which may be Discord, so it
+        // carries the date, each gate's verdict and DRY RUN, never the draft:
+        // dryRunAlert is not given the draft.
+        await raiseAlert(dryRunAlert(today, attempt.gates, wouldHaveShipped));
+        // The draft cleared every gate, so the machinery is working: stand down
+        // an earlier "shipped as the mechanical edition" alarm (a credit outage,
+        // say) exactly as a live model day does. Without this, a failure weeks
+        // later would report the old outage as still ongoing. A refused draft
+        // clears nothing, as on a live day. The note carries no draft text.
+        if (wouldHaveShipped) {
+          await clearAlert(
+            'brief:fallback',
+            `${today}: dry run. The model wrote a draft and it cleared every gate; readers received the mechanical edition by design.`,
+          );
+        }
+      } else if (onFallback) {
         const cause = aiDebug ?? 'unknown';
         // gateRefusal was set by the gate that refused, so a refusal is a
         // WARNING (the gates working) and anything else that is not success is
@@ -1536,10 +1615,9 @@ ${(() => {
       console.error('CII snapshot recording failed:', snapshotErr instanceof Error ? snapshotErr.message : snapshotErr);
     }
 
-    // === Publish to beehiiv ===
-    // The request, the configuration check and the alert on a bad id live in
-    // _lib/beehiiv-publish.ts so they can be tested with fetch stubbed.
-    await publishToBeehiiv({ today, briefText, contentHtml: dossier.beehiivHtml, logDelivery });
+    // The beehiiv mirror was RETIRED. It had failed on every run since
+    // 2026-07-09 because its publication id setting was malformed. No request
+    // goes to beehiiv from any path, whatever BEEHIIV_* variables are set.
 
     // The Buffer/X channel was DELETED with the marketing subsystem
     // (2026-09-05, plan witty-finding-crystal PR-3). It was building its post
@@ -1764,7 +1842,6 @@ import {
   type RegionId,
 } from '../../src/services/interests-types.js';
 import { requireCron } from '../_cron-utils.js';
-import { publishToBeehiiv } from '../_lib/beehiiv-publish.js';
 
 export interface RenderedBrief {
   emailHtml: string;
@@ -2807,7 +2884,15 @@ export function formatResolvedCallLines(
  * whether none was written. Nine days in November 2026 said "a publish gate
  * withheld the draft" while the model API was failing and no draft existed.
  */
-export type FallbackCause = 'draft-refused' | 'no-draft';
+export type FallbackCause = 'draft-refused' | 'no-draft' | 'dry-run';
+
+/**
+ * The dry-run cause (BRIEF_MODEL_MODE is not `live` and the draft cleared every
+ * gate). Neither of the other two is true that day: a draft was produced, and
+ * no gate withheld it. Reader-facing; proposed for the owner's sign-off as
+ * "A model-written draft is being tested and was not sent."
+ */
+export const DRY_RUN_CLAUSE = 'a model-written draft is being tested and was not sent';
 
 /**
  * Every path that reaches buildFallbackText, and the cause it must pass. A
@@ -2825,7 +2910,8 @@ export type FallbackPath =
   | 'grounding-refused'
   | 'structure-refused'
   | 'comparative-refused'
-  | 'incomplete-reply';
+  | 'incomplete-reply'
+  | 'dry-run';
 
 export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
   'no-api-key': 'no-draft',
@@ -2839,6 +2925,8 @@ export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
   // Cut off, refused by the model, or an unexpected stop_reason: no complete
   // draft exists, and no gate withheld one.
   'incomplete-reply': 'no-draft',
+  // A draft cleared every gate and was held back by BRIEF_MODEL_MODE.
+  'dry-run': 'dry-run',
 };
 
 // weekday shape rather than Week in Review, because the fallback only fires
@@ -2853,7 +2941,11 @@ export function buildFallbackText(data: BriefData, cause: FallbackCause = 'no-dr
   // defaults to 'no-draft': claiming a gate refused a draft that never
   // existed is the one thing this must not do.
   const draftLine =
-    cause === 'draft-refused' ? 'the model draft was withheld today' : 'no model draft was produced today';
+    cause === 'draft-refused'
+      ? 'the model draft was withheld today'
+      : cause === 'dry-run'
+        ? DRY_RUN_CLAUSE
+        : 'no model draft was produced today';
   const trendArrow = (c: CIIEntry) => {
     if (c.prevDeviation === null) return '';
     const d = c.deviation - c.prevDeviation;
@@ -2915,7 +3007,11 @@ export function buildFallbackText(data: BriefData, cause: FallbackCause = 'no-dr
 
   text += `${DAILY_SECTIONS[3]}\n\n`;
   text += `- This is the mechanical edition: ${
-    cause === 'draft-refused' ? 'the model draft was withheld by a publish gate' : 'no model draft was produced today'
+    cause === 'draft-refused'
+      ? 'the model draft was withheld by a publish gate'
+      : cause === 'dry-run'
+        ? DRY_RUN_CLAUSE
+        : 'no model draft was produced today'
   }, so today carries data without narrative.\n`;
   text += `- Every mover above is unexplained by construction — we do not attribute causes mechanically.\n`;
   if (data.conflictHeadlines.length === 0)

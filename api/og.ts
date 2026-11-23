@@ -1,5 +1,7 @@
 import { ImageResponse } from '@vercel/og';
 import { SCORED_STATUSES } from './_lib/calls.js';
+import { standingCorrection } from './_lib/call-correction.js';
+import { callNotesCardLine, notesForCall } from './_lib/call-notes.js';
 import { colors as C } from '../src/styles/email-tokens.js';
 import type { VercelRequest } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
@@ -30,7 +32,8 @@ export const config = { runtime: 'edge' };
  * graphite ink, gold top rule, oxblood reserved for misses. Palette IMPORTED
  * from src/styles/email-tokens.ts (rule 8: one brand source), the same module
  * the SSR shell and the email read.
- * Cache: public, max-age=3600, s-maxage=86400.
+ * Cache: public, max-age=3600, s-maxage=86400; no-store when the call card's
+ * read failed and the neutral site card was served instead.
  *
  * The product is FREE — no Pro/Founding/$X tier copy lives in any of these
  * templates. Tier-specific marketing cards live in /api/og/social for the
@@ -224,7 +227,20 @@ export interface CallFacts {
   resolvesOn: string;
   madeOn: string;
   status: string;
+  /**
+   * The correction the call stands under, by the ledger's rule
+   * (standingCorrection), or null. The published verdict above stays as it was.
+   */
+  correction?: { issuedOn: string; correctedStatus: string } | null;
+  /**
+   * The one line for the dated notes on this call that leave its verdict
+   * unchanged (api/_lib/call-notes.ts), or null. Not a correction.
+   */
+  noteLine?: string | null;
 }
+
+/** What the call card's database read found. A failed read is not an absent call. */
+export type CallLookup = { state: 'found'; facts: CallFacts } | { state: 'absent' } | { state: 'failed' };
 
 /** HIT green / MISS red / anything unresolved in the muted grey. */
 function statusColor(status: string): string {
@@ -301,6 +317,20 @@ export function renderCallCard(c: CallFacts): string {
       : ['hit', 'miss', 'void'].includes(c.status)
         ? `RESOLVED ${escapeHtml(c.resolvesOn)}`
         : 'NOT SCORED';
+  // A CORRECTED CALL SAYS SO ON ITS CARD (independent review, 22 Nov 2026,
+  // R1), as its page does: the published verdict stays in the badge, and the
+  // corrected reading is stated beside it, dated. Ink, not a verdict colour.
+  const correctionLine = c.correction
+    ? `
+      <span style="color:${C.textPrimary};font-size:20px;font-weight:700;letter-spacing:0.14em;">CORRECTED ${escapeHtml(c.correction.issuedOn)} · THE EVIDENCE SAYS ${escapeHtml(c.correction.correctedStatus.toUpperCase())}</span>`
+    : '';
+  // A NOTED CALL SAYS SO ON ITS CARD, in one line pointing at the page that
+  // carries the note. The verdict and everything else on the card are as they
+  // were. Muted ink, smaller than a correction: it changes no reading.
+  const noteLine = c.noteLine
+    ? `
+      <span style="color:${C.textSecondary};font-size:16px;font-weight:700;letter-spacing:0.14em;">${escapeHtml(c.noteLine)}</span>`
+    : '';
   return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:${C.bgPage};border-top:8px solid ${C.divider};padding:56px 72px 64px 72px;font-family:${MONO};">
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <span style="color:${C.textSecondary};font-size:18px;font-weight:700;letter-spacing:0.18em;">NEXUSWATCH · CALL #${c.id}</span>
@@ -312,7 +342,7 @@ export function renderCallCard(c: CallFacts): string {
       <div style="display:flex;align-items:baseline;gap:20px;">
         <span style="color:${C.textSecondary};font-size:104px;font-weight:700;line-height:1;font-family:${MONO};">${stated}</span>
         <span style="color:${C.textTertiary};font-size:18px;letter-spacing:0.14em;">WHAT WE SAID</span>
-      </div>
+      </div>${correctionLine}${noteLine}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span style="color:${color};font-size:16px;font-weight:700;letter-spacing:0.14em;">${resolutionLine}</span>
@@ -357,17 +387,25 @@ async function fetchLedgerFacts(): Promise<LedgerFacts | null> {
   }
 }
 
-async function fetchCallFacts(id: number): Promise<CallFacts | null> {
+/**
+ * The call row and its corrections, read together. If either read fails the
+ * lookup FAILS: the card must never show a verdict without the correction the
+ * page shows beside it, so the caller serves the neutral site card, uncached.
+ * Corrections are read as api/call.ts reads them (newest first) and decided by
+ * the same standingCorrection.
+ */
+export async function lookupCall(id: number): Promise<CallLookup> {
   const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) return null;
+  if (!dbUrl) return { state: 'failed' };
   try {
     const sql = neon(dbUrl);
     const rows = (await sql`
-      SELECT id, country_code, claim, probability::float AS probability,
+      SELECT id, kind, country_code, claim, probability::float AS probability,
              resolves_on::text AS resolves_on, made_on::text AS made_on, status
       FROM calls WHERE id = ${id}
     `) as Array<{
       id: number;
+      kind: string;
       country_code: string;
       claim: string;
       probability: number;
@@ -375,20 +413,32 @@ async function fetchCallFacts(id: number): Promise<CallFacts | null> {
       made_on: string;
       status: string;
     }>;
-    if (rows.length === 0) return null;
+    if (rows.length === 0) return { state: 'absent' };
     const r = rows[0];
-    if (typeof r.probability !== 'number' || !Number.isFinite(r.probability)) return null;
+    if (typeof r.probability !== 'number' || !Number.isFinite(r.probability)) return { state: 'absent' };
+    const corrections = (await sql`
+      SELECT issued_on::text AS issued_on, corrected_status
+      FROM call_corrections WHERE call_id = ${id}
+      ORDER BY issued_on DESC, id DESC
+    `) as Array<{ issued_on: string; corrected_status: string }>;
+    const standing = standingCorrection(r.status, corrections);
     return {
-      id: r.id,
-      countryCode: r.country_code,
-      claim: r.claim,
-      probability: r.probability,
-      resolvesOn: r.resolves_on,
-      madeOn: r.made_on,
-      status: r.status,
+      state: 'found',
+      facts: {
+        id: r.id,
+        countryCode: r.country_code,
+        claim: r.claim,
+        probability: r.probability,
+        resolvesOn: r.resolves_on,
+        madeOn: r.made_on,
+        status: r.status,
+        correction: standing ? { issuedOn: standing.issued_on, correctedStatus: standing.corrected_status } : null,
+        // From reviewed data in the repository, not the database: no read can fail here.
+        noteLine: callNotesCardLine(notesForCall(r)),
+      },
     };
   } catch {
-    return null;
+    return { state: 'failed' };
   }
 }
 
@@ -450,6 +500,9 @@ export default async function handler(req: VercelRequest) {
   const type = url.searchParams.get('type') || 'site';
 
   let html: string;
+  // A card served because a read failed is not cached: a transient outage
+  // must not pin the fallback at the edge for a day.
+  let cacheControl = 'public, max-age=3600, s-maxage=86400';
 
   if (type === 'brief') {
     const date = (url.searchParams.get('date') || new Date().toISOString().slice(0, 10)).slice(0, 10);
@@ -461,10 +514,13 @@ export default async function handler(req: VercelRequest) {
   } else if (type === 'call') {
     const idRaw = url.searchParams.get('id') ?? '';
     const id = Number.parseInt(idRaw, 10);
-    const call = Number.isInteger(id) && id > 0 && String(id) === idRaw ? await fetchCallFacts(id) : null;
+    const call: CallLookup =
+      Number.isInteger(id) && id > 0 && String(id) === idRaw ? await lookupCall(id) : { state: 'absent' };
     // No row, no card about it. A fabricated call card is worse than a
     // generic one, and this endpoint is reachable with any id in the query.
-    html = call === null ? renderSiteCard() : renderCallCard(call);
+    // A failed read gets the same neutral card, never the verdict alone.
+    html = call.state === 'found' ? renderCallCard(call.facts) : renderSiteCard();
+    if (call.state === 'failed') cacheControl = 'no-store';
   } else if (type === 'country') {
     const iso = (url.searchParams.get('iso') || 'US')
       .toUpperCase()
@@ -495,6 +551,6 @@ export default async function handler(req: VercelRequest) {
     ],
   });
   // ImageResponse sets its own headers; layer cache headers on top.
-  response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+  response.headers.set('Cache-Control', cacheControl);
   return response;
 }

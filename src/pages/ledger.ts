@@ -478,7 +478,8 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
         kicker: 'CLOSED WITHOUT A SCORE',
         title: 'Calls the evidence could not settle',
         lede:
-          'The resolver did not see enough of the country to say yes or no, so these are closed unscored ' +
+          'The resolver did not get enough evidence to say yes or no (too little coverage of the country, ' +
+          'or no exchange rate stored for the last day of a currency call), so these are closed unscored ' +
           'rather than counted as wrong. They are excluded from the record above and from every skill number.',
       }),
     );

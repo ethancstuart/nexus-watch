@@ -63,7 +63,7 @@ const BRIEF_ONLY_HOSTS: Record<string, string> = {
   'api.twelvedata.com': 'market quotes',
 };
 // Outbound services the brief sends to, not data it reads (and our own host, skipped below).
-const NOT_DATA_SOURCES = new Set(['api.anthropic.com', 'api.beehiiv.com', 'api.notion.com', 'api.resend.com']);
+const NOT_DATA_SOURCES = new Set(['api.anthropic.com', 'api.notion.com', 'api.resend.com']);
 
 describe('methodology: retired text is gone', () => {
   let text: string;

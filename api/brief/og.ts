@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { markdownToHtml, markdownToText } from '../_lib/markdown.js';
+import { markdownToHtml } from '../_lib/markdown.js';
+import { approvedNoteFor, correctionBlockHtml, CORRECTION_BLOCK_CSS } from '../_lib/corrections.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -36,7 +37,10 @@ interface BriefRow {
 
 interface BriefContent {
   briefText?: string;
-  topRiskCountries?: Array<{ name?: string; score?: number }>;
+  /** The edition's subject line, archived by the brief cron (archiveContent). */
+  subject?: unknown;
+  /** 'model' or 'mechanical'; absent on rows archived before 2026-11-16. */
+  edition?: unknown;
 }
 
 function escapeHtml(s: string): string {
@@ -52,18 +56,92 @@ function escapeHtml(s: string): string {
   });
 }
 
-function extractHook(briefText: string): string {
-  // Pull the Good Morning paragraph as the OG description. Strip
-  // markdown markers and limit to ~200 chars so Twitter's preview
-  // shows the whole hook instead of truncating mid-sentence.
-  const gmMatch = briefText.match(/##\s*☕?\s*Good Morning\s*\n+([\s\S]*?)(?=\n##|$)/i);
-  const raw = gmMatch ? gmMatch[1] : briefText;
-  return raw
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 200);
+/**
+ * TITLE AND DESCRIPTION COME FROM THE EDITION ITSELF.
+ *
+ * The title used to be `NexusWatch · <topRiskCountries[0]> · <date>`: the
+ * country with the highest index score that morning, which the brief often
+ * did not mention (15 Nov 2026 was titled "Yemen"; the brief does not say
+ * Yemen). The description fell back to the whole brief with only bold and
+ * italics stripped whenever there was no "Good Morning" section, which since
+ * the 23 Aug restructure only the Sunday model edition has (brief-structure.ts),
+ * so search results showed raw Markdown ("## 🎯 Today's Call …").
+ * Source: lanes2/GTM.md §1.
+ *
+ * NOTHING THE BRIEF SAYS IS REPEATED IN THE TITLE OR THE DESCRIPTION. Both
+ * are one of exactly two things:
+ *   - the date title these pages already used, for every edition; or
+ *   - for a mechanical edition whose archived subject is in fallbackSubject's
+ *     COUNTED form, "<N> calls settled, <H> hit — mechanical edition, <date>",
+ *     that subject: code wrote it from the day's resolved-call counts.
+ *
+ * WHY NOT THE BRIEF'S OWN WORDS (independent review, 22 Nov 2026, M1). Every
+ * edition since 8 Sep opens with the Ledger line, which code splices in and
+ * which carries "OONI Brier 0.058 over 263, -2% vs base rate": 54 of those 263
+ * verdicts are wrong and /ledger prints a different figure (lanes2/LANE-K.md).
+ * Older editions open with "skill withheld" or "Your daily intelligence edge",
+ * and on Sundays the next sentence is the model's own record claim, which the
+ * correction drafts say was false (13 Sep, 11 Oct, 1 Nov). A description cut
+ * from the opening repeats whichever of these comes first.
+ *
+ * WHY NOT A MODEL SUBJECT. The unpublished correction drafts quote at least
+ * eight model subjects as false or misleading ("Russia and Iran hit record
+ * censorship in the same week"). As titles they would become each edition's
+ * headline and search result with no correction beside them, and this page
+ * cannot see which editions are under correction: drafts are readable only
+ * through the corrections gate, and only once approved.
+ *
+ * WHY ONLY THE COUNTED MECHANICAL FORM (review M2). fallbackSubject also
+ * writes "The Ledger, unchanged — mechanical edition, <date>" whenever the
+ * day's record is missing, which includes the day the resolved-calls query
+ * fails: calls may have settled while that subject says nothing changed. Any
+ * subject not in the counted form, for this page's date, gets the date title.
+ *
+ * Every possible output, for sign-off: `NexusWatch Situation Brief · <date>`
+ * (title and description), `NexusWatch · <N> calls settled, <H> hit —
+ * mechanical edition, <date>` (title) with `<N> calls settled, <H> hit —
+ * mechanical edition, <date>` (description), and, on the dateless shell,
+ * `Daily Briefs · NexusWatch`. real-editions.fixture.json holds real archived
+ * rows that og.test.ts renders to prove it.
+ */
+
+/** The title of every edition without a counted mechanical subject; also its description. */
+export function dateTitle(date: string): string {
+  return `NexusWatch Situation Brief · ${date}`;
+}
+
+const COUNTED_SUBJECT = /^(\d{1,7}) calls settled, (\d{1,7}) hit — mechanical edition, (\d{4}-\d{2}-\d{2})$/;
+
+/**
+ * The archived subject when it is fallbackSubject's counted form for this
+ * date, on a row not flagged as a model edition; otherwise null.
+ */
+export function countedSubject(date: string, content: { subject?: unknown; edition?: unknown }): string | null {
+  if (content.edition !== undefined && content.edition !== null && content.edition !== 'mechanical') return null;
+  const s = typeof content.subject === 'string' ? content.subject.replace(/\s+/g, ' ').trim() : '';
+  const m = COUNTED_SUBJECT.exec(s);
+  if (!m || m[3] !== date || Number(m[2]) > Number(m[1])) return null;
+  return s;
+}
+
+/** `NexusWatch · <counted subject>`, else the date title. */
+export function briefTitle(date: string, content: { subject?: unknown; edition?: unknown }): string {
+  const s = countedSubject(date, content);
+  return s ? `NexusWatch · ${s}` : dateTitle(date);
+}
+
+/** The counted subject, else the date title. Never the brief's text. */
+export function briefDescription(date: string, content: { subject?: unknown; edition?: unknown }): string {
+  return countedSubject(date, content) ?? dateTitle(date);
+}
+
+/**
+ * JSON for inside a <script> element. JSON.stringify leaves `<` alone, so a
+ * title carrying `</script>` would end the element. Each `<` becomes its JSON
+ * unicode escape, which a JSON parser reads back as the same string.
+ */
+function scriptJson(v: string): string {
+  return JSON.stringify(v).replace(/</g, '\\u003c');
 }
 
 function renderShell(opts: {
@@ -75,8 +153,16 @@ function renderShell(opts: {
   spaRedirectUrl: string;
   /** Full brief, already rendered to semantic HTML. Empty when unavailable. */
   bodyHtml?: string;
+  /**
+   * An approved correction note, already rendered and escaped
+   * (api/_lib/corrections.ts). It sits ABOVE the brief and never inside it:
+   * the brief's own HTML is emitted exactly as it would be without it. When
+   * empty, neither the block nor its CSS is emitted, so the page is byte for
+   * byte what it was before corrections existed.
+   */
+  correctionHtml?: string;
 }): string {
-  const { date, title, description, imageUrl, canonicalUrl, spaRedirectUrl, bodyHtml } = opts;
+  const { date, title, description, imageUrl, canonicalUrl, spaRedirectUrl, bodyHtml, correctionHtml } = opts;
   const t = escapeHtml(title);
   const d = escapeHtml(description);
   const img = escapeHtml(imageUrl);
@@ -112,9 +198,9 @@ function renderShell(opts: {
   {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
-    "headline": ${JSON.stringify(title)},
-    "description": ${JSON.stringify(description)},
-    "image": ${JSON.stringify(imageUrl)},
+    "headline": ${scriptJson(title)},
+    "description": ${scriptJson(description)},
+    "image": ${scriptJson(imageUrl)},
     "datePublished": "${escapeHtml(date)}T10:00:00Z",
     "dateModified": "${escapeHtml(date)}T10:00:00Z",
     "author": { "@type": "Organization", "name": "NexusWatch" },
@@ -123,7 +209,7 @@ function renderShell(opts: {
       "name": "NexusWatch",
       "logo": { "@type": "ImageObject", "url": "https://nexuswatch.dev/icon-512.png" }
     },
-    "mainEntityOfPage": ${JSON.stringify(canonicalUrl)}
+    "mainEntityOfPage": ${scriptJson(canonicalUrl)}
   }
   </script>
 
@@ -147,13 +233,13 @@ function renderShell(opts: {
     p { font-size: 15px; line-height: 1.6; color: #3b4252; margin: 0 0 24px 0; }
     a { color: #9a1b1b; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; border: 1px solid #c9c3b4; padding: 12px 24px; border-radius: 4px; display: inline-block; }
     a:hover { border-color: #9a1b1b; }
-  </style>
+${correctionHtml ? CORRECTION_BLOCK_CSS : ''}  </style>
 </head>
 <body>
   <article class="wrap">
     <div class="kicker">SITUATION BRIEF · ${escapeHtml(date)}</div>
     <h1>${t}</h1>
-    ${bodyHtml ? `<div class="brief">${bodyHtml}</div>` : `<p>${d}</p>`}
+    ${correctionHtml ? `${correctionHtml}\n    ` : ''}${bodyHtml ? `<div class="brief">${bodyHtml}</div>` : d !== t ? `<p>${d}</p>` : ''}
     <p class="more"><a href="${redirect}">Open NexusWatch →</a></p>
   </article>
 </body>
@@ -178,9 +264,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.send(
       renderShell({
         date: new Date().toISOString().slice(0, 10),
-        title: 'The NexusWatch Brief — Daily Geopolitical Intelligence',
-        description:
-          'NexusWatch publishes a daily three-minute geopolitical intelligence scan every morning at 5 AM ET.',
+        // The archive's own title (src/utils/seo.ts, /briefs), since this
+        // shell's canonical is /briefs. It replaces "Daily Geopolitical
+        // Intelligence" and a three-minute, 5 AM ET claim.
+        title: 'Daily Briefs · NexusWatch',
+        description: 'Daily Briefs · NexusWatch',
         imageUrl: 'https://nexuswatch.dev/api/brief/screenshot?size=og',
         canonicalUrl: 'https://nexuswatch.dev/briefs',
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
@@ -188,16 +276,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
   }
 
+  // An approved correction for this edition, if the owner has approved one.
+  // Drafts never get past approvedNoteFor. It is shown on every path below,
+  // including the soft-fail shells, so a database hiccup cannot hide it.
+  const note = approvedNoteFor(date);
+  const correctionHtml = note ? correctionBlockHtml(note) : '';
+
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return res.send(
       renderShell({
         date,
-        title: `NexusWatch Situation Brief · ${date}`,
-        description: 'Daily geopolitical intelligence from NexusWatch.',
+        title: dateTitle(date),
+        description: dateTitle(date),
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
         canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
+        correctionHtml,
       }),
     );
   }
@@ -211,9 +306,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       LIMIT 1
     `) as unknown as BriefRow[];
 
-    let title = `NexusWatch Situation Brief · ${date}`;
-    let description =
-      'Daily geopolitical intelligence from NexusWatch — what changed overnight, why it matters, what to watch.';
+    let title = dateTitle(date);
+    let description = dateTitle(date);
     let bodyHtml = '';
 
     if (rows.length > 0) {
@@ -228,20 +322,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         /* non-JSON content — leave defaults */
       }
 
-      if (content.briefText) {
-        const hook = extractHook(content.briefText);
-        if (hook) description = hook;
+      if (typeof content.briefText === 'string' && content.briefText) {
         // The whole point: the article is the page, not a teaser in front of a
-        // redirect. markdownToText is the fallback description when there is no
-        // "Good Morning" hook to extract.
+        // redirect.
         bodyHtml = markdownToHtml(content.briefText);
-        if (!hook) description = markdownToText(content.briefText).slice(0, 200);
       }
 
-      const top = content.topRiskCountries?.[0];
-      if (top?.name) {
-        title = `NexusWatch · ${top.name} · ${date}`;
-      }
+      title = briefTitle(date, content);
+      description = briefDescription(date, content);
     }
 
     return res.send(
@@ -253,6 +341,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
         bodyHtml,
+        correctionHtml,
       }),
     );
   } catch (err) {
@@ -261,11 +350,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.send(
       renderShell({
         date,
-        title: `NexusWatch Situation Brief · ${date}`,
-        description: 'Daily geopolitical intelligence from NexusWatch.',
+        title: dateTitle(date),
+        description: dateTitle(date),
         imageUrl: `https://nexuswatch.dev/api/brief/screenshot?date=${encodeURIComponent(date)}&size=og`,
         canonicalUrl: `https://nexuswatch.dev/brief/${date}`,
         spaRedirectUrl: 'https://nexuswatch.dev/briefs',
+        correctionHtml,
       }),
     );
   }

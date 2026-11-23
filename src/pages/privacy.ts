@@ -43,7 +43,8 @@ export function renderPrivacyPage(root: HTMLElement): void {
         <li><strong>Neon</strong> — the database holding subscribers and the call ledger. United States.</li>
         <li><strong>Upstash</strong> — short-lived caching. United States.</li>
         <li><strong>Resend</strong> — delivers the brief; your address is sent to them for each send.</li>
-        <li><strong>beehiiv</strong> — a mirror of the brief, when it is configured.</li>
+        <li><strong>beehiiv</strong> — no longer used. It was set up as a mirror of the brief and may still hold
+        addresses copied to it earlier.</li>
         <li><strong>Vercel</strong> — hosting, server logs, and first-party page-view counts.</li>
         <li><strong>Sentry</strong> — browser error reports, when something breaks.</li>
         <li><strong>Anthropic</strong> — writes the brief from the day's collected data. No subscriber data is sent.</li>

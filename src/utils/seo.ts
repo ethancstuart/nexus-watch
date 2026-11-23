@@ -113,7 +113,7 @@ export const PAGE_SEO = {
   briefs: {
     title: 'Daily Briefs',
     description:
-      'A short brief every morning, written from the day\u2019s collected data and checked against it, with the ledger\u2019s standing on every issue. Free to read.',
+      'A short brief every morning, written from the day\u2019s collected data, with the ledger\u2019s standing on every issue. Free to read.',
     canonicalPath: '/briefs',
   },
   faq: {
