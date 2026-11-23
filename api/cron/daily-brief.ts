@@ -40,6 +40,7 @@ import {
   newDryRunAttempt,
   recordDryRun,
   summariseGates,
+  type SqlTag,
 } from '../_lib/brief-dry-run.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 300 };
@@ -91,6 +92,14 @@ export interface BriefData {
    * invisible to the writer the moment it existed.
    */
   resolvedCallLines: string[];
+  /**
+   * True only when the open-call query ran and succeeded on this run. Absent
+   * or false means the book was not read, and the mechanical edition must not
+   * call it empty. On 2026-11-23, the first day with no model key, the query
+   * never ran and the edition printed "No open calls today." under a Ledger
+   * line counting hundreds of open calls.
+   */
+  openCallsRead?: boolean;
 }
 
 interface WeeklyTrend {
@@ -259,7 +268,7 @@ CRITICAL RULES:
   price moves, no historical analogies, no "in 2019...". You cannot check them
   and neither can the reader.
 - ATTRIBUTE IN THE SENTENCE, not in a footnote. Any non-trivial factual claim
-  names its source inline: "OONI confirmed 2,136 test measurements in Russia
+  names its source inline: "OONI confirmed N test measurements in Russia
   as blocked this week", not "Russia is tightening controls". Never name a
   source that is not in the context — published briefs have carried "ACLED
   reports 400+ civilian casualties" when ACLED has never been contacted by this
@@ -863,6 +872,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // News headlines
     const newsHeadlines: NewsItem[] = newsResult.status === 'fulfilled' ? (newsResult.value as NewsItem[]) : [];
 
+    // Database reads that need no model key, so they run on every run: the
+    // mechanical edition prints them too (gatherCallLines).
+    const callLines = await gatherCallLines(sql, new Map(allCII.map((c) => [c.code, c.name])), isSunday);
+
     const briefData: BriefData = {
       date: today,
       utcTime,
@@ -878,8 +891,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       weeklyTrends,
       correlations,
       newsHeadlines,
-      openCallLines: [],
-      resolvedCallLines: [],
+      openCallLines: callLines.openCallLines,
+      resolvedCallLines: callLines.resolvedCallLines,
+      openCallsRead: callLines.openCallsRead,
     };
 
     // === Generate AI brief (outputs markdown text) ===
@@ -932,7 +946,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           OONI_DAY_GRAIN_SINCE,
           new Date(now.getTime() - 180 * 86_400_000).toISOString().slice(0, 10),
         ].sort()[1];
-        let openCallLines: string[] = [];
         let sanctionsLines: string[] = [];
         try {
           // Totals, shares, the previous week and the stored history — not one
@@ -952,142 +965,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           })
             .slice(0, 12)
             .map((c) => formatCensorshipLine(c, nameOf.get(c.code) ?? c.code));
-
-          // Ordered by DIVERGENCE from the base rate, not by probability.
-          // Sorting by probability surfaced seven identical 84% calls — the
-          // countries where blocking is constant and the forecast is simply the
-          // climatology. Those are true and uninteresting. The calls worth a
-          // sentence are the ones where recent activity has pulled us away from
-          // the long-run rate: that is where we are actually saying something.
-          const open = (await sql`
-            SELECT kind, country_code, probability::float AS p, base_rate::float AS base,
-                   resolves_on::text AS resolves_on, threshold_pct::float AS threshold_pct
-            FROM calls
-            -- Calibration-harness calls (seismicity) are excluded EXPLICITLY,
-            -- not by trusting their zero divergence to sort them out of the
-            -- top 8 — and the per-kind phrasing below doesn't speak seismic.
-            WHERE status = 'pending' AND base_rate IS NOT NULL AND NOT (kind = ANY(${[...CALIBRATION_KINDS]}))
-            ORDER BY ABS(probability - base_rate) DESC, probability DESC
-            LIMIT 8
-          `) as unknown as Array<{
-            kind: string;
-            country_code: string;
-            p: number;
-            base: number;
-            resolves_on: string;
-            threshold_pct: number | null;
-          }>;
-          openCallLines = open.map((c) => {
-            const delta = (c.p - c.base) * 100;
-            const vs =
-              Math.abs(delta) < 1
-                ? 'in line with its base rate'
-                : `${delta > 0 ? '+' : ''}${delta.toFixed(0)}pts vs its base rate of ${(c.base * 100).toFixed(0)}%`;
-            // Phrase the claim by KIND. Before 2026-08-23 every call here was
-            // described as "a confirmed censorship event" — including the FX
-            // calls, which would have handed the model a false claim to
-            // faithfully repeat.
-            // No else-branch that lies: an unknown kind gets wording true of
-            // every call by construction, same rule as claimWording below.
-            const claim =
-              c.kind === 'fx_devaluation'
-                ? `${(c.p * 100).toFixed(0)}% chance the currency depreciates ${c.threshold_pct !== null ? `≥${c.threshold_pct}% ` : ''}peak-vs-issue by ${c.resolves_on}`
-                : c.kind === 'censorship_event'
-                  ? `${(c.p * 100).toFixed(0)}% chance of a confirmed censorship event by ${c.resolves_on}`
-                  : `${(c.p * 100).toFixed(0)}% chance of the outcome it names, against its declared external source, by ${c.resolves_on}`;
-            return `${nameOf.get(c.country_code) ?? c.country_code} (${c.country_code}): ${claim} — ${vs}`;
-          });
-          briefData.openCallLines = openCallLines;
-
-          // RESOLVED CALLS — the reason this block exists is 2026-09-05: the
-          // first resolution day in the product's history, and the model led
-          // with an unrelated FX call because nothing below selected anything
-          // but status='pending'. The register's whole output was invisible to
-          // its own writer.
-          //
-          // Window: today on weekdays; the last 7 days on Sunday, whose prompt
-          // has asked "which calls resolved this week and how" since 08-23 —
-          // an instruction that was unsatisfiable until this query existed.
-          // Calendar-day semantics, not a rolling 24h: "today" must mean
-          // resolved_at::date = CURRENT_DATE, or a late manual resolution
-          // yesterday afternoon gets published as today's. Sunday looks back
-          // 7 calendar days for "the week on the record".
-          //
-          // The exclusion DERIVES from CALIBRATION_KINDS — the canonical
-          // "not a public claim" property in api/_lib/calls.ts — rather than
-          // naming seismicity_window here. A future calibration kind is
-          // excluded the day it is added to the set, not the day someone
-          // remembers this file exists.
-          const calibrationKinds = [...CALIBRATION_KINDS];
-          // COUNTS FROM COUNT(*), DETAIL FROM THE PAGE — the same law the
-          // ledger endpoint had to learn twice (by_kind published a page size
-          // on 2026-08-30). The aggregate line quotes these totals; the paged
-          // fetch below only supplies which INDIVIDUAL calls get a sentence.
-          const resolvedTotals = (await sql`
-            SELECT COUNT(*)::int AS total,
-                   COUNT(*) FILTER (WHERE status = 'hit')::int AS hits
-            FROM calls
-            WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calibrationKinds}))
-              AND resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
-          `) as unknown as Array<{ total: number; hits: number }>;
-          // Corrections ride along (see the ledger line below): the model must
-          // be handed the corrected reading with the published verdict, or it
-          // can restate a verdict the register has recorded as wrong.
-          const resolvedRows = (await sql`
-            SELECT c.kind, c.country_code, c.probability::float AS probability,
-                   c.base_rate::float AS base_rate, c.status,
-                   c.resolves_on::text AS resolves_on, c.evidence_count, cc.corrected_status
-            FROM calls c
-            LEFT JOIN (
-              SELECT DISTINCT ON (call_id) call_id, corrected_status
-              FROM call_corrections ORDER BY call_id, issued_on DESC
-            ) cc ON cc.call_id = c.id
-            WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calibrationKinds}))
-              AND c.resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
-            ORDER BY ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC
-            LIMIT 40
-          `) as unknown as ResolvedCallRow[];
-          // The aggregate's corrections come from the whole window, not the
-          // 40-row page, for the same reason `resolvedTotals` does.
-          const windowCorrections = (await sql`
-            SELECT c.status, cc.corrected_status
-            FROM calls c
-            JOIN (
-              SELECT DISTINCT ON (call_id) call_id, corrected_status
-              FROM call_corrections ORDER BY call_id, issued_on DESC
-            ) cc ON cc.call_id = c.id
-            WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calibrationKinds}))
-              AND c.resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
-          `) as unknown as Array<{ status: string; corrected_status: string }>;
-          // Due-but-unresolved: matured rows still pending. Includes the
-          // coverage-grace holds (expected, and the formatter says so) — and,
-          // in the failure case, a resolver that did not run. Either way the
-          // brief must not read like an ordinary day by silent omission.
-          const dueStillPending = (await sql`
-            SELECT COUNT(*)::int AS n FROM calls
-            WHERE status = 'pending' AND resolves_on <= CURRENT_DATE
-              AND NOT (kind = ANY(${calibrationKinds}))
-          `) as unknown as Array<{ n: number }>;
-          const duePending = dueStillPending[0]?.n ?? 0;
-          if (resolvedRows.length === 0 && duePending > 0) {
-            console.error(
-              `[daily-brief] ${duePending} calls due but ZERO resolved in window — ` +
-                'resolve-calls may not have run; the brief will say so rather than go quiet',
-            );
-          }
-          briefData.resolvedCallLines = formatResolvedCallLines(
-            resolvedRows,
-            duePending,
-            nameOf,
-            {
-              ...(resolvedTotals[0] ?? { total: resolvedRows.length, hits: 0 }),
-              corrections: windowCorrections.filter(
-                (r) => correctedOutcomeOf(r.status, r.corrected_status) !== undefined,
-              ),
-            },
-            undefined,
-            isSunday ? 'in the last 7 days' : 'today',
-          );
 
           // Designation deltas — real adds/removes/updates from the rebuilt
           // sanctions collector (a diff against the stored snapshot, not a
@@ -1140,7 +1017,7 @@ ${censorshipLines.length > 0 ? censorshipLines.join('\n') : `No OONI measurement
 ${briefData.resolvedCallLines.length > 0 ? briefData.resolvedCallLines.join('\n') : isSunday ? 'No calls resolved this week.' : 'No calls resolved today.'}
 
 === OUR OPEN CALLS (dated, falsifiable, resolved against OONI and FX reference rates) ===
-${openCallLines.length > 0 ? openCallLines.join('\n') : 'No open calls.'}
+${briefData.openCallLines.length > 0 ? briefData.openCallLines.join('\n') : 'No open calls.'}
 
 === SANCTIONS DESIGNATION CHANGES (OFAC SDN + UN consolidated, last 7 days) ===
 ${sanctionsLines.length > 0 ? sanctionsLines.join('\n') : 'No designation changes observed in the last 7 days.'}
@@ -2879,6 +2756,170 @@ export function formatResolvedCallLines(
 }
 
 /**
+ * The open-call and resolved-call lines, for the prompt and the mechanical
+ * edition. Database reads only, so the handler calls this on every run,
+ * whether or not a model key is set. Until 2026-11-23 these reads sat inside
+ * the key-only branch, so the first day with no key printed "No open calls
+ * today." over a book of hundreds and dropped the day's resolutions. The
+ * queries and formatting are unchanged, and the prompt receives the same
+ * lines for the same data.
+ *
+ * Non-fatal, as before: a failure costs these lines, never the brief. The
+ * open-call read is reported separately (`openCallsRead`), so the mechanical
+ * edition can tell an empty book from one it could not read.
+ */
+async function gatherCallLines(
+  sql: SqlTag,
+  nameOf: Map<string, string>,
+  isSunday: boolean,
+): Promise<Pick<BriefData, 'openCallLines' | 'resolvedCallLines' | 'openCallsRead'>> {
+  let openCallLines: string[] = [];
+  let resolvedCallLines: string[] = [];
+  let openCallsRead = false;
+  try {
+    // Ordered by DIVERGENCE from the base rate, not by probability.
+    // Sorting by probability surfaced seven identical 84% calls — the
+    // countries where blocking is constant and the forecast is simply the
+    // climatology. Those are true and uninteresting. The calls worth a
+    // sentence are the ones where recent activity has pulled us away from
+    // the long-run rate: that is where we are actually saying something.
+    const open = (await sql`
+      SELECT kind, country_code, probability::float AS p, base_rate::float AS base,
+             resolves_on::text AS resolves_on, threshold_pct::float AS threshold_pct
+      FROM calls
+      -- Calibration-harness calls (seismicity) are excluded EXPLICITLY,
+      -- not by trusting their zero divergence to sort them out of the
+      -- top 8 — and the per-kind phrasing below doesn't speak seismic.
+      WHERE status = 'pending' AND base_rate IS NOT NULL AND NOT (kind = ANY(${[...CALIBRATION_KINDS]}))
+      ORDER BY ABS(probability - base_rate) DESC, probability DESC
+      LIMIT 8
+    `) as unknown as Array<{
+      kind: string;
+      country_code: string;
+      p: number;
+      base: number;
+      resolves_on: string;
+      threshold_pct: number | null;
+    }>;
+    openCallLines = open.map((c) => {
+      const delta = (c.p - c.base) * 100;
+      const vs =
+        Math.abs(delta) < 1
+          ? 'in line with its base rate'
+          : `${delta > 0 ? '+' : ''}${delta.toFixed(0)}pts vs its base rate of ${(c.base * 100).toFixed(0)}%`;
+      // Phrase the claim by KIND. Before 2026-08-23 every call here was
+      // described as "a confirmed censorship event" — including the FX
+      // calls, which would have handed the model a false claim to
+      // faithfully repeat.
+      // No else-branch that lies: an unknown kind gets wording true of
+      // every call by construction, same rule as claimWording above.
+      const claim =
+        c.kind === 'fx_devaluation'
+          ? `${(c.p * 100).toFixed(0)}% chance the currency depreciates ${c.threshold_pct !== null ? `≥${c.threshold_pct}% ` : ''}peak-vs-issue by ${c.resolves_on}`
+          : c.kind === 'censorship_event'
+            ? `${(c.p * 100).toFixed(0)}% chance of a confirmed censorship event by ${c.resolves_on}`
+            : `${(c.p * 100).toFixed(0)}% chance of the outcome it names, against its declared external source, by ${c.resolves_on}`;
+      return `${nameOf.get(c.country_code) ?? c.country_code} (${c.country_code}): ${claim} — ${vs}`;
+    });
+    openCallsRead = true;
+
+    // RESOLVED CALLS — the reason this block exists is 2026-09-05: the
+    // first resolution day in the product's history, and the model led
+    // with an unrelated FX call because nothing below selected anything
+    // but status='pending'. The register's whole output was invisible to
+    // its own writer.
+    //
+    // Window: today on weekdays; the last 7 days on Sunday, whose prompt
+    // has asked "which calls resolved this week and how" since 08-23 —
+    // an instruction that was unsatisfiable until this query existed.
+    // Calendar-day semantics, not a rolling 24h: "today" must mean
+    // resolved_at::date = CURRENT_DATE, or a late manual resolution
+    // yesterday afternoon gets published as today's. Sunday looks back
+    // 7 calendar days for "the week on the record".
+    //
+    // The exclusion DERIVES from CALIBRATION_KINDS — the canonical
+    // "not a public claim" property in api/_lib/calls.ts — rather than
+    // naming seismicity_window here. A future calibration kind is
+    // excluded the day it is added to the set, not the day someone
+    // remembers this file exists.
+    const calibrationKinds = [...CALIBRATION_KINDS];
+    // COUNTS FROM COUNT(*), DETAIL FROM THE PAGE — the same law the
+    // ledger endpoint had to learn twice (by_kind published a page size
+    // on 2026-08-30). The aggregate line quotes these totals; the paged
+    // fetch below only supplies which INDIVIDUAL calls get a sentence.
+    const resolvedTotals = (await sql`
+      SELECT COUNT(*)::int AS total,
+             COUNT(*) FILTER (WHERE status = 'hit')::int AS hits
+      FROM calls
+      WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calibrationKinds}))
+        AND resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
+    `) as unknown as Array<{ total: number; hits: number }>;
+    // Corrections ride along (see the ledger line in the handler): the model must
+    // be handed the corrected reading with the published verdict, or it
+    // can restate a verdict the register has recorded as wrong.
+    const resolvedRows = (await sql`
+      SELECT c.kind, c.country_code, c.probability::float AS probability,
+             c.base_rate::float AS base_rate, c.status,
+             c.resolves_on::text AS resolves_on, c.evidence_count, cc.corrected_status
+      FROM calls c
+      LEFT JOIN (
+        SELECT DISTINCT ON (call_id) call_id, corrected_status
+        FROM call_corrections ORDER BY call_id, issued_on DESC
+      ) cc ON cc.call_id = c.id
+      WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calibrationKinds}))
+        AND c.resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
+      ORDER BY ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC
+      LIMIT 40
+    `) as unknown as ResolvedCallRow[];
+    // The aggregate's corrections come from the whole window, not the
+    // 40-row page, for the same reason `resolvedTotals` does.
+    const windowCorrections = (await sql`
+      SELECT c.status, cc.corrected_status
+      FROM calls c
+      JOIN (
+        SELECT DISTINCT ON (call_id) call_id, corrected_status
+        FROM call_corrections ORDER BY call_id, issued_on DESC
+      ) cc ON cc.call_id = c.id
+      WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calibrationKinds}))
+        AND c.resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
+    `) as unknown as Array<{ status: string; corrected_status: string }>;
+    // Due-but-unresolved: matured rows still pending. Includes the
+    // coverage-grace holds (expected, and the formatter says so) — and,
+    // in the failure case, a resolver that did not run. Either way the
+    // brief must not read like an ordinary day by silent omission.
+    const dueStillPending = (await sql`
+      SELECT COUNT(*)::int AS n FROM calls
+      WHERE status = 'pending' AND resolves_on <= CURRENT_DATE
+        AND NOT (kind = ANY(${calibrationKinds}))
+    `) as unknown as Array<{ n: number }>;
+    const duePending = dueStillPending[0]?.n ?? 0;
+    if (resolvedRows.length === 0 && duePending > 0) {
+      console.error(
+        `[daily-brief] ${duePending} calls due but ZERO resolved in window — ` +
+          'resolve-calls may not have run; the brief will say so rather than go quiet',
+      );
+    }
+    resolvedCallLines = formatResolvedCallLines(
+      resolvedRows,
+      duePending,
+      nameOf,
+      {
+        ...(resolvedTotals[0] ?? { total: resolvedRows.length, hits: 0 }),
+        corrections: windowCorrections.filter((r) => correctedOutcomeOf(r.status, r.corrected_status) !== undefined),
+      },
+      undefined,
+      isSunday ? 'in the last 7 days' : 'today',
+    );
+  } catch (callErr) {
+    console.error(
+      '[daily-brief] call lines unavailable (non-fatal):',
+      callErr instanceof Error ? callErr.message : callErr,
+    );
+  }
+  return { openCallLines, resolvedCallLines, openCallsRead };
+}
+
+/**
  * Why the mechanical edition shipped, as the reader is told it. Two cases, not
  * six: a reader needs to know whether a draft existed and was refused, or
  * whether none was written. Nine days in November 2026 said "a publish gate
@@ -2964,7 +3005,14 @@ export function buildFallbackText(data: BriefData, cause: FallbackCause = 'no-dr
     text += `${data.resolvedCallLines[0]}\n\n`;
     if (data.resolvedCallLines.length > 1) text += `${data.resolvedCallLines[1]}\n\n`;
   }
-  text += data.openCallLines.length > 0 ? `${data.openCallLines[0]}\n\n` : `No open calls today.\n\n`;
+  // "No open calls today." only when the book was read and is empty. An
+  // unread book is never reported as an empty one.
+  text +=
+    data.openCallLines.length > 0
+      ? `${data.openCallLines[0]}\n\n`
+      : data.openCallsRead === true
+        ? `No open calls today.\n\n`
+        : `Open calls could not be read today.\n\n`;
 
   text += `${DAILY_SECTIONS[1]}\n\n`;
   if (data.newsHeadlines.length > 0) {

@@ -2,6 +2,7 @@ import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './corrections-data.js'
 import { APPROVED_NOTE_DATES, INTRODUCTION_APPROVED } from './corrections-approvals.js';
 import {
   ALL_CORRECTIONS_LINK,
+  amendmentLine,
   CORRECTION_LABEL,
   CORRECTIONS_HEADING,
   CORRECTIONS_PATH,
@@ -99,6 +100,14 @@ export function approvedIntro(
 ): Extract<CorrectionsPageIntro, { status: 'approved' }> | null {
   if (!keys.introduction || intro.status !== 'approved') return null;
   if (!isIsoDate(intro.publishedOn) || intro.title.trim() === '') return null;
+  // An amendment the page cannot state truthfully (no real date, dated before
+  // publication, or empty) withholds the text it amends rather than publish
+  // that text without saying it changed.
+  for (const a of intro.amendments ?? []) {
+    if (!isIsoDate(a.on) || a.on < intro.publishedOn || typeof a.text !== 'string' || a.text.trim() === '') {
+      return null;
+    }
+  }
   if (notes.length === 0 || approvedNotes(notes, keys).length !== notes.length) return null;
   return intro;
 }
@@ -149,6 +158,59 @@ export const CORRECTION_BLOCK_CSS =
 type ApprovedIntro = Extract<CorrectionsPageIntro, { status: 'approved' }>;
 
 /**
+ * THE PAGE TEXT'S ONLY MARKUP, two markers at the start of a stored paragraph:
+ *  - "- " makes it a list item, and "  - " an item inside the item before it
+ *    (one level). Consecutive items share one list.
+ *  - "**Lead.**" right after any list marker makes that lead-in bold.
+ * Nothing else is read as markup: any other asterisk, dash, hash or bracket is
+ * text. Every word is escaped. The words a reader sees are the paragraph with
+ * those markers removed (pageParagraphText), which is what the signed-off
+ * digest pins.
+ */
+interface PageBlock {
+  readonly depth: 0 | 1 | 2;
+  readonly lead: string;
+  readonly rest: string;
+}
+function pageBlock(p: string): PageBlock {
+  const depth = p.startsWith('- ') ? 1 : p.startsWith('  - ') ? 2 : 0;
+  const body = p.slice(depth * 2);
+  const lead = /^\*\*([^*]+)\*\*/.exec(body);
+  return lead ? { depth, lead: lead[1], rest: body.slice(lead[0].length) } : { depth, lead: '', rest: body };
+}
+const blockHtml = (b: PageBlock) => (b.lead ? `<strong>${esc(b.lead)}</strong>` : '') + esc(b.rest);
+
+/** A stored page paragraph as a reader reads it: its list marker and lead-in asterisks removed, nothing else. */
+export function pageParagraphText(p: string): string {
+  const b = pageBlock(p);
+  return b.lead + b.rest;
+}
+
+/** The page text as HTML: lede paragraphs, and lists of items where the text has them. */
+export function pageTextHtml(paragraphs: readonly string[]): string {
+  const blocks = paragraphs.map(pageBlock);
+  const out: string[] = [];
+  for (let i = 0; i < blocks.length; ) {
+    if (blocks[i].depth === 0) {
+      out.push(`<p class="lede">${blockHtml(blocks[i++])}</p>`);
+      continue;
+    }
+    // A list: each item, with the nested items that follow it. A nested item
+    // with no item before it opens the list as an item of its own.
+    const items: string[] = [];
+    while (i < blocks.length && blocks[i].depth !== 0) {
+      let item = `<li>${blockHtml(blocks[i++])}`;
+      const nested: string[] = [];
+      while (i < blocks.length && blocks[i].depth === 2) nested.push(`<li>${blockHtml(blocks[i++])}</li>`);
+      if (nested.length > 0) item += `<ul>\n${nested.join('\n')}\n</ul>`;
+      items.push(`${item}</li>`);
+    }
+    out.push(`<ul class="lede">\n${items.join('\n')}\n</ul>`);
+  }
+  return out.join('\n');
+}
+
+/**
  * The /corrections page body, title and description. The caller returns 404
  * instead when `notes` is empty, so the page does not exist publicly until a
  * note is approved. Without an approved introduction it carries only the
@@ -166,9 +228,10 @@ export function renderCorrectionsPage(
       `<div class="kicker">${esc(CORRECTIONS_HEADING)}</div><h1>${esc(intro.title)}</h1>` +
         `<p class="lede dated">Published ${esc(formatCorrectionDate(intro.publishedOn))}.` +
         (latest > intro.publishedOn ? ` Updated ${esc(formatCorrectionDate(latest))}.` : '') +
-        '</p>',
+        '</p>' +
+        (intro.amendments ?? []).map((a) => `<p class="lede dated">${esc(amendmentLine(a))}</p>`).join(''),
     );
-    for (const p of intro.paragraphs) parts.push(`<p class="lede">${esc(p)}</p>`);
+    parts.push(pageTextHtml(intro.paragraphs));
   } else {
     parts.push(`<h1>${esc(CORRECTIONS_HEADING)}</h1>`);
   }
@@ -184,7 +247,11 @@ export function renderCorrectionsPage(
   return {
     body: parts.join('\n'),
     title: intro ? intro.title : CORRECTIONS_HEADING,
-    description: intro ? (intro.paragraphs[0] ?? intro.title) : CORRECTIONS_HEADING,
+    description: intro
+      ? intro.paragraphs.length > 0
+        ? pageParagraphText(intro.paragraphs[0])
+        : intro.title
+      : CORRECTIONS_HEADING,
   };
 }
 
@@ -194,4 +261,8 @@ export const CORRECTIONS_PAGE_CSS =
   '  .corr .kicker a { color:var(--accent); text-decoration:none; }\n' +
   '  .corr .kicker a:hover { text-decoration:underline; }\n' +
   '  .corr .lede { margin-top:8px; }\n' +
-  '  .dated { font-size:14px; color:var(--ink3); }\n';
+  '  .dated { font-size:14px; color:var(--ink3); }\n' +
+  '  ul.lede { padding-left:1.25em; }\n' +
+  '  ul.lede li { margin-top:6px; }\n' +
+  '  ul.lede ul { margin:0; padding-left:1.25em; }\n' +
+  '  .lede strong { color:var(--ink); font-weight:600; }\n';

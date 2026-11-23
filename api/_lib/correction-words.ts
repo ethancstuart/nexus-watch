@@ -35,8 +35,26 @@ export type ApprovedCorrectionNote = Extract<CorrectionNote, { status: 'approved
 
 interface IntroFields {
   title: string;
-  /** Plain-text paragraphs, in order. */
+  /**
+   * Plain-text paragraphs, in order. A paragraph may start with a list marker
+   * ("- ", or "  - " nested) and then a bold lead-in ("**Lead.**"); nothing
+   * else is markup (api/_lib/corrections.ts, pageTextHtml).
+   */
   paragraphs: readonly string[];
+  /**
+   * Dated amendments to the page's own text, oldest first. Each renders as its
+   * own line directly after "Published …" (amendmentLine), so a reader sees
+   * that the published words changed, when, and what they first said.
+   */
+  amendments?: readonly PageAmendment[];
+}
+
+/** One amendment to the corrections page's text. */
+export interface PageAmendment {
+  /** When the page text was amended, YYYY-MM-DD; rendered, never typed into the prose. */
+  on: string;
+  /** What changed, plain text, read after "Amended <date>: ". Escaped wherever it is rendered. */
+  text: string;
 }
 
 export type CorrectionsPageIntro =
@@ -91,6 +109,11 @@ export function formatCorrectionDate(iso: string): string {
 /** "Correction added 1 Dec 2026." Also the archive card's marker. */
 export function correctionAdded(correctedOn: string): string {
   return `Correction added ${formatCorrectionDate(correctedOn)}.`;
+}
+
+/** "Amended 23 Nov 2026: this page first said …": one amendment to the page text, as a reader reads it. */
+export function amendmentLine(a: PageAmendment): string {
+  return `Amended ${formatCorrectionDate(a.on)}: ${a.text}`;
 }
 
 /** "Correction added 1 Dec 2026. This edition contained false statements." */

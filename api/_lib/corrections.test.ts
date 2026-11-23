@@ -7,9 +7,13 @@ import {
   correctionBlockHtml,
   correctionPayload,
   correctionsNewestFirst,
+  pageParagraphText,
+  pageTextHtml,
+  renderCorrectionsPage,
   type ApprovalKeys,
 } from './corrections.js';
 import {
+  amendmentLine,
   correctionAdded,
   formatCorrectionDate,
   fullNote,
@@ -191,5 +195,178 @@ describe('rendering escapes every string', () => {
       classification: 'false',
       note: `Correction added 1 Dec 2026. This edition contained false statements. ${hostile.text}`,
     });
+  });
+});
+
+/**
+ * THE PAGE TEXT'S ONLY MARKUP. A stored paragraph of the /corrections page may
+ * start with "- " (a list item) or "  - " (an item inside the item before it),
+ * and then with a lead-in in double asterisks. Nothing else is read as markup,
+ * every word is escaped, and the words a reader sees are the paragraph with
+ * those markers removed.
+ */
+describe('the page text: lists and bold lead-ins, nothing else', () => {
+  it('a plain paragraph is a lede paragraph, as before', () => {
+    expect(pageTextHtml(['One.', 'Two & three.'])).toBe(
+      '<p class="lede">One.</p>\n<p class="lede">Two &amp; three.</p>',
+    );
+  });
+
+  it('a leading **Lead.** is bold, on a paragraph and on a list item', () => {
+    expect(pageTextHtml(['**What was wrong.** We checked.'])).toBe(
+      '<p class="lede"><strong>What was wrong.</strong> We checked.</p>',
+    );
+    expect(pageTextHtml(['**What we did not check.**'])).toBe(
+      '<p class="lede"><strong>What we did not check.</strong></p>',
+    );
+    expect(pageTextHtml(['- **Records.** 142 statements.'])).toBe(
+      '<ul class="lede">\n<li><strong>Records.</strong> 142 statements.</li>\n</ul>',
+    );
+  });
+
+  it('consecutive items make one list; a paragraph between them makes two', () => {
+    expect(pageTextHtml(['Lead:', '- a', '- b', 'Between.', '- c'])).toBe(
+      '<p class="lede">Lead:</p>\n' +
+        '<ul class="lede">\n<li>a</li>\n<li>b</li>\n</ul>\n' +
+        '<p class="lede">Between.</p>\n' +
+        '<ul class="lede">\n<li>c</li>\n</ul>',
+    );
+  });
+
+  it('"  - " items nest inside the item before them, one level', () => {
+    expect(pageTextHtml(['- **Counts.** 210 right.', '  - 90 false.', '  - 13 misleading.', '- **The unit.** x'])).toBe(
+      '<ul class="lede">\n' +
+        '<li><strong>Counts.</strong> 210 right.<ul>\n<li>90 false.</li>\n<li>13 misleading.</li>\n</ul></li>\n' +
+        '<li><strong>The unit.</strong> x</li>\n' +
+        '</ul>',
+    );
+  });
+
+  it('a nested item with no item before it opens the list as an item: nothing is dropped or left open', () => {
+    expect(pageTextHtml(['Para.', '  - orphan', '- next'])).toBe(
+      '<p class="lede">Para.</p>\n<ul class="lede">\n<li>orphan</li>\n<li>next</li>\n</ul>',
+    );
+  });
+
+  it('nothing else is markup: other asterisks, hashes, links and dashes stay literal text', () => {
+    for (const p of [
+      'a **b** c',
+      '**unclosed lead',
+      '****',
+      '* star item',
+      '-no space',
+      '# Heading',
+      '[link](https://example.com)',
+      '_under_ and `code`',
+      ' - one space',
+      '   - three spaces',
+    ]) {
+      expect(pageTextHtml([p]), p).toBe(`<p class="lede">${p.replace(/&/g, '&amp;')}</p>`);
+      expect(pageParagraphText(p), p).toBe(p);
+    }
+  });
+
+  it('escapes every word, inside items and lead-ins too', () => {
+    const html = pageTextHtml([
+      `**<script>alert(1)</script>** & "q" 'a'`,
+      `- **<img src=x onerror=y>** <b>bold</b>`,
+      `  - </li></ul><script>x</script>`,
+    ]);
+    expect(html).not.toMatch(/<script|<img|<b>/);
+    expect(html).toContain('<strong>&lt;script&gt;alert(1)&lt;/script&gt;</strong> &amp; &quot;q&quot; &#39;a&#39;');
+    expect(html).toContain('<li><strong>&lt;img src=x onerror=y&gt;</strong> &lt;b&gt;bold&lt;/b&gt;<ul>');
+    expect(html).toContain('<li>&lt;/li&gt;&lt;/ul&gt;&lt;script&gt;x&lt;/script&gt;</li>');
+    expect(html).not.toMatch(/style=/);
+  });
+
+  it('the words a reader sees are the paragraph with the markers removed, and nothing else changed', () => {
+    expect(pageParagraphText('Plain, unchanged.')).toBe('Plain, unchanged.');
+    expect(pageParagraphText('**What was wrong.** We checked 1,003 statements.')).toBe(
+      'What was wrong. We checked 1,003 statements.',
+    );
+    expect(pageParagraphText('**What we did not check.**')).toBe('What we did not check.');
+    expect(pageParagraphText('- **Records.** 142 statements.')).toBe('Records. 142 statements.');
+    expect(pageParagraphText('  - 90 were false.')).toBe('90 were false.');
+    expect(pageParagraphText('- 23 Aug: not a record.')).toBe('23 Aug: not a record.');
+  });
+
+  it('the /corrections page renders its introduction through it; the meta description is plain words', () => {
+    const intro = {
+      status: 'approved' as const,
+      publishedOn: '2026-12-01',
+      title: 'T',
+      paragraphs: ['**Opening.** First & only.', '- **Item.** one', '  - sub'],
+    };
+    const note = approved('2026-09-08', '2026-12-01') as Extract<CorrectionNote, { status: 'approved' }>;
+    const page = renderCorrectionsPage([note], intro);
+    expect(page.body).toContain(
+      '<p class="lede"><strong>Opening.</strong> First &amp; only.</p>\n' +
+        '<ul class="lede">\n<li><strong>Item.</strong> one<ul>\n<li>sub</li>\n</ul></li>\n</ul>',
+    );
+    expect(page.description).toBe('Opening. First & only.');
+    // The notes keep their own rendering: one escaped paragraph each.
+    expect(page.body).toContain(`<p class="lede">${fullNote(note)}</p>`);
+  });
+});
+
+/**
+ * A DATED AMENDMENT TO THE PAGE'S OWN TEXT. Each renders as its own line
+ * directly after "Published …", its date rendered from data like every other
+ * date on the page, and the introduction fails closed on one it cannot render
+ * truthfully.
+ */
+describe('amendments to the page text', () => {
+  const note = approved('2026-09-08', '2026-12-01') as Extract<CorrectionNote, { status: 'approved' }>;
+  const intro = {
+    status: 'approved' as const,
+    publishedOn: '2026-12-01',
+    title: 'T',
+    paragraphs: ['P.'],
+  };
+
+  it('reads "Amended <date>: <text>"', () => {
+    expect(amendmentLine({ on: '2026-11-23', text: 'this page first said x.' })).toBe(
+      'Amended 23 Nov 2026: this page first said x.',
+    );
+  });
+
+  it('each is its own dated line, in order, directly after "Published", escaped', () => {
+    const page = renderCorrectionsPage([note], {
+      ...intro,
+      amendments: [
+        { on: '2026-12-01', text: 'first <b>said</b> & "more".' },
+        { on: '2026-12-03', text: 'second.' },
+      ],
+    });
+    expect(page.body).toContain(
+      '<p class="lede dated">Published 1 Dec 2026.</p>' +
+        '<p class="lede dated">Amended 1 Dec 2026: first &lt;b&gt;said&lt;/b&gt; &amp; &quot;more&quot;.</p>' +
+        '<p class="lede dated">Amended 3 Dec 2026: second.</p>\n' +
+        '<p class="lede">P.</p>',
+    );
+    expect(page.body).not.toMatch(/<b>/);
+    // The meta description is still the first paragraph.
+    expect(page.description).toBe('P.');
+  });
+
+  it('none, as before: no amendment line', () => {
+    expect(renderCorrectionsPage([note], intro).body).not.toContain('Amended');
+    expect(renderCorrectionsPage([note], { ...intro, amendments: [] }).body).not.toContain('Amended');
+  });
+
+  it('the introduction fails closed on an amendment it cannot render truthfully', () => {
+    const notes = [approved('2026-09-08', '2026-12-01')];
+    const keys = { noteDates: ['2026-09-08'], introduction: true };
+    const ok = { ...intro, amendments: [{ on: '2026-12-02', text: 'x.' }] };
+    expect(approvedIntro(ok, notes, keys)?.amendments).toEqual([{ on: '2026-12-02', text: 'x.' }]);
+    for (const bad of [
+      { on: 'soon', text: 'x.' },
+      { on: '2026-02-30', text: 'x.' },
+      { on: '2026-11-30', text: 'x.' }, // before publication
+      { on: '2026-12-02', text: '' },
+      { on: '2026-12-02', text: '   ' },
+    ]) {
+      expect(approvedIntro({ ...intro, amendments: [bad] }, notes, keys), JSON.stringify(bad)).toBeNull();
+    }
   });
 });

@@ -446,7 +446,7 @@ describe('3. the 21 Nov shape — a quote dated the previous day — is caught',
     h.state.fx = [...AR_THROUGH_20];
     provider = { ...providerBody(new Date(Date.UTC(2026, 10, 21, 0, 2, 31))), rates: { USD: 1, ARS: 1562.98 } };
     await collectAt('2026-11-21T05:00:00Z');
-    const warn = h.raiseAlert.mock.calls.map(([a]) => a).filter((a) => a.key === 'collector:source-fx-rates');
+    const warn = h.raiseAlert.mock.calls.map(([a]) => a).filter((a) => a.key === 'collector:source-fx-rates:repeat');
     expect(warn).toHaveLength(1);
     expect(warn[0].body).toContain('equal those stored for 2026-11-20');
     await resolveAt('2026-11-21T09:45:00Z');

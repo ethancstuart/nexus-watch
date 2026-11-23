@@ -169,8 +169,30 @@ export function providerUpdatedAt(body: { time_last_update_unix?: unknown }): Da
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** This collector's own key on the existing alert path. */
+/** This collector's own key on the existing alert path: the run stored nothing for today. */
 export const FX_COLLECTOR_ALERT_KEY = 'collector:source-fx-rates';
+
+/**
+ * ONE KEY PER PROBLEM, each under the collector's own key. The alert path
+ * sends a key's first alert, then stays quiet on that key for 6 hours
+ * (ALERT_REMINDER_HOURS). When every problem shared one key, a re-run that
+ * stored a late or repeated update after a 05:00 failure claimed the same key,
+ * and its warning was not sent that day. Now each problem is raised, deduped
+ * and stood down on its own key. Stored nothing keeps the original key, so an
+ * alert already open under it is stood down as before.
+ */
+export const FX_ALERT_KEYS = {
+  /** Nothing stored for today: the fetch failed, or the response had no rates or no update time. */
+  storedNothing: FX_COLLECTOR_ALERT_KEY,
+  /** Nothing stored for today: the provider's update was over FX_QUOTE_MAX_AGE_HOURS old. */
+  stale: `${FX_COLLECTOR_ALERT_KEY}:stale`,
+  /** Stored, from an update published before 23:00 the day before (FX_UPDATE_EARLY_MARGIN_MINUTES). */
+  late: `${FX_COLLECTOR_ALERT_KEY}:late`,
+  /** Stored, and every rate equals the previous stored day's. */
+  repeat: `${FX_COLLECTOR_ALERT_KEY}:repeat`,
+  /** Stored, but a currency failed to store, or one stored the previous day is missing. */
+  incomplete: `${FX_COLLECTOR_ALERT_KEY}:incomplete`,
+} as const;
 
 /** Equal at the column's precision: rate_vs_usd is NUMERIC(16,6). */
 const sameStoredRate = (a: number, b: number) => Math.round(a * 1e6) === Math.round(b * 1e6);
@@ -190,6 +212,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let providerUpdate = 'none';
   // Set when the stored update reads as yesterday's, published late.
   let lateUpdate: string | null = null;
+  // Set when the update was refused for its age, so nothing was stored.
+  let staleUpdate = false;
+  // False when the previous stored day could not be read: repeats and missing
+  // currencies were then not checked.
+  let prevRead = false;
   // DIAGNOSTICS, alert-only. The previous stored day's rates, to notice the
   // 21 Nov shape when it arrives under a fresh update time. Nothing here
   // changes what is stored.
@@ -221,6 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const ageHours = (now.getTime() - updatedAt.getTime()) / 3_600_000;
     providerUpdate = `${updatedAt.toISOString()} (${ageHours.toFixed(1)} h old)`;
     if (ageHours > FX_QUOTE_MAX_AGE_HOURS) {
+      staleUpdate = true;
       throw new Error(
         `open.er-api last updated ${updatedAt.toISOString()}, ${ageHours.toFixed(1)} h ago ` +
           `(limit ${FX_QUOTE_MAX_AGE_HOURS} h); nothing stored for ${today}`,
@@ -239,6 +267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         prev.set(r.currency_code, r.rate);
         prevDate = r.date;
       }
+      prevRead = true;
     } catch (diagErr) {
       console.error('[source-fx-rates] previous-day read failed; diagnostics skipped:', diagErr);
     }
@@ -294,76 +323,128 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // the reason in a body nobody reads, and every FX call due today is then
   // held. Now it raises an alert on the existing path, keyed so a continuing
   // failure is one notice plus reminders, and stood down by the first run that
-  // stores rates in full. The alert is fail-open: it never stops the collector.
+  // stores rates. The alert is fail-open: it never stops the collector.
   //
   // A run that stored rows can still be wrong in ways worth a look, and these
-  // are reported on the same key without changing what was stored:
+  // are reported without changing what was stored:
   //  - a currency failed to store, or one stored the previous day is missing,
   //    so its calls will be held;
+  //  - the stored update reads as the previous day's, published late;
   //  - EVERY stored rate equals the previous stored day's. Before 21 Nov that
   //    happened on no day in 92, weekends included; the most on any other day
   //    was 6 of 65 (both Sundays). A fresh update time carrying the previous
   //    day's values passes the age test above, and this is the only sign of it.
+  //
+  // EACH PROBLEM ON ITS OWN KEY (FX_ALERT_KEYS), with its own dedupe. A key is
+  // raised when its problem is seen, and stood down by the first run that
+  // checked for it and did not see it. A run that could not check leaves it as
+  // it was: one that stored nothing cannot judge today's update or values, and
+  // one that could not read the previous day cannot judge repeats or missing
+  // currencies.
   const storedNothing = result.ingested === 0;
   const missing = [...prev.keys()].filter((c) => !stored.has(c)).sort();
   const allIdentical = compared > 0 && compared === result.ingested && identical === compared;
-  const concerns: string[] = [];
-  if (!storedNothing) {
-    if (result.errors.length > 0) {
-      concerns.push(`${result.errors.length} currency(ies) failed to store, e.g. ${scrubForLog(result.errors[0])}`);
-    }
-    if (missing.length > 0) {
-      concerns.push(
-        `${missing.length} currency(ies) stored for ${prevDate} are missing today: ${missing.slice(0, 12).join(', ')}` +
-          `${missing.length > 12 ? ' …' : ''}; their FX calls due today will be held`,
-      );
-    }
-    if (lateUpdate !== null) {
-      concerns.push(
-        `the update stored as ${today} was published ${lateUpdate}, more than ` +
-          `${FX_UPDATE_EARLY_MARGIN_MINUTES} minutes before ${today} began (UTC). It is probably the previous ` +
-          `day's update published late. It was stored, and FX calls due ${today} will be scored on it`,
-      );
-    }
-    if (allIdentical) {
-      concerns.push(
-        `all ${compared} rates stored equal those stored for ${prevDate}. The provider may have repeated ` +
-          'the values of the previous day under a new update time: the same repeated-values pattern that ' +
-          '21 Nov showed. The rows are stored and will be scored',
-      );
-    }
+  const provider = `Provider update: ${providerUpdate}.`;
+  const heldUntil =
+    `FX calls due ${today} are held until a quote dated ${today} is stored. Running this job again once the ` +
+    `provider has updated stores it, if the update is under ${FX_QUOTE_MAX_AGE_HOURS} hours old; the next ` +
+    `resolve-calls run then picks the calls up. A held call is settled as unresolvable, never scored, ` +
+    `${UNRESOLVABLE_GRACE_DAYS} days after its date.`;
+  const stillMissing =
+    'A day that stored nothing stays missing: FX calls due that day are held and, unless a rate for it is ' +
+    `stored, settled unresolvable after ${UNRESOLVABLE_GRACE_DAYS} days.`;
+  const warned = (what: string) => `[source-fx-rates] FX rates for ${today} stored with a warning: ${what}`;
+
+  const incomplete: string[] = [];
+  if (result.errors.length > 0) {
+    incomplete.push(`${result.errors.length} currency(ies) failed to store, e.g. ${scrubForLog(result.errors[0])}`);
   }
-  try {
-    if (storedNothing) {
-      await raiseAlert({
-        key: FX_COLLECTOR_ALERT_KEY,
-        severity: 'warning',
-        title: `[source-fx-rates] no FX rates stored for ${today}`,
-        body:
-          `${scrubForLog(result.errors[0] ?? 'no rates in the response')}` +
-          `${result.errors.length > 1 ? ` (and ${result.errors.length - 1} more error(s))` : ''}. ` +
-          `Provider update: ${providerUpdate}. FX calls due ${today} are held until a quote dated ${today} ` +
-          'is stored. Running this job again once the provider has updated stores it, if the update is under ' +
-          `${FX_QUOTE_MAX_AGE_HOURS} hours old; the next resolve-calls run then picks the calls up. A held call ` +
-          `is settled as unresolvable, never scored, ${UNRESOLVABLE_GRACE_DAYS} days after its date.`,
-      });
-    } else if (concerns.length > 0) {
-      await raiseAlert({
-        key: FX_COLLECTOR_ALERT_KEY,
-        severity: 'warning',
-        title: `[source-fx-rates] FX rates for ${today} stored with ${concerns.length} warning(s)`,
-        body: `${concerns.join('. ')}. Provider update: ${providerUpdate}.`,
-      });
-    } else {
-      await clearAlert(
-        FX_COLLECTOR_ALERT_KEY,
-        `Rates for ${today} were stored in full. A day that stored nothing stays missing: FX calls due ` +
-          `that day are held and, unless a rate for it is stored, settled unresolvable after ` +
-          `${UNRESOLVABLE_GRACE_DAYS} days.`,
-      );
+  if (missing.length > 0) {
+    incomplete.push(
+      `${missing.length} currency(ies) stored for ${prevDate} are missing today: ${missing.slice(0, 12).join(', ')}` +
+        `${missing.length > 12 ? ' …' : ''}; their FX calls due today will be held`,
+    );
+  }
+  const warnings = !storedNothing && (incomplete.length > 0 || lateUpdate !== null || allIdentical);
+  // "In full" only when nothing is warned about and missing currencies were checked.
+  const storedNote =
+    `Rates for ${today} were stored` +
+    (warnings ? ', with warnings raised separately' : prevRead ? ' in full' : '') +
+    `. ${stillMissing}`;
+
+  interface Check {
+    key: string;
+    seen: boolean;
+    checked: boolean;
+    title: string;
+    body: string;
+    allClear: string;
+  }
+  const checks: Check[] = storedNothing
+    ? [
+        {
+          key: staleUpdate ? FX_ALERT_KEYS.stale : FX_ALERT_KEYS.storedNothing,
+          seen: true,
+          checked: true,
+          title:
+            `[source-fx-rates] no FX rates stored for ${today}` +
+            (staleUpdate ? `: the provider's update is over ${FX_QUOTE_MAX_AGE_HOURS} h old` : ''),
+          body:
+            `${scrubForLog(result.errors[0] ?? 'no rates in the response')}` +
+            `${result.errors.length > 1 ? ` (and ${result.errors.length - 1} more error(s))` : ''}. ` +
+            `${provider} ${heldUntil}`,
+          allClear: '',
+        },
+      ]
+    : [
+        ...[FX_ALERT_KEYS.storedNothing, FX_ALERT_KEYS.stale].map((key) => ({
+          key,
+          seen: false,
+          checked: true,
+          title: '',
+          body: '',
+          allClear: storedNote,
+        })),
+        {
+          key: FX_ALERT_KEYS.incomplete,
+          seen: incomplete.length > 0,
+          checked: prevRead,
+          title: warned('currencies not stored'),
+          body: `${incomplete.join('. ')}. ${provider}`,
+          allClear:
+            `Every currency was stored for ${today}: none failed` +
+            (prevDate === null ? '.' : `, and none stored for ${prevDate} is missing.`),
+        },
+        {
+          key: FX_ALERT_KEYS.late,
+          seen: lateUpdate !== null,
+          checked: true,
+          title: warned('late update'),
+          body:
+            `the update stored as ${today} was published ${lateUpdate}, more than ` +
+            `${FX_UPDATE_EARLY_MARGIN_MINUTES} minutes before ${today} began (UTC). It is probably the previous ` +
+            `day's update published late. It was stored, and FX calls due ${today} will be scored on it. ${provider}`,
+          allClear: `The update stored for ${today} reads as that day's own. ${provider}`,
+        },
+        {
+          key: FX_ALERT_KEYS.repeat,
+          seen: allIdentical,
+          checked: compared > 0,
+          title: warned('repeated values'),
+          body:
+            `all ${compared} rates stored equal those stored for ${prevDate}. The provider may have repeated ` +
+            'the values of the previous day under a new update time: the same repeated-values pattern that ' +
+            `21 Nov showed. The rows are stored and will be scored. ${provider}`,
+          allClear: `Rates stored for ${today} are not all equal to those stored for ${prevDate}.`,
+        },
+      ];
+  for (const c of checks) {
+    try {
+      if (c.seen) await raiseAlert({ key: c.key, severity: 'warning', title: c.title, body: c.body });
+      else if (c.checked) await clearAlert(c.key, c.allClear);
+    } catch (alertErr) {
+      console.error(`[source-fx-rates] alert ${c.key} failed (non-fatal):`, alertErr);
     }
-  } catch (alertErr) {
-    console.error('[source-fx-rates] alert failed (non-fatal):', alertErr);
   }
 
   console.log(
