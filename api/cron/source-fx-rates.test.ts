@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import handler, { FX_COLLECTOR_ALERT_KEY, FX_QUOTE_MAX_AGE_HOURS, providerUpdatedAt } from './source-fx-rates.js';
+import handler, {
+  FX_COLLECTOR_ALERT_KEY,
+  FX_QUOTE_MAX_AGE_HOURS,
+  FX_UPDATE_EARLY_MARGIN_MINUTES,
+  providerUpdatedAt,
+  updateIsForDay,
+} from './source-fx-rates.js';
 
 /**
  * A ROW DATED TODAY HOLDS TODAY'S QUOTE.
@@ -155,12 +161,15 @@ describe('source-fx-rates: freshness by the update’s age, not its calendar dat
     expect(cleared()).toHaveLength(0);
   });
 
-  it('an update stamped just before midnight is accepted and stored as the next day’s row', async () => {
+  it('an update stamped just before midnight is accepted, stored as the next day’s row, and NOT warned about', async () => {
     reply = { ok: true, status: 200, body: providerBody(at('2026-11-20T23:58:00Z')) };
     const res = await collectAt('2026-11-21T05:00:00Z');
     expect(res.statusCode).toBe(200);
     expect(inserts()).toHaveLength(3);
     expect(inserts().every((s) => s.values[2] === '2026-11-21')).toBe(true);
+    // 23:58 is after the 23:00 cut: read as today's update, published early.
+    expect(raised()).toHaveLength(0);
+    expect(cleared()).toHaveLength(1);
   });
 
   it('the edge: exactly 20 h old is accepted; one second more is refused', async () => {
@@ -230,6 +239,56 @@ describe('source-fx-rates: freshness by the update’s age, not its calendar dat
     const res = await collectAt('2026-11-21T05:00:00Z');
     expect(res.statusCode).toBe(502);
     expect(res.body?.errors[0]).toContain('open.er-api 503');
+  });
+});
+
+describe('source-fx-rates: an update published before 23:00 the day before is stored, and warned about', () => {
+  it('the cut is 60 minutes before today’s UTC midnight: 23:00 the day before', () => {
+    expect(FX_UPDATE_EARLY_MARGIN_MINUTES).toBe(60);
+    expect(updateIsForDay(at('2026-11-20T23:00:00Z'), '2026-11-21')).toBe(true);
+    expect(updateIsForDay(at('2026-11-20T22:59:59Z'), '2026-11-21')).toBe(false);
+    expect(updateIsForDay(at('2026-11-21T00:02:31Z'), '2026-11-21')).toBe(true);
+  });
+
+  it('the reviewer’s case: a 20 Nov 12:00 update, collected 21 Nov 05:00, is stored as 21 Nov — and warned', async () => {
+    // Under 20 h old (17 h), so the age rule admits it; nothing newer exists.
+    // Its values differ from the last stored day, so the repeat check is silent.
+    h.prevRows = [
+      { currency_code: 'ARS', rate: 1540.0, date: '2026-11-19' },
+      { currency_code: 'TRY', rate: 42.1, date: '2026-11-19' },
+      { currency_code: 'AED', rate: 3.6725, date: '2026-11-19' },
+    ];
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-20T12:00:00Z')) };
+    const res = await collectAt('2026-11-21T05:00:00Z');
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ ingested: 3, errors: [] }); // stored: measurement unchanged
+    expect(inserts().every((s) => s.values[2] === '2026-11-21')).toBe(true);
+    expect(raised()).toHaveLength(1);
+    expect(raised()[0].title).toContain('stored with 1 warning');
+    expect(raised()[0].body).toContain('the update stored as 2026-11-21 was published 2026-11-20T12:00:00.000Z');
+    expect(raised()[0].body).toContain('probably the previous day');
+    // The all-clear, and its "stored in full", must not be sent on such a run.
+    expect(cleared()).toHaveLength(0);
+  });
+
+  it('the edges: 22:59:59 the day before is warned; 23:00:00 is not', async () => {
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-20T22:59:59Z')) };
+    await collectAt('2026-11-21T05:00:00Z');
+    expect(raised()).toHaveLength(1);
+    expect(cleared()).toHaveLength(0);
+    h.raiseAlert.mockClear();
+    h.clearAlert.mockClear();
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-20T23:00:00Z')) };
+    await collectAt('2026-11-21T05:00:00Z');
+    expect(raised()).toHaveLength(0);
+    expect(cleared()).toHaveLength(1);
+  });
+
+  it('a normal 00:02 update is not warned about', async () => {
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
+    await collectAt('2026-11-21T05:00:00Z');
+    expect(raised()).toHaveLength(0);
+    expect(cleared()).toHaveLength(1);
   });
 });
 

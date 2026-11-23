@@ -126,14 +126,40 @@ const CURRENCY_MAP: Record<string, string> = {
  *  - It must admit any update that yesterday's calls could not have used. The
  *    resolver ran at 09:45 yesterday, which is 19 h 15 min before 05:00.
  *  - 20 hours is the whole hour above 19 h 15 min. At the scheduled run it
- *    admits any update published after 09:00 UTC yesterday. It also leaves a
- *    4-hour margin under 24, so an update that came 4 hours late yesterday
- *    and was not followed by a new one today is still refused.
+ *    admits any update published after 09:00 UTC yesterday. So yesterday's
+ *    update is still refused if it came up to about 9 hours late (00:02 to
+ *    09:00) and nothing newer followed.
+ *
+ * What it lets through: yesterday's update published MORE than about 9 hours
+ * late (after 09:00 UTC yesterday), with nothing newer since. That update is
+ * under 20 hours old at 05:00, so it is stored as today's row. It is not
+ * refused, because it is the newest quote there is and yesterday's calls never
+ * saw it; it is warned about (FX_UPDATE_EARLY_MARGIN_MINUTES).
  *
  * The cost: a manual re-run of this job is admitted only up to 20 hours after
  * the provider's update, which is about 20:00 UTC for a 00:02 update.
  */
 export const FX_QUOTE_MAX_AGE_HOURS = 20;
+
+/**
+ * WHEN AN UPDATE STOPS LOOKING LIKE TODAY'S. Alert-only: the row is stored.
+ *
+ * The provider's daily update has landed between 00:02 and 00:33 UTC on every
+ * stamp we hold: 00:02:31 on 16 Nov, 00:02:32 on 22 Nov, and 00:33:02 scheduled
+ * for 23 Nov. The cut is the earliest of those, 00:02, less about an hour of
+ * drift, rounded to the hour: 23:00 UTC the day before. So an update published
+ * from 23:00 on (23:58, say) reads as today's, published early, and stays
+ * quiet. One published before 23:00 is more than an hour earlier than any
+ * daily update we have seen. It is far likelier to be yesterday's update
+ * published late, now stored under today's date, so it is warned about.
+ */
+export const FX_UPDATE_EARLY_MARGIN_MINUTES = 60;
+
+/** True when an update published at `updatedAt` reads as the cycle for UTC day `today` (YYYY-MM-DD). */
+export function updateIsForDay(updatedAt: Date, today: string): boolean {
+  const cut = Date.parse(`${today}T00:00:00Z`) - FX_UPDATE_EARLY_MARGIN_MINUTES * 60_000;
+  return updatedAt.getTime() >= cut;
+}
 
 /** When the provider says it last updated, from its own `time_last_update_unix`. Null when it does not say. */
 export function providerUpdatedAt(body: { time_last_update_unix?: unknown }): Date | null {
@@ -162,6 +188,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Logged on every run: the provider's own update time, the one fact that
   // tells a stale-stamp morning from a fresh-stamp, stale-values morning.
   let providerUpdate = 'none';
+  // Set when the stored update reads as yesterday's, published late.
+  let lateUpdate: string | null = null;
   // DIAGNOSTICS, alert-only. The previous stored day's rates, to notice the
   // 21 Nov shape when it arrives under a fresh update time. Nothing here
   // changes what is stored.
@@ -198,6 +226,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `(limit ${FX_QUOTE_MAX_AGE_HOURS} h); nothing stored for ${today}`,
       );
     }
+    if (!updateIsForDay(updatedAt, today)) lateUpdate = updatedAt.toISOString();
     const rates = latestData.rates || {};
 
     try {
@@ -287,6 +316,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       concerns.push(
         `${missing.length} currency(ies) stored for ${prevDate} are missing today: ${missing.slice(0, 12).join(', ')}` +
           `${missing.length > 12 ? ' …' : ''}; their FX calls due today will be held`,
+      );
+    }
+    if (lateUpdate !== null) {
+      concerns.push(
+        `the update stored as ${today} was published ${lateUpdate}, more than ` +
+          `${FX_UPDATE_EARLY_MARGIN_MINUTES} minutes before ${today} began (UTC). It is probably the previous ` +
+          `day's update published late. It was stored, and FX calls due ${today} will be scored on it`,
       );
     }
     if (allIdentical) {

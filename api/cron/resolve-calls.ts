@@ -58,10 +58,14 @@ export function fxEvidenceBasisPoints(movedPct: number): number {
  * FX_QUOTE_MAX_AGE_HOURS old. So a row dated resolves_on holds the provider's
  * daily update collected that morning: published about 00:02 UTC, and for a
  * currency fixed on business days, its latest fixing. The reference rate
- * follows the same convention. Two things it does not prove: that the values
- * changed (an update can repeat the previous day's; the collector warns), and
- * that every earlier day of the window has a row (a gap mid-window is scored
- * as before).
+ * follows the same convention. Three things it does not prove:
+ *  - that the update is that day's. If the previous day's update was published
+ *    more than about 9 hours late and nothing newer followed, it is stored
+ *    under the later date (the collector warns);
+ *  - that the values changed. An update can repeat the previous day's (the
+ *    collector warns);
+ *  - that every earlier day of the window has a row. A gap mid-window is
+ *    scored as before.
  *
  * A call held for want of that quote never waits forever. After
  * UNRESOLVABLE_GRACE_DAYS it is settled as unresolvable, never scored, by the
