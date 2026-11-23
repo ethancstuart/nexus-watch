@@ -178,7 +178,11 @@ vi.mock('@neondatabase/serverless', () => ({
     (strings: TemplateStringsArray, ...values: unknown[]) =>
       Promise.resolve(h.query(strings, values)),
 }));
-vi.mock('../_lib/alert.js', () => ({ raiseAlert: h.raiseAlert, clearAlert: h.clearAlert }));
+vi.mock('../_lib/alert.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../_lib/alert.js')>()),
+  raiseAlert: h.raiseAlert,
+  clearAlert: h.clearAlert,
+}));
 
 // ---------------------------------------------------------------------------
 

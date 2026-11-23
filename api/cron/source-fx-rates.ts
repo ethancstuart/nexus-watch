@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { requireCron } from '../_cron-utils.js';
+import { raiseAlert, clearAlert, scrubForLog } from '../_lib/alert.js';
+import { UNRESOLVABLE_GRACE_DAYS } from '../_lib/calls.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
@@ -120,6 +122,9 @@ export function providerQuoteDate(body: { time_last_update_unix?: unknown }): st
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
+/** This collector's own key on the existing alert path. */
+export const FX_COLLECTOR_ALERT_KEY = 'collector:source-fx-rates';
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireCron(req, res)) return;
 
@@ -198,6 +203,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     result.errors.push(err instanceof Error ? err.message : String(err));
   }
 
+  // FAIL LOUDLY. A run that stored nothing for today used to answer 200 with
+  // the reason in a body nobody reads, and every FX call due today is then
+  // held. Now it raises an alert on the existing path, keyed so a continuing
+  // failure is one notice plus reminders, and stood down by the first run that
+  // stores rates. The alert is fail-open: it never stops the collector.
+  const storedNothing = result.ingested === 0;
+  try {
+    if (storedNothing) {
+      await raiseAlert({
+        key: FX_COLLECTOR_ALERT_KEY,
+        severity: 'warning',
+        title: `[source-fx-rates] no FX rates stored for ${today}`,
+        body:
+          `${scrubForLog(result.errors[0] ?? 'no rates in the response')}` +
+          `${result.errors.length > 1 ? ` (and ${result.errors.length - 1} more error(s))` : ''}. ` +
+          `FX calls due ${today} are held until a quote dated ${today} is stored. Running this job again the ` +
+          'same UTC day, once the provider has updated, stores it, and the next resolve-calls run picks the ' +
+          'calls up; a held call is ' +
+          `settled as unresolvable, never scored, ${UNRESOLVABLE_GRACE_DAYS} days after its date.`,
+      });
+    } else {
+      await clearAlert(FX_COLLECTOR_ALERT_KEY);
+    }
+  } catch (alertErr) {
+    console.error('[source-fx-rates] alert failed (non-fatal):', alertErr);
+  }
+
   console.log(`[source-fx-rates] ingested=${result.ingested}, errors=${result.errors.length}`);
-  return res.json(result);
+  return res.status(storedNothing ? 502 : 200).json(result);
 }
