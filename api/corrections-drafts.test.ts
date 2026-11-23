@@ -11,12 +11,14 @@ import { markdownToHtml } from './_lib/markdown.js';
  * trace: no block, no label, no link, no marker, no JSON field, no sentence of
  * any such note, no word of an unpublished page introduction.
  *
- * WITH TODAY'S DATA THAT IS ALL 67, SO NOTHING APPEARS ANYWHERE: every note
- * is a draft, the key lists are empty, the introduction is a draft, and
- * /corrections is a 404. _lib/corrections-data.test.ts pins that. This file
- * derives its scope from the gate, so approving a note needs no edit here: it
- * keeps holding for every note still unpublished. What an approved note looks
- * like is pinned in corrections-approved.test.ts.
+ * WITH NOTHING APPROVED THAT IS ALL 67, SO NOTHING APPEARS ANYWHERE and
+ * /corrections is a 404. _lib/corrections-data.test.ts pins what is approved.
+ * This file derives its scope from the gate, so approving or withdrawing a
+ * note needs no edit here: it keeps holding for every note still unpublished,
+ * and with every note approved it still probes two unnoted dates. What an
+ * approved note looks like is pinned in corrections-approved.test.ts (synthetic
+ * notes) and corrections-published.test.ts (the real ones); a note held back
+ * from a full publication, in corrections-holdback.test.ts.
  *
  * Synthetic brief rows only.
  */
@@ -175,7 +177,7 @@ describe('an unpublished note never shows, on any surface', () => {
     expectNoTrace('/brief (db down)', down.body);
   });
 
-  it('/corrections: a 404 while nothing is approved (today), and never a draft word', async () => {
+  it('/corrections: a 404 while nothing is approved, and never a draft word', async () => {
     const { status, body, headers } = await call('./corrections.js');
     if (NONE_APPROVED) {
       expect(status).toBe(404);

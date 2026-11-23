@@ -9,8 +9,8 @@
  * api/_lib/corrections-approvals.ts. The gate checks both on every request of
  * every deployment, so a status changed here by accident, or an approval typed
  * on the wrong entry, shows nothing anywhere. (The integrity test also fails
- * on it, but no Vercel build runs the tests.) The wording below is an
- * unapproved draft.
+ * on it, but no Vercel build runs the tests.) Which entries are approved is
+ * pinned by APPROVED_DATES in corrections-data.test.ts.
  *
  * TO APPROVE ONE NOTE, in one commit: on its entry here, change
  * `status: 'draft'` to `status: 'approved'` and add

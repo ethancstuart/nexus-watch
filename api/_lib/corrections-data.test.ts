@@ -110,7 +110,7 @@ describe('correction notes: integrity', () => {
     }
   });
 
-  it('approval is exactly what the owner pinned (today: nothing)', () => {
+  it('approval is exactly what the owner pinned', () => {
     expect(
       CORRECTION_NOTES.filter((n) => n.status === 'approved')
         .map((n) => n.date)
