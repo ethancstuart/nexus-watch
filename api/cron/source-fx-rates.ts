@@ -145,6 +145,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // day were scored without a quote fresher than 20 Nov. So a response the
     // provider last updated before today is not stored under today's date:
     // no row is written, and the day reads as missing rather than as fresh.
+    // resolve-calls does not score a call whose last day has no row
+    // (fxQuoteIsFreshFor).
     const quotedOn = providerQuoteDate(latestData);
     if (quotedOn === null || quotedOn < today) {
       throw new Error(

@@ -41,6 +41,26 @@ export function fxEvidenceBasisPoints(movedPct: number): number {
   return Math.round(movedPct * 100);
 }
 
+/**
+ * AN FX CALL IS SCORED ONLY ON A QUOTE DATED ITS RESOLUTION DAY.
+ *
+ * On Sat 21 Nov 2026 every currency (65 of 65) repeated its 20 Nov value, and
+ * this job scored the 66 calls due that day at 09:45 with no quote fresher
+ * than 20 Nov. The harm is one-sided, as on the censorship leg: the verdict
+ * is the PEAK over the window, so a missing last day can only turn a
+ * would-be hit into a miss. AR 6047 was published MISS at 114 bp against
+ * 1.64%; at the next fresh quote it read +1.98%.
+ *
+ * So the window's newest stored quote must be dated on or after resolves_on.
+ * The window, the threshold and the reference are unchanged. A call without
+ * that quote stays pending and is retried on the next run. source-fx-rates
+ * refuses to date a provider update before today as today, so a row dated
+ * resolves_on holds that day's quote.
+ */
+export function fxQuoteIsFreshFor(newestQuoteDate: string | null, resolvesOn: string): boolean {
+  return newestQuoteDate !== null && newestQuoteDate >= resolvesOn;
+}
+
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 /**
@@ -139,6 +159,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Thin coverage, but inside the grace window — still pending, not settled.
     let stillWaiting = 0;
     let errored = 0;
+    // FX calls held for want of a quote dated their resolution day.
+    let fxAwaitingQuote = 0;
 
     for (const call of due) {
       try {
@@ -155,18 +177,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // was about. Both the threshold and the reference rate were fixed at
           // creation, so nothing here can move the bar.
           const peak = (await sql`
-          SELECT MAX(rate_vs_usd)::float AS peak
+          SELECT MAX(rate_vs_usd)::float AS peak, MAX(date)::text AS newest
           FROM fx_rates
           WHERE country_code = ${call.country_code}
             AND date >= ${call.made_on}::date
             AND date <= ${call.resolves_on}::date
-        `) as unknown as Array<{ peak: number | null }>;
+        `) as unknown as Array<{ peak: number | null; newest: string | null }>;
 
           const ref = call.reference_value;
           const pct = call.threshold_pct;
-          if (ref === null || pct === null || peak[0]?.peak == null) {
+          if (ref === null || pct === null) {
             // Unresolvable through no fault of the call — leave it pending
             // rather than record a miss we cannot justify.
+            continue;
+          }
+          // No quote dated the last day of the window: wait, never score.
+          // See fxQuoteIsFreshFor.
+          const newest = peak[0]?.newest ?? null;
+          if (!fxQuoteIsFreshFor(newest, call.resolves_on) || peak[0]?.peak == null) {
+            console.warn(
+              `[resolve-calls] call ${call.id} (${call.country_code}) has no FX quote dated ${call.resolves_on} ` +
+                `(newest in window: ${newest ?? 'none'}) — left pending, not scored`,
+            );
+            fxAwaitingQuote++;
+            stillWaiting++;
             continue;
           }
           const moved = fxDepreciationPct(ref, peak[0].peak);
@@ -438,6 +472,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       unresolvable,
       /** Still pending: matured but inside the grace window, or awaiting retry. */
       still_waiting: stillWaiting,
+      /** Of still_waiting: FX calls with no quote dated their resolution day. */
+      fx_awaiting_quote: fxAwaitingQuote,
       errored,
     });
   } catch (err) {
