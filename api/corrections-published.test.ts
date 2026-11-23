@@ -117,6 +117,42 @@ describe('the stored text is the signed-off final reader text', () => {
   });
 });
 
+/**
+ * THE GO-LIVE DATE IS PINNED. The owner's decision publishes on 23 Nov 2026:
+ * every approved note opens "Correction added 23 Nov 2026." and the page says
+ * "Published 23 Nov 2026.". The tests below take the date from the data, so a
+ * changed correctedOn or publishedOn would pass them (and the clock check in
+ * corrections-data.test.ts stops catching a later date once that date has
+ * come). This one fails on any other date. To re-date the publication, change
+ * these two constants together with the approval commit.
+ */
+const GO_LIVE = '2026-11-23';
+const GO_LIVE_READER = '23 Nov 2026';
+
+describe('the go-live date is 23 Nov 2026', () => {
+  it('every approved note in the data, and the page once approved, carry it', () => {
+    for (const n of CORRECTION_NOTES) if (n.status === 'approved') expect(n.correctedOn, n.date).toBe(GO_LIVE);
+    if (CORRECTIONS_PAGE_INTRO.status === 'approved') expect(CORRECTIONS_PAGE_INTRO.publishedOn).toBe(GO_LIVE);
+  });
+
+  it('readers see "Correction added 23 Nov 2026." on every approved note and "Published 23 Nov 2026." on the page', async () => {
+    const approved = approvedNotes();
+    for (const n of approved) {
+      const html = (await call('./brief/og.js', { date: n.date })).body as string;
+      expect(html, n.date).toContain(`<p>Correction added ${GO_LIVE_READER}. This edition contained `);
+    }
+    const { status, body } = await call('./corrections.js');
+    if (approved.length === 0) {
+      expect(status).toBe(404);
+      return;
+    }
+    const html = body as string;
+    expect(count(html, `Correction added ${GO_LIVE_READER}. This edition contained `)).toBe(approved.length);
+    expect(count(html, 'Correction added ')).toBe(approved.length);
+    if (approvedIntro()) expect(html).toContain(`<p class="lede dated">Published ${GO_LIVE_READER}.</p>`);
+  });
+});
+
 describe('every approved note renders, once, where it belongs', () => {
   const approved = approvedNotes();
 

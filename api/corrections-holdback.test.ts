@@ -18,7 +18,7 @@ import { briefDateKey } from './_lib/corrections.js';
  */
 
 const GO_LIVE = '2026-11-23';
-/** The notes with an open pre-publication check (22 Nov ranks, 6 Sep share record), and the first. */
+/** The two notes whose pre-publication checks (22 Nov ranks, 6 Sep share record) closed last, and the first. */
 const HELD_CASES = [['2026-11-22'], ['2026-09-06'], ['2026-08-23'], ['2026-09-06', '2026-11-22']];
 
 const state = vi.hoisted(() => ({
