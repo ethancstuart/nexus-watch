@@ -529,6 +529,16 @@ describe('5. the alert path fires after the set period', () => {
     expect(h.state.calls[0]).toMatchObject({ status: 'hit', evidence_count: 198 });
     expect(fxAlertRaises()).toHaveLength(0);
     expect(fxAlertClears()).toHaveLength(1);
+    // The all-clear says what happened, not just "RESOLVED".
+    expect(fxAlertClears()[0][1]).toContain('settled as unresolvable');
+  });
+
+  it('the run’s log line carries the FX-awaiting count the silent-resolver page points to', async () => {
+    h.state.calls = [arCall(), arCall({ id: 2, country_code: 'TR' })];
+    h.state.fx = [...AR_THROUGH_20];
+    await resolveAt('2026-11-21T09:45:00Z');
+    const lines = vi.mocked(console.log).mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes('2 of them FX awaiting a quote'))).toBe(true);
   });
 
   it('counts only calls past the period, and names the oldest', async () => {
@@ -688,5 +698,21 @@ describe('7. held calls cannot starve the 500-row page', () => {
     expect(h.state.calls.filter((c) => c.id >= 10_000).every((c) => c.status === 'pending')).toBe(true);
     // The truncation alarm still fires: the backlog is visible, not hidden.
     expect(h.raiseAlert.mock.calls.some(([a]) => a.key === 'resolver:truncated')).toBe(true);
+  });
+
+  it('while the page is truncated, the FX warning is not stood down by a page that missed the held calls', async () => {
+    // 600 held calls due today (day 0, under the alert period) plus 3 resolvable.
+    h.state.calls = [
+      ...Array.from({ length: 600 }, (_, i) =>
+        arCall({ id: 20_000 + i, country_code: 'VE', made_on: '2026-11-07', resolves_on: '2026-11-21' }),
+      ),
+      arCall({ id: 1 }),
+      arCall({ id: 2 }),
+      arCall({ id: 3 }),
+    ];
+    h.state.fx = [...AR_THROUGH_20, AR_FRESH_21];
+    const res = await resolveAt('2026-11-21T09:45:00Z');
+    expect(res.body).toMatchObject({ truncated: true, resolved: 3 });
+    expect(fxAlertClears()).toHaveLength(0);
   });
 });

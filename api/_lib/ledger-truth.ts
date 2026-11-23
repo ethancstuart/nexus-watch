@@ -19,7 +19,8 @@
  * THE TWO CONDITIONS THAT ARE WORTH A PAGE:
  *
  *   1. THE RESOLVER WAS SILENT. Calls come due every day (FX issues daily and
- *      is never coverage-held), so a day on which something was due and NONE
+ *      is never coverage-held; it can be held for want of a quote, see
+ *      dueDisposedOnCheckDate), so a day on which something was due and NONE
  *      OF IT was disposed of — no hit, no miss, no unresolvable among the
  *      calls due that day — means resolve-calls did not run, or ran and wrote
  *      nothing. The disposal count is taken from the due cohort itself, never
