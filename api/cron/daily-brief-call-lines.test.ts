@@ -72,6 +72,15 @@ const OPEN_CALLS_UNREAD =
   'Open calls could not be read today. Make no statement about open calls: do not say there are none, do not ' +
   'describe any, and do not write "No open calls today." or "No calls on the book this week."';
 
+/**
+ * What the prompt's RESOLVED CALLS section says when the resolved-call reads failed (or never ran, because
+ * the open-call read before them failed). Before rel4 it said "No calls resolved today." (Sunday: "No calls
+ * resolved this week."), the words of a window read and found empty.
+ */
+const RESOLVED_CALLS_UNREAD =
+  'Resolved calls could not be read today. Make no statement about resolved calls: do not say none resolved, ' +
+  'do not describe any, and do not write "No calls resolved today." or "No calls on the book this week."';
+
 /** The lines these fixtures produce: worked by hand from the formatters. */
 const TOP_OPEN_LINE =
   'Iran (IR): 62% chance of a confirmed censorship event by 2026-12-01 — +18pts vs its base rate of 44%';
@@ -96,6 +105,7 @@ const db = {
   resolved: RESOLVED_ROWS as unknown[],
   totals: { total: 3, hits: 1 },
   failOpenQuery: false,
+  failResolvedQuery: false,
   archived: null as { briefText?: string; openCallLines?: string[]; resolvedCallLines?: string[] } | null,
   claimed: false,
 };
@@ -129,6 +139,7 @@ async function fakeSql(strings: TemplateStringsArray, ...values: unknown[]): Pro
   if (
     text.startsWith("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'hit')::int AS hits FROM calls")
   ) {
+    if (db.failResolvedQuery) throw new Error('synthetic: the resolved-call read is unavailable');
     return [db.totals];
   }
   if (text.startsWith('SELECT c.kind, c.country_code, c.probability::float AS probability')) return db.resolved;
@@ -219,6 +230,7 @@ beforeEach(() => {
   db.resolved = RESOLVED_ROWS;
   db.totals = { total: 3, hits: 1 };
   db.failOpenQuery = false;
+  db.failResolvedQuery = false;
   db.archived = null;
   db.claimed = false;
   modelRequests = [];
@@ -287,6 +299,26 @@ describe('no model key: the mechanical edition carries the real call lines', () 
     expect(text).toContain(TOP_OPEN_LINE);
   });
 
+  it('the resolved-call read throws: the edition says nothing about resolved calls, and keeps the open call', async () => {
+    db.failResolvedQuery = true;
+    for (const day of [TODAY, SUNDAY]) {
+      db.archived = null;
+      db.claimed = false;
+      const out = await runBrief(day);
+      expect(out.status).toBe(200);
+      const text = mechanicalText();
+      expect(text).not.toMatch(/resolved|settled|came due|No calls/i);
+      expect(text).toContain(TOP_OPEN_LINE);
+      expect(db.archived!.resolvedCallLines).toEqual([]);
+    }
+  });
+
+  it('the open-call read throws: nothing about resolved calls either (their reads never ran)', async () => {
+    db.failOpenQuery = true;
+    await runBrief();
+    expect(mechanicalText()).not.toMatch(/resolved|settled|came due|No calls/i);
+  });
+
   it('the query succeeds with zero open calls: "No open calls today." still appears', async () => {
     db.open = [];
     await runBrief();
@@ -333,8 +365,44 @@ describe('model key set: the prompt is handed exactly the call lines it was befo
     const prompt = modelPrompt();
     expect(promptSection(prompt, 'OUR OPEN CALLS')).toBe(OPEN_CALLS_UNREAD);
     expect(prompt).not.toContain('No open calls.');
-    // The resolved reads share the failed read's try, so this section is as it was (see REL4.md, not fixed).
-    expect(promptSection(prompt, 'RESOLVED CALLS')).toBe('No calls resolved today.');
+    // The resolved reads follow the open read in the same try, so they never ran: not an empty window either.
+    expect(promptSection(prompt, 'RESOLVED CALLS')).toBe(RESOLVED_CALLS_UNREAD);
+    // The words appear only inside the instruction that forbids them.
+    expect(prompt.replace(RESOLVED_CALLS_UNREAD, '')).not.toContain('No calls resolved today.');
+  });
+
+  it('the resolved-call read throws: its section says it could not be read; the open calls are as before', async () => {
+    db.failResolvedQuery = true;
+    for (const day of [TODAY, SUNDAY]) {
+      db.claimed = false;
+      modelRequests = [];
+      await runBrief(day);
+      const prompt = modelPrompt();
+      expect(promptSection(prompt, 'RESOLVED CALLS')).toBe(RESOLVED_CALLS_UNREAD);
+      expect(prompt.replace(RESOLVED_CALLS_UNREAD, '')).not.toMatch(/No calls resolved (today|this week)\./);
+      expect(promptSection(prompt, 'OUR OPEN CALLS')).toBe(OPEN_LINES.join('\n'));
+    }
+  });
+
+  it('the resolved-call read throws: every other byte is the request of a window read and found empty', async () => {
+    for (const day of [TODAY, SUNDAY]) {
+      db.failResolvedQuery = false;
+      db.resolved = [];
+      db.totals = { total: 0, hits: 0 };
+      db.claimed = false;
+      modelRequests = [];
+      await runBrief(day);
+      const readAndEmpty = modelRequests[0];
+      db.failResolvedQuery = true;
+      db.claimed = false;
+      modelRequests = [];
+      await runBrief(day);
+      const unread = modelRequests[0];
+      const asJson = (t: string) => JSON.stringify(t).slice(1, -1);
+      expect(unread.split(asJson(RESOLVED_CALLS_UNREAD))).toHaveLength(2);
+      const emptyWords = day === SUNDAY ? 'No calls resolved this week.' : 'No calls resolved today.';
+      expect(unread.replace(asJson(RESOLVED_CALLS_UNREAD), emptyWords)).toBe(readAndEmpty);
+    }
   });
 
   it('the open-call query throws: every other byte of the request is the read-and-empty request', async () => {
@@ -352,7 +420,11 @@ describe('model key set: the prompt is handed exactly the call lines it was befo
     // Request bodies are JSON, so the sentence appears there JSON-escaped.
     const asJson = (s: string) => JSON.stringify(s).slice(1, -1);
     expect(unread.split(asJson(OPEN_CALLS_UNREAD))).toHaveLength(2);
-    expect(unread.replace(asJson(OPEN_CALLS_UNREAD), 'No open calls.')).toBe(readAndEmpty);
+    expect(
+      unread
+        .replace(asJson(OPEN_CALLS_UNREAD), 'No open calls.')
+        .replace(asJson(RESOLVED_CALLS_UNREAD), 'No calls resolved today.'),
+    ).toBe(readAndEmpty);
   });
 
   it('a read that succeeds never carries the unread wording, with calls, with none, or on a Sunday', async () => {
@@ -360,6 +432,10 @@ describe('model key set: the prompt is handed exactly the call lines it was befo
       () => {},
       () => {
         db.open = [];
+      },
+      () => {
+        db.resolved = [];
+        db.totals = { total: 0, hits: 0 };
       },
       () => {
         db.open = [];
@@ -379,6 +455,17 @@ describe('model key set: the prompt is handed exactly the call lines it was befo
         expect(prompt).not.toContain('could not be read');
         expect(promptSection(prompt, 'OUR OPEN CALLS')).toBe(
           db.open.length > 0 ? OPEN_LINES.join('\n') : 'No open calls.',
+        );
+        const sunday = day === SUNDAY;
+        expect(promptSection(prompt, 'RESOLVED CALLS')).toBe(
+          db.resolved.length > 0
+            ? [
+                sunday ? RESOLVED_LINES[0].replace('settled today', 'settled in the last 7 days') : RESOLVED_LINES[0],
+                ...RESOLVED_LINES.slice(1),
+              ].join('\n')
+            : sunday
+              ? 'No calls resolved this week.'
+              : 'No calls resolved today.',
         );
       }
     }
