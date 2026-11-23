@@ -208,6 +208,11 @@ export const CALL_NOTES: readonly CallNote[] = [
  * issued since 17 Nov), 21 Nov resolutions "the 65 in these currencies" ->
  * all 66, 38 -> 39 misses, 22 Nov resolutions 65 of 66 -> all 66, open calls
  * 780 -> 789, and the sentence saying Azerbaijan was unchecked removed.
+ *
+ * The cause, settled by the same read (lead, 23 Nov): "We do not know whether
+ * our collector or our source missed the day." became the sentence beginning
+ * "Our collector ran as usual that morning". The collector stored all 80
+ * currencies at 05:00:11Z on 21 Nov, every rate equal to 20 Nov's.
  */
 export const LEDGER_SECTIONS: readonly PageNote[] = [
   {
@@ -217,7 +222,7 @@ export const LEDGER_SECTIONS: readonly PageNote[] = [
     kicker: 'Exchange rates, 21 November 2026',
     heading: 'One day without new rates',
     paragraphs: [
-      "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 66 currencies we have calls on was still the 20 Nov rate. All 66 changed on 22 Nov. We do not know whether our collector or our source missed the day. The 66 calls that resolved on 21 Nov, all in these currencies, were scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 39 as misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 39 misses would differ. 21 Nov also falls inside the windows of all 66 calls that resolved on 22 Nov, whose scores are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows of 789 open calls in these currencies, which had not yet been scored. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have changed no verdict. On 22 Nov 2026 our FX skill was −3.0% with the 66 calls resolved on 21 Nov and −3.1% without them; every figure on this page counts them as published.",
+      "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 66 currencies we have calls on was still the 20 Nov rate. All 66 changed on 22 Nov. Our collector ran as usual that morning; every rate our source returned for 21 Nov was identical to its 20 Nov rate. The 66 calls that resolved on 21 Nov, all in these currencies, were scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 39 as misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 39 misses would differ. 21 Nov also falls inside the windows of all 66 calls that resolved on 22 Nov, whose scores are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows of 789 open calls in these currencies, which had not yet been scored. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have changed no verdict. On 22 Nov 2026 our FX skill was −3.0% with the 66 calls resolved on 21 Nov and −3.1% without them; every figure on this page counts them as published.",
     ],
   },
 ];

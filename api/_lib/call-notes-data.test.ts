@@ -203,6 +203,21 @@ describe('call notes: integrity', () => {
     for (const n of CALL_NOTES) expect(new Set(n.scope.ids).size, n.id).toBe(n.scope.ids.length);
   });
 
+  it('the cause of 21 Nov is stated, never left open: no text says we do not know whether collector or source missed it', () => {
+    const texts = [
+      ...CALL_NOTES.map((n) => n.text),
+      ...LEDGER_SECTIONS.flatMap((s) => s.paragraphs),
+      ...METHODOLOGY_NOTES.flatMap((s) => s.paragraphs),
+    ];
+    for (const t of texts) expect(t).not.toMatch(/collector or (our )?source|missed the day/);
+    const r1c = LEDGER_SECTIONS.find((s) => s.id === 'ledger-fx-2026-11-21')?.paragraphs.join(' ') ?? '';
+    expect(
+      r1c.split(
+        'Our collector ran as usual that morning; every rate our source returned for 21 Nov was identical to its 20 Nov rate.',
+      ),
+    ).toHaveLength(2);
+  });
+
   it('each text is the note after its opening sentence: no typed date, no placeholder left', () => {
     for (const t of [
       ...CALL_NOTES.map((n) => n.text),

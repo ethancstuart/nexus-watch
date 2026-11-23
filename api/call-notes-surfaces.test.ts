@@ -101,8 +101,9 @@ const R1C_KICKER = 'Exchange rates, 21 November 2026';
 const R1C_HEADING = 'One day without new rates';
 const R1C =
   "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 66 " +
-  'currencies we have calls on was still the 20 Nov rate. All 66 changed on 22 Nov. We do not know whether our ' +
-  'collector or our source missed the day. The 66 calls that resolved on 21 Nov, all in these currencies, were ' +
+  'currencies we have calls on was still the 20 Nov rate. All 66 changed on 22 Nov. Our collector ran as usual ' +
+  'that morning; every rate our source returned for 21 Nov was identical to its 20 Nov rate. The 66 calls that ' +
+  'resolved on 21 Nov, all in these currencies, were ' +
   'scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 39 as ' +
   'misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 39 ' +
   'misses would differ. 21 Nov also falls inside the windows of all 66 calls that resolved on 22 Nov, whose scores ' +
