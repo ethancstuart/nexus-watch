@@ -103,10 +103,25 @@ async function call(mod: string, query: Record<string, string> = {}) {
   return res.state;
 }
 
+/**
+ * A 60-character stretch of an unpublished note, past its date, that no other
+ * note contains. Many notes quote the same headline ("Russia and Iran hit
+ * record censorship in the same week"), so a fixed slice of a held note can
+ * sit in a published one; this stretch cannot.
+ */
+function distinctiveStretch(n: (typeof CORRECTION_NOTES)[number]): string {
+  const others = CORRECTION_NOTES.filter((o) => o.date !== n.date).map((o) => o.text);
+  for (let i = 20; i + 60 <= n.text.length; i += 5) {
+    const s = n.text.slice(i, i + 60);
+    if (!others.some((t) => t.includes(s))) return s;
+  }
+  throw new Error(`${n.date}: every stretch of this note is in another note`);
+}
+
 /** Words of an unpublished note or introduction: no surface may carry them. */
 const DRAFT_WORDS: string[] = [
-  // A distinctive stretch from the middle of every unpublished note, past its date.
-  ...DRAFTS.map((n) => n.text.slice(20, 80)),
+  // A distinctive stretch from every unpublished note, past its date.
+  ...DRAFTS.map(distinctiveStretch),
   ...(approvedIntro() === null
     ? [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map((p) => p.slice(0, 60))]
     : []),
@@ -144,6 +159,15 @@ beforeEach(() => {
 describe('an unpublished note never shows, on any surface', () => {
   it('covers every note the gate does not pass', () => {
     expect(DRAFTS.length + approvedNotes().length).toBe(CORRECTION_NOTES.length);
+  });
+
+  it('looks for words that no published note carries, so a hit means a leak', () => {
+    const published = approvedNotes().map((n) => n.text);
+    for (const w of DRAFT_WORDS)
+      expect(
+        published.some((t) => t.includes(w)),
+        w,
+      ).toBe(false);
   });
 
   it('probes a real date in every state, including every note approved', () => {
