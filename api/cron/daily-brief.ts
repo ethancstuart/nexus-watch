@@ -259,7 +259,7 @@ CRITICAL RULES:
   price moves, no historical analogies, no "in 2019...". You cannot check them
   and neither can the reader.
 - ATTRIBUTE IN THE SENTENCE, not in a footnote. Any non-trivial factual claim
-  names its source inline: "OONI confirmed 2,136 test measurements in Russia
+  names its source inline: "OONI confirmed N test measurements in Russia
   as blocked this week", not "Russia is tightening controls". Never name a
   source that is not in the context — published briefs have carried "ACLED
   reports 400+ civilian casualties" when ACLED has never been contacted by this

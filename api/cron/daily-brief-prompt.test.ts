@@ -33,6 +33,16 @@ describe('brief prompt — censorship wording (lanes2/DATA.md Part 1)', () => {
       expect(prompt).not.toMatch(/\d[\d,]*\s+confirmed blocks\b/);
     });
 
+    it(`${variant}: the attribution example models no count, least of all the defective 2,136`, () => {
+      // 2,136 was Russia's faulty one-hour figure (the real 6-day count was
+      // 47,533). An instruction should not model a wrong count, so the example
+      // carries the placeholder N.
+      expect(/names its source inline: "([^"]+)"/.exec(prompt)?.[1].replace(/\s+/g, ' ')).toBe(
+        'OONI confirmed N test measurements in Russia as blocked this week',
+      );
+      expect(prompt).not.toContain('2,136');
+    });
+
     it(`${variant}: does not tell the model censorship predicts anything`, () => {
       // The audit (lanes2/HEADLINE-AUDIT.md) names the first as a cause of
       // "censorship precedes crackdowns" in the briefs; the second was the
