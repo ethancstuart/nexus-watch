@@ -61,6 +61,16 @@ export function fxQuoteIsFreshFor(newestQuoteDate: string | null, resolvesOn: st
   return newestQuoteDate !== null && newestQuoteDate >= resolvesOn;
 }
 
+/**
+ * How many days an FX call may wait past its resolution date for that quote
+ * before a person is told. source-fx-rates only ever stores the current day,
+ * so a call still waiting the day after it was due will not resolve by itself.
+ */
+export const FX_STALE_ALERT_AFTER_DAYS = 1;
+
+/** Stable key on the existing alert path: one notice, reminders, one all-clear. */
+export const FX_STALE_ALERT_KEY = 'resolver:fx-stale-quote';
+
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 /**
@@ -160,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let stillWaiting = 0;
     let errored = 0;
     // FX calls held for want of a quote dated their resolution day.
-    let fxAwaitingQuote = 0;
+    const fxHeld: Array<{ country: string; resolvesOn: string; overdueBy: number }> = [];
 
     for (const call of due) {
       try {
@@ -199,7 +209,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               `[resolve-calls] call ${call.id} (${call.country_code}) has no FX quote dated ${call.resolves_on} ` +
                 `(newest in window: ${newest ?? 'none'}) — left pending, not scored`,
             );
-            fxAwaitingQuote++;
+            fxHeld.push({
+              country: call.country_code,
+              resolvesOn: call.resolves_on,
+              overdueBy: daysSinceResolution(call.resolves_on),
+            });
             stillWaiting++;
             continue;
           }
@@ -432,6 +446,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // FX calls still waiting for their quote past FX_STALE_ALERT_AFTER_DAYS.
+    // Same path and shape as the truncation alert above: a stable key, raised
+    // while the condition holds and cleared on the first run without it. Fails
+    // open — the alert must never break resolution.
+    const fxOverdue = fxHeld.filter((c) => c.overdueBy >= FX_STALE_ALERT_AFTER_DAYS);
+    try {
+      if (fxOverdue.length > 0) {
+        const oldest = fxOverdue.map((c) => c.resolvesOn).sort()[0];
+        const countries = [...new Set(fxOverdue.map((c) => c.country))].sort();
+        const named =
+          countries.slice(0, 20).join(', ') + (countries.length > 20 ? ` and ${countries.length - 20} more` : '');
+        await raiseAlert({
+          key: FX_STALE_ALERT_KEY,
+          severity: 'warning',
+          title: `[resolve-calls] ${fxOverdue.length} FX call(s) held: no quote dated their resolution day`,
+          body:
+            `${fxOverdue.length} FX call(s) are still pending at least ${FX_STALE_ALERT_AFTER_DAYS} day(s) after ` +
+            `their resolution date, because fx_rates holds no quote dated that day for their currency. The oldest ` +
+            `was due ${oldest}. Countries: ${named}. They are not scored. source-fx-rates stores only the current ` +
+            'day, so these will not resolve by themselves: a quote dated the resolution day has to be stored, or ' +
+            'the owner decides what these calls become.',
+        });
+      } else {
+        await clearAlert(FX_STALE_ALERT_KEY);
+      }
+    } catch (alertErr) {
+      console.error('[resolve-calls] fx stale-quote alert failed (non-fatal):', alertErr);
+    }
+
     console.log(
       `[resolve-calls] due ${due.length} — ${hits} hit, ${misses} miss, ` +
         `${unresolvable} unresolvable (settled, never scored), ` +
@@ -473,7 +516,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       /** Still pending: matured but inside the grace window, or awaiting retry. */
       still_waiting: stillWaiting,
       /** Of still_waiting: FX calls with no quote dated their resolution day. */
-      fx_awaiting_quote: fxAwaitingQuote,
+      fx_awaiting_quote: fxHeld.length,
       errored,
     });
   } catch (err) {

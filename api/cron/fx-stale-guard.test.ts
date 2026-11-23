@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import resolveCalls, { fxQuoteIsFreshFor } from './resolve-calls.js';
+import resolveCalls, { FX_STALE_ALERT_AFTER_DAYS, FX_STALE_ALERT_KEY, fxQuoteIsFreshFor } from './resolve-calls.js';
 import sourceFxRates from './source-fx-rates.js';
 import { fxDepreciationPct } from '../_lib/calls.js';
+import { ledgerTruthVerdict, OVERDUE_KEY, PAST_GRACE_DAYS, SILENT_KEY } from '../_lib/ledger-truth.js';
 
 /**
  * AN FX CALL IS NEVER SCORED ON A QUOTE THAT IS NOT FRESH FOR ITS RESOLUTION DAY.
@@ -252,6 +253,8 @@ const arCall = (over: Partial<CallRow> = {}): CallRow => ({
 });
 
 const updates = () => h.state.statements.filter((s) => s.text.startsWith('UPDATE calls'));
+const fxAlertRaises = () => h.raiseAlert.mock.calls.filter(([a]) => a.key === 'resolver:fx-stale-quote');
+const fxAlertClears = () => h.clearAlert.mock.calls.filter(([k]) => k === 'resolver:fx-stale-quote');
 
 let saved: { secret?: string; db?: string; fetch: typeof fetch };
 beforeEach(() => {
@@ -435,5 +438,87 @@ describe('4. already-resolved rows are not changed', () => {
     expect(due.length).toBe(2);
     for (const s of due) expect(s.text).toContain("WHERE status = 'pending'");
     expect(updates()).toHaveLength(0);
+  });
+});
+
+describe('5. the alert path fires after the set period', () => {
+  it('the contract: an existing-channel alert, keyed and stable, after one day', () => {
+    expect(FX_STALE_ALERT_KEY).toBe('resolver:fx-stale-quote');
+    expect(FX_STALE_ALERT_AFTER_DAYS).toBe(1);
+  });
+
+  it('day 0 holds quietly; day 1 still stale raises; a stored quote resolves and stands it down', async () => {
+    h.state.calls = [arCall()];
+    h.state.fx = [...AR_THROUGH_20];
+
+    await resolveAt('2026-11-21T09:45:00Z'); // day 0
+    expect(fxAlertRaises()).toHaveLength(0);
+    expect(fxAlertClears()).toHaveLength(1);
+
+    h.state.fx.push(AR_22); // the provider is back, but 21 Nov was never stored
+    await resolveAt('2026-11-22T09:45:00Z'); // day 1
+    expect(h.state.calls[0].status).toBe('pending');
+    expect(fxAlertRaises()).toHaveLength(1);
+    const a = fxAlertRaises()[0][0];
+    expect(a.severity).toBe('warning');
+    expect(a.title).toContain('1 FX call');
+    expect(a.body).toContain('2026-11-21');
+    expect(a.body).toContain('AR');
+    expect(a.body).toContain('not scored');
+
+    h.state.fx.push(AR_FRESH_21);
+    h.raiseAlert.mockClear();
+    h.clearAlert.mockClear();
+    await resolveAt('2026-11-23T09:45:00Z');
+    expect(h.state.calls[0]).toMatchObject({ status: 'hit', evidence_count: 198 });
+    expect(fxAlertRaises()).toHaveLength(0);
+    expect(fxAlertClears()).toHaveLength(1);
+  });
+
+  it('counts only calls past the period, and names the oldest', async () => {
+    h.state.calls = [
+      arCall({ id: 1, resolves_on: '2026-11-20', made_on: '2026-11-06' }),
+      arCall({ id: 2, resolves_on: '2026-11-21' }),
+      arCall({ id: 3, country_code: 'TR', resolves_on: '2026-11-22', made_on: '2026-11-08' }),
+    ];
+    await resolveAt('2026-11-22T09:45:00Z');
+    expect(fxAlertRaises()).toHaveLength(1);
+    const a = fxAlertRaises()[0][0];
+    expect(a.title).toContain('2 FX call');
+    expect(a.body).toContain('2026-11-20');
+    expect(a.body).not.toMatch(/\bTR\b/);
+  });
+
+  it('an alert that fails to send never breaks resolution', async () => {
+    h.raiseAlert.mockRejectedValue(new Error('alert channel down'));
+    h.state.calls = [arCall(), arCall({ id: 9200, resolves_on: '2026-11-22', made_on: '2026-11-08' })];
+    h.state.fx = [...AR_THROUGH_20, AR_22];
+    const res = await resolveAt('2026-11-22T09:45:00Z');
+    expect(res.statusCode).toBe(200);
+    expect(h.state.calls[0].status).toBe('pending');
+    expect(h.state.calls[1].status).toBe('hit');
+  });
+
+  it('the existing ledger-truth backstops still see it: same day when nothing is disposed, and past grace', () => {
+    // The 21 Nov shape on day 0: every FX call due that day is held.
+    expect(
+      ledgerTruthVerdict({
+        checkDate: '2026-11-21',
+        dueOnCheckDate: 66,
+        dueDisposedOnCheckDate: 0,
+        pastGrace: 0,
+        oldestPastGrace: null,
+      }).map((a) => a.key),
+    ).toEqual([SILENT_KEY]);
+    // A held call that never gets its quote is still pending past the grace window.
+    expect(
+      ledgerTruthVerdict({
+        checkDate: `2026-11-${21 + PAST_GRACE_DAYS + 1}`,
+        dueOnCheckDate: 66,
+        dueDisposedOnCheckDate: 66,
+        pastGrace: 1,
+        oldestPastGrace: '2026-11-21',
+      }).map((a) => a.key),
+    ).toEqual([OVERDUE_KEY]);
   });
 });
