@@ -98,8 +98,9 @@ const R1C =
   'scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 38 as ' +
   'misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 38 ' +
   'misses would differ. 21 Nov also falls inside the windows of 65 of the 66 calls that resolved on 22 Nov, whose ' +
-  'scores are the ones the rates of 8 to 20 Nov and 22 Nov give. It also falls inside the windows of 780 open calls ' +
-  'in these currencies, which have not yet been scored. We have not yet checked our calls on Azerbaijan (AZN), the ' +
+  'scores are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows ' +
+  'of 780 open calls in these currencies, which had not yet been scored. We have not yet checked our calls on ' +
+  'Azerbaijan (AZN), the ' +
   'last of which was made on 17 Nov. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have ' +
   'changed no verdict. On 22 Nov 2026 our FX skill was −3.0% with the 66 calls resolved on 21 Nov and −3.1% ' +
   'without them; every figure on this page counts them as published.';

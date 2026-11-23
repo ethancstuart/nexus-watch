@@ -172,7 +172,16 @@ export const CALL_NOTES: readonly CallNote[] = [
   },
 ];
 
-/** Dated sections of /ledger, shown before the Corrections section, in this order. */
+/**
+ * Dated sections of /ledger, shown before the Corrections section, in this order.
+ *
+ * R1c is FX-WORDING's text with one sentence anchored to its date by the lead
+ * (23 Nov 2026, after review REVIEW-9 finding 1): "It also falls inside the
+ * windows of 780 open calls in these currencies, which have not yet been
+ * scored." became the sentence below beginning "As of 22 Nov 2026". The 780
+ * resolve from 23 Nov, so the unanchored present tense went stale the morning
+ * the section was published.
+ */
 export const LEDGER_SECTIONS: readonly PageNote[] = [
   {
     id: 'ledger-fx-2026-11-21',
@@ -180,7 +189,7 @@ export const LEDGER_SECTIONS: readonly PageNote[] = [
     kicker: 'Exchange rates, 21 November 2026',
     heading: 'One day without new rates',
     paragraphs: [
-      "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 65 currencies we issue calls on was still the 20 Nov rate. All 65 changed on 22 Nov. We do not know whether our collector or our source missed the day. Of the 66 calls that resolved on 21 Nov, the 65 in these currencies were scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 38 as misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 38 misses would differ. 21 Nov also falls inside the windows of 65 of the 66 calls that resolved on 22 Nov, whose scores are the ones the rates of 8 to 20 Nov and 22 Nov give. It also falls inside the windows of 780 open calls in these currencies, which have not yet been scored. We have not yet checked our calls on Azerbaijan (AZN), the last of which was made on 17 Nov. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have changed no verdict. On 22 Nov 2026 our FX skill was −3.0% with the 66 calls resolved on 21 Nov and −3.1% without them; every figure on this page counts them as published.",
+      "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 65 currencies we issue calls on was still the 20 Nov rate. All 65 changed on 22 Nov. We do not know whether our collector or our source missed the day. Of the 66 calls that resolved on 21 Nov, the 65 in these currencies were scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 38 as misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 38 misses would differ. 21 Nov also falls inside the windows of 65 of the 66 calls that resolved on 22 Nov, whose scores are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows of 780 open calls in these currencies, which had not yet been scored. We have not yet checked our calls on Azerbaijan (AZN), the last of which was made on 17 Nov. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have changed no verdict. On 22 Nov 2026 our FX skill was −3.0% with the 66 calls resolved on 21 Nov and −3.1% without them; every figure on this page counts them as published.",
     ],
   },
 ];
