@@ -1,6 +1,7 @@
 import { ImageResponse } from '@vercel/og';
 import { SCORED_STATUSES } from './_lib/calls.js';
 import { standingCorrection } from './_lib/call-correction.js';
+import { callNotesCardLine, notesForCall } from './_lib/call-notes.js';
 import { colors as C } from '../src/styles/email-tokens.js';
 import type { VercelRequest } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
@@ -231,6 +232,11 @@ export interface CallFacts {
    * (standingCorrection), or null. The published verdict above stays as it was.
    */
   correction?: { issuedOn: string; correctedStatus: string } | null;
+  /**
+   * The one line for the dated notes on this call that leave its verdict
+   * unchanged (api/_lib/call-notes.ts), or null. Not a correction.
+   */
+  noteLine?: string | null;
 }
 
 /** What the call card's database read found. A failed read is not an absent call. */
@@ -318,6 +324,13 @@ export function renderCallCard(c: CallFacts): string {
     ? `
       <span style="color:${C.textPrimary};font-size:20px;font-weight:700;letter-spacing:0.14em;">CORRECTED ${escapeHtml(c.correction.issuedOn)} · THE EVIDENCE SAYS ${escapeHtml(c.correction.correctedStatus.toUpperCase())}</span>`
     : '';
+  // A NOTED CALL SAYS SO ON ITS CARD, in one line pointing at the page that
+  // carries the note. The verdict and everything else on the card are as they
+  // were. Muted ink, smaller than a correction: it changes no reading.
+  const noteLine = c.noteLine
+    ? `
+      <span style="color:${C.textSecondary};font-size:16px;font-weight:700;letter-spacing:0.14em;">${escapeHtml(c.noteLine)}</span>`
+    : '';
   return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:${C.bgPage};border-top:8px solid ${C.divider};padding:56px 72px 64px 72px;font-family:${MONO};">
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <span style="color:${C.textSecondary};font-size:18px;font-weight:700;letter-spacing:0.18em;">NEXUSWATCH · CALL #${c.id}</span>
@@ -329,7 +342,7 @@ export function renderCallCard(c: CallFacts): string {
       <div style="display:flex;align-items:baseline;gap:20px;">
         <span style="color:${C.textSecondary};font-size:104px;font-weight:700;line-height:1;font-family:${MONO};">${stated}</span>
         <span style="color:${C.textTertiary};font-size:18px;letter-spacing:0.14em;">WHAT WE SAID</span>
-      </div>${correctionLine}
+      </div>${correctionLine}${noteLine}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span style="color:${color};font-size:16px;font-weight:700;letter-spacing:0.14em;">${resolutionLine}</span>
@@ -419,6 +432,8 @@ export async function lookupCall(id: number): Promise<CallLookup> {
         madeOn: r.made_on,
         status: r.status,
         correction: standing ? { issuedOn: standing.issued_on, correctedStatus: standing.corrected_status } : null,
+        // From reviewed data in the repository, not the database: no read can fail here.
+        noteLine: callNotesCardLine(notesForCall(r)),
       },
     };
   } catch {
