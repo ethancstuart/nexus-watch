@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createHash } from 'node:crypto';
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './_lib/corrections-data.js';
-import { approvedIntro, approvedNotes, briefDateKey, correctionsNewestFirst } from './_lib/corrections.js';
+import { approvedIntro, approvedNotes, briefDateKey } from './_lib/corrections.js';
 import { formatCorrectionDate, fullNote } from './_lib/correction-words.js';
 import { esc } from './_lib/ssr-shell.js';
 
@@ -161,7 +161,11 @@ describe('every approved note renders, once, where it belongs', () => {
     expect(status).toBe(200);
     const html = body as string;
     const intro = approvedIntro();
-    const notes = correctionsNewestFirst();
+    // Newest correction first; among notes added the same day, the latest edition first. Sorted here, not by the
+    // page's own function, so a wrong order on the page fails.
+    const notes = [...approved].sort((a, b) =>
+      a.correctedOn === b.correctedOn ? (a.date < b.date ? 1 : -1) : a.correctedOn < b.correctedOn ? 1 : -1,
+    );
     const expected = [...(intro ? intro.paragraphs : []), ...notes.map((n) => fullNote(n))].map(esc);
     expect(ledes(html)).toEqual(expected);
     // Each note sits under the link to its own brief.
