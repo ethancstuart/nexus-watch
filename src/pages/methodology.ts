@@ -70,6 +70,8 @@ export function renderMethodology(root: HTMLElement): void {
       that a future version of this number measures something about the world rather than about our
       own choice of window. That work is dated and will be described here when it ships.</p>
 
+      <div id="method-notes"></div>
+
       <h2 class="brief-section-header">When a call cannot be resolved</h2>
       <p><em>Published 2026-08-28, before this rule was applied to any call. Amended 2026-08-30,
       before the first resolution, to state the threshold the resolver actually uses.</em></p>
@@ -278,6 +280,21 @@ export function renderMethodology(root: HTMLElement): void {
 
   root.appendChild(page);
 
+  // Dated method notes, approved on the server (api/method-notes.ts). They are
+  // fetched, never imported: an import would bundle every unapproved draft into
+  // the public JavaScript. No notes, or a failed fetch, shows nothing. Looked
+  // up in the document, as the live CII block below is: a page rendered off
+  // the document (a test) makes no request.
+  const notesEl = document.getElementById('method-notes');
+  if (notesEl && typeof fetch === 'function') {
+    fetch('/api/method-notes')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: unknown) => renderMethodNotes(notesEl, data))
+      .catch(() => {
+        /* no notes rather than an error on the method page */
+      });
+  }
+
   // Load live CII scores
   const ciiEl = document.getElementById('method-live-cii');
   if (ciiEl) {
@@ -339,5 +356,22 @@ export function renderMethodology(root: HTMLElement): void {
         `;
         ciiEl.querySelector('.method-cii-retry')?.addEventListener('click', () => renderMethodology(root));
       });
+  }
+}
+
+/**
+ * Render the sections /api/method-notes returned, each as a heading and its
+ * paragraphs, as TEXT: nothing in the response is parsed as HTML. Anything not
+ * shaped as expected is skipped.
+ */
+export function renderMethodNotes(target: HTMLElement, data: unknown): void {
+  const notes = (data as { notes?: unknown } | null)?.notes;
+  if (!Array.isArray(notes)) return;
+  for (const n of notes as Array<{ heading?: unknown; paragraphs?: unknown }>) {
+    if (!n || typeof n.heading !== 'string' || n.heading === '' || !Array.isArray(n.paragraphs)) continue;
+    target.appendChild(createElement('h2', { className: 'brief-section-header', textContent: n.heading }));
+    for (const p of n.paragraphs) {
+      if (typeof p === 'string' && p !== '') target.appendChild(createElement('p', { textContent: p }));
+    }
   }
 }
