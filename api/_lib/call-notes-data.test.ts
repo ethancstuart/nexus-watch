@@ -27,7 +27,15 @@ import { isIsoDate } from './correction-words.js';
  * public snapshot the approved wording (FX-WORDING.md) was computed on, by the
  * rule each note states. A list edited by hand away from its rule fails.
  */
-const APPROVED_IDS: string[] = [];
+const APPROVED_IDS: string[] = [
+  'fx-2026-11-21-resolved-miss',
+  'fx-2026-11-21-resolved-hit',
+  'fx-2026-11-21-made',
+  'fx-zw-zwl-label',
+  'ledger-fx-2026-11-21',
+  'ledger-fx-threshold-line',
+  'methodology-fx-threshold',
+];
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 

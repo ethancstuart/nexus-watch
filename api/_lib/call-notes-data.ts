@@ -161,26 +161,30 @@ const ZW_AFTER_22_NOV = {
 export const CALL_NOTES: readonly CallNote[] = [
   {
     id: 'fx-2026-11-21-resolved-miss',
-    status: 'draft',
+    status: 'approved',
+    issuedOn: '2026-11-23',
     scope: { ids: RESOLVED_21_NOV_MISS },
     text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, the newest exchange rate we held for each of the 65 currencies we issue calls on was still the 20 Nov rate; all 65 changed on 22 Nov. This call's score is the one the rates from 7 to 20 Nov give. A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov rate would have made this call a hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
   },
   {
     id: 'fx-2026-11-21-resolved-hit',
-    status: 'draft',
+    status: 'approved',
+    issuedOn: '2026-11-23',
     scope: { ids: RESOLVED_21_NOV_HIT },
     text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, the newest exchange rate we held for each of the 65 currencies we issue calls on was still the 20 Nov rate; all 65 changed on 22 Nov. This call's score is the one the rates from 7 to 20 Nov give. A missing day can only turn a hit into a miss, so a 21 Nov rate could not have changed this hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
   },
   {
     id: 'fx-2026-11-21-made',
-    status: 'draft',
+    status: 'approved',
+    issuedOn: '2026-11-23',
     scope: { ids: Object.keys(MADE_21_NOV_REFERENCES).map(Number) },
     references: MADE_21_NOV_REFERENCES,
     text: 'This call was made on 21 Nov 2026. The reference rate it states, {reference}, is the 20 Nov rate: no newer rate had reached us when the call was made. Rates changed again on 22 Nov. The claim, threshold and reference are unchanged. Source: our stored daily exchange rates.',
   },
   {
     id: 'fx-zw-zwl-label',
-    status: 'draft',
+    status: 'approved',
+    issuedOn: '2026-11-23',
     scope: { ids: ZW_CALLS, rule: ZW_AFTER_22_NOV },
     text: "This call names the currency ZWL, the code under which our rates source publishes this rate. On 16 and 22 Nov 2026 the source published the same rate under ZWG, the code of the ZiG: 26.5861 and 26.5872. We have not compared the two codes on any other day. The rate, threshold and verdict are unchanged. Source: our rates source's published quotes, 16 and 22 Nov 2026.",
   },
@@ -199,7 +203,8 @@ export const CALL_NOTES: readonly CallNote[] = [
 export const LEDGER_SECTIONS: readonly PageNote[] = [
   {
     id: 'ledger-fx-2026-11-21',
-    status: 'draft',
+    status: 'approved',
+    issuedOn: '2026-11-23',
     kicker: 'Exchange rates, 21 November 2026',
     heading: 'One day without new rates',
     paragraphs: [
@@ -215,14 +220,16 @@ export const LEDGER_SECTIONS: readonly PageNote[] = [
  */
 export const LEDGER_FX_THRESHOLD_LINE: ComputedNote = {
   id: 'ledger-fx-threshold-line',
-  status: 'draft',
+  status: 'approved',
+  issuedOn: '2026-11-23',
 };
 
 /** Dated sections of /methodology, shown after "How the Ledger forecasts", in this order. */
 export const METHODOLOGY_NOTES: readonly PageNote[] = [
   {
     id: 'methodology-fx-threshold',
-    status: 'draft',
+    status: 'approved',
+    issuedOn: '2026-11-23',
     heading: 'How a currency threshold is set, and what it does to the score',
     paragraphs: [
       "A currency call's threshold is the 75th percentile of that currency's 14-day peak depreciation over all the history we hold. So it is reached in about one window in four, and the base rate we score against is about 25%. Our probability gives one fifth of its weight to the 42 most recent complete windows. When a currency reaches its threshold less often than it used to, our probability falls below the base rate, and each miss scores better than the base rate. On 22 Nov 2026 four currencies were priced below their base rate on every resolved call and hit at most once: Sri Lanka (LKR), Venezuela (VES), Zimbabwe (the ZiG, which our source labels ZWL) and Ethiopia (ETB). Their 312 resolved calls include 1 hit. Five more currencies were priced below base rate on every call but hit 5 to 7 times each. Our FX skill on 22 Nov 2026 was −3.0% on 5,166 resolved calls, and −3.7% on the 4,854 calls outside the four. Measured fortnight by fortnight (five fortnights from 23 Aug, then the eight days to 8 Nov), the average fortnight's skill has a 95% interval of −7.2% to +4.0% for all calls and −8.0% to +3.4% without the four. Both include zero: neither figure shows skill. No call has been removed from any figure.",
