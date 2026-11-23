@@ -4,6 +4,7 @@ import { shell, esc, pct } from './_lib/ssr-shell.js';
 import { outcomeMarks } from '../src/styles/register-tokens.js';
 import { correctedOutcomeOf, isScored } from './_lib/calls.js';
 import { standingCorrection } from './_lib/call-correction.js';
+import { callNotesBlockHtml, notesForCall } from './_lib/call-notes.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 15 };
 
@@ -269,6 +270,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Above the record it corrects, as on /ledger. Empty for an uncorrected call.
     const correction = correctionBlock(c.status, standing, corrections);
+    // A dated note that leaves the verdict unchanged (api/_lib/call-notes.ts),
+    // from reviewed data in the repository, never from the database. Empty for
+    // every call no approved note names.
+    const notes = notesForCall(c);
+    const noteBlock = callNotesBlockHtml(notes);
+    // What on this page was not frozen at issue: each is dated where it sits.
+    const unfrozen = [correction ? 'correction' : '', notes.length === 0 ? '' : notes.length === 1 ? 'note' : 'notes']
+      .filter(Boolean)
+      .join(' and ');
 
     const parts: string[] = [];
     parts.push(
@@ -278,10 +288,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     parts.push(
       `<p class="lede">Made ${esc(c.made_on)}, resolving ${esc(c.resolves_on)} — a ${c.horizon_days}-day window, ` +
         `fixed before the outcome was known. Every field on this page was frozen when the call was made` +
-        // The correction was not: it is dated, and it is the one exception.
-        `${correction ? ', except the dated correction below' : ''}.</p>`,
+        // The correction and any note were not: each is dated, and they are the exceptions.
+        `${unfrozen ? `, except the dated ${unfrozen} below` : ''}.</p>`,
     );
     if (correction) parts.push(correction);
+    if (noteBlock) parts.push(noteBlock);
 
     parts.push('<div class="grid">');
     parts.push(
