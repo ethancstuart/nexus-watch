@@ -179,38 +179,9 @@
   padding: 96px 24px 48px;
   width: 100%;
   max-width: 1080px;
-  transition: opacity 800ms var(--ease-out);
 }
 
-.nw-hero-content.is-dim {
-  opacity: 0.55;
-}
-
-/* Live indicator — top-left corner */
-.nw-hero-live {
-  position: absolute;
-  top: 96px;
-  left: 24px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
-  color: var(--color-text-2);
-}
-
-.nw-hero-live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-signal-ok);
-  box-shadow: 0 0 10px var(--color-signal-ok);
-  animation: nw-live-pulse 2.4s ease-in-out infinite;
-}
-
+/* Still used by .nw-layer-dot below. */
 @keyframes nw-live-pulse {
   0%,
   100% {
@@ -223,17 +194,7 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .nw-hero-live-dot {
-    animation: none !important;
-  }
-}
-
 @media (min-width: 768px) {
-  .nw-hero-live {
-    top: 28px;
-    left: 56px;
-  }
   .nw-hero-content {
     padding: 0 56px;
   }

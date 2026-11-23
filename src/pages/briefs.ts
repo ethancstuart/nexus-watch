@@ -4,7 +4,8 @@ import { escapeHtml, renderBriefBody } from '../utils/briefRenderer.ts';
 import { setPageSeo, setJsonLd, PAGE_SEO } from '../utils/seo.ts';
 
 /**
- * Brief archive pages — Light Intel Dossier styling (Track A.10).
+ * Brief archive pages. The single-brief page keeps the Light Intel Dossier
+ * styling (Track A.10); the /briefs archive is on the dark register.
  *
  * Site-facing counterpart to the email template rendered by
  * api/cron/daily-brief.ts. Shares the palette and typography tokens via
@@ -23,8 +24,10 @@ import { setPageSeo, setJsonLd, PAGE_SEO } from '../utils/seo.ts';
 interface BriefListItem {
   date?: string;
   brief_date?: string;
+  /** Plain text, already clamped by the endpoint (api/_lib/brief-preview.ts). */
   preview?: string;
-  summary?: string;
+  /** The day's email subject, or null for briefs stored before subjects were. */
+  subject?: string | null;
   generatedAt?: string;
 }
 
@@ -55,12 +58,15 @@ export function renderBriefs(root: HTMLElement): void {
 
   setPageSeo(PAGE_SEO.briefs);
 
-  const page = createElement('div', { className: 'briefs-dossier' });
+  // The archive is website, and the website is dark (owner, 20 Sep); only the
+  // email stays light. `briefs-register` swaps the dossier palette for the
+  // register's in briefs-dossier.css. The single-brief page keeps the dossier
+  // until it moves too.
+  const page = createElement('div', { className: 'briefs-dossier briefs-register' });
   page.innerHTML = `
     <nav class="dossier-nav">
       <a href="#/" class="dossier-nav-logo">NexusWatch</a>
       <div class="dossier-nav-links">
-        <a href="#/ledger" class="dossier-nav-link">LEDGER</a>
         <a href="#/ledger" class="dossier-nav-link">LEDGER</a>
         <a href="#/briefs" class="dossier-nav-link">BRIEFS</a>
       </div>
@@ -102,12 +108,10 @@ export function renderBriefs(root: HTMLElement): void {
 
   const renderBriefCard = (b: BriefListItem): string => {
     const date = String(b.date || b.brief_date || '').split('T')[0];
-    const summary = String(b.preview || b.summary || '');
-    const previewText = summary
-      .replace(/<[^>]+>/g, '')
-      .replace(/^##\s*[^\n]*\n+/, '')
-      .trim()
-      .slice(0, 240);
+    // Never slice or strip HTML here: a cut prefix of the summary markup is
+    // what printed raw `<div style=…` on every card. The endpoint sends words.
+    const previewText = String(b.preview ?? '').trim();
+    const headline = typeof b.subject === 'string' && b.subject.trim() ? b.subject.trim() : `Situation Brief · ${date}`;
     const dayName = new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
@@ -117,8 +121,8 @@ export function renderBriefs(root: HTMLElement): void {
     return `
       <a href="#/brief/${encodeURIComponent(date)}" class="dossier-card">
         <div class="dossier-card-date">${escapeHtml(dayName)}</div>
-        <h2 class="dossier-card-headline">Situation Brief · ${escapeHtml(date)}</h2>
-        <p class="dossier-card-preview">${escapeHtml(previewText)}…</p>
+        <h2 class="dossier-card-headline">${escapeHtml(headline)}</h2>
+        ${previewText ? `<p class="dossier-card-preview">${escapeHtml(previewText)}</p>` : ''}
         <div class="dossier-card-read">Read full brief →</div>
       </a>
     `;
@@ -223,7 +227,7 @@ export function renderBrief(root: HTMLElement, date: string): void {
       <div class="dossier-nav-links">
         <a href="#/briefs" class="dossier-nav-link">ALL BRIEFS</a>
         <a href="#/ledger" class="dossier-nav-link">LEDGER</a>
-        <a href="https://brief.nexuswatch.dev" target="_blank" rel="noopener" class="dossier-nav-link dossier-nav-subscribe">SUBSCRIBE</a>
+        <a href="/#subscribe" class="dossier-nav-link dossier-nav-subscribe">SUBSCRIBE</a>
       </div>
     </nav>
 

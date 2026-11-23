@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { requireCron } from '../_cron-utils.js';
 
 // 180, not 60: see BACKFILL_DAYS and the deadline below. The run no longer
 // times out — it stops starting work with time to spare and says what it
@@ -166,8 +167,7 @@ interface RunResult {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
-  if (token !== process.env.CRON_SECRET) return res.status(401).json({ error: 'unauthorized' });
+  if (!requireCron(req, res)) return;
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'database_not_configured' });

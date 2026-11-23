@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { parseUcdpCsv, extractCandidateUrls, type UcdpEvent } from '../_lib/ucdp.js';
+import { requireCron } from '../_cron-utils.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 300 };
 
@@ -55,8 +56,7 @@ export async function upsertUcdpEvents(
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
-  if (token !== process.env.CRON_SECRET) return res.status(401).json({ error: 'unauthorized' });
+  if (!requireCron(req, res)) return;
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'database_not_configured' });

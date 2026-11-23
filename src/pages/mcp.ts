@@ -2,7 +2,7 @@
  * /mcp — Public MCP server landing page.
  *
  * One-line install for Claude Code / Cursor / Windsurf / Continue.
- * Lists the 9 NexusWatch tools and shows example prompts.
+ * Lists the NexusWatch tools and shows example prompts.
  * No auth required — server uses an internal pooled key for upstream.
  */
 
@@ -34,10 +34,13 @@ const TOOLS: ToolRow[] = [
   },
 ];
 
+// The count is read from TOOLS above; api/mcp.test.ts checks this list against
+// the endpoint's own TOOLS array.
+const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+const toolCountWord = COUNT_WORDS[TOOLS.length] ?? String(TOOLS.length);
+
 const EXAMPLE_PROMPTS: string[] = [
   'Pull the CII for Taiwan, Iran, and Ukraine and tell me which trend is worst.',
-  'Run the Hormuz closure scenario and summarize the energy-price impact.',
-  'My portfolio is 18% TSM, 9% XOM, 7% ASML — what is my geopolitical exposure?',
   'List every country currently above CII 70 with the dominant driver.',
   'Pull the call ledger and tell me which open calls diverge most from their base rates.',
 ];
@@ -70,8 +73,8 @@ export function renderMcpPage(root: HTMLElement): void {
 
       <p>
         NexusWatch is also an MCP server. Connect it to Claude Code, Cursor, Windsurf, or any
-        Model Context Protocol client and your agent gets live access to nine geopolitical
-        intelligence tools — CII for 85 scored countries, scenario simulation, portfolio exposure,
+        Model Context Protocol client and your agent gets live access to ${toolCountWord} geopolitical
+        intelligence tools — CII for 85 scored countries, the daily brief,
         and the public call ledger. No account, no API key, no signup.
       </p>
 
@@ -106,7 +109,7 @@ export function renderMcpPage(root: HTMLElement): void {
         Shared public pool: 100 calls/hour per IP. Need more? Open an issue on GitHub.
       </p>
 
-      <h2>Nine tools.</h2>
+      <h2>${toolCountWord[0]!.toUpperCase()}${toolCountWord.slice(1)} tools.</h2>
 
       <div class="nw-mcp-tools">
         ${TOOLS.map(
@@ -131,8 +134,8 @@ export function renderMcpPage(root: HTMLElement): void {
       <h2>Under the hood.</h2>
       <p>
         Streamable-HTTP transport, MCP protocol version 2024-11-05. JSON-RPC 2.0.
-        Every tool call proxies to the public NexusWatch v2 API — the same data that powers
-        the globe and the briefs. Data freshness, confidence labels, and evidence chains are
+        Every tool call proxies to the public NexusWatch API — the same data that powers
+        the briefs. Data freshness, confidence labels, and evidence chains are
         identical to the web product.
       </p>
 

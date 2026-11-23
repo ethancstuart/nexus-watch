@@ -685,6 +685,119 @@ export interface LedgerSummaryRow {
   outcome: 0 | 1;
   /** YYYY-MM-DD. Distinct dates are the batch count. */
   resolvedOn: string;
+  /**
+   * The outcome the evidence records, where it differs from the published one
+   * (see `correctedOutcomeOf`). Undefined means no correction. It never
+   * replaces `outcome`: the published verdict is what the register said.
+   */
+  correctedOutcome?: 0 | 1;
+}
+
+/**
+ * The outcome the evidence records, when it differs from the published one.
+ *
+ * Returns undefined when there is no correction OR when the correction agrees
+ * with the published verdict — a correction that changes nothing is not one,
+ * and letting it through would inflate `corrections_applied`, which is a
+ * number readers will quote. Moved here from api/calls/ledger.ts so the daily
+ * brief applies the SAME rule as the endpoint rather than a second copy.
+ */
+export function correctedOutcomeOf(published: string, corrected: string | null): 0 | 1 | undefined {
+  // DERIVED FROM isScored, NOT AN ENUMERATION OF hit/miss.
+  //
+  // The first version of this tested `corrected !== 'hit' && corrected !== 'miss'`,
+  // which is precisely the shape SCORED_STATUSES' own docstring warns about:
+  // a status added later would be collapsed into "no correction" and the row
+  // would proceed as though the register had never been wrong about it —
+  // passing by omission, silently, in a number readers quote. An independent
+  // review named it. Scope now comes from the same allow-list every other
+  // scoring path in this file reads.
+  if (corrected === null || !isScored(corrected)) return undefined;
+  const c = corrected === 'hit' ? 1 : 0;
+  const p = published === 'hit' ? 1 : 0;
+  return c === p ? undefined : (c as 0 | 1);
+}
+
+/**
+ * A scored call row as the brief's query returns it (calls LEFT JOIN its one
+ * correction), mapped to the summary's shape. One mapper, so the brief's
+ * outcome and correction rules cannot drift from the ledger endpoint's.
+ */
+export function toLedgerSummaryRow(r: {
+  kind: string;
+  probability: number;
+  base_rate: number | null;
+  status: string;
+  resolved_at: string | null;
+  corrected_status: string | null;
+}): LedgerSummaryRow {
+  return {
+    kind: r.kind,
+    probability: r.probability,
+    outcome: (r.status === 'hit' ? 1 : 0) as 0 | 1,
+    baseRate: r.base_rate ?? undefined,
+    resolvedOn: (r.resolved_at ?? '').slice(0, 10),
+    correctedOutcome: correctedOutcomeOf(r.status, r.corrected_status),
+  };
+}
+
+/**
+ * The second reading, on corrected evidence: same rows, same stated
+ * probabilities, outcomes taken from the evidence where a correction exists.
+ * Null when no row carries one. Skill is deliberately not computed — see
+ * `CorrectedReading` in ledger-by-kind.ts. Shared by /api/calls/ledger (via
+ * assembleByKind) and the daily brief so the two cannot publish different
+ * numbers for the same rows.
+ */
+export function correctedReadingOf(
+  rows: Array<ScoredCall & { correctedOutcome?: 0 | 1 }>,
+): { brier: number | null; hits: number; corrections_applied: number } | null {
+  const correctionsApplied = rows.filter((r) => r.correctedOutcome !== undefined).length;
+  if (correctionsApplied === 0) return null;
+  const corrected: ScoredCall[] = rows.map((r) => ({
+    probability: r.probability,
+    outcome: r.correctedOutcome ?? r.outcome,
+    baseRate: r.baseRate,
+  }));
+  const b = brierScore(corrected);
+  return {
+    brier: Number.isFinite(b) ? b : null,
+    hits: corrected.reduce((acc, c) => acc + c.outcome, 0),
+    corrections_applied: correctionsApplied,
+  };
+}
+
+/**
+ * What moved, counted per DIRECTION rather than assumed from the first row.
+ *
+ * The first version of this line read the published verdict off `corrected[0]`
+ * and asserted it of all of them — true today, when every correction is a MISS
+ * the evidence records as a HIT, and silently false the first time a single
+ * correction runs the other way. An independent review named it. A sentence
+ * about a set is derived from the set.
+ *
+ * `corrected_status` is REQUIRED rather than nullable. A row with no correction
+ * is not a correction, and accepting null here would let a caller hand one over
+ * and get "records as " rendered into published copy. The caller narrows with a
+ * type predicate, so the filter and this signature are checked against each
+ * other by the compiler instead of by a comment.
+ *
+ * Lives here (re-exported by ledger-by-kind.ts) because formatLedgerSummary
+ * needs it and ledger-by-kind.ts already imports this module.
+ */
+export function describeCorrections(rows: Array<{ status: string; corrected_status: string }>): string {
+  const byDirection = new Map<string, number>();
+  for (const r of rows) {
+    const key = `${r.status.toUpperCase()}|${r.corrected_status.toUpperCase()}`;
+    byDirection.set(key, (byDirection.get(key) ?? 0) + 1);
+  }
+  return [...byDirection]
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, n]) => {
+      const [published, evidence] = key.split('|');
+      return `${n} call${n === 1 ? '' : 's'} published ${published} that the evidence records as ${evidence}`;
+    })
+    .join('; ');
 }
 
 export function formatLedgerSummary(opts: {
@@ -722,19 +835,43 @@ export function formatLedgerSummary(opts: {
     const label = KIND_SHORT_LABEL[kind] ?? kind;
     const bs = brierScore(calls);
 
+    // THE SECOND READING, beside the first — the policy /ledger follows. The
+    // published figure is scored on verdicts the register has since recorded
+    // as wrong (call_corrections); it stays, labelled "as published", and the
+    // corrected Brier follows it with the corrected skill WITHHELD, because
+    // that skill would be measured against base rates estimated from the very
+    // evidence the corrections repair. A kind with no correction prints
+    // exactly what it always did.
+    const corrected = correctedReadingOf(rows.map((r, i) => ({ ...calls[i], correctedOutcome: r.correctedOutcome })));
+    const asPublished = corrected ? ' as published' : '';
+    const correctedPart = corrected
+      ? `; on corrected evidence ${corrected.brier !== null ? `Brier ${corrected.brier.toFixed(3)}, ` : ''}` +
+        `skill withheld (${describeCorrections(
+          rows
+            .filter((r) => r.correctedOutcome !== undefined)
+            .map((r) => ({
+              status: r.outcome === 1 ? 'hit' : 'miss',
+              corrected_status: r.correctedOutcome === 1 ? 'hit' : 'miss',
+            })),
+        )})`
+      : '';
+
     if (Number.isFinite(skill)) {
       parts.push(
-        `${label} Brier ${bs.toFixed(3)} over ${calls.length}, ` +
-          `${skill >= 0 ? '+' : ''}${(skill * 100).toFixed(0)}% vs base rate`,
+        `${label} Brier ${bs.toFixed(3)} over ${calls.length}${asPublished}, ` +
+          `${skill >= 0 ? '+' : ''}${(skill * 100).toFixed(0)}% vs base rate${correctedPart}`,
       );
     } else if (informativeRows(calls) === 0) {
       // Stated AT the base rate on every row: skill is 0.000 by algebra. A hard
       // zero printed as a result would read as a measurement.
-      parts.push(`${label} Brier ${bs.toFixed(3)} over ${calls.length}, stated at climatology — not a forecast`);
+      parts.push(
+        `${label} Brier ${bs.toFixed(3)} over ${calls.length}${asPublished}, ` +
+          `stated at climatology — not a forecast${correctedPart}`,
+      );
     } else {
       parts.push(
-        `${label} Brier ${bs.toFixed(3)} over ${calls.length}, ` +
-          `skill withheld (${batches} of ${MIN_RESOLUTION_BATCHES} batches)`,
+        `${label} Brier ${bs.toFixed(3)} over ${calls.length}${asPublished}, ` +
+          `skill withheld (${batches} of ${MIN_RESOLUTION_BATCHES} batches)${correctedPart}`,
       );
     }
   }

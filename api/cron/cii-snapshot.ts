@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { requireCron } from '../_cron-utils.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 30 };
 
@@ -18,11 +19,7 @@ export const config = { runtime: 'nodejs', maxDuration: 30 };
  */
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = req.headers.authorization?.replace('Bearer ', '');
-    if (auth !== cronSecret) return res.status(401).json({ error: 'unauthorized' });
-  }
+  if (!requireCron(req, res)) return;
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'db_not_configured' });

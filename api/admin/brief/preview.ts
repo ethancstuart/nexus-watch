@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { resolveAdmin } from '../_auth.js';
-import { renderDossierEmail, type WatchlistCountry } from '../../cron/daily-brief.js';
+import { editionFromStoredContent, renderDossierEmail, type WatchlistCountry } from '../../cron/daily-brief.js';
 import {
   DEFAULT_INTERESTS,
   type Interests,
@@ -248,6 +248,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       date: row.brief_date,
       time: content.utcTime ?? formatGeneratedAt(row.generated_at),
       markets: content.markets ?? [],
+      // The preview shows the brief as sent: a mechanical day carries its line
+      // and no Market Pulse. Rows archived before the field existed read as model.
+      edition: editionFromStoredContent(content),
       interests,
       watchlistCountries,
     });

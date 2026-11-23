@@ -164,6 +164,25 @@ describe('the call card carries the things that make a call worth forwarding', (
     expect(renderCallCard({ ...base, status: 'void' })).toContain('VOID');
   });
 
+  it('never calls an unresolvable or unknown-status call OPEN, HIT or MISS', async () => {
+    const { renderCallCard } = await import('./og.js');
+    const base = {
+      id: 49,
+      countryCode: 'ML',
+      claim: 'OONI records at least one network-interference event in Mali inside the window.',
+      probability: 0.4,
+      resolvesOn: '2026-09-05',
+      madeOn: '2026-08-22',
+    };
+    const unresolvable = renderCallCard({ ...base, status: 'unresolvable' });
+    expect(unresolvable).toContain('UNRESOLVABLE');
+    expect(unresolvable).toContain('NOT SCORED');
+    expect(unresolvable).not.toMatch(/\b(OPEN|HIT|MISS|RESOLVED)\b/);
+    const unknown = renderCallCard({ ...base, status: 'cancelled' });
+    expect(unknown).toContain('NO OUTCOME RECORDED');
+    expect(unknown).not.toMatch(/\b(OPEN|HIT|MISS|RESOLVED|CANCELLED)\b/i);
+  });
+
   it('escapes a claim rather than letting it close a tag', async () => {
     const { renderCallCard } = await import('./og.js');
     const { htmlToSatori } = await import('./_lib/satori-html.js');

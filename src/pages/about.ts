@@ -54,7 +54,7 @@ export function renderAbout(root: HTMLElement): void {
         <li><strong>Frontend</strong> Vite · TypeScript · MapLibre GL</li>
         <li><strong>AI</strong> Anthropic Claude (briefs, sitreps)</li>
         <li><strong>Hosting</strong> Vercel Edge Functions</li>
-        <li><strong>Data</strong> Neon Postgres · 12+ public sources</li>
+        <li><strong>Data</strong> Neon Postgres · public sources</li>
         <li><strong>License</strong> MIT, source on GitHub</li>
         <li><strong>Stack</strong> Zero frameworks. Vanilla DOM.</li>
       </ul>

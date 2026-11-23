@@ -114,8 +114,13 @@ export async function recordSpend(usd: number, endpoint?: string): Promise<void>
 
 /**
  * Estimate USD spend for an Anthropic call. Conservative rounding.
- * Pricing as of 2026-05 (claude-sonnet-4.7 / claude-opus-4.7):
- *   sonnet: $3 / 1M input, $15 / 1M output, $0.30 / 1M cached input
+ * Sonnet rates checked 2026-11-15 against platform.claude.com/docs/en/about-claude/pricing
+ * (Claude Sonnet 5.5): $2 / 1M input, $10 / 1M output, $0.10 / 1M cache reads.
+ * Older Sonnets (4.5, 4.6) list at $3 / $15, so this under-estimates them by a
+ * third; the daily brief is the only Sonnet caller and runs 5.5.
+ * Opus and haiku rows are left as they were (not this change's job): the same page
+ * lists Opus 5.5 at $4 / $20 and Haiku 4.5 at $1 / $5, so the opus row over-estimates
+ * and the haiku row ($0.80 / $4) under-estimates by 20%.
  *   opus:   $15 / 1M input, $75 / 1M output, $1.50 / 1M cached input
  */
 export function estimateAnthropicCost(
@@ -123,7 +128,7 @@ export function estimateAnthropicCost(
   usage: { input_tokens?: number; output_tokens?: number; cached_input_tokens?: number },
 ): number {
   const rates = {
-    sonnet: { in: 3, out: 15, cached: 0.3 },
+    sonnet: { in: 2, out: 10, cached: 0.1 },
     opus: { in: 15, out: 75, cached: 1.5 },
     haiku: { in: 0.8, out: 4, cached: 0.08 },
   }[model];
@@ -136,7 +141,7 @@ export function estimateAnthropicCost(
 /**
  * Map a full Anthropic model id to a pricing family.
  *
- * Call sites hold ids like `claude-sonnet-4-5-20250929`, not the bare
+ * Call sites hold ids like `claude-sonnet-5-5`, not the bare
  * family, so every one of them would otherwise hand-write this mapping.
  *
  * An UNRECOGNISED model is priced as `opus` — the most expensive family —

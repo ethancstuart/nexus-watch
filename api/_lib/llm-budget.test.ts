@@ -4,6 +4,7 @@ import { anthropicFamily, estimateAnthropicCost } from './llm-budget.js';
 describe('anthropicFamily', () => {
   it('recognises the model ids actually used in this repo', () => {
     expect(anthropicFamily('claude-sonnet-4-5-20250929')).toBe('sonnet');
+    expect(anthropicFamily('claude-sonnet-5-5')).toBe('sonnet');
     expect(anthropicFamily('claude-haiku-4-5-20251001')).toBe('haiku');
     expect(anthropicFamily('claude-opus-4-5-20250101')).toBe('opus');
   });
@@ -35,9 +36,11 @@ describe('anthropicFamily', () => {
 });
 
 describe('estimateAnthropicCost', () => {
-  it('prices sonnet input and output at the published rates', () => {
-    expect(estimateAnthropicCost('sonnet', { input_tokens: 1_000_000 })).toBeCloseTo(3, 6);
-    expect(estimateAnthropicCost('sonnet', { output_tokens: 1_000_000 })).toBeCloseTo(15, 6);
+  it('prices sonnet input, output and cache reads at the published Sonnet 5.5 rates', () => {
+    // platform.claude.com/docs/en/about-claude/pricing: $2 in, $10 out, $0.10 cache read.
+    expect(estimateAnthropicCost('sonnet', { input_tokens: 1_000_000 })).toBeCloseTo(2, 6);
+    expect(estimateAnthropicCost('sonnet', { output_tokens: 1_000_000 })).toBeCloseTo(10, 6);
+    expect(estimateAnthropicCost('sonnet', { cached_input_tokens: 1_000_000 })).toBeCloseTo(0.1, 6);
   });
 
   it('prices cached input far below fresh input', () => {

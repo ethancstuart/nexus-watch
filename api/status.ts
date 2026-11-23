@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kvCached } from './_lib/kvCache.js';
+import { neon } from '@neondatabase/serverless';
 import { overallHealthOf, type Health } from './_lib/status-health.js';
+import { lookupBriefStatus, BRIEF_STATUS_WINDOW, type BriefRow, type BriefStatus } from './_lib/brief-edition.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 25 };
 
@@ -9,7 +11,7 @@ export const config = { runtime: 'nodejs', maxDuration: 25 };
  * health snapshot. Powers the /#/status page.
  *
  * GET /api/status
- *   → { generatedAt, overallHealth, endpoints: [{ path, status, latencyMs, lastError? }, ...] }
+ *   → { generatedAt, overallHealth, endpoints: [{ path, status, latencyMs, lastError? }, ...], brief }
  *
  * Cached 60s in KV so we don't hammer downstream services on every page load.
  *
@@ -57,6 +59,22 @@ interface StatusPayload {
   generatedAt: string;
   overallHealth: Health;
   endpoints: EndpointHealth[];
+  /**
+   * Which edition of the daily brief shipped last, and how many days running
+   * the mechanical edition has shipped (2026-11-16: it shipped nine mornings
+   * before anyone outside the owner's inbox could see it).
+   *
+   * Reported as its OWN field and deliberately NOT folded into overallHealth.
+   * overallHealth answers "are the public endpoints up"; one mechanical day is
+   * a publish gate refusing a draft, i.e. the system working, and anything
+   * that pages on overallHealth must not change behaviour by surprise. A
+   * monitor that wants to page on the streak reads the streak.
+   *
+   * Public by construction: a date, an edition and a count. No cause, error
+   * text or vendor name — each archived brief's subject already says
+   * "mechanical edition" in public.
+   */
+  brief: BriefStatus;
 }
 
 /** Above a cold start, below maxDuration once doubled by the retry. */
@@ -146,6 +164,29 @@ async function pingEndpoint(host: string, ep: (typeof ENDPOINTS)[number]): Promi
   };
 }
 
+/** The latest rows, reduced to what the streak needs. Cheap: one indexed read. */
+async function fetchRecentBriefRows(): Promise<BriefRow[]> {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error('DATABASE_URL not set');
+  const sql = neon(dbUrl);
+  // content is cast to jsonb (a no-op if it already is) and read into scalars
+  // here, so the stored briefText is never shipped to the lambda.
+  const rows = await sql`
+    SELECT brief_date::text AS brief_date,
+           c ->> 'edition' AS edition,
+           c ->> 'subject' AS subject,
+           c ->> 'pending' AS pending,
+           COALESCE(jsonb_typeof(c), 'null') AS kind
+    FROM (
+      SELECT brief_date, content::jsonb AS c
+      FROM daily_briefs
+      ORDER BY brief_date DESC
+      LIMIT ${BRIEF_STATUS_WINDOW}
+    ) recent
+  `;
+  return rows as unknown as BriefRow[];
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', 'https://nexuswatch.dev');
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -154,13 +195,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Key bumped to v2: the payload shape gained `attempts` and the escalation
   // rule changed, so a v1 entry written by the old code would keep serving the
-  // old verdict from cache after this deploys.
-  const payload = await kvCached<StatusPayload>('nw:status:v2', 60, async () => {
-    const results = await Promise.all(ENDPOINTS.map((ep) => pingEndpoint(host, ep)));
+  // old verdict from cache after this deploys. Bumped to v3 for `brief`.
+  const payload = await kvCached<StatusPayload>('nw:status:v3', 60, async () => {
+    // The brief lookup runs beside the pings, so it adds no wall-clock time,
+    // and it cannot throw or outlast its own 4s timeout (worst case stays
+    // inside maxDuration).
+    const [results, brief] = await Promise.all([
+      Promise.all(ENDPOINTS.map((ep) => pingEndpoint(host, ep))),
+      lookupBriefStatus(fetchRecentBriefRows),
+    ]);
     return {
       generatedAt: new Date().toISOString(),
       overallHealth: overallHealthOf(results),
       endpoints: results,
+      brief,
     };
   });
 

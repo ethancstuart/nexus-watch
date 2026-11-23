@@ -108,7 +108,7 @@ export function renderLanding(root: HTMLElement): void {
     <nav class="nw-nav" aria-label="Primary">
       <a href="#/" class="nw-nav-brand"><span class="nw-nav-mark">●</span>&nbsp;NexusWatch</a>
       <div class="nw-nav-links">
-        <a href="#/ledger">The Ledger</a>
+        <a href="/ledger">The Ledger</a>
         <a href="#/briefs">Briefs</a>
         <a href="#/about">About</a>
       </div>
@@ -131,11 +131,6 @@ export function renderLanding(root: HTMLElement): void {
         <div class="nw-figure-rows" id="nw-figure-rows"></div>
       </figure>
 
-      <div class="nw-hero-live" aria-hidden="true">
-        <span class="nw-hero-live-dot"></span>
-        <span>LIVE</span>
-      </div>
-
       <div class="nw-hero-content" id="nw-hero-content">
         <span class="nw-eyebrow" id="nw-hero-eyebrow">The public forecasting ledger</span>
         <h1 class="nw-hero-headline word-stagger" aria-label="The world, graded.">
@@ -147,7 +142,7 @@ export function renderLanding(root: HTMLElement): void {
         </p>
         <div id="nw-hero-capture"></div>
         <p class="nw-hero-fineprint">
-          <a href="#/ledger">See every call we have open &rarr;</a> &middot; free, no account
+          <a href="/ledger">See every call we have open &rarr;</a> &middot; free, no account
         </p>
       </div>
     </section>
@@ -221,7 +216,7 @@ export function renderLanding(root: HTMLElement): void {
       </p>
     </section>
 
-    <section class="nw-reveal" aria-label="Newsletter">
+    <section class="nw-reveal" aria-label="Newsletter" id="subscribe">
       <span class="nw-section-eyebrow">Subscribe</span>
       <h2 class="nw-section-heading">Get the daily brief in your inbox. Free.</h2>
       <div class="nw-signup">
@@ -263,7 +258,7 @@ export function renderLanding(root: HTMLElement): void {
       <div class="nw-footer-top">
         <div class="nw-footer-brand"><span>●</span> NexusWatch</div>
         <div class="nw-footer-links">
-          <a href="#/ledger">The Ledger</a>
+          <a href="/ledger">The Ledger</a>
           <a href="#/briefs">Briefs</a>
           <a href="#/why-free">Why Free</a>
           <a href="#/about">About</a>
@@ -333,11 +328,9 @@ export function renderLanding(root: HTMLElement): void {
   // The hero globe block lived here. It set a "static fallback" class on a
   // div that no longer exists; the figure above replaced it.
 
-  // ── Hero headline dim after 2s so globe stays legible ──
-  const heroContent = main.querySelector<HTMLElement>('#nw-hero-content');
-  if (heroContent && !prefersReducedMotion) {
-    setTimeout(() => heroContent.classList.add('is-dim'), 2400);
-  }
+  // The hero used to dim itself to 55% after 2.4 s so a globe behind it stayed
+  // legible. The globe is gone; the fade only took the sign-up button below
+  // AA contrast. The hero now stays at full strength.
 
   // ── Scroll-reveal sections ──
   const reveals = main.querySelectorAll<HTMLElement>('.nw-reveal');
@@ -358,6 +351,18 @@ export function renderLanding(root: HTMLElement): void {
     reveals.forEach((el) => io.observe(el));
   } else {
     reveals.forEach((el) => el.classList.add('is-revealed'));
+  }
+
+  // ── Arriving to subscribe ──
+  // Every SUBSCRIBE link elsewhere on the site points here, at `/#subscribe`.
+  // They used to point at our `brief.` subdomain, a CNAME to beehiiv that
+  // answered HTTP 403 when checked on 2026-11-22: a refusal, not a sign-up
+  // form. This page is drawn after load, so the browser's own jump to the
+  // fragment finds nothing to jump to: make it here, once the section exists.
+  if (window.location.hash === '#subscribe') {
+    const signup = main.querySelector<HTMLElement>('#subscribe');
+    signup?.classList.add('is-revealed');
+    signup?.scrollIntoView({ block: 'start' });
   }
 
   // ── Newsletter form ──

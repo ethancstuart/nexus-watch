@@ -42,10 +42,6 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
     q: 'What is the evidence chain?',
     a: 'Every CII score has an <a href="#/audit">evidence chain</a> showing exactly how it was computed: which data sources contributed, when they were last updated, what confidence level each source has, and which scoring rules were applied. This is our "radical transparency" \u2014 no black boxes.',
   },
-  {
-    q: 'How do I get alerts?',
-    a: 'Go to your <a href="#/watchlist">Watchlist</a>, add countries, and set alert thresholds. Delivery via email, Slack, Discord, or Telegram webhooks.',
-  },
 ];
 
 export function renderFaqPage(root: HTMLElement): void {

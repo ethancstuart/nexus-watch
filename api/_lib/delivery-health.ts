@@ -108,13 +108,28 @@ export function shouldAlert(
   return (streak - threshold) % repeatEvery === 0;
 }
 
+/**
+ * A failed row whose `error` starts with this was a CONFIGURATION fault that
+ * a keyed alert (api/_lib/beehiiv-config.ts, raised through alert.ts) has
+ * already put in front of a person. That alert owns the condition: it fires on
+ * day one, reminds daily, and sends an all-clear. The streak alert would
+ * arrive on day three saying the same thing again, so it stands aside.
+ *
+ * The publisher only writes this prefix when the keyed alert actually reached
+ * someone (delivered, or deduplicated against an earlier delivery). An alert
+ * that reached nobody leaves the row unmarked, so this safety net still fires.
+ */
+export const CONFIG_FAULT_ERROR_PREFIX = 'config_fault:';
+
 /** Channels that are both broken and due an alert on this run. */
 export function channelsToAlert(
   rows: DeliveryRow[],
   threshold: number = DEFAULT_THRESHOLD,
   repeatEvery: number = DEFAULT_REPEAT_EVERY,
 ): ChannelStreak[] {
-  return computeFailureStreaks(rows).filter((c) => shouldAlert(c.streak, threshold, repeatEvery));
+  return computeFailureStreaks(rows).filter(
+    (c) => shouldAlert(c.streak, threshold, repeatEvery) && !c.lastError?.startsWith(CONFIG_FAULT_ERROR_PREFIX),
+  );
 }
 
 /** Plain-text alert body. Says what broke, for how long, and with what error. */

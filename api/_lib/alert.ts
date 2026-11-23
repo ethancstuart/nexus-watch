@@ -27,6 +27,10 @@ export interface AlertResult {
   delivered: boolean;
   channel: AlertChannel;
   detail: string;
+  /** The provider's id for the message, when its response gave one. */
+  messageId?: string;
+  /** How many addresses an email went to. A count, never the addresses. */
+  recipients?: number;
 }
 
 export type Severity = 'critical' | 'warning' | 'info';
@@ -123,9 +127,26 @@ async function viaEmail(key: string, to: string[], a: AlertInput): Promise<Alert
     }),
     signal: AbortSignal.timeout(10000),
   });
-  if (res.ok) return { delivered: true, channel: 'email', detail: `sent to ${to.length} address(es)` };
+  if (res.ok) {
+    // Resend answers `{ "id": "..." }`. A body that is missing or unparseable
+    // must not turn a delivered email into a failure, so it only costs the id.
+    const sent = (await res.json().catch(() => null)) as { id?: unknown } | null;
+    const messageId = typeof sent?.id === 'string' ? sent.id : undefined;
+    return {
+      delivered: true,
+      channel: 'email',
+      detail: `sent to ${to.length} address(es)`,
+      recipients: to.length,
+      ...(messageId ? { messageId } : {}),
+    };
+  }
   const detail = await res.text().catch(() => '');
-  return { delivered: false, channel: 'email', detail: `resend_${res.status}: ${detail.slice(0, 120)}` };
+  // SCRUB FIRST, THEN CUT. A body is scrubbed whole before it is shortened:
+  // cutting first can leave the front of an address with no "@" for the scrub
+  // to recognise (a review found the local part reaching the log that way).
+  // Scrubbing here also keeps addresses out of the `detail` that callers return
+  // in their own responses.
+  return { delivered: false, channel: 'email', detail: `resend_${res.status}: ${scrubForLog(detail).slice(0, 120)}` };
 }
 
 /**
@@ -286,6 +307,7 @@ export async function clearAlert(key: string, note?: string): Promise<AlertResul
       body: `${note ? `${note}\n\n` : ''}This condition is no longer detected. It lasted about ${hours}h.`,
       severity: 'warning',
     });
+    logOutcome({ title: `RESOLVED — ${row.title}`, body: '', key }, result);
     if (result.delivered) await sql`DELETE FROM alert_state WHERE fingerprint = ${key}`;
     return result;
   } catch (err) {
@@ -293,7 +315,11 @@ export async function clearAlert(key: string, note?: string): Promise<AlertResul
   }
 }
 
-/** Send on the best channel available, with no deduplication. */
+/**
+ * Send on the best channel available, with no deduplication. Logs nothing:
+ * the caller writes the one line for the outcome (see logOutcome), so a result
+ * is never reported twice.
+ */
 async function deliver(a: AlertInput): Promise<AlertResult> {
   const webhook = process.env.DISCORD_APPROVAL_WEBHOOK_URL;
   const discordEnabled = process.env.DISCORD_APPROVAL_ENABLED !== 'false';
@@ -303,6 +329,7 @@ async function deliver(a: AlertInput): Promise<AlertResult> {
     .map((e) => e.trim())
     .filter(Boolean);
 
+  let discordFailure: AlertResult | null = null;
   try {
     if (webhook && discordEnabled) {
       const r = await viaDiscord(webhook, a);
@@ -310,17 +337,71 @@ async function deliver(a: AlertInput): Promise<AlertResult> {
       // Fall through to email rather than swallowing the failure — a webhook
       // that 404s is indistinguishable from an unset one to the person who
       // needed the alert.
+      discordFailure = r;
     }
     if (resendKey && admins.length > 0) return await viaEmail(resendKey, admins, a);
   } catch (err) {
     return { delivered: false, channel: 'none', detail: err instanceof Error ? err.message : String(err) };
   }
 
-  // Loudly, in the runtime log, so an unreachable alarm is at least visible to
-  // anyone who looks — and say WHY, so it is fixable.
+  // Say WHY, so an unreachable alarm is fixable. If Discord was tried and
+  // refused, that refusal is part of the reason: reporting only the missing
+  // email setup would send the reader looking in the wrong place.
   const why = !resendKey ? 'RESEND_API_KEY unset' : admins.length === 0 ? 'ADMIN_EMAILS empty' : 'no channel';
-  console.error(`[alert] UNDELIVERED (${why}) — ${a.title}: ${a.body.slice(0, 400)}`);
+  if (discordFailure) return { ...discordFailure, detail: `${discordFailure.detail}; ${why}` };
   return { delivered: false, channel: 'none', detail: why };
+}
+
+/** How much of a provider body is ever examined; far more than a reason needs. */
+const SCRUB_INPUT_MAX = 4096;
+
+/**
+ * A reason is safe to log only after the things a provider or a transport error
+ * may echo back are removed: addresses (a 4xx body names the one it refused)
+ * and URLs (a Discord webhook URL carries its own token), and the sending key
+ * itself should a provider quote it. Anything left is short and ours.
+ */
+export function scrubForLog(text: string): string {
+  // BOUND THE INPUT FIRST. The address pattern is quadratic on a long run with
+  // no delimiter (a 200KB body took ~19s), and a provider body is outside our
+  // control. If the cap cuts the text, the last token is dropped: it may be
+  // the front of an address whose "@" fell on the other side of the cut.
+  const bounded = text.length > SCRUB_INPUT_MAX ? text.slice(0, SCRUB_INPUT_MAX).replace(/\S+$/, '') : text;
+  const key = process.env.RESEND_API_KEY;
+  const unkeyed = key ? bounded.split(key).join('[key]') : bounded;
+  return unkeyed
+    .replace(/\bre_[A-Za-z0-9_-]{8,}/g, '[key]')
+    .replace(/https?:\/\/\S+/gi, '[url]')
+    .replace(/[^\s<>"',;:()]+@[^\s<>"',;:()]+/g, '[address]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
+}
+
+/**
+ * EXACTLY ONE LINE per raiseAlert outcome — the observability the nine
+ * mechanical-edition days (2026-11-07 to 11-15) lacked. A successful send used
+ * to log nothing, so "sent" and "never attempted" looked the same in the
+ * runtime log and nobody could say whether the emails arrived.
+ *
+ * Never logs an address, a body or a key: recipients are a COUNT, the provider
+ * reason is scrubbed, and the title is the caller's short heading, not the
+ * body. Never throws.
+ */
+function logOutcome(a: AlertInput, r: AlertResult): void {
+  try {
+    const key = a.key ? ` key=${a.key}` : '';
+    if (r.channel === 'suppressed') {
+      console.log(`[alert] suppressed (${scrubForLog(r.detail)})${key} — ${a.title}`);
+    } else if (r.delivered) {
+      const recipients = r.recipients !== undefined ? ` recipients=${r.recipients}` : '';
+      console.log(`[alert] delivered channel=${r.channel} id=${r.messageId ?? 'none'}${recipients}${key} — ${a.title}`);
+    } else {
+      console.error(`[alert] undelivered channel=${r.channel} reason=${scrubForLog(r.detail)}${key} — ${a.title}`);
+    }
+  } catch {
+    // Logging must never be the reason an alert fails.
+  }
 }
 
 /**
@@ -387,15 +468,18 @@ export async function clearStaleAlerts(
  * anything a cron evaluates on a schedule.
  */
 export async function raiseAlert(a: AlertInput): Promise<AlertResult> {
+  const result = await raiseAlertUnlogged(a);
+  logOutcome(a, result);
+  return result;
+}
+
+async function raiseAlertUnlogged(a: AlertInput): Promise<AlertResult> {
   if (!a.key) return await deliver(a);
 
   const { send, ongoingHours, previousSent } = await claimNotification(a.key, a);
-  if (!send) {
-    // Visible in the runtime log, so a suppressed alert is never invisible —
-    // it is just not in someone's inbox for the ninth time.
-    console.log(`[alert] suppressed (ongoing ${ongoingHours}h, key=${a.key}) — ${a.title}`);
-    return { delivered: false, channel: 'suppressed', detail: `ongoing_${ongoingHours}h` };
-  }
+  // Not in someone's inbox for the ninth time, but still on the record: the
+  // caller's log line says it was suppressed.
+  if (!send) return { delivered: false, channel: 'suppressed', detail: `ongoing_${ongoingHours}h` };
 
   const body = ongoingHours > 0 ? `${a.body}\n\nOngoing for about ${ongoingHours}h — still not resolved.` : a.body;
   const result = await deliver({ ...a, body });

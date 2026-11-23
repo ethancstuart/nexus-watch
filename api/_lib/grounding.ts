@@ -65,6 +65,18 @@ function isExempt(v: number): boolean {
   return false;
 }
 
+/**
+ * How many context numerals take part in pairwise sums and differences.
+ * Past it each numeral still grounds itself, but a figure derived from two of
+ * them ("jumped 23.3 points") does not. 400 until 2026-11-16: the censorship
+ * section then grew by about 80 numerals (shares, totals, the previous
+ * window) and pushed the 7-day trajectories past the cap, which turns honest
+ * derived figures into unsupported ones and refuses drafts. An independent
+ * review timed groundDraft over 900 context numerals at 10 ms (cap 400) and
+ * 31 ms (cap 800).
+ */
+export const PAIRWISE_CAP = 800;
+
 /** Every value derivable from the context: the numbers, their roundings, pairwise sums/diffs. */
 function supportSet(contextNumerals: number[]): Set<number> {
   const s = new Set<number>();
@@ -76,8 +88,8 @@ function supportSet(contextNumerals: number[]): Set<number> {
   };
   for (const v of contextNumerals) add(v);
   // Pairwise sums and absolute differences — "jumped 9" from 52 and 61.
-  // Context is a few hundred numerals at most, so n^2 is fine; cap defensively.
-  const capped = contextNumerals.slice(0, 400);
+  // n^2, so capped; see PAIRWISE_CAP.
+  const capped = contextNumerals.slice(0, PAIRWISE_CAP);
   for (let i = 0; i < capped.length; i++) {
     for (let j = i + 1; j < capped.length; j++) {
       add(Math.abs(capped[i] - capped[j]));

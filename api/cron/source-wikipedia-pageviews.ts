@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { requireCron } from '../_cron-utils.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 120 };
 
@@ -99,8 +100,7 @@ const ARTICLES: Array<{ countryCode: string; article: string }> = [
 const WIKI_API = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
-  if (token !== process.env.CRON_SECRET) return res.status(401).json({ error: 'unauthorized' });
+  if (!requireCron(req, res)) return;
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) return res.status(500).json({ error: 'database_not_configured' });

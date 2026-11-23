@@ -26,19 +26,19 @@ export function renderTermsPage(root: HTMLElement): void {
       <p>NexusWatch is a public register of dated forecasts. It states a claim about a country, fixes a resolution date and a criterion in advance, and lets an outside source decide the outcome — OONI for censorship, daily FX reference rates for currency moves, USGS for earthquakes. It also publishes a country instability index and a daily brief. Every call, right or wrong, stays on the record.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">2. Not Advice</h2>
-      <p><strong>NexusWatch does not provide investment advice, policy recommendations, military guidance, or any professional counsel.</strong> CII scores, briefs, scenario simulations, and all other outputs are for informational and analytical purposes only. Do not make financial, security, travel, or policy decisions based solely on NexusWatch data. Always consult qualified professionals for decisions that affect people, money, or safety.</p>
+      <p><strong>NexusWatch does not provide investment advice, policy recommendations, military guidance, or any professional counsel.</strong> CII scores, briefs, and all other outputs are for informational and analytical purposes only. Do not make financial, security, travel, or policy decisions based solely on NexusWatch data. Always consult qualified professionals for decisions that affect people, money, or safety.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">3. Data Accuracy</h2>
       <p>NexusWatch aggregates data from third-party sources. We do not guarantee the accuracy, completeness, or timeliness of any data. CII scores are computed algorithmically and may contain errors. Evidence chains show our sources and methodology transparently so you can evaluate the data yourself. Data freshness is indicated by badges on each layer.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">4. Accounts</h2>
-      <p>NexusWatch is free for everyone. Accounts require Google or GitHub authentication and are used to sync watchlists, alerts, and briefs across devices. There is no paid plan and no payment processing.</p>
+      <p>NexusWatch is free for everyone. There are no accounts and no sign-in. There is no paid plan and no payment processing.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">5. What You Can Do</h2>
       <p>You may use NexusWatch data in your own analysis, reports, and articles with attribution ("Source: NexusWatch"). You may share briefs and screenshots. You may not resell NexusWatch data as a competing product, use automated scraping to extract data at scale, or misrepresent NexusWatch outputs as your own original analysis without attribution.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">6. API Usage</h2>
-      <p>API access is subject to rate limits. API data must include attribution. API keys are personal and non-transferable. We reserve the right to revoke API access for abuse.</p>
+      <p>API access is subject to rate limits. API data must include attribution. We reserve the right to revoke API access for abuse.</p>
 
       <h2 style="font-size:18px;color:var(--nw-text);margin:24px 0 8px">7. Availability</h2>
       <p>We aim for high availability but do not guarantee uptime. Data sources may become unavailable, APIs may change, and the service may have downtime for maintenance. Check the <a href="#/status" style="color:var(--nw-accent)">status page</a> for current system state.</p>

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { raiseAlert, clearStaleAlerts } from '../_lib/alert.js';
 import { checkDateFor, ledgerTruthVerdict, PAST_GRACE_DAYS } from '../_lib/ledger-truth.js';
 import { neon } from '@neondatabase/serverless';
+import { requireCron } from '../_cron-utils.js';
 
 // 60, not 30: a degraded reading is now re-checked before it pages (below),
 // and that is a second /api/status round trip after a short wait.
@@ -59,11 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // caller to pass a complete active set.
   const runStartedAt = new Date();
   // Vercel cron auth
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.authorization;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ error: 'unauthorized' });
-  }
+  if (!requireCron(req, res)) return;
 
   // Pull current status snapshot
   const host = req.headers.host || 'nexuswatch.dev';

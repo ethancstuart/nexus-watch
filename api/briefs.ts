@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { briefPreviewText, SUBJECT_PATTERN, decodeSubject } from './_lib/brief-preview.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -28,16 +29,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Archive — last 30 briefs
+    // Archive — last 30 briefs. Each card gets the day's subject (stored in
+    // content by the brief cron) and a plain-text preview. The preview used to
+    // be the first 300 characters of the summary HTML, which always ended
+    // mid-tag and printed as raw markup; 8,000 characters of prefix comfortably
+    // holds the inline-styled opening and the first paragraph of text.
+    //
+    // THE SUBJECT IS READ WITHOUT A CAST THAT CAN THROW. A `content::jsonb`
+    // cast parses every row, so one row that is not valid JSON failed the whole
+    // archive with a 500 — and /api/status pings this endpoint, so it would
+    // page as a core outage (review 2b). `content::text` cannot fail for a
+    // text, json or jsonb column (the column's type is not in the repo); the
+    // pattern pulls the first "subject" string (at any depth: see
+    // SUBJECT_PATTERN in brief-preview.ts), still JSON-escaped, and it
+    // is decoded per row below. A row that does not match, or does not decode,
+    // gets no subject and its card falls back to the date title. An occurrence
+    // inside another string value is escaped (\"subject\") and cannot match.
     const rows = await sql`
-      SELECT brief_date, substring(summary from 1 for 300) as preview, generated_at
+      SELECT brief_date, substring(summary from 1 for 8000) AS head,
+             substring(content::text from ${SUBJECT_PATTERN}) AS subject_json, generated_at
       FROM daily_briefs ORDER BY brief_date DESC LIMIT 30
     `;
 
     return res.setHeader('Cache-Control', 'public, max-age=3600').json({
       briefs: rows.map((r) => ({
         date: r.brief_date,
-        preview: r.preview,
+        subject: decodeSubject(r.subject_json),
+        preview: briefPreviewText(String(r.head ?? '')),
         generatedAt: r.generated_at,
       })),
       count: rows.length,

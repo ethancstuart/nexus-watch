@@ -2,7 +2,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { channelsToAlert, formatAlertBody } from '../_lib/delivery-health.js';
 import { raiseAlert, clearAlert } from '../_lib/alert.js';
+import { archiveContent, editionFor, type BriefEdition } from '../_lib/brief-edition.js';
 import { groundDraft, type GroundingReport } from '../_lib/grounding.js';
+import { checkComparativeClaims, comparativeClaimLabel } from '../_lib/comparative-claims.js';
+import {
+  summariseCensorship,
+  formatCensorshipLine,
+  censorshipWindowLabel,
+  OONI_DAY_GRAIN_SINCE,
+  type OoniDayRow,
+} from '../_lib/censorship-context.js';
 import {
   DAILY_SECTIONS,
   SUNDAY_SECTIONS,
@@ -13,6 +22,9 @@ import {
 } from '../_lib/brief-structure.js';
 import {
   formatLedgerSummary,
+  toLedgerSummaryRow,
+  correctedOutcomeOf,
+  describeCorrections,
   CALIBRATION_KINDS,
   SCORED_STATUSES,
   type Call,
@@ -20,6 +32,7 @@ import {
 } from '../_lib/calls.js';
 import { UNSUB_PLACEHOLDER } from '../_lib/unsubscribe-token.js';
 import { checkBudget, recordAnthropicSpend } from '../_lib/llm-budget.js';
+import { buildBriefRequest, readBriefReply, BRIEF_TIMEOUT_MS } from '../_lib/brief-model.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 300 };
 
@@ -163,7 +176,7 @@ const BRIEF_RSS_FEEDS: BriefFeed[] = [
 const STATE_MEDIA_SOURCES = new Set(BRIEF_RSS_FEEDS.filter((f) => f.stateMedia).map((f) => f.source));
 
 // === The NexusWatch Brief — AI Prompt ===
-function getBriefSystemPrompt(now: Date): string {
+export function getBriefSystemPrompt(now: Date): string {
   // UTC day index. 0=Sun, 1=Mon ... 5=Fri, 6=Sat. The cron runs at 10:00 UTC
   // (5:00 AM ET) so UTC day and US-East day match for the whole publication.
   const dayOfWeek = now.getUTCDay();
@@ -232,17 +245,21 @@ CRITICAL RULES:
   sentences has been invented — including a "2018 Sulawesi moved the CII
   equivalent by 28 points" that predates the product by eight years. A brief
   whose entire claim is a published record cannot invent its own record.
+  The one exception is the censorship comparison the context computes for you
+  (previous 7 days, highest share, MARKERS); see below.
 - NO RETROSPECTIVE CLAIMS AT ALL unless the item is in today's context. No past
   price moves, no historical analogies, no "in 2019...". You cannot check them
   and neither can the reader.
 - ATTRIBUTE IN THE SENTENCE, not in a footnote. Any non-trivial factual claim
-  names its source inline: "OONI recorded 2,136 confirmed blocks in Russia this
-  week", not "Russia is tightening controls". Never name a source that is not in
-  the context — published briefs have carried "ACLED reports 400+ civilian
-  casualties" when ACLED has never been contacted by this system.
-- SEPARATE OBSERVED FROM ASSESSED. "OONI recorded X" is observed. "We read this
-  as pre-emptive posture" is assessed, and assessment carries a confidence word
-  and a reason: "moderate confidence — single source, no corroboration yet."
+  names its source inline: "OONI confirmed 2,136 test measurements in Russia
+  as blocked this week", not "Russia is tightening controls". Never name a
+  source that is not in the context — published briefs have carried "ACLED
+  reports 400+ civilian casualties" when ACLED has never been contacted by this
+  system.
+- SEPARATE OBSERVED FROM ASSESSED. "OONI recorded X" is observed. "We read the
+  higher count as more testing, since the share did not move" is assessed, and
+  assessment carries a confidence word and a reason: "moderate confidence —
+  single source, no corroboration yet."
 - DO synthesize and connect dots — this is analysis, not aggregation.
 - LEAD WITH STATE BEHAVIOUR. The Top Signal covers something a government,
   bloc or armed actor DID or DECIDED — a designation, a vote, a deployment, a
@@ -251,9 +268,30 @@ CRITICAL RULES:
   or disruption to energy, nuclear, port or cable infrastructure. "An earthquake
   occurred 180km from a facility" is a distance calculation, not news.
 - The POLITICAL SIGNAL section is the highest-value input in the data context.
-  Censorship and network interference are among the most reliable open leading
-  indicators of a political crackdown, and they are frequently days ahead of any
-  wire report. Use them.
+  Use it for what it measures: how often OONI's volunteer tests found sites
+  blocked, and how that compares with the previous week. It does not say why,
+  who ordered it, which services, or what follows. Never present censorship as
+  a predictor of a crackdown, protest or arrest; nothing in the context
+  supports that.
+- CENSORSHIP NUMBERS ARE MEASUREMENTS. Each OONI figure counts test
+  measurements (one volunteer probe testing one site once) that OONI confirmed
+  as blocked. It goes up when volunteers run more tests, with no change in
+  censorship. Write "N measurements confirmed blocked", never "N blocks",
+  "network blocks", or a number of sites, services or events. Give the share
+  (confirmed of total), which is the comparable figure, beside the count. Name
+  no service, ISP or category the context does not list.
+- COMPARISONS ONLY WHERE MARKED. About censorship, write a record or a high
+  ("record", "highest", "new high", "peak", "all-time", "since launch") only
+  when that country's context line carries highest-share or highest-count
+  (lowest-… for a low), and then state the span the section header gives
+  ("the highest 7-day share since 2026-09-12"). Write a change against last
+  week ("rose", "fell", "spiked", "up from") only when the line carries
+  share-up, share-down, count-up or count-down ("doubled" needs count-doubled,
+  "tripled" count-tripled). A share claim needs a share
+  marker and a count claim a count marker. A higher count with a flat share is
+  more testing, not more censorship. A draft that makes an unmarked
+  comparison, or calls measurements "blocks", is refused before it reaches a
+  reader.
 - Be specific: numbers, country names, magnitudes, percentages.
 - If data is thin on a topic, say less, not vaguer things.
 - "Your Watchlist" is NOT generated by you. Ignore any user-specific content in your output — the template layer appends a per-user Watchlist section after your output.`;
@@ -277,7 +315,6 @@ Rules for it: 40-65 characters. It names the specific thing that happened today,
 in plain words a busy professional would understand at a glance in an inbox. No
 markdown, no date, no publication name, no section label, no colon-prefixed
 category. It is a headline, not a topic.
-Good:  Russia and Iran hit record censorship in the same week
 Good:  We are calling Thailand at 52% against a 70% base rate
 Bad:   Why it matters          (a transition phrase, not a story)
 Bad:   Thailand                (a label, not a headline)
@@ -312,7 +349,8 @@ ${SUNDAY_SECTIONS[4]}
 Never speculate under the guise of restraint. If there is nothing to withhold, say "Nothing withheld this week — the data covered what moved."
 
 ${SUNDAY_SECTIONS[5]}
-5-6 things to watch Monday through Friday. Specific events, thresholds, and dates. This section should feel like a Monday morning prep sheet.`;
+5-6 things to watch Monday through Friday. Specific events, thresholds, and dates. This section should feel like a Monday morning prep sheet.
+Never frame a censorship watch item as a record in waiting ("would be the longest", "would mark a new high"): give the threshold and the date, not a superlative.`;
   }
 
   // ---------------------------------------------------------------------------
@@ -344,7 +382,6 @@ Rules for it: 40-65 characters. It names the specific thing that happened today,
 in plain words a busy professional would understand at a glance in an inbox. No
 markdown, no date, no publication name, no section label, no colon-prefixed
 category. It is a headline, not a topic.
-Good:  Russia and Iran hit record censorship in the same week
 Good:  We are calling Thailand at 52% against a 70% base rate
 Bad:   Why it matters          (a transition phrase, not a story)
 Bad:   Thailand                (a label, not a headline)
@@ -407,7 +444,7 @@ rule in the brief and it overrides every stylistic instruction above.
   out, so a fall is usually decay rather than de-escalation. Never narrate
   decay as an event.
 
-Correct, with evidence:  **Iran** 61 (▲+4) — OONI recorded 1,611 confirmed blocking measurements this week, up from 340.
+Correct, with evidence:  **Iran** 61 (▲+4) — OONI confirmed 1,611 of 9,800 measurements as blocked (16.4%) in the last 7 days, up from 3.6% the 7 days before.
 Correct, without:        **South Korea** 13 (▲+8) — driver not identified in today's data.
 
 **Crises** — active crises and escalation risks, 2-4 bullets max, each: **bold
@@ -449,9 +486,15 @@ ${DAILY_SECTIONS[4]}
 One slow-building development, 2-3 sentences — something visible in the 7-day
 trajectories, the censorship series, or repeated headlines, that is weeks from
 mattering rather than hours. Forward-looking and conditional ("if X continues
-through month-end, Y").
+through month-end, Y"). Y is something the data will show (a call resolving, a
+threshold crossed), never a crackdown, protest, arrest or attack that the
+censorship figures are said to foretell: they do not foretell anything.
+Never frame the censorship series as a record in waiting: no "would be the
+longest", "would mark the highest", "record" or "new high" in a forecast.
+Give the threshold and the date instead.
 NO HISTORICAL PRECEDENTS. Do not cite past events, past price moves, or past
-NexusWatch observations here or anywhere else in the brief. A precedent
+NexusWatch observations here or anywhere else in the brief, beyond the
+censorship comparison the context computes. A precedent
 recalled from memory is unverifiable, and the attribution rules forbid hedging
 it, so the two instructions together would manufacture confident false
 statements. Nothing retrospective.`;
@@ -838,6 +881,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // recovered afterwards from the label string. The fallback alarm reads
     // this to tell "the gates did their job" from "the machinery failed".
     let gateRefusal = false;
+    // Set when the model's reply never became a draft (cut off, refused, or an
+    // unexpected stop_reason). Not a gate refusal and not a credit failure, so
+    // the alarm says what actually happened instead of "check credit".
+    let stopNote: string | null = null;
     let grounding: GroundingReport | null = null;
     // The model's declared subject. Cleared if a gate refuses the draft — a
     // subject describing a refused issue must never ship with the fallback.
@@ -861,23 +908,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // both dated, and both already in the database.
         //
         // Non-fatal: a query failure costs a section, never the brief.
-        let censorshipLines: string[] = [];
+        // Replaced on a successful query. Until then the model is told the
+        // data is missing, never that nothing was blocked.
+        let censorshipLines: string[] = [
+          'OONI data unavailable today: the query failed. Make no censorship statement.',
+        ];
+        // Last complete UTC day; today's row is still filling. History starts
+        // at the day-grain fix and reaches back at most 180 days.
+        const censorshipEndDate = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+        const censorshipHistorySince = [
+          OONI_DAY_GRAIN_SINCE,
+          new Date(now.getTime() - 180 * 86_400_000).toISOString().slice(0, 10),
+        ].sort()[1];
         let openCallLines: string[] = [];
         let sanctionsLines: string[] = [];
         try {
+          // Totals, shares, the previous week and the stored history — not one
+          // 7-day sum. A sum alone could carry no honest comparison, and the
+          // model wrote "record" on it anyway (censorship-context.ts).
           const nameOf = new Map(allCII.map((c) => [c.code, c.name]));
-          const blocks = (await sql`
-            SELECT country_code, SUM(confirmed_blocked)::int AS blocked, MAX(measurement_date)::text AS last_seen
+          const ooniRows = (await sql`
+            SELECT country_code, measurement_date::text AS measurement_date,
+                   confirmed_blocked::int AS confirmed_blocked, total_measurements::int AS total_measurements
             FROM ooni_measurements
-            WHERE measurement_date > NOW() - INTERVAL '7 days' AND confirmed_blocked > 0
-            GROUP BY country_code
-            ORDER BY blocked DESC
-            LIMIT 12
-          `) as unknown as Array<{ country_code: string; blocked: number; last_seen: string }>;
-          censorshipLines = blocks.map(
-            (b) =>
-              `${nameOf.get(b.country_code) ?? b.country_code} (${b.country_code}): ${b.blocked} confirmed blocking measurement${b.blocked === 1 ? '' : 's'} in the last 7d, latest ${b.last_seen.slice(0, 10)}`,
-          );
+            WHERE test_name = 'web_connectivity'
+              AND measurement_date >= ${censorshipHistorySince}::date AND measurement_date <= ${censorshipEndDate}::date
+          `) as unknown as OoniDayRow[];
+          censorshipLines = summariseCensorship(ooniRows, {
+            endDate: censorshipEndDate,
+            historySince: censorshipHistorySince,
+          })
+            .slice(0, 12)
+            .map((c) => formatCensorshipLine(c, nameOf.get(c.code) ?? c.code));
 
           // Ordered by DIVERGENCE from the base rate, not by probability.
           // Sorting by probability surfaced seven identical 84% calls — the
@@ -956,16 +1018,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calibrationKinds}))
               AND resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
           `) as unknown as Array<{ total: number; hits: number }>;
+          // Corrections ride along (see the ledger line below): the model must
+          // be handed the corrected reading with the published verdict, or it
+          // can restate a verdict the register has recorded as wrong.
           const resolvedRows = (await sql`
-            SELECT kind, country_code, probability::float AS probability,
-                   base_rate::float AS base_rate, status,
-                   resolves_on::text AS resolves_on, evidence_count
-            FROM calls
-            WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calibrationKinds}))
-              AND resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
-            ORDER BY ABS(probability - COALESCE(base_rate, probability)) DESC
+            SELECT c.kind, c.country_code, c.probability::float AS probability,
+                   c.base_rate::float AS base_rate, c.status,
+                   c.resolves_on::text AS resolves_on, c.evidence_count, cc.corrected_status
+            FROM calls c
+            LEFT JOIN (
+              SELECT DISTINCT ON (call_id) call_id, corrected_status
+              FROM call_corrections ORDER BY call_id, issued_on DESC
+            ) cc ON cc.call_id = c.id
+            WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calibrationKinds}))
+              AND c.resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
+            ORDER BY ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC
             LIMIT 40
           `) as unknown as ResolvedCallRow[];
+          // The aggregate's corrections come from the whole window, not the
+          // 40-row page, for the same reason `resolvedTotals` does.
+          const windowCorrections = (await sql`
+            SELECT c.status, cc.corrected_status
+            FROM calls c
+            JOIN (
+              SELECT DISTINCT ON (call_id) call_id, corrected_status
+              FROM call_corrections ORDER BY call_id, issued_on DESC
+            ) cc ON cc.call_id = c.id
+            WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calibrationKinds}))
+              AND c.resolved_at::date > CURRENT_DATE - ${isSunday ? 7 : 1}::int
+          `) as unknown as Array<{ status: string; corrected_status: string }>;
           // Due-but-unresolved: matured rows still pending. Includes the
           // coverage-grace holds (expected, and the formatter says so) — and,
           // in the failure case, a resolver that did not run. Either way the
@@ -986,7 +1067,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             resolvedRows,
             duePending,
             nameOf,
-            resolvedTotals[0] ?? { total: resolvedRows.length, hits: 0 },
+            {
+              ...(resolvedTotals[0] ?? { total: resolvedRows.length, hits: 0 }),
+              corrections: windowCorrections.filter(
+                (r) => correctedOutcomeOf(r.status, r.corrected_status) !== undefined,
+              ),
+            },
+            undefined,
+            isSunday ? 'in the last 7 days' : 'today',
           );
 
           // Designation deltas — real adds/removes/updates from the rebuilt
@@ -1032,8 +1120,9 @@ ${topCII.map((c) => `${c.name}: level ${c.score}/100 · today +${c.deviation}${t
 === BIGGEST DEVIATION MOVES (24h) ===
 ${movers.length > 0 ? movers.map((m) => `${m.name}: deviation ${m.delta > 0 ? '+' : ''}${m.delta.toFixed(0)} (${m.prevDeviation?.toFixed(0)} → ${m.deviation}) on structural level ${m.score}`).join('\n') : 'No significant deviation moves (±3 threshold)'}
 
-=== POLITICAL SIGNAL — NETWORK INTERFERENCE (OONI, last 7 days) ===
-${censorshipLines.length > 0 ? censorshipLines.join('\n') : 'No confirmed blocking events recorded in the last 7 days.'}
+=== POLITICAL SIGNAL — NETWORK INTERFERENCE (OONI web_connectivity; ${censorshipWindowLabel(censorshipEndDate, censorshipHistorySince)}) ===
+Each figure counts OONI test MEASUREMENTS that OONI confirmed as blocked. It rises when volunteers run more tests; the share is the comparable figure. MARKERS are computed from the stored history and the previous window; a comparison not marked here is not supported.
+${censorshipLines.length > 0 ? censorshipLines.join('\n') : `No OONI measurements confirmed as blocked in the 7 complete days to ${censorshipEndDate}.`}
 
 === RESOLVED CALLS (settled against external ground truth — ${isSunday ? 'the last 7 days' : 'today'}) ===
 ${briefData.resolvedCallLines.length > 0 ? briefData.resolvedCallLines.join('\n') : isSunday ? 'No calls resolved this week.' : 'No calls resolved today.'}
@@ -1106,47 +1195,55 @@ ${(() => {
         // ship even at the cap — but the check still runs so the soft-warn
         // telemetry fires as spend approaches the limit.
         await checkBudget({ endpoint: 'daily-brief', bypassCap: true });
+        // One request object feeds both the call and the spend record below,
+        // so the two can never name different models.
+        const briefRequest = buildBriefRequest({
+          apiKey: anthropicKey,
+          system: getBriefSystemPrompt(now),
+          dataContext,
+        });
+        // The host stays a literal HERE, not in brief-model.ts: scripts/check-llm-spend.ts
+        // scopes billed call sites by that literal and then requires a gate and a
+        // spend record of this file.
         const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': anthropicKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-5-20250929',
-            max_tokens: 6000,
-            system: getBriefSystemPrompt(now),
-            messages: [
-              {
-                role: 'user',
-                content: `Generate today's intelligence briefing.\n\n${dataContext}`,
-              },
-            ],
-          }),
-          signal: AbortSignal.timeout(240000),
+          headers: briefRequest.headers,
+          body: JSON.stringify(briefRequest.body),
+          signal: AbortSignal.timeout(BRIEF_TIMEOUT_MS),
         });
 
         if (aiRes.ok) {
           const aiData = (await aiRes.json()) as {
-            content: Array<{ text: string }>;
+            content?: Array<{ type?: string; text?: string }>;
+            stop_reason?: string | null;
             usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number };
           };
           // The single largest, most reliable Anthropic spend in the system —
           // a full Sonnet brief, every day at 10:00 UTC — and until now it
           // recorded nothing, leaving the $9/day kill-switch blind to it.
-          await recordAnthropicSpend('claude-sonnet-4-5-20250929', aiData.usage, 'daily-brief');
-          const rawDraft = aiData.content?.[0]?.text || '';
+          await recordAnthropicSpend(briefRequest.body.model, aiData.usage, 'daily-brief');
+          // Text blocks, not content[0] (a response may open with a thinking
+          // block), and only if stop_reason is a normal end of turn: a reply
+          // cut off at max_tokens inside the last section still passes the
+          // structure gate, and a refusal is a 200.
+          const reply = readBriefReply(aiData);
+          const rawDraft = reply.complete ? reply.text : '';
           // Strip the declared SUBJECT line before anything else reads the
           // draft: the gates must score the body, and the line must never
           // reach a reader.
           const parsedSubject = parseDeclaredSubject(rawDraft);
           declaredSubject = parsedSubject.subject;
           briefText = rawDraft ? parsedSubject.body : '';
-          if (!briefText) {
+          if (!reply.complete) {
+            aiDebug = `${reply.label}:${reply.stopReason}`;
+            console.error('[daily-brief] NO COMPLETE DRAFT:', aiDebug);
+            stopNote = reply.operatorNote;
+            declaredSubject = null;
+            briefText = buildFallbackText(briefData, FALLBACK_CAUSE['incomplete-reply']);
+          } else if (!briefText) {
             aiDebug = 'ai-empty-response';
             declaredSubject = null;
-            briefText = buildFallbackText(briefData);
+            briefText = buildFallbackText(briefData, FALLBACK_CAUSE['empty-response']);
           } else {
             // === Mechanical grounding gate (Phase 2) ===
             // Every numeral in the draft must be present in, or derivable
@@ -1159,12 +1256,19 @@ ${(() => {
             // rather than silently shipping invention.
             grounding = groundDraft(briefText, dataContext);
             const structure = validateBriefStructure(briefText, isSunday);
+            // Record claims are checked on the subject too: the false
+            // "record censorship" headlines were subject lines.
+            const comparative = checkComparativeClaims(
+              `${declaredSubject ?? ''}\n${briefText}`,
+              dataContext,
+              allCII.map((c) => c.name),
+            );
             if (!grounding.pass) {
               aiDebug = `grounding-failed: ${grounding.unsupported.length}/${grounding.draftNumerals.length} unsupported numerals [${grounding.unsupported.slice(0, 8).join(', ')}]`;
               console.error('[daily-brief] GROUNDING GATE REFUSED THE DRAFT:', aiDebug);
               gateRefusal = true;
               declaredSubject = null;
-              briefText = buildFallbackText(briefData);
+              briefText = buildFallbackText(briefData, FALLBACK_CAUSE['grounding-refused']);
             } else if (!structure.pass) {
               // The section spine is a contract with the reader (and with the
               // renderer). A draft that resurrects Scenario Spotlight, drops
@@ -1174,7 +1278,15 @@ ${(() => {
               console.error('[daily-brief] STRUCTURE GATE REFUSED THE DRAFT:', aiDebug);
               gateRefusal = true;
               declaredSubject = null;
-              briefText = buildFallbackText(briefData);
+              briefText = buildFallbackText(briefData, FALLBACK_CAUSE['structure-refused']);
+            } else if (!comparative.pass) {
+              // A "record" the computed markers do not carry, or a measurement
+              // count restated as "blocks" — refused like an invented number.
+              aiDebug = comparativeClaimLabel(comparative);
+              console.error('[daily-brief] COMPARATIVE-CLAIM GATE REFUSED THE DRAFT:', aiDebug);
+              gateRefusal = true;
+              declaredSubject = null;
+              briefText = buildFallbackText(briefData, FALLBACK_CAUSE['comparative-refused']);
             } else {
               aiDebug = `ai-success (grounding ${grounding.unsupported.length}/${grounding.draftNumerals.length} unsupported)`;
             }
@@ -1183,16 +1295,16 @@ ${(() => {
           const errBody = await aiRes.text().catch(() => 'unknown');
           aiDebug = `ai-failed:${aiRes.status}:${errBody.slice(0, 300)}`;
           console.error(`AI brief failed: ${aiRes.status} — ${errBody.slice(0, 200)}`);
-          briefText = buildFallbackText(briefData);
+          briefText = buildFallbackText(briefData, FALLBACK_CAUSE['http-error']);
         }
       } catch (aiErr) {
         aiDebug = `ai-error:${aiErr instanceof Error ? aiErr.message : String(aiErr)}`;
         console.error('AI brief error:', aiErr instanceof Error ? aiErr.message : aiErr);
-        briefText = buildFallbackText(briefData);
+        briefText = buildFallbackText(briefData, FALLBACK_CAUSE['exception']);
       }
     } else {
       aiDebug = 'no-api-key';
-      briefText = buildFallbackText(briefData);
+      briefText = buildFallbackText(briefData, FALLBACK_CAUSE['no-api-key']);
     }
 
     // === The Ledger line (Phase 2) ===
@@ -1230,17 +1342,28 @@ ${(() => {
       // per kind and gates on the number of distinct resolution batches. The
       // previous query selected neither, which is why the brief could only
       // produce one pooled, ungated number.
+      //
+      // Corrections ride along, as they do on /ledger and /api/calls/ledger:
+      // 54 of the censorship verdicts are recorded as wrong (call_corrections)
+      // and the line must carry the corrected reading beside the published
+      // one. DISTINCT ON keeps a call that ever acquired a second cause from
+      // appearing twice and moving a published number.
       const allScoredRows = (await sql`
-        SELECT kind, probability::float AS probability, base_rate::float AS base_rate,
-               status, resolved_at::text AS resolved_at
-        FROM calls
-        WHERE status = ANY(${[...SCORED_STATUSES]}) AND NOT (kind = ANY(${calKinds}))
+        SELECT c.kind, c.probability::float AS probability, c.base_rate::float AS base_rate,
+               c.status, c.resolved_at::text AS resolved_at, cc.corrected_status
+        FROM calls c
+        LEFT JOIN (
+          SELECT DISTINCT ON (call_id) call_id, corrected_status
+          FROM call_corrections ORDER BY call_id, issued_on DESC
+        ) cc ON cc.call_id = c.id
+        WHERE c.status = ANY(${[...SCORED_STATUSES]}) AND NOT (c.kind = ANY(${calKinds}))
       `) as unknown as Array<{
         kind: string;
         probability: number;
         base_rate: number | null;
         status: string;
         resolved_at: string | null;
+        corrected_status: string | null;
       }>;
 
       // "next resolves" must be a FUTURE date. A bare MIN(resolves_on) over
@@ -1256,13 +1379,7 @@ ${(() => {
         FROM calls WHERE status = 'pending' AND NOT (kind = ANY(${calKinds}))
       `) as unknown as Array<{ n: number; next_resolves: string | null }>;
 
-      const scoredRows: LedgerSummaryRow[] = allScoredRows.map((r) => ({
-        kind: r.kind,
-        probability: r.probability,
-        outcome: (r.status === 'hit' ? 1 : 0) as 0 | 1,
-        baseRate: r.base_rate ?? undefined,
-        resolvedOn: (r.resolved_at ?? '').slice(0, 10),
-      }));
+      const scoredRows: LedgerSummaryRow[] = allScoredRows.map(toLedgerSummaryRow);
 
       const ledger = formatLedgerSummary({
         resolvedToday: resolvedToday as unknown as Call[],
@@ -1285,11 +1402,16 @@ ${(() => {
     // the DB archive summary. All paths (AI success, AI failure, no key)
     // go through the same dossier pipeline so the archive, email, and
     // beehiiv post are visually identical.
+    // Decided here, before the render: the renderer is told the edition, and
+    // the archive row records it so a delivery-time re-render can be told too.
+    const onFallback = !(aiDebug ?? '').startsWith('ai-success');
+    const edition = editionFor(onFallback);
     const dossier = renderDossierEmail({
       briefText,
       date: today,
       time: utcTime,
       markets,
+      edition,
     });
     const briefHtml = dossier.beehiivHtml;
 
@@ -1305,12 +1427,13 @@ ${(() => {
     // is the lead news headline verbatim, and for three mornings in September
     // 2026 that was a Chinatown murder story sent to every subscriber as the
     // subject of this register. See fallbackSubject.
-    const onFallback = !(aiDebug ?? '').startsWith('ai-success');
     const subject = onFallback ? fallbackSubject(today, ledgerRecord) : chooseSubject(declaredSubject, briefText);
     const archiveT0 = Date.now();
+    // The edition travels with the stored content (from the same flag, not the
+    // text) so /api/status can report it without parsing anything.
     await sql`
       UPDATE daily_briefs
-      SET content = ${JSON.stringify({ ...briefData, briefText, subject })},
+      SET content = ${JSON.stringify(archiveContent(briefData, briefText, subject, onFallback))},
           summary = ${briefHtml}
       WHERE brief_date = ${today}
     `;
@@ -1374,7 +1497,8 @@ ${(() => {
             `Cause: ${cause.slice(0, 400)}\n\n` +
             (gateRefusal
               ? 'A gate refused the draft. Read the archived brief and the grounding/structure report in brief_delivery_log.'
-              : 'This is the machinery failing, not a gate refusal — check Anthropic credit and the key before the next 10:00 UTC run.'),
+              : (stopNote ??
+                'This is the machinery failing, not a gate refusal — check Anthropic credit and the key before the next 10:00 UTC run.')),
         });
       } else {
         await clearAlert('brief:fallback', `${today}: the model wrote today's issue and it cleared every gate.`);
@@ -1413,103 +1537,9 @@ ${(() => {
     }
 
     // === Publish to beehiiv ===
-    const beehiivKey = process.env.BEEHIIV_API_KEY;
-    const beehiivPubId = beehiivPublicationId();
-    if (beehiivKey && beehiivPubId) {
-      const beehiivT0 = Date.now();
-      try {
-        // beehiiv rejects a malformed publication id with an opaque 400 that
-        // names a regex and nothing else. Production ran that 400 every day
-        // for 34 consecutive days (brief_delivery_log, since 2026-07-09)
-        // because the error was recorded and never surfaced. Check the shape
-        // ourselves and say which env var is wrong and what it should look
-        // like — a config error should read as a config error.
-        if (!BEEHIIV_PUB_ID_RE.test(beehiivPubId)) {
-          throw new Error(
-            'BEEHIIV_PUBLICATION_ID is malformed: expected the publication id in the ' +
-              'form pub_<uuid> (copy it from beehiiv → Settings → API). ' +
-              `Got a ${beehiivPubId.length}-character value starting ` +
-              `"${beehiivPubId.slice(0, 4)}". Fix the env var in Vercel; ` +
-              'no request was sent.',
-          );
-        }
-        // Extract Good Morning line for subtitle. The ledger line is spliced
-        // into the FIRST section (see spliceLedgerLine), which on Sundays is
-        // Good Morning — strip it here or the subtitle becomes the stat line
-        // instead of the greeting. Caught by the rule-2 review of the splice
-        // change; the greeting, not the record, is the subtitle's job.
-        const subtitleMatch = briefText.match(/## ☕ Good Morning\n+([\s\S]*?)(?=\n##|\n\n##)/);
-        const subtitle = subtitleMatch
-          ? subtitleMatch[1]
-              .replace(/^\*\*The Ledger\*\*.*$/m, '')
-              .trim()
-              .slice(0, 200)
-          : `Your daily geopolitical intelligence scan — ${today}`;
-
-        const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/posts`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${beehiivKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            title: `The NexusWatch Brief — ${today}`,
-            subtitle,
-            // Light Intel Dossier inner modules. beehiiv wraps with its own
-            // masthead/footer/unsubscribe chrome, so we ship just the content.
-            content_html: dossier.beehiivHtml,
-            // 'draft' works on all beehiiv plans. 'confirmed' + send_to requires Enterprise.
-            // Drafts appear in beehiiv dashboard for review + manual send.
-            // To auto-send: upgrade beehiiv to Enterprise and change to status: 'confirmed', send_to: 'all'.
-            status: 'draft',
-          }),
-          signal: AbortSignal.timeout(15000),
-        });
-
-        if (!beehiivRes.ok) {
-          const body = await beehiivRes.text().catch(() => '');
-          // beehiiv POST API requires Enterprise plan. Log and skip gracefully.
-          if (beehiivRes.status === 403) {
-            console.log(
-              '[daily-brief] beehiiv API requires Enterprise plan — skipping. Brief delivered via other channels.',
-            );
-            await logDelivery({
-              channel: 'beehiiv',
-              status: 'partial',
-              latencyMs: Date.now() - beehiivT0,
-              metadata: { reason: 'enterprise_plan_required' },
-            });
-          } else {
-            throw new Error(`beehiiv ${beehiivRes.status}: ${body.slice(0, 200)}`);
-          }
-        }
-
-        // Parse post ID for traceability — not fatal if the shape changes.
-        let postId: string | undefined;
-        try {
-          const beehiivData = (await beehiivRes.json()) as { data?: { id?: string } };
-          postId = beehiivData.data?.id;
-        } catch {
-          /* ignore parse errors */
-        }
-
-        await logDelivery({
-          channel: 'beehiiv',
-          status: 'success',
-          latencyMs: Date.now() - beehiivT0,
-          metadata: { post_id: postId, subtitle_length: subtitle.length },
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error('[daily-brief] beehiiv publish failed:', msg);
-        await logDelivery({
-          channel: 'beehiiv',
-          status: 'failed',
-          error: msg,
-          latencyMs: Date.now() - beehiivT0,
-        });
-      }
-    }
+    // The request, the configuration check and the alert on a bad id live in
+    // _lib/beehiiv-publish.ts so they can be tested with fetch stubbed.
+    await publishToBeehiiv({ today, briefText, contentHtml: dossier.beehiivHtml, logDelivery });
 
     // The Buffer/X channel was DELETED with the marketing subsystem
     // (2026-09-05, plan witty-finding-crystal PR-3). It was building its post
@@ -1519,9 +1549,10 @@ ${(() => {
     // The social_queue dual-write went with it.
 
     // === Email delivery delegated to deliver-briefs.ts (D-2, 2026-04-18) ===
-    // Resend batch sending removed. The deliver-briefs hourly cron handles
-    // timezone-aware delivery at 7am local per subscriber. This cron only
-    // generates content + archives to daily_briefs table.
+    // Resend batch sending removed. The deliver-briefs hourly cron sends each
+    // subscriber this brief at their 07:00 local, or at the first run after
+    // it is archived if their 07:00 came earlier (api/_lib/brief-window.ts).
+    // This cron only generates content + archives to daily_briefs table.
     await logDelivery({
       channel: 'resend',
       status: 'success',
@@ -1733,7 +1764,7 @@ import {
   type RegionId,
 } from '../../src/services/interests-types.js';
 import { requireCron } from '../_cron-utils.js';
-import { BEEHIIV_PUB_ID_RE, beehiivPublicationId } from '../_lib/beehiiv-config.js';
+import { publishToBeehiiv } from '../_lib/beehiiv-publish.js';
 
 export interface RenderedBrief {
   emailHtml: string;
@@ -1760,8 +1791,37 @@ export interface WatchlistCountry {
   topThreat?: 'conflict' | 'disasters' | 'disease' | 'cyber' | 'markets' | 'space';
 }
 
+/**
+ * The edition is told to the renderer by its caller, never sniffed from the
+ * text (the BriefEdition type and editionFor live in _lib/brief-edition.ts).
+ * The mechanical edition's own prose can change, and a renderer that searched
+ * for it would silently stop marking the edition the day the wording moved.
+ *
+ * The edition recorded in the archive row's `content`, for any path that
+ * re-renders from the archive (deliver-briefs). Only an exact 'mechanical' is
+ * read as mechanical. Rows archived before this field existed carry none: the
+ * edition of those is UNKNOWN from stored data, and they render as they always
+ * did, as the model edition.
+ */
+export function editionFromStoredContent(content: unknown): BriefEdition {
+  const edition = (content as { edition?: unknown } | null)?.edition;
+  return edition === 'mechanical' ? 'mechanical' : 'model';
+}
+
+/**
+ * The one line that names the mechanical edition at the top of every output.
+ * Reader-facing, so it needs the owner's sign-off. Kept short on purpose: it
+ * sits in the 10px kicker style, where a sentence of ~100 characters wraps to
+ * two lines at 640px and more on a phone. It says only what is true of the
+ * mechanical edition (no model wrote today) and claims nothing about cause or
+ * about what the body contains.
+ */
+export const MECHANICAL_EDITION_LINE = 'Mechanical edition: no narrative today.';
+
 export interface RenderBriefOptions {
   briefText: string; // Markdown body (Sonnet output or buildFallbackText)
+  /** Defaults to the model edition so every existing caller is unchanged. */
+  edition?: BriefEdition;
   date: string; // YYYY-MM-DD
   time: string; // "10:00 UTC"
   markets: MarketQuote[];
@@ -2204,7 +2264,16 @@ function renderSection(section: BriefSection, dateForImage?: string): string {
  * beehiivHtml — beehiiv writes its own). Shows the wordmark, date, and a
  * parchment-gold rule that anchors the dossier aesthetic.
  */
-function renderMasthead(date: string, time: string): string {
+function renderEditionLine(): string {
+  return `<div ${styleAttr(
+    typeStyle(type.kicker, {
+      color: colors.accent,
+      margin: `${space.md} 0 0 0`,
+    }),
+  )}>${escapeHtml(MECHANICAL_EDITION_LINE)}</div>`;
+}
+
+function renderMasthead(date: string, time: string, edition: BriefEdition = 'model'): string {
   return (
     `<div ${styleAttr(style({ margin: `0 0 ${space.xl} 0`, textAlign: 'center' }))}>` +
     `<div ${styleAttr(
@@ -2232,6 +2301,7 @@ function renderMasthead(date: string, time: string): string {
         color: colors.textTertiary,
       }),
     )}>${escapeHtml(date)} · ${escapeHtml(time)}</div>` +
+    (edition === 'mechanical' ? renderEditionLine() : '') +
     `</div>`
   );
 }
@@ -2334,7 +2404,13 @@ function renderFooter(date: string, archiveUrl: string): string {
  * treat a plain-text alternative as a deliverability signal. Preserves
  * section structure and reading order without trying to ASCII-art it.
  */
-function renderPlainText(briefText: string, date: string, time: string, archiveUrl: string): string {
+function renderPlainText(
+  briefText: string,
+  date: string,
+  time: string,
+  archiveUrl: string,
+  edition: BriefEdition = 'model',
+): string {
   // Strip bold/italic markers but keep the plain text. Section headers
   // already use `## ` and read fine as-is in a mono client.
   const stripped = briefText
@@ -2345,6 +2421,7 @@ function renderPlainText(briefText: string, date: string, time: string, archiveU
   return [
     `NEXUSWATCH SITUATION BRIEF`,
     `${date} · ${time}`,
+    ...(edition === 'mechanical' ? [MECHANICAL_EDITION_LINE] : []),
     `──────────────────────────────────────────`,
     '',
     stripped,
@@ -2383,7 +2460,12 @@ function renderDossierInner(
   date: string,
   interests?: Interests,
   watchlistCountries?: WatchlistCountry[],
+  edition: BriefEdition = 'model',
 ): string {
+  // The mechanical edition's own body already prints every market with its
+  // price (buildFallbackText, "Markets"), from the same array. Market Pulse
+  // would print the same changes a second time with less information.
+  if (edition === 'mechanical') markets = [];
   const sections = parseSections(briefText);
   if (sections.length === 0) {
     // Fallback: wrap the whole body as a single paragraph block.
@@ -2452,8 +2534,9 @@ const EMAIL_COLOR_SCHEME = 'light';
  */
 export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
   const { briefText, date, time, markets, interests, watchlistCountries } = opts;
+  const edition: BriefEdition = opts.edition ?? 'model';
   const archiveUrl = opts.archiveUrl ?? `https://nexuswatch.dev/#/brief/${date}`;
-  const inner = renderDossierInner(briefText, markets, date, interests, watchlistCountries);
+  const inner = renderDossierInner(briefText, markets, date, interests, watchlistCountries, edition);
 
   // Full standalone email shell for Resend transactional path.
   const emailHtml = `<!DOCTYPE html>
@@ -2490,7 +2573,7 @@ export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
         }),
       )}>
         <tr><td>
-          ${renderMasthead(date, time)}
+          ${renderMasthead(date, time, edition)}
           ${inner}
           ${renderCTA()}
           ${renderFooter(date, archiveUrl)}
@@ -2511,9 +2594,9 @@ export function renderDossierEmail(opts: RenderBriefOptions): RenderedBrief {
       padding: space.md,
       maxWidth: layout.contentWidth,
     }),
-  )}>${inner}${renderCTA()}</div>`;
+  )}>${edition === 'mechanical' ? renderEditionLine() : ''}${inner}${renderCTA()}</div>`;
 
-  const plainText = renderPlainText(briefText, date, time, archiveUrl);
+  const plainText = renderPlainText(briefText, date, time, archiveUrl, edition);
 
   return { emailHtml, beehiivHtml, plainText };
 }
@@ -2599,6 +2682,8 @@ export interface ResolvedCallRow {
   status: string;
   resolves_on: string;
   evidence_count: number | null;
+  /** From call_corrections, when the call has one. Never replaces `status`. */
+  corrected_status?: string | null;
 }
 
 /**
@@ -2649,11 +2734,21 @@ export function formatResolvedCallLines(
   // omitting totals silently fell back to rows.length — a PAGE — which is the
   // by_kind page-size defect with a default parameter for a disguise. The
   // aggregate comes from COUNT(*) or the caller does not compile.
-  totals: { total: number; hits: number },
+  //
+  // `corrections` are the window's calls the evidence records differently from
+  // the published verdict, counted over the whole window like the totals. The
+  // published counts stand; the corrections are stated beside them.
+  totals: { total: number; hits: number; corrections?: Array<{ status: string; corrected_status: string }> },
   cap = 12,
+  // The window the totals cover, as a phrase ("today", "in the last 7 days").
+  // The aggregate used to print no window, so beside the ledger line's "N
+  // resolved today" a reader saw two unlabelled counts and could not tell why
+  // they differed (on Sundays the totals span 7 days, the ledger line one).
+  windowLabel?: string,
 ): string[] {
   const total = totals.total;
   const hits = totals.hits;
+  const corrections = totals.corrections ?? [];
   if (total === 0 && stillDuePending === 0) return [];
   const lines: string[] = [];
   // "Under the coverage-grace rule" was WRONG on 2026-09-06: 63 of the 74
@@ -2672,7 +2767,13 @@ export function formatResolvedCallLines(
     lines.push(`${stillDuePending} calls came due and none has resolved yet.${graceNote}`);
     return lines;
   }
-  lines.push(`${total} calls settled against external ground truth: ${hits} hit, ${total - hits} miss.${graceNote}`);
+  // Same words /ledger uses (describeCorrections). The verdicts above are as
+  // published; the model is told which of them the evidence says otherwise.
+  const correctionNote =
+    corrections.length > 0 ? ` The counts are as published; ${describeCorrections(corrections)}.` : '';
+  lines.push(
+    `${total} calls settled${windowLabel ? ` ${windowLabel}` : ''} against external ground truth: ${hits} hit, ${total - hits} miss.${correctionNote}${graceNote}`,
+  );
   const byInfo = [...rows].sort(
     (a, b) =>
       Math.abs((b.probability ?? 0) - (b.base_rate ?? b.probability ?? 0)) -
@@ -2680,7 +2781,12 @@ export function formatResolvedCallLines(
   );
   for (const r of byInfo.slice(0, cap)) {
     const name = nameOf?.get(r.country_code) ?? r.country_code;
-    const outcome = r.status === 'hit' ? 'HIT' : 'MISS';
+    const published = r.status === 'hit' ? 'HIT' : 'MISS';
+    const recorded = correctedOutcomeOf(r.status, r.corrected_status ?? null);
+    const outcome =
+      recorded === undefined
+        ? published
+        : `${published} as published, the evidence records as ${recorded === 1 ? 'HIT' : 'MISS'}`;
     const base = r.base_rate !== null ? ` (base rate ${(r.base_rate * 100).toFixed(0)}%)` : '';
     const evidence =
       r.kind === 'censorship_event' && r.evidence_count !== null && r.status === 'hit'
@@ -2695,15 +2801,59 @@ export function formatResolvedCallLines(
   return lines;
 }
 
+/**
+ * Why the mechanical edition shipped, as the reader is told it. Two cases, not
+ * six: a reader needs to know whether a draft existed and was refused, or
+ * whether none was written. Nine days in November 2026 said "a publish gate
+ * withheld the draft" while the model API was failing and no draft existed.
+ */
+export type FallbackCause = 'draft-refused' | 'no-draft';
+
+/**
+ * Every path that reaches buildFallbackText, and the cause it must pass. A
+ * Record over a closed union, so a path added to the union without an entry
+ * here does not compile, and the call-site test fails a call that omits it.
+ * The cause is chosen here, at the call site, and never recovered from the
+ * aiDebug string (reading a string where a flag belonged caused two earlier
+ * bugs; see the fallback alarm below).
+ */
+export type FallbackPath =
+  | 'no-api-key'
+  | 'http-error'
+  | 'exception'
+  | 'empty-response'
+  | 'grounding-refused'
+  | 'structure-refused'
+  | 'comparative-refused'
+  | 'incomplete-reply';
+
+export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
+  'no-api-key': 'no-draft',
+  'http-error': 'no-draft',
+  exception: 'no-draft',
+  'empty-response': 'no-draft',
+  'grounding-refused': 'draft-refused',
+  'structure-refused': 'draft-refused',
+  // An unmarked "record" or "N blocks": a draft existed and a gate refused it.
+  'comparative-refused': 'draft-refused',
+  // Cut off, refused by the model, or an unexpected stop_reason: no complete
+  // draft exists, and no gate withheld one.
+  'incomplete-reply': 'no-draft',
+};
+
 // weekday shape rather than Week in Review, because the fallback only fires
 // when Sonnet is fully unavailable and we want coverage parity over format.
-export function buildFallbackText(data: BriefData): string {
+export function buildFallbackText(data: BriefData, cause: FallbackCause = 'no-draft'): string {
   // The deterministic edition — published when the model draft fails a gate
-  // (grounding, structure) or the API fails. Same section spine as the model
+  // (grounding, structure) or no draft was produced (API failure, no key,
+  // empty reply). Same section spine as the model
   // version (brief-structure.ts), grounded by construction: every line below
   // is a restatement of a value already in BriefData. It says plainly that it
-  // is the mechanical edition; on a site whose brand is "we publish our
-  // misses", telling the reader the AI draft was refused today is a feature.
+  // is the mechanical edition, and why. An unspecified or unknown cause
+  // defaults to 'no-draft': claiming a gate refused a draft that never
+  // existed is the one thing this must not do.
+  const draftLine =
+    cause === 'draft-refused' ? 'the model draft was withheld today' : 'no model draft was produced today';
   const trendArrow = (c: CIIEntry) => {
     if (c.prevDeviation === null) return '';
     const d = c.deviation - c.prevDeviation;
@@ -2727,7 +2877,7 @@ export function buildFallbackText(data: BriefData): string {
   text += `${DAILY_SECTIONS[1]}\n\n`;
   if (data.newsHeadlines.length > 0) {
     const n = data.newsHeadlines[0];
-    text += `**${n.title}** (${n.source}). This is the mechanical edition — the model draft was withheld today, so we give you the lead as the wire carried it rather than a synthesis.\n\n`;
+    text += `**${n.title}** (${n.source}). This is the mechanical edition — ${draftLine}, so we give you the lead as the wire carried it rather than a synthesis.\n\n`;
   } else if (topCountry) {
     text += `**${topCountry.name} leads the board — structural ${topCountry.score}/100, +${topCountry.deviation} live today${trendArrow(topCountry)}.** ${data.topRiskCountries.filter((c) => c.score >= 50).length} countries sit above CII 50 of ${data.totalCountries} scored.\n\n`;
   } else {
@@ -2764,7 +2914,9 @@ export function buildFallbackText(data: BriefData): string {
   text += `**What would change our mind:** a confirmed OONI blocking event, or an FX reference-rate move past a stored threshold, in any country on the open book above — the resolvers check daily.\n\n`;
 
   text += `${DAILY_SECTIONS[3]}\n\n`;
-  text += `- This is the mechanical edition: the model draft was withheld by a publish gate, so today carries data without narrative.\n`;
+  text += `- This is the mechanical edition: ${
+    cause === 'draft-refused' ? 'the model draft was withheld by a publish gate' : 'no model draft was produced today'
+  }, so today carries data without narrative.\n`;
   text += `- Every mover above is unexplained by construction — we do not attribute causes mechanically.\n`;
   if (data.conflictHeadlines.length === 0)
     text += `- The conflict headline feed returned nothing today; that gap is a gap.\n`;

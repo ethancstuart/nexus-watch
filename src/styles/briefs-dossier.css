@@ -45,6 +45,32 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* The /briefs archive on the register (owner, 20 Sep: the whole website dark,
+   only the email light). Re-points the dossier variables above at the --nw-*
+   tokens, which check:design-tokens binds to src/styles/register-tokens.ts, so
+   every rule below follows without a second palette. The single-brief page and
+   /settings do not carry the class and stay on the dossier for now. */
+.briefs-dossier.briefs-register {
+  --bg-page: var(--nw-bg);
+  --bg-card: var(--nw-surface);
+  --bg-muted: var(--nw-surface);
+  --text-primary: var(--nw-text);
+  --text-secondary: var(--nw-text-secondary);
+  --text-tertiary: var(--nw-text-muted);
+  --accent: var(--nw-accent);
+  --accent-soft: var(--nw-accent-hover);
+  --accent-bg-soft: var(--nw-accent-dim);
+  --divider: var(--nw-gold);
+  --divider-soft: var(--nw-border);
+  --border: var(--nw-border);
+  --border-strong: var(--nw-border-strong);
+}
+/* White on the orange accent is under 3:1; the register's button text is the
+   accent-text token (black, about 7:1). */
+.briefs-dossier.briefs-register .dossier-subscribe-btn {
+  color: var(--nw-accent-text);
+}
+
 /* ── Nav ──────────────────────────────────────────────────────────── */
 .briefs-dossier .dossier-nav {
   max-width: 720px;

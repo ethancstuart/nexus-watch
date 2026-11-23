@@ -15,7 +15,7 @@ import {
   styleAttrOf as s,
   typeStyleAttr as ts,
 } from '../src/styles/email-tokens.js';
-import { beehiivPublicationId } from './_lib/beehiiv-config.js';
+import { describeBeehiivIssues, resolveBeehiivPublicationId } from './_lib/beehiiv-config.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -58,10 +58,19 @@ function shell(title: string, inner: string): string {
  * record, beehiiv is a mirror, and a mirror being down must never fail a
  * subscription.
  */
-async function syncBeehiiv(email: string, source: string): Promise<void> {
+export async function syncBeehiiv(email: string, source: string): Promise<void> {
   const beehiivKey = process.env.BEEHIIV_API_KEY;
-  const beehiivPubId = beehiivPublicationId();
-  if (!beehiivKey || !beehiivPubId) return;
+  if (!beehiivKey) return;
+  const resolution = resolveBeehiivPublicationId();
+  if (!resolution.configured) return;
+  const beehiivPubId = resolution.id;
+  if (!beehiivPubId) {
+    // A malformed id earns an opaque 400, so do not ask. LOG only — never
+    // alert here: this runs once per sign-up, and the daily brief raises the
+    // single keyed alert for this fault (see _lib/beehiiv-publish.ts).
+    console.error(`[subscribe] beehiiv sync skipped, no request sent: ${describeBeehiivIssues(resolution).join('; ')}`);
+    return;
+  }
   try {
     const beehiivRes = await fetch(`https://api.beehiiv.com/v2/publications/${beehiivPubId}/subscriptions`, {
       method: 'POST',
@@ -155,13 +164,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // SHAPE IS NOT VALIDITY. This used to test the string against a regex for
   // the shape of an IANA name, and the comment right here claimed that made
   // an unknown zone fall back to UTC. It did not: `America/Not_A_Zone` is
-  // perfectly IANA-shaped. deliver-briefs buckets on
+  // perfectly IANA-shaped. deliver-briefs then bucketed on
   // `NOW() AT TIME ZONE es.timezone`, and Postgres answers an unrecognised
   // zone with an ERROR that aborts the whole subscriber query — so one public
   // POST could stop the brief reaching EVERY subscriber, indefinitely, until
   // someone found and deleted the row. Verified against production on
   // 2026-09-12: the regex accepts it and Postgres raises
-  // `time zone "America/Not_A_Zone" not recognized`.
+  // `time zone "America/Not_A_Zone" not recognized`. (deliver-briefs no
+  // longer passes the zone to Postgres; it falls back to UTC per row.)
   //
   // Ask the platform's own zone database instead of describing it. Intl
   // throws on a zone it does not know, which is the property we actually

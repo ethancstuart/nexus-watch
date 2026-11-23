@@ -1,34 +1,40 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { personalizeUnsubscribe, unsubscribeUrl } from '../_lib/unsubscribe-token.js';
-import { renderDossierEmail } from './daily-brief.js';
+import { editionFromStoredContent, renderDossierEmail } from './daily-brief.js';
+import { requireCron } from '../_cron-utils.js';
+import { deliveryTimeZone, isDueForBrief } from '../_lib/brief-window.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 120 };
 
 /**
  * Timezone-aware brief delivery cron (D-2, 2026-04-18).
  *
- * Runs hourly. For each subscriber whose local time is 7:00–7:59 AM and who
- * hasn't already received today's brief, sends the email via Resend.
+ * Runs hourly. Serves the latest renderable brief: today's (today = the UTC
+ * date) once it exists, before that yesterday's. Sends it via Resend to every
+ * subscriber who has not had it and whose window for it is open — from their
+ * own 07:00 local to the end of that local day; see api/_lib/brief-window.ts
+ * for the rule and why.
  *
  * The daily-brief.ts cron generates content at 10:00 UTC and stores it in
- * daily_briefs. This cron only delivers — it never generates.
+ * daily_briefs. This cron only delivers — it never generates. Readers whose
+ * 07:00 comes before that (about UTC−2 to UTC+7, and anyone stored as `UTC`)
+ * are sent at the first run after the brief is renderable; a run that sends
+ * nothing (no brief yet, Resend down) is caught up by a later run while the
+ * reader's window is open. Yesterday's brief is carried over only until
+ * today's exists, so UTC+8 readers (07:00 = 23:00Z) are not down to one run.
  *
  * Schedule: 0 * * * * (every hour on the hour)
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Cron auth
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!requireCron(req, res)) return;
 
   const sql = neon(process.env.DATABASE_URL!);
   const now = new Date();
   const today = now.toISOString().split('T')[0];
   const currentUtcHour = now.getUTCHours();
 
-  // 1. Get today's brief from archive
+  // 1. The latest renderable brief: today's, else yesterday's.
   // `email_html`/`plain_text` arrive with 2026-09-05-brief-email-html.sql.
   // Probe rather than assume: naming a missing column fails the whole SELECT
   // and stops delivery entirely; an absent column just means the legacy path.
@@ -41,26 +47,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     hasEmailColumns = cols.length === 2;
   } catch (probeErr) {
     console.error('[deliver-briefs] column probe failed, assuming legacy schema:', probeErr);
-  }
-
-  const briefs = hasEmailColumns
-    ? await sql`
-        SELECT brief_date, summary, content, email_html, plain_text FROM daily_briefs
-        WHERE brief_date = ${today}
-        LIMIT 1
-      `
-    : await sql`
-        SELECT brief_date, summary, content FROM daily_briefs
-        WHERE brief_date = ${today}
-        LIMIT 1
-      `;
-
-  if (briefs.length === 0) {
-    return res.status(200).json({
-      success: true,
-      skipped: true,
-      reason: `No brief generated yet for ${today}. Waiting for daily-brief cron.`,
-    });
   }
 
   // What a subscriber actually receives is ALWAYS the full document —
@@ -78,13 +64,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   //      version falling back to `summary`: an email without a way out does
   //      not go, full stop — a skipped hour retries, a sent fragment is
   //      unrecallable.
-  const row = briefs[0] as { email_html?: unknown; plain_text?: unknown; summary: string; content: unknown };
-  const storedEmailHtml = typeof row.email_html === 'string' && row.email_html.length > 0 ? row.email_html : null;
-  const storedPlainText = typeof row.plain_text === 'string' && row.plain_text.length > 0 ? row.plain_text : null;
+  async function loadBrief(
+    date: string,
+  ): Promise<{ content: unknown; html: string; plain: string | null } | { skip: string }> {
+    const briefs = hasEmailColumns
+      ? await sql`
+          SELECT brief_date, summary, content, email_html, plain_text FROM daily_briefs
+          WHERE brief_date = ${date}
+          LIMIT 1
+        `
+      : await sql`
+          SELECT brief_date, summary, content FROM daily_briefs
+          WHERE brief_date = ${date}
+          LIMIT 1
+        `;
+    if (briefs.length === 0) {
+      return { skip: `No brief generated yet for ${date}. Waiting for daily-brief cron.` };
+    }
+    const row = briefs[0] as { email_html?: unknown; plain_text?: unknown; summary: string; content: unknown };
+    const storedEmailHtml = typeof row.email_html === 'string' && row.email_html.length > 0 ? row.email_html : null;
+    const storedPlainText = typeof row.plain_text === 'string' && row.plain_text.length > 0 ? row.plain_text : null;
+    if (storedEmailHtml) return { content: row.content, html: storedEmailHtml, plain: storedPlainText };
 
-  let briefHtml: string | null = storedEmailHtml;
-  let briefPlain: string | null = storedPlainText;
-  if (!briefHtml) {
     const content = (typeof row.content === 'object' && row.content !== null ? row.content : {}) as {
       briefText?: unknown;
       markets?: unknown;
@@ -92,66 +93,92 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (typeof content.briefText === 'string' && content.briefText.length > 0) {
       const rendered = renderDossierEmail({
         briefText: content.briefText,
-        date: today,
+        date,
         time: '10:00 UTC',
         markets: Array.isArray(content.markets) ? (content.markets as never[]) : [],
-        archiveUrl: `https://nexuswatch.dev/brief/${today}`,
+        archiveUrl: `https://nexuswatch.dev/brief/${date}`,
+        // From the archived row, written at generation time. Without it the
+        // re-render would silently turn a mechanical day into a model one.
+        edition: editionFromStoredContent(row.content),
       });
-      briefHtml = rendered.emailHtml;
-      briefPlain = rendered.plainText;
-      console.warn(`[deliver-briefs] ${today}: no stored email_html — rendered at delivery time instead.`);
+      console.warn(`[deliver-briefs] ${date}: no stored email_html — rendered at delivery time instead.`);
+      return { content: row.content, html: rendered.emailHtml, plain: rendered.plainText };
     }
-  }
-
-  if (!briefHtml) {
     // No stored document and nothing renderable. Never send the fragment.
-    return res.status(200).json({
-      success: true,
-      skipped: true,
-      reason: `Brief for ${today} has no renderable full email document; refusing to send the summary fragment (no unsubscribe link). Will retry next hour.`,
-    });
+    return {
+      skip: `Brief for ${date} has no renderable full email document; refusing to send the summary fragment (no unsubscribe link). The next run retries; anyone already due is sent then.`,
+    };
   }
 
-  // 2. Find timezone buckets where local time is 7:00–7:59 AM right now
-  //
-  // We compute which UTC offsets correspond to 7 AM local time at the current
-  // UTC hour. For example, if it's 14:00 UTC, then timezone offset -7 (PDT)
-  // has local time 07:00 — that's our target.
-  //
-  // target_offset = currentUtcHour - 7
-  // A subscriber in timezone with UTC offset = target_offset should be sent.
-  //
-  // We use Postgres AT TIME ZONE to do this properly (handles DST).
-  const targetLocalHour = 7;
+  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().split('T')[0];
+  let briefDate = today;
+  let brief = await loadBrief(today);
+  // Carry-over: until today's brief is renderable, yesterday's stays on offer
+  // to readers whose window for it is still open (isDueForBrief bounds it by
+  // their local midnight). Once today's exists, yesterday's is closed.
+  const carriedOver = 'skip' in brief;
+  if ('skip' in brief) {
+    const previous = await loadBrief(yesterday);
+    if ('skip' in previous) {
+      return res.status(200).json({ success: true, skipped: true, reason: brief.skip });
+    }
+    brief = previous;
+    briefDate = yesterday;
+  }
+  const briefHtml = brief.html;
+  const briefPlain = brief.plain;
 
-  // 3. Find subscribers who:
-  //    a) Have local hour = 7 right now
-  //    b) Haven't been sent today's brief yet
-  const subscribers = await sql`
-    SELECT es.email, es.timezone
-    FROM email_subscribers es
-    LEFT JOIN pg_timezone_names z ON z.name = es.timezone
-    WHERE es.unsubscribed = FALSE
-      -- COALESCE: subscribe.ts historically never wrote timezone, and a NULL
-      -- zone makes both EXTRACTs NULL — the subscriber matches NO hour bucket
-      -- and silently never receives anything, forever.
-      --
-      -- AND the zone is checked against Postgres's OWN catalogue before it is
-      -- used. An unrecognised zone does not make one row misbehave: it raises
-      -- an ERROR that aborts this query, so a single bad row stops the brief
-      -- reaching EVERYONE. subscribe.ts now validates against the runtime's
-      -- tzdata, but that protects new rows only, and a delivery path for four
-      -- subscribers should not be one bad string away from silence.
-      AND EXTRACT(HOUR FROM (NOW() AT TIME ZONE COALESCE(z.name, 'UTC'))) >= ${targetLocalHour}
-      AND EXTRACT(HOUR FROM (NOW() AT TIME ZONE COALESCE(z.name, 'UTC'))) < ${targetLocalHour + 1}
-      AND NOT EXISTS (
-        SELECT 1 FROM brief_subscriber_delivery bsd
-        WHERE bsd.subscriber_email = es.email
-          AND bsd.brief_date = ${today}
-      )
-  `;
+  // 2. Subscribers who have not been sent this brief. The zone is NOT
+  // used in SQL any more: the window is decided below by isDueForBrief, a pure
+  // function over the runtime's tzdata, so it can be tested without a
+  // database and so the zone never reaches Postgres. That matters because an
+  // unrecognised zone in `AT TIME ZONE` raises an ERROR that aborts the whole
+  // query — one bad row stopping the brief for everyone. Here a bad zone
+  // (null, empty, unknown) falls back to UTC for that row alone.
+  //
+  // A carried-over brief is never anyone's FIRST: only readers already sent
+  // an earlier brief get one. Without that, the day this ships would send
+  // yesterday's brief late to readers the old exact-hour rule never reached.
+  const undelivered = carriedOver
+    ? await sql`
+        SELECT es.email, es.timezone
+        FROM email_subscribers es
+        WHERE es.unsubscribed = FALSE
+          AND NOT EXISTS (
+            SELECT 1 FROM brief_subscriber_delivery bsd
+            WHERE bsd.subscriber_email = es.email
+              AND bsd.brief_date = ${briefDate}
+          )
+          AND EXISTS (
+            SELECT 1 FROM brief_subscriber_delivery prior
+            WHERE prior.subscriber_email = es.email
+              AND prior.brief_date < ${briefDate}
+          )
+      `
+    : await sql`
+        SELECT es.email, es.timezone
+        FROM email_subscribers es
+        WHERE es.unsubscribed = FALSE
+          AND NOT EXISTS (
+            SELECT 1 FROM brief_subscriber_delivery bsd
+            WHERE bsd.subscriber_email = es.email
+              AND bsd.brief_date = ${briefDate}
+          )
+      `;
 
-  // Also include admin emails (always deliver at this hour if not already sent)
+  // 3. Of those, the ones whose window for this brief is open now.
+  const subscribers = undelivered.filter((s) => isDueForBrief(s.timezone, briefDate, now));
+  const fallbackZones = undelivered.filter((s) => deliveryTimeZone(s.timezone) !== s.timezone).length;
+  if (fallbackZones > 0) {
+    // Count only — no addresses in logs.
+    console.warn(
+      `[deliver-briefs] ${fallbackZones} undelivered subscriber(s) have an unusable timezone; treated as UTC.`,
+    );
+  }
+
+  // Admin copies, independent of the subscriber window and unchanged by it.
+  // Note this is why the old lost-subscriber defect was invisible: the
+  // operator's own copy always arrived.
   const adminEmail = process.env.ADMIN_EMAILS;
   const adminEmails: string[] = [];
   if (adminEmail) {
@@ -165,17 +192,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const allEmails = new Set<string>();
   subscribers.forEach((s) => allEmails.add(s.email as string));
 
-  // Admin emails: deliver at 13:00 UTC+ (6am PDT / 5am PST — early enough for morning review)
-  if (adminEmails.length > 0 && currentUtcHour >= 13) {
+  // Admin emails: deliver at 13:00 UTC+ (6am PDT / 5am PST — early enough for morning review).
+  // Today's brief only, as before: the admin copy is never carried over.
+  if (adminEmails.length > 0 && currentUtcHour >= 13 && !carriedOver) {
+    // One mailbox, however it is spelled: ADMIN_EMAILS is typed by hand and the
+    // stored subscriber address is whatever the form kept, so every comparison
+    // below is on the trimmed, lower-cased key. Exact-string matching sent that
+    // person two copies.
+    const keyOf = (e: string) => e.trim().toLowerCase();
+    // The spelling to send to is the stored subscriber's where one exists
+    // (including a subscriber whose window is not open yet, who is in
+    // `undelivered`), else the admin's own.
+    const storedSpelling = new Map<string, string>();
+    for (const s of undelivered) storedSpelling.set(keyOf(String(s.email)), String(s.email));
+    const dueKeys = new Set(subscribers.map((s) => keyOf(String(s.email))));
+    const adminByKey = new Map<string, string>();
+    for (const e of adminEmails) if (!adminByKey.has(keyOf(e))) adminByKey.set(keyOf(e), e);
+
+    // Case-insensitive on the stored side too: a claim written under another
+    // spelling is still this person's copy for the day.
     const adminDelivered = await sql`
       SELECT subscriber_email FROM brief_subscriber_delivery
-      WHERE brief_date = ${today}
-        AND subscriber_email = ANY(${adminEmails})
+      WHERE brief_date = ${briefDate}
+        AND lower(subscriber_email) = ANY(${Array.from(adminByKey.keys())})
     `;
-    const alreadySent = new Set(adminDelivered.map((r) => r.subscriber_email as string));
-    adminEmails.forEach((e) => {
-      if (!alreadySent.has(e)) allEmails.add(e);
-    });
+    const alreadySent = new Set(adminDelivered.map((r) => keyOf(String(r.subscriber_email))));
+    for (const [key, typed] of adminByKey) {
+      if (alreadySent.has(key) || dueKeys.has(key)) continue; // the subscriber path sends it
+      allEmails.add(storedSpelling.get(key) ?? typed);
+    }
   }
 
   if (allEmails.size === 0) {
@@ -195,13 +240,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const recipients = Array.from(allEmails);
   // The subject is the day's story, extracted at generation time from Top
   // Signal (brief-structure.ts). A date-only subject promises nothing; it
   // survives only as the fallback when extraction found no headline.
   const storedSubject = (() => {
     try {
-      const c = briefs[0].content as { subject?: unknown } | null;
+      const c = brief.content as { subject?: unknown } | null;
       return typeof c?.subject === 'string' && c.subject.trim().length >= 4 ? c.subject.trim() : null;
     } catch {
       return null;
@@ -209,20 +253,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   })();
   const subject = storedSubject
     ? `${storedSubject} — The NexusWatch Brief`
-    : `NexusWatch Intelligence Brief — ${today}`;
+    : `NexusWatch Intelligence Brief — ${briefDate}`;
   const from = 'NexusWatch Intelligence <brief@nexuswatch.dev>';
   const BATCH_SIZE = 100;
   let sent = 0;
   let failed = 0;
+  let deferred = 0;
 
-  // Exactly who succeeded — not a count. The old dedup did
-  // `recipients.slice(0, sent)`, which assumes failures are always the tail:
-  // on a mixed outcome the WRONG addresses were marked delivered and the ones
-  // actually missed were never retried, silently, forever.
-  const delivered: string[] = [];
+  // 5. Per chunk: claim, send, release on refusal — in that order, one chunk
+  // at a time.
+  //
+  // Claim first because the window stays open for the rest of the day: a send
+  // whose dedup row was never written would be sent again every hour. Only
+  // rows this statement actually inserted are sent, so two overlapping runs
+  // cannot both send.
+  //
+  // Per chunk because the function can be killed at maxDuration. Whatever is
+  // claimed but not yet sent at that moment looks delivered and is never sent;
+  // claiming one chunk at a time limits that to the chunk in flight.
+  const due = Array.from(allEmails);
+  for (let i = 0; i < due.length; i += BATCH_SIZE) {
+    const candidates = due.slice(i, i + BATCH_SIZE);
 
-  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-    const chunk = recipients.slice(i, i + BATCH_SIZE);
+    let chunk: string[];
+    try {
+      // One statement per chunk. Parameterised: the array and the date are
+      // values, never spliced into SQL.
+      const claimed = await sql`
+        INSERT INTO brief_subscriber_delivery (subscriber_email, brief_date, channel)
+        SELECT e, ${briefDate}::date, 'resend' FROM unnest(${candidates}::text[]) AS e
+        ON CONFLICT (subscriber_email, brief_date) DO NOTHING
+        RETURNING subscriber_email
+      `;
+      const mine = new Set(claimed.map((r) => r.subscriber_email as string));
+      chunk = candidates.filter((e) => mine.has(e));
+    } catch (err) {
+      // Nothing claimed, nothing sent: the next run picks these up.
+      console.error(
+        '[deliver-briefs] Delivery claim failed; retrying next run:',
+        err instanceof Error ? err.message : err,
+      );
+      deferred += candidates.length;
+      continue;
+    }
+    if (chunk.length === 0) continue;
+
     const payload = chunk.map((email) => ({
       from,
       to: [email],
@@ -239,6 +314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     }));
 
+    let refused = false;
     try {
       const resp = await fetch('https://api.resend.com/emails/batch', {
         method: 'POST',
@@ -252,45 +328,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (resp.ok) {
         sent += chunk.length;
-        delivered.push(...chunk);
       } else {
         const body = await resp.text().catch(() => '');
         console.error(`[deliver-briefs] Resend batch error: ${resp.status} ${body.slice(0, 200)}`);
         failed += chunk.length;
+        refused = true;
       }
     } catch (err) {
-      console.error(`[deliver-briefs] Resend batch exception:`, err instanceof Error ? err.message : err);
+      // Timeout or network error: Resend may have sent it. The claim is KEPT,
+      // so this chunk may miss today's brief rather than risk getting it twice.
+      console.error(
+        `[deliver-briefs] Resend batch exception (outcome unknown, not retried today):`,
+        err instanceof Error ? err.message : err,
+      );
       failed += chunk.length;
     }
 
+    if (refused) {
+      // Resend answered and refused: nothing went out. Release now, not after
+      // the loop, so a kill later in the run cannot strand these claims. If
+      // the release itself fails, these readers miss today rather than risk a
+      // second copy.
+      try {
+        await sql`
+          DELETE FROM brief_subscriber_delivery
+          WHERE brief_date = ${briefDate}::date AND subscriber_email = ANY(${chunk}::text[])
+        `;
+      } catch (err) {
+        console.error(
+          '[deliver-briefs] Claim release failed; those readers miss today:',
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+
     // Pace between batches
-    if (i + BATCH_SIZE < recipients.length) {
+    if (i + BATCH_SIZE < due.length) {
       await new Promise((r) => setTimeout(r, 100));
     }
   }
 
-  // 5. Record deliveries in dedup table (only for successful sends)
-  //    Uses parameterized queries — never sql.unsafe() with user-provided data.
-  if (delivered.length > 0) {
-    const deliveredEmails = delivered;
-    try {
-      for (const email of deliveredEmails) {
-        await sql`
-          INSERT INTO brief_subscriber_delivery (subscriber_email, brief_date, channel)
-          VALUES (${email}, ${today}, 'resend')
-          ON CONFLICT (subscriber_email, brief_date) DO NOTHING
-        `;
-      }
-    } catch (err) {
-      console.error(
-        '[deliver-briefs] Delivery log insert failed (non-fatal):',
-        err instanceof Error ? err.message : err,
-      );
-    }
-  }
-
   console.log(
-    `[deliver-briefs] UTC ${currentUtcHour}:00 — sent=${sent}, failed=${failed}, total_due=${allEmails.size}`,
+    `[deliver-briefs] UTC ${currentUtcHour}:00 — sent=${sent}, failed=${failed}, deferred=${deferred}, total_due=${allEmails.size}`,
   );
 
   return res.status(200).json({
@@ -298,7 +377,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     utcHour: currentUtcHour,
     sent,
     failed,
+    deferred,
     totalDue: allEmails.size,
-    date: today,
+    date: briefDate,
+    carriedOver,
   });
 }
