@@ -2,6 +2,7 @@ import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './corrections-data.js'
 import { APPROVED_NOTE_DATES, INTRODUCTION_APPROVED } from './corrections-approvals.js';
 import {
   ALL_CORRECTIONS_LINK,
+  amendmentLine,
   CORRECTION_LABEL,
   CORRECTIONS_HEADING,
   CORRECTIONS_PATH,
@@ -99,6 +100,14 @@ export function approvedIntro(
 ): Extract<CorrectionsPageIntro, { status: 'approved' }> | null {
   if (!keys.introduction || intro.status !== 'approved') return null;
   if (!isIsoDate(intro.publishedOn) || intro.title.trim() === '') return null;
+  // An amendment the page cannot state truthfully (no real date, dated before
+  // publication, or empty) withholds the text it amends rather than publish
+  // that text without saying it changed.
+  for (const a of intro.amendments ?? []) {
+    if (!isIsoDate(a.on) || a.on < intro.publishedOn || typeof a.text !== 'string' || a.text.trim() === '') {
+      return null;
+    }
+  }
   if (notes.length === 0 || approvedNotes(notes, keys).length !== notes.length) return null;
   return intro;
 }
@@ -219,7 +228,8 @@ export function renderCorrectionsPage(
       `<div class="kicker">${esc(CORRECTIONS_HEADING)}</div><h1>${esc(intro.title)}</h1>` +
         `<p class="lede dated">Published ${esc(formatCorrectionDate(intro.publishedOn))}.` +
         (latest > intro.publishedOn ? ` Updated ${esc(formatCorrectionDate(latest))}.` : '') +
-        '</p>',
+        '</p>' +
+        (intro.amendments ?? []).map((a) => `<p class="lede dated">${esc(amendmentLine(a))}</p>`).join(''),
     );
     parts.push(pageTextHtml(intro.paragraphs));
   } else {

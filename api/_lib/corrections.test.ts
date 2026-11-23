@@ -13,6 +13,7 @@ import {
   type ApprovalKeys,
 } from './corrections.js';
 import {
+  amendmentLine,
   correctionAdded,
   formatCorrectionDate,
   fullNote,
@@ -305,5 +306,67 @@ describe('the page text: lists and bold lead-ins, nothing else', () => {
     expect(page.description).toBe('Opening. First & only.');
     // The notes keep their own rendering: one escaped paragraph each.
     expect(page.body).toContain(`<p class="lede">${fullNote(note)}</p>`);
+  });
+});
+
+/**
+ * A DATED AMENDMENT TO THE PAGE'S OWN TEXT. Each renders as its own line
+ * directly after "Published …", its date rendered from data like every other
+ * date on the page, and the introduction fails closed on one it cannot render
+ * truthfully.
+ */
+describe('amendments to the page text', () => {
+  const note = approved('2026-09-08', '2026-12-01') as Extract<CorrectionNote, { status: 'approved' }>;
+  const intro = {
+    status: 'approved' as const,
+    publishedOn: '2026-12-01',
+    title: 'T',
+    paragraphs: ['P.'],
+  };
+
+  it('reads "Amended <date>: <text>"', () => {
+    expect(amendmentLine({ on: '2026-11-23', text: 'this page first said x.' })).toBe(
+      'Amended 23 Nov 2026: this page first said x.',
+    );
+  });
+
+  it('each is its own dated line, in order, directly after "Published", escaped', () => {
+    const page = renderCorrectionsPage([note], {
+      ...intro,
+      amendments: [
+        { on: '2026-12-01', text: 'first <b>said</b> & "more".' },
+        { on: '2026-12-03', text: 'second.' },
+      ],
+    });
+    expect(page.body).toContain(
+      '<p class="lede dated">Published 1 Dec 2026.</p>' +
+        '<p class="lede dated">Amended 1 Dec 2026: first &lt;b&gt;said&lt;/b&gt; &amp; &quot;more&quot;.</p>' +
+        '<p class="lede dated">Amended 3 Dec 2026: second.</p>\n' +
+        '<p class="lede">P.</p>',
+    );
+    expect(page.body).not.toMatch(/<b>/);
+    // The meta description is still the first paragraph.
+    expect(page.description).toBe('P.');
+  });
+
+  it('none, as before: no amendment line', () => {
+    expect(renderCorrectionsPage([note], intro).body).not.toContain('Amended');
+    expect(renderCorrectionsPage([note], { ...intro, amendments: [] }).body).not.toContain('Amended');
+  });
+
+  it('the introduction fails closed on an amendment it cannot render truthfully', () => {
+    const notes = [approved('2026-09-08', '2026-12-01')];
+    const keys = { noteDates: ['2026-09-08'], introduction: true };
+    const ok = { ...intro, amendments: [{ on: '2026-12-02', text: 'x.' }] };
+    expect(approvedIntro(ok, notes, keys)?.amendments).toEqual([{ on: '2026-12-02', text: 'x.' }]);
+    for (const bad of [
+      { on: 'soon', text: 'x.' },
+      { on: '2026-02-30', text: 'x.' },
+      { on: '2026-11-30', text: 'x.' }, // before publication
+      { on: '2026-12-02', text: '' },
+      { on: '2026-12-02', text: '   ' },
+    ]) {
+      expect(approvedIntro({ ...intro, amendments: [bad] }, notes, keys), JSON.stringify(bad)).toBeNull();
+    }
   });
 });

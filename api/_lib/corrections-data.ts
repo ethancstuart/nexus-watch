@@ -530,8 +530,19 @@ export const CORRECTIONS_PAGE_INTRO: CorrectionsPageIntro = {
   status: 'approved',
   publishedOn: '2026-11-23',
   title: 'Corrections to our censorship reporting, 23 August to 22 November 2026',
+  // Lead decision of 23 Nov 2026, under the owner's delegation: the opening
+  // overstated the "record" claims. The opening's two sentences became one,
+  // and this line says what the page first said.
+  amendments: [
+    {
+      on: '2026-11-23',
+      text:
+        'this page first said that most of the wrong claims were “record” claims and that none was true. ' +
+        'Record claims were the most common kind of false claim (114 of 296), and 9 of the 142 record claims were true.',
+    },
+  ],
   paragraphs: [
-    "Between 23 August and 22 November our daily brief, written by a language model from figures we supplied, made claims about internet censorship that were wrong. Most said that censorship in Russia and Iran had reached a “record”. It had not. We checked every model-written edition from the first (8 April 2026) to 22 November, 196 in all, against OONI's published daily totals. None before 23 August cited censorship measurements. Of the 75 model-written editions from 23 August, 67 contain at least one false or misleading claim of fact: 60 contain at least one false claim, and 7 only misleading ones. Each of the 67 carries a dated note beside its original text, which we have not changed. The other 8 were wrong only in wording.",
+    "Between 23 August and 22 November our daily brief, written by a language model from figures we supplied, made claims about internet censorship that were wrong. The most common false claim was that censorship in Russia or Iran had reached a “record”. We checked every model-written edition from the first (8 April 2026) to 22 November, 196 in all, against OONI's published daily totals. None before 23 August cited censorship measurements. Of the 75 model-written editions from 23 August, 67 contain at least one false or misleading claim of fact: 60 contain at least one false claim, and 7 only misleading ones. Each of the 67 carries a dated note beside its original text, which we have not changed. The other 8 were wrong only in wording.",
     'Two things on our side contributed. Our instructions to the model offered “Russia and Iran hit record censorship in the same week” as an example of a good headline. And until 12 September our collector stored one hour of each day, so our early figures were far too low.',
     "OONI's count is the number of tests confirmed as blocked, so it rises when more tests are run. The share of tests confirmed blocked removes that effect. By that measure Russia stayed near 4% (between 3.74% and 4.83% in the weekly figures cited in our notes). Iran's was 29.6% in the week to 7 September, 35.6% in the week to 11 October (its highest of any week from 1 March to 21 November) and 21.7% in the week to 21 November (its lowest of any week since 1 August).",
     "**What was wrong.** We checked 1,003 statements: 374 true, 296 false, 181 misleading, and 152 that our check could neither confirm nor refute. These totals include one statement of 27 August, four of 30 August, one of 3 September and two of 22 September that our audit had not scored, and nine verdicts changed: one of 1 November from true to misleading, six record verdicts of 25 August and 6 September from false to misleading, and two of 13 September from misleading to true, all after independent re-checks of our audit and of our code's history. By kind:",

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { CorrectionNote, CorrectionsPageIntro } from './_lib/correction-words.js';
-import { fullNote } from './_lib/correction-words.js';
+import { amendmentLine, fullNote } from './_lib/correction-words.js';
 import { esc } from './_lib/ssr-shell.js';
 import { briefDateKey, pageParagraphText } from './_lib/corrections.js';
 
@@ -61,8 +61,14 @@ function publishAllBut(held: readonly string[], alsoUnapproveIntro: boolean) {
   );
   const pageDown = alsoUnapproveIntro && held.length > 0;
   state.intro = pageDown
-    ? { status: 'draft', title: REAL_INTRO.title, paragraphs: REAL_INTRO.paragraphs }
-    : { status: 'approved', publishedOn: GO_LIVE, title: REAL_INTRO.title, paragraphs: REAL_INTRO.paragraphs };
+    ? { status: 'draft', title: REAL_INTRO.title, paragraphs: REAL_INTRO.paragraphs, amendments: REAL_INTRO.amendments }
+    : {
+        status: 'approved',
+        publishedOn: GO_LIVE,
+        title: REAL_INTRO.title,
+        paragraphs: REAL_INTRO.paragraphs,
+        amendments: REAL_INTRO.amendments,
+      };
   state.keyDates = REAL_NOTES.map((n) => n.date).filter((d) => !held.includes(d));
   state.keyIntro = !pageDown;
 }
@@ -151,6 +157,9 @@ describe('the harness: a full publication shows the page text and all 67 notes',
     expect(html).toContain(`<h1>${esc(REAL_INTRO.title)}</h1>`);
     expect(html).toContain('<p class="lede dated">Published 23 Nov 2026.</p>');
     expect(ledes(html)).toEqual([...INTRO_WORDS(), ...newestFirst(REAL_NOTES).map(fullFor)].map(esc));
+    expect(REAL_INTRO.amendments?.length).toBeGreaterThan(0);
+    for (const a of REAL_INTRO.amendments ?? [])
+      expect(html).toContain(`<p class="lede dated">${esc(amendmentLine(a))}</p>`);
   });
 });
 
@@ -199,6 +208,8 @@ describe.each(HELD_CASES.map((h) => [h.join(' and '), h] as const))('holding %s 
       expect(html).not.toContain(esc(REAL_INTRO.title));
       expect(html).not.toContain('lede dated');
       for (const p of INTRO_WORDS()) expect(html).not.toContain(esc(p));
+      for (const a of REAL_INTRO.amendments ?? []) expect(html).not.toContain(esc(a.text));
+      expect(html).not.toContain('Amended ');
       expect(html).not.toMatch(/<(?:ul|li|strong)[\s>]/);
       for (const date of held) expect(html).not.toContain(`/brief/${date}`);
     });

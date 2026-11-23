@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createHash } from 'node:crypto';
 import { CORRECTION_NOTES, CORRECTIONS_PAGE_INTRO } from './_lib/corrections-data.js';
 import { approvedIntro, approvedNotes, briefDateKey, pageParagraphText } from './_lib/corrections.js';
-import { CORRECTIONS_HEADING, formatCorrectionDate, fullNote } from './_lib/correction-words.js';
+import { amendmentLine, CORRECTIONS_HEADING, formatCorrectionDate, fullNote } from './_lib/correction-words.js';
 import { esc } from './_lib/ssr-shell.js';
 
 /**
@@ -22,25 +22,58 @@ import { esc } from './_lib/ssr-shell.js';
  */
 
 /**
- * sha256 of the title and every paragraph of the page, joined by a blank line,
- * and of every note as `date|classification|text`, joined the same way, in
- * date order. The same digests are recorded with the final reader text the
- * owner's decision of 23 Nov 2026 covers; change the text there and here
- * together. The page digest is of the WORDS: each paragraph with its list and
- * lead-in markers removed (pageParagraphText). Adding those markers changed no
- * word, so this digest did not change.
+ * sha256 of the title, each amendment line as it reads ("Amended 23 Nov 2026:
+ * …") and every paragraph of the page, joined by a blank line, and of every
+ * note as `date|classification|text`, joined the same way, in date order. The
+ * same digests are recorded with the final reader text the owner's decision of
+ * 23 Nov 2026 covers; change the text there and here together. The page digest
+ * is of the WORDS: each paragraph with its list and lead-in markers removed
+ * (pageParagraphText).
+ *
+ * History: 9e4832f0… as published on 23 Nov 2026; a303c756… after the lead's
+ * amendment of the same day (the opening's "record" sentences, and the
+ * amendment line that says so).
  */
-const PAGE_DIGEST = '9e4832f0d0de05c933e4f9dfd26c2bb5b384c483e596f80202a92ef7e6020b84';
+const PAGE_DIGEST = 'a303c756c13eb98c69e44a7f2103a2c8ee228e80eaeda76e912f7c73fb1e449f';
 const NOTES_DIGEST = 'd801389b4ebbef978db04a1571dcc09e57a0ab8435d42501bc34534be950f413';
 /**
  * sha256 of everything a reader sees on /corrections below the masthead, as
- * visibleText() reads it: the kicker, title and dated line, the page text, then
- * each note under its link. It equals the final reader text recorded with the
- * owner's decision (every block, whitespace normalised), and the page as served
- * before the lists and bold lead-ins existed. Markup may change; this may not,
- * unless the words do.
+ * visibleText() reads it: the kicker, title, dated line and amendment lines,
+ * the page text, then each note under its link. It equals the final reader
+ * text recorded with the owner's decision (every block, whitespace
+ * normalised). Markup may change; this may not, unless the words do.
+ *
+ * History: 90d6ba60… as published on 23 Nov 2026, unchanged by the lists and
+ * bold lead-ins; f36edf33… after the lead's amendment of the same day.
  */
-const VISIBLE_TEXT_DIGEST = '90d6ba60d2d91d4a86baf3124d1c98fe0b991b9c389d46aad8bae01d17e5da80';
+const VISIBLE_TEXT_DIGEST = 'f36edf332beca630349906d16effdc35ecde1b3c355bd2d572fbc54184c85cbe';
+
+/**
+ * THE AMENDMENT OF 23 NOV 2026, a lead decision under the owner's delegation.
+ * The opening said "Most said that censorship in Russia and Iran had reached a
+ * “record”. It had not." Record claims were the most common kind of false
+ * claim (114 of 296 false statements), not most of the wrong claims, and 9 of
+ * the 142 record statements were true. The two sentences became one, and the
+ * page says so under its dated line.
+ */
+const OPENING_NOW = 'The most common false claim was that censorship in Russia or Iran had reached a “record”.';
+const OPENING_BEFORE = 'Most said that censorship in Russia and Iran had reached a “record”. It had not.';
+const AMENDMENT = {
+  on: '2026-11-23',
+  text:
+    'this page first said that most of the wrong claims were “record” claims and that none was true. ' +
+    'Record claims were the most common kind of false claim (114 of 296), and 9 of the 142 record claims were true.',
+};
+const AMENDMENT_LINE =
+  'Amended 23 Nov 2026: this page first said that most of the wrong claims were “record” claims and that none ' +
+  'was true. Record claims were the most common kind of false claim (114 of 296), and 9 of the 142 record claims ' +
+  'were true.';
+/** The page's words in reading order: title, amendment lines, then each paragraph without its markers. */
+const pageWords = () => [
+  CORRECTIONS_PAGE_INTRO.title,
+  ...(CORRECTIONS_PAGE_INTRO.amendments ?? []).map(amendmentLine),
+  ...CORRECTIONS_PAGE_INTRO.paragraphs.map(pageParagraphText),
+];
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
 
@@ -133,8 +166,19 @@ beforeEach(() => {
 
 describe('the stored text is the signed-off final reader text', () => {
   it('the page text matches, by digest', () => {
-    const words = [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map(pageParagraphText)];
-    expect(sha256(words.join('\n\n'))).toBe(PAGE_DIGEST);
+    expect(sha256(pageWords().join('\n\n'))).toBe(PAGE_DIGEST);
+  });
+
+  it('the amendment of 23 Nov 2026: the opening sentence replaced, and the page says so', () => {
+    const opening = pageParagraphText(CORRECTIONS_PAGE_INTRO.paragraphs[0]);
+    expect(opening).toContain(` were wrong. ${OPENING_NOW} We checked every model-written edition`);
+    expect(opening).not.toContain(OPENING_BEFORE);
+    for (const p of pageWords()) {
+      expect(p).not.toContain('Most said');
+      expect(p).not.toContain('It had not.');
+    }
+    expect(CORRECTIONS_PAGE_INTRO.amendments).toEqual([AMENDMENT]);
+    expect(amendmentLine(AMENDMENT)).toBe(AMENDMENT_LINE);
   });
 
   it('the 67 note texts and their classifications match, by digest', () => {
@@ -145,7 +189,7 @@ describe('the stored text is the signed-off final reader text', () => {
   });
 
   it('the page text is plain reader text: no drafting marks, owner notes or sources', () => {
-    for (const p of [CORRECTIONS_PAGE_INTRO.title, ...CORRECTIONS_PAGE_INTRO.paragraphs.map(pageParagraphText)]) {
+    for (const p of pageWords()) {
       expect(p).toBe(p.trim());
       expect(p).not.toMatch(
         /\[|\]|\*|`|OWNER|[Nn]ot for publication|[Bb]efore publication|publication date|Sources,|CSV|lanes\d|\.md\b/,
@@ -199,7 +243,13 @@ describe('the go-live date is 23 Nov 2026', () => {
     const html = body as string;
     expect(count(html, `Correction added ${GO_LIVE_READER}. This edition contained `)).toBe(approved.length);
     expect(count(html, 'Correction added ')).toBe(approved.length);
-    if (approvedIntro()) expect(html).toContain(`<p class="lede dated">Published ${GO_LIVE_READER}.</p>`);
+    if (approvedIntro()) {
+      // The amendment line sits directly after the dated line, as its own paragraph.
+      expect(html).toContain(
+        `<p class="lede dated">Published ${GO_LIVE_READER}.</p><p class="lede dated">${esc(AMENDMENT_LINE)}</p>`,
+      );
+      expect(count(html, 'Amended ')).toBe(1);
+    }
   });
 });
 
@@ -304,6 +354,7 @@ describe('/corrections: the published words, laid out as the draft laid them out
             CORRECTIONS_HEADING,
             intro.title,
             `Published ${formatCorrectionDate(intro.publishedOn)}.`,
+            ...(intro.amendments ?? []).map(amendmentLine),
             ...intro.paragraphs.map(pageParagraphText),
           ]
         : [CORRECTIONS_HEADING]),
