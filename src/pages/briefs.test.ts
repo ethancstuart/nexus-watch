@@ -146,6 +146,21 @@ describe('correction notes in the SPA', () => {
     expect(block?.hasAttribute('style')).toBe(false);
   });
 
+  it('the byline under a note claims no checking: past editions were not checked against their data', async () => {
+    for (const response of [
+      ROW,
+      { ...ROW, correction: { correctedOn: '2026-12-01', classification: 'false', note: NOTE } },
+    ]) {
+      document.body.textContent = '';
+      const root = await renderOne(response);
+      const byline = root.querySelector('.dossier-byline');
+      expect(byline?.textContent?.trim().split('\n')[0].trim()).toBe(
+        "Written by a model from the day's collected data.",
+      );
+      expect(root.textContent).not.toMatch(/checked against/i);
+    }
+  });
+
   it('leaves the brief body exactly as it renders without a note', async () => {
     const plain = (await renderOne(ROW)).querySelector('.dossier-body')?.innerHTML;
     document.body.textContent = '';

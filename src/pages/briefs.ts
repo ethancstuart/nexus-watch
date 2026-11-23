@@ -333,7 +333,7 @@ export function renderBrief(root: HTMLElement, date: string): void {
         <h1 class="dossier-title">NexusWatch · ${escapeHtml(briefDate)}</h1>
         <div class="dossier-article-date">${escapeHtml(dayName)}</div>${renderCorrectionBlock(data.correction)}
         <div class="dossier-byline" style="font-size:12px;color:#8b8478;margin-top:32px;padding-top:16px;border-top:1px solid #e5e0d4;line-height:1.6;">
-          Written by a model from the day's collected data, then checked against it.<br>
+          Written by a model from the day's collected data.<br>
           Sources: OONI, USGS, UCDP, OFAC and the UN list, World Bank governance, Wikipedia pageviews, and daily
           FX reference rates. <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>
         </div>
