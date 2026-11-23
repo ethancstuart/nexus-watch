@@ -28,8 +28,8 @@ import { esc } from './_lib/ssr-shell.js';
  * owner's decision of 23 Nov 2026 covers; change the text there and here
  * together.
  */
-const PAGE_DIGEST = '9f9640c7706f30edbb0f1d27cf0fca01b3ac1b75c9e6839585606f0e2eccace1';
-const NOTES_DIGEST = '6b767275c6fac45fc66326fecbee6d1501ddc6c01d220d2a628478e4437d3e43';
+const PAGE_DIGEST = '1fd61c9cda0a1bb137d74ecdcd65a6db196566dd733fbf16d461dd65e97c25d3';
+const NOTES_DIGEST = 'd801389b4ebbef978db04a1571dcc09e57a0ab8435d42501bc34534be950f413';
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
 
