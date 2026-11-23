@@ -55,6 +55,20 @@ const HELD_FRAGMENTS = [
   ...HELD_SECTIONS.flatMap((s) => [s.kicker ?? s.heading, s.heading, ...s.paragraphs].map(fragment)),
   ...HELD_METHOD.flatMap((s) => [s.heading, ...s.paragraphs].map(fragment)),
 ];
+/**
+ * The same, less any stretch a PUBLISHED entry also contains: a withheld entry
+ * may share its words with an approved one (AZ 6049's entry has the R1a-MISS
+ * text). Page-wide and JSON-wide checks use these; a call only withheld
+ * entries name is checked against them all.
+ */
+const PUBLISHED_TEXT = [
+  ...approvedCallNotes().map((n) => n.text),
+  ...approvedLedgerSections().flatMap((s) => [s.kicker ?? '', s.heading, ...s.paragraphs]),
+  ...approvedMethodologyNotes().flatMap((s) => [s.heading, ...s.paragraphs]),
+]
+  .join('\n')
+  .replace(/'/g, '&#39;');
+const HELD_UNIQUE = HELD_FRAGMENTS.filter((f) => !PUBLISHED_TEXT.includes(f));
 
 async function callPage(id: number): Promise<string> {
   const { default: handler } = await import('./call.js');
@@ -93,7 +107,9 @@ describe('unpublished notes show nowhere', () => {
   it('/call/:id: no note block, no label, no sentence, the lede as it was', async () => {
     for (const id of [...HELD_IDS, ...UNNOTED]) {
       const html = await callPage(id);
-      for (const f of HELD_FRAGMENTS) expect(html, `${id}: ${f}`).not.toContain(f);
+      for (const f of NOTED_BY_PUBLISHED.has(id) ? HELD_UNIQUE : HELD_FRAGMENTS) {
+        expect(html, `${id}: ${f}`).not.toContain(f);
+      }
       if (NOTED_BY_PUBLISHED.has(id)) continue;
       expect(html, String(id)).not.toContain('Note added');
       expect(html, String(id)).not.toMatch(/<div class="kicker">Notes?<\/div>/);
@@ -144,7 +160,7 @@ describe('unpublished notes show nowhere', () => {
     for (const r of rows)
       if (!NOTED_BY_PUBLISHED.has(Number(r.id))) expect(r, String(r.id)).not.toHaveProperty('notes');
     const body = JSON.stringify(j);
-    for (const f of HELD_FRAGMENTS) expect(body).not.toContain(f.replace(/&#39;/g, "'"));
+    for (const f of HELD_UNIQUE) expect(body).not.toContain(f.replace(/&#39;/g, "'"));
   });
 
   it('/ledger: no withheld section and, while it is withheld, no threshold line', async () => {
@@ -153,7 +169,7 @@ describe('unpublished notes show nowhere', () => {
     await handler({ method: 'GET', query: {} } as never, res as never);
     const html = res.state.body;
     expect(html).toContain('<h2>54 calls we were wrong about</h2>');
-    for (const f of HELD_FRAGMENTS) expect(html, f).not.toContain(f);
+    for (const f of HELD_UNIQUE) expect(html, f).not.toContain(f);
     if (LINE_HELD) expect(html).not.toContain('that hit at most once');
     if (approvedLedgerSections().length === 0) expect(html).not.toContain('Exchange rates, 21 November 2026');
   });
@@ -164,6 +180,6 @@ describe('unpublished notes show nowhere', () => {
     handler({ method: 'GET', query: {} } as never, res as never);
     const j = res.state.json as { notes: Array<{ heading: string }> };
     expect(j.notes.map((n) => n.heading)).toEqual(approvedMethodologyNotes().map((n) => n.heading));
-    for (const f of HELD_FRAGMENTS) expect(JSON.stringify(j)).not.toContain(f.replace(/&#39;/g, "'"));
+    for (const f of HELD_UNIQUE) expect(JSON.stringify(j)).not.toContain(f.replace(/&#39;/g, "'"));
   });
 });

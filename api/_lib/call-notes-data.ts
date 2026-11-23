@@ -40,9 +40,8 @@
 import type { CallNote, ComputedNote, PageNote } from './call-note-words.js';
 
 /**
- * The 27 currency calls resolved 21 Nov 2026 as HIT, in the 66 currencies
- * whose newest rate at issue that day was still the 20 Nov rate. All were made
- * 7 Nov.
+ * The 27 currency calls resolved 21 Nov 2026 as HIT. All were made 7 Nov. On
+ * 21 Nov every exchange rate we stored equalled its 20 Nov rate.
  */
 const RESOLVED_21_NOV_HIT: readonly number[] = [
   6048, 6050, 6051, 6052, 6053, 6054, 6055, 6057, 6058, 6061, 6062, 6064, 6075, 6076, 6078, 6079, 6082, 6087, 6088,
@@ -50,16 +49,12 @@ const RESOLVED_21_NOV_HIT: readonly number[] = [
 ];
 
 /**
- * The 39 resolved 21 Nov 2026 as MISS, in the same 66 currencies, AZ 6049
- * among them. Azerbaijan was first left out as unchecked (FX-WORDING §7.6): no
- * claim states an AZN rate after 17 Nov, when AZ calls stopped. A read-only
- * query of fx_rates on 23 Nov (owner-approved) showed AZN stored 18-23 Nov,
- * with 21 Nov's equal to 20 Nov's, so 6049 was affected like the others.
+ * The 38 resolved 21 Nov 2026 as MISS whose note was published on 23 Nov with
+ * the first wording. The 39th MISS, AZ 6049, has its own entry below.
  */
 const RESOLVED_21_NOV_MISS: readonly number[] = [
-  6045, 6046, 6047, 6049, 6056, 6059, 6060, 6063, 6065, 6066, 6067, 6068, 6069, 6070, 6071, 6072, 6073, 6074, 6077,
-  6080, 6081, 6083, 6084, 6085, 6086, 6089, 6090, 6091, 6094, 6095, 6096, 6098, 6099, 6100, 6101, 6103, 6104, 6108,
-  6110,
+  6045, 6046, 6047, 6056, 6059, 6060, 6063, 6065, 6066, 6067, 6068, 6069, 6070, 6071, 6072, 6073, 6074, 6077, 6080,
+  6081, 6083, 6084, 6085, 6086, 6089, 6090, 6091, 6094, 6095, 6096, 6098, 6099, 6100, 6101, 6103, 6104, 6108, 6110,
 ];
 
 /**
@@ -167,14 +162,22 @@ export const CALL_NOTES: readonly CallNote[] = [
     status: 'approved',
     issuedOn: '2026-11-23',
     scope: { ids: RESOLVED_21_NOV_MISS },
-    text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, the newest exchange rate we held for each of the 66 currencies we have calls on was still the 20 Nov rate; all 66 changed on 22 Nov. This call's score is the one the rates from 7 to 20 Nov give. A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov rate would have made this call a hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
+    amendments: [{ on: '2026-11-23', text: 'this note first counted the currencies whose rates were stale.' }],
+    text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, every exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give. A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov rate would have made this call a hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
+  },
+  {
+    id: 'fx-2026-11-21-resolved-miss-az',
+    status: 'draft',
+    scope: { ids: [6049] },
+    text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, every exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give. A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov rate would have made this call a hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
   },
   {
     id: 'fx-2026-11-21-resolved-hit',
     status: 'approved',
     issuedOn: '2026-11-23',
     scope: { ids: RESOLVED_21_NOV_HIT },
-    text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, the newest exchange rate we held for each of the 66 currencies we have calls on was still the 20 Nov rate; all 66 changed on 22 Nov. This call's score is the one the rates from 7 to 20 Nov give. A missing day can only turn a hit into a miss, so a 21 Nov rate could not have changed this hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
+    amendments: [{ on: '2026-11-23', text: 'this note first counted the currencies whose rates were stale.' }],
+    text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, every exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give. A missing day can only turn a hit into a miss, so a 21 Nov rate could not have changed this hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
   },
   {
     id: 'fx-2026-11-21-made',
@@ -213,6 +216,14 @@ export const CALL_NOTES: readonly CallNote[] = [
  * our collector or our source missed the day." became the sentence beginning
  * "Our collector ran as usual that morning". The collector stored all 80
  * currencies at 05:00:11Z on 21 Nov, every rate equal to 20 Nov's.
+ *
+ * Exact wording (lead, 23 Nov, after review REVIEW-9 release 4): the section
+ * no longer counts the currencies whose rates were stale ("the 66 currencies
+ * we have calls on" stated a count the book does not bear out: it has calls in
+ * 68, and the source returns more rates than we store). "All 66 changed on 22
+ * Nov." is dropped: 7 of the 80 stored rates did not change that day. The
+ * cause sentence speaks only of the 80 rates stored. The amendment line says
+ * what the section first said.
  */
 export const LEDGER_SECTIONS: readonly PageNote[] = [
   {
@@ -221,8 +232,14 @@ export const LEDGER_SECTIONS: readonly PageNote[] = [
     issuedOn: '2026-11-23',
     kicker: 'Exchange rates, 21 November 2026',
     heading: 'One day without new rates',
+    amendments: [
+      {
+        on: '2026-11-23',
+        text: 'this section first said we did not know whether our collector or our source missed the day, and left out Azerbaijan. A read of our stored rates settled both.',
+      },
+    ],
     paragraphs: [
-      "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 66 currencies we have calls on was still the 20 Nov rate. All 66 changed on 22 Nov. Our collector ran as usual that morning; every rate our source returned for 21 Nov was identical to its 20 Nov rate. The 66 calls that resolved on 21 Nov, all in these currencies, were scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 39 as misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 39 misses would differ. 21 Nov also falls inside the windows of all 66 calls that resolved on 22 Nov, whose scores are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows of 789 open calls in these currencies, which had not yet been scored. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have changed no verdict. On 22 Nov 2026 our FX skill was −3.0% with the 66 calls resolved on 21 Nov and −3.1% without them; every figure on this page counts them as published.",
+      "On 21 Nov 2026, when that day's calls were issued, every exchange rate we held was still the 20 Nov rate. Our collector ran as usual that morning; all 80 rates it stored for 21 Nov were identical to its 20 Nov rates. The 66 calls that resolved on 21 Nov, all in these currencies, were scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 39 as misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 39 misses would differ. 21 Nov also falls inside the windows of all 66 calls that resolved on 22 Nov, whose scores are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows of 789 open calls in these currencies, which had not yet been scored. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have changed no verdict. On 22 Nov 2026 our FX skill was −3.0% with the 66 calls resolved on 21 Nov and −3.1% without them; every figure on this page counts them as published.",
     ],
   },
 ];

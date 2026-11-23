@@ -116,7 +116,12 @@ describe('call notes: the lists, re-derived from the 22 Nov 2026 snapshot', () =
     expect([hits.length, misses.length]).toEqual([27, 39]);
     expect(misses.find((c) => c.country_code === 'AZ')?.id).toBe('6049');
     expect(sorted(note('fx-2026-11-21-resolved-hit').scope.ids)).toEqual(ids(hits));
-    expect(sorted(note('fx-2026-11-21-resolved-miss').scope.ids)).toEqual(ids(misses));
+    // 6049 has its own entry: its note is new, so it carries no amendment line (the others' text changed).
+    expect(
+      sorted([...note('fx-2026-11-21-resolved-miss').scope.ids, ...note('fx-2026-11-21-resolved-miss-az').scope.ids]),
+    ).toEqual(ids(misses));
+    expect(note('fx-2026-11-21-resolved-miss-az').scope.ids).toEqual([6049]);
+    expect(note('fx-2026-11-21-resolved-miss-az').text).toBe(note('fx-2026-11-21-resolved-miss').text);
   });
 
   it("6049's score is the one AZN's rates from 7 to 20 Nov give: the stored evidence is that peak", () => {
@@ -180,14 +185,15 @@ describe('call notes: the lists, re-derived from the 22 Nov 2026 snapshot', () =
     const az = new Set(ids(fx.filter((c) => c.country_code === 'AZ')));
     expect(az.size).toBe(65);
     const noted = CALL_NOTES.flatMap((n) => n.scope.ids.filter((id) => az.has(id)).map((id) => [n.id, id]));
-    expect(noted).toEqual([['fx-2026-11-21-resolved-miss', 6049]]);
+    expect(noted).toEqual([['fx-2026-11-21-resolved-miss-az', 6049]]);
   });
 });
 
 describe('call notes: integrity', () => {
-  it('four call notes, one /ledger section, one /ledger line, one /methodology section; ids unique', () => {
+  it('five call notes, one /ledger section, one /ledger line, one /methodology section; ids unique', () => {
     expect(CALL_NOTES.map((n) => n.id)).toEqual([
       'fx-2026-11-21-resolved-miss',
+      'fx-2026-11-21-resolved-miss-az',
       'fx-2026-11-21-resolved-hit',
       'fx-2026-11-21-made',
       'fx-zw-zwl-label',
@@ -198,9 +204,42 @@ describe('call notes: integrity', () => {
       LEDGER_FX_THRESHOLD_LINE.id,
       ...METHODOLOGY_NOTES.map((n) => n.id),
     ];
-    expect(all).toHaveLength(7);
-    expect(new Set(all).size).toBe(7);
+    expect(all).toHaveLength(8);
+    expect(new Set(all).size).toBe(8);
     for (const n of CALL_NOTES) expect(new Set(n.scope.ids).size, n.id).toBe(n.scope.ids.length);
+  });
+
+  it('a changed published text says so: exactly the 65 changed call notes and the /ledger section carry an amendment', () => {
+    const amendedOn = (n: { amendments?: readonly { on: string; text: string }[] }) => n.amendments ?? [];
+    for (const n of CALL_NOTES) {
+      const expected =
+        n.id === 'fx-2026-11-21-resolved-miss' || n.id === 'fx-2026-11-21-resolved-hit'
+          ? [{ on: '2026-11-23', text: 'this note first counted the currencies whose rates were stale.' }]
+          : [];
+      expect(amendedOn(n), n.id).toEqual(expected);
+    }
+    expect(note('fx-2026-11-21-resolved-miss').scope.ids).toHaveLength(38);
+    expect(note('fx-2026-11-21-resolved-hit').scope.ids).toHaveLength(27);
+    expect(LEDGER_SECTIONS.map((s) => [s.id, amendedOn(s)])).toEqual([
+      [
+        'ledger-fx-2026-11-21',
+        [
+          {
+            on: '2026-11-23',
+            text:
+              'this section first said we did not know whether our collector or our source missed the day, ' +
+              'and left out Azerbaijan. A read of our stored rates settled both.',
+          },
+        ],
+      ],
+    ]);
+    expect(METHODOLOGY_NOTES.every((m) => amendedOn(m).length === 0)).toBe(true);
+  });
+
+  it('no 21 Nov text counts the currencies whose rates were stale', () => {
+    for (const t of [...CALL_NOTES.map((n) => n.text), ...LEDGER_SECTIONS.flatMap((s) => s.paragraphs)]) {
+      expect(t).not.toMatch(/\b(65|66|68) currencies|all 6[56] changed|All 6[56] changed/);
+    }
   });
 
   it('the cause of 21 Nov is stated, never left open: no text says we do not know whether collector or source missed it', () => {
@@ -213,7 +252,7 @@ describe('call notes: integrity', () => {
     const r1c = LEDGER_SECTIONS.find((s) => s.id === 'ledger-fx-2026-11-21')?.paragraphs.join(' ') ?? '';
     expect(
       r1c.split(
-        'Our collector ran as usual that morning; every rate our source returned for 21 Nov was identical to its 20 Nov rate.',
+        'Our collector ran as usual that morning; all 80 rates it stored for 21 Nov were identical to its 20 Nov rates.',
       ),
     ).toHaveLength(2);
   });

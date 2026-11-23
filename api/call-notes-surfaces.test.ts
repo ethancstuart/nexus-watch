@@ -69,6 +69,7 @@ vi.mock('./_lib/satori-html.js', () => ({ htmlToSatori: (html: string) => html }
 
 const ALL_IDS = [
   'fx-2026-11-21-resolved-miss',
+  'fx-2026-11-21-resolved-miss-az',
   'fx-2026-11-21-resolved-hit',
   'fx-2026-11-21-made',
   'fx-zw-zwl-label',
@@ -79,15 +80,18 @@ const ALL_IDS = [
 
 // ── The approved wording, word for word (lanes8/FX-WORDING.md §6), dated 23 Nov 2026. ──
 const R1A_HEAD =
-  "Note added 23 Nov 2026. This call's window ended on 21 Nov 2026. When that day's calls were issued, the newest " +
-  'exchange rate we held for each of the 66 currencies we have calls on was still the 20 Nov rate; all 66 changed ' +
-  "on 22 Nov. This call's score is the one the rates from 7 to 20 Nov give.";
-const R1A_MISS =
+  "Note added 23 Nov 2026. This call's window ended on 21 Nov 2026. When that day's calls were issued, every " +
+  "exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give.";
+/** On the notes whose published text changed on 23 Nov (all but 6049, which is new). */
+const R1A_AMENDED = ' Amended 23 Nov 2026: this note first counted the currencies whose rates were stale.';
+/** AZ 6049's note: new on 23 Nov, so no amendment line. */
+const R1A_MISS_NEW =
   `${R1A_HEAD} A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov ` +
   'rate would have made this call a hit. The published verdict is unchanged. Source: our stored daily exchange rates.';
+const R1A_MISS = `${R1A_MISS_NEW}${R1A_AMENDED}`;
 const R1A_HIT =
   `${R1A_HEAD} A missing day can only turn a hit into a miss, so a 21 Nov rate could not have changed this hit. ` +
-  'The published verdict is unchanged. Source: our stored daily exchange rates.';
+  `The published verdict is unchanged. Source: our stored daily exchange rates.${R1A_AMENDED}`;
 const r1b = (reference: string) =>
   `Note added 23 Nov 2026. This call was made on 21 Nov 2026. The reference rate it states, ${reference}, is the ` +
   '20 Nov rate: no newer rate had reached us when the call was made. Rates changed again on 22 Nov. The claim, ' +
@@ -100,17 +104,19 @@ const R2 =
 const R1C_KICKER = 'Exchange rates, 21 November 2026';
 const R1C_HEADING = 'One day without new rates';
 const R1C =
-  "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 66 " +
-  'currencies we have calls on was still the 20 Nov rate. All 66 changed on 22 Nov. Our collector ran as usual ' +
-  'that morning; every rate our source returned for 21 Nov was identical to its 20 Nov rate. The 66 calls that ' +
-  'resolved on 21 Nov, all in these currencies, were ' +
-  'scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 39 as ' +
-  'misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 39 ' +
-  'misses would differ. 21 Nov also falls inside the windows of all 66 calls that resolved on 22 Nov, whose scores ' +
-  'are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows of 789 ' +
-  'open calls in these currencies, which had not yet been scored. The 65 calls made on 21 Nov state the 20 Nov rate ' +
-  'as their reference. We have changed no verdict. On 22 Nov 2026 our FX skill was \u22123.0% with the 66 calls ' +
-  'resolved on 21 Nov and \u22123.1% without them; every figure on this page counts them as published.';
+  "On 21 Nov 2026, when that day's calls were issued, every exchange rate we held was still the 20 Nov rate. Our " +
+  'collector ran as usual that morning; all 80 rates it stored for 21 Nov were identical to its 20 Nov rates. The ' +
+  '66 calls that resolved on 21 Nov, all in these currencies, were scored that morning. Each score is the one the ' +
+  'rates from 7 to 20 Nov give: 27 were published as hits and 39 as misses. A missing day can only turn a hit into ' +
+  'a miss, so the 27 hits stand; we do not know whether any of the 39 misses would differ. 21 Nov also falls inside ' +
+  'the windows of all 66 calls that resolved on 22 Nov, whose scores are the ones the rates of 8 to 20 Nov and 22 ' +
+  'Nov give. As of 22 Nov 2026, it also fell inside the windows of 789 open calls in these currencies, which had not ' +
+  'yet been scored. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have changed no ' +
+  'verdict. On 22 Nov 2026 our FX skill was \u22123.0% with the 66 calls resolved on 21 Nov and \u22123.1% without ' +
+  'them; every figure on this page counts them as published.';
+const R1C_AMENDED =
+  'Amended 23 Nov 2026: this section first said we did not know whether our collector or our source missed the day, ' +
+  'and left out Azerbaijan. A read of our stored rates settled both.';
 const R3A_HEADING = 'How a currency threshold is set, and what it does to the score';
 const R3A =
   "Added 23 Nov 2026. A currency call's threshold is the 75th percentile of that currency's 14-day peak " +
@@ -185,7 +191,8 @@ beforeEach(() => {
 describe('/call/:id: a block above the grid, the verdict unchanged', () => {
   it('AZ 6049, the 66th call resolved 21 Nov: the MISS note, word for word', async () => {
     expect(CALL_BY_ID.get(6049)?.status).toBe('miss');
-    expect(paragraphs(await callPage(6049))).toContain(esc(R1A_MISS));
+    expect(paragraphs(await callPage(6049))).toContain(esc(R1A_MISS_NEW));
+    expect(await callPage(6049)).not.toContain('Amended');
     expect(await card(6049)).toContain('NOTE ADDED 23 NOV 2026 · SEE THE CALL PAGE');
   });
 
@@ -288,7 +295,7 @@ describe('/api/calls/ledger: a notes field on the noted calls, and nothing else 
     expect(notesOf(6048)).toEqual([{ issued_on: '2026-11-23', note: R1A_HIT }]);
     expect(notesOf(7002)).toEqual([{ issued_on: '2026-11-23', note: r1b('1.81120e+6') }]);
     expect(notesOf(6110).map((n) => n.note)).toEqual([R1A_MISS, R2]);
-    expect(notesOf(6049)).toEqual([{ issued_on: '2026-11-23', note: R1A_MISS }]);
+    expect(notesOf(6049)).toEqual([{ issued_on: '2026-11-23', note: R1A_MISS_NEW }]);
     for (const id of [6115, 6723, 6175]) expect(notesOf(id), String(id)).toEqual([]);
   });
 
@@ -312,7 +319,7 @@ describe('/ledger: the section and the threshold line; the count of calls we wer
     const html = await ledgerPage();
     const section =
       `<div class="rule"></div><div class="kicker">${esc(R1C_KICKER)}</div>` +
-      `<h2>${esc(R1C_HEADING)}</h2><p class="lede">${esc(R1C)}</p>`;
+      `<h2>${esc(R1C_HEADING)}</h2><p class="lede">${esc(R1C)}</p><p class="lede">${esc(R1C_AMENDED)}</p>`;
     expect(html.split(section)).toHaveLength(2);
     expect(html.indexOf(section)).toBeGreaterThan(html.indexOf('What we are currently claiming'));
     expect(html.indexOf(section)).toBeLessThan(html.indexOf('calls we were wrong about'));
