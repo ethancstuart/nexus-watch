@@ -186,6 +186,28 @@ describe('/call/:id outcomes are word plus shape, never hue', () => {
   });
 });
 
+/**
+ * THE FX CRITERION NAMES THE RATE THE CALL ITSELF STATES. "The issue-day
+ * reference" reads as the rate of the day the call was issued, but on 21 Nov
+ * 2026 the reference a call stated was the 20 Nov rate. So the criterion says
+ * "the reference rate stated at issue" (FX-WORDING §3, option 1B).
+ */
+describe('/call/:id states the FX criterion against the reference rate stated at issue', () => {
+  it('on a resolved and an open FX call, word for word', async () => {
+    for (const row of [
+      RESOLVED_MISS,
+      { ...RESOLVED_MISS, status: 'pending', evidence_count: null, resolved_at: null },
+    ]) {
+      const html = await renderCall(row);
+      expect(html, row.status).toContain(
+        `<p class="lede">Hit if the currency's peak rate against USD inside the window exceeds the reference rate ` +
+          'stated at issue (4.08) by at least 1.17%. Peak, not endpoint: a devaluation that retraces still happened.</p>',
+      );
+      expect(html, row.status).not.toContain('issue-day');
+    }
+  });
+});
+
 describe('/ledger stat figures fit their column', () => {
   // The shell's stylesheet is the same for every page; read it from a render.
   const css = shell('<p>x</p>', { title: 't', description: 'd', canonicalPath: '/ledger' });

@@ -107,7 +107,7 @@ const KIND_LABEL: Record<string, string> = {
 function criterion(c: CallRow): string {
   if (c.kind === 'fx_devaluation' && c.threshold_pct !== null && c.reference_value !== null) {
     return (
-      `Hit if the currency's peak rate against USD inside the window exceeds the issue-day reference ` +
+      `Hit if the currency's peak rate against USD inside the window exceeds the reference rate stated at issue ` +
       `(${c.reference_value}) by at least ${c.threshold_pct}%. Peak, not endpoint: a devaluation that ` +
       `retraces still happened.`
     );
