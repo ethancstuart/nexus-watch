@@ -56,6 +56,11 @@ export function fxEvidenceBasisPoints(movedPct: number): number {
  * that quote stays pending and is retried on the next run. source-fx-rates
  * refuses to date a provider update before today as today, so a row dated
  * resolves_on holds that day's quote.
+ *
+ * It never waits forever. After UNRESOLVABLE_GRACE_DAYS it is settled as
+ * unresolvable, never scored, by the same statement and the same grace as a
+ * coverage-held censorship call, so ledger-truth's past-grace check holds for
+ * it too.
  */
 export function fxQuoteIsFreshFor(newestQuoteDate: string | null, resolvesOn: string): boolean {
   return newestQuoteDate !== null && newestQuoteDate >= resolvesOn;
@@ -64,7 +69,8 @@ export function fxQuoteIsFreshFor(newestQuoteDate: string | null, resolvesOn: st
 /**
  * How many days an FX call may wait past its resolution date for that quote
  * before a person is told. source-fx-rates only ever stores the current day,
- * so a call still waiting the day after it was due will not resolve by itself.
+ * so a call still waiting the day after it was due will not resolve unless
+ * someone stores that quote; otherwise it is settled unresolvable at grace.
  */
 export const FX_STALE_ALERT_AFTER_DAYS = 1;
 
@@ -205,16 +211,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // See fxQuoteIsFreshFor.
           const newest = peak[0]?.newest ?? null;
           if (!fxQuoteIsFreshFor(newest, call.resolves_on) || peak[0]?.peak == null) {
-            console.warn(
-              `[resolve-calls] call ${call.id} (${call.country_code}) has no FX quote dated ${call.resolves_on} ` +
-                `(newest in window: ${newest ?? 'none'}) — left pending, not scored`,
-            );
-            fxHeld.push({
-              country: call.country_code,
-              resolvesOn: call.resolves_on,
-              overdueBy: daysSinceResolution(call.resolves_on),
-            });
-            stillWaiting++;
+            const why =
+              `no fresh quote: no exchange rate dated ${call.resolves_on}, the last day of the window, ` +
+              `was stored (newest in window: ${newest ?? 'none'})`;
+            const overdueBy = daysSinceResolution(call.resolves_on);
+            if (overdueBy < UNRESOLVABLE_GRACE_DAYS) {
+              console.warn(`[resolve-calls] call ${call.id} (${call.country_code}) held — ${why}; not scored`);
+              fxHeld.push({ country: call.country_code, resolvesOn: call.resolves_on, overdueBy });
+              stillWaiting++;
+              continue;
+            }
+            // GRACE PASSED: settled exactly as a coverage-held censorship call
+            // is below: same status, same statement, same predicate, same
+            // fallback. Never a hit or a miss.
+            console.warn(`[resolve-calls] call ${call.id} (${call.country_code}) unresolvable — ${why}`);
+            try {
+              await sql`
+              UPDATE calls
+              SET status = 'unresolvable', void_reason = ${why}, resolved_at = NOW()
+              WHERE id = ${call.id} AND status = 'pending'
+            `;
+              unresolvable++;
+            } catch (e) {
+              console.error(
+                `[resolve-calls] could not mark call ${call.id} unresolvable (migration not applied?) — ` +
+                  `left pending, still NOT scored: ${e instanceof Error ? e.message : String(e)}`,
+              );
+              stillWaiting++;
+            }
             continue;
           }
           const moved = fxDepreciationPct(ref, peak[0].peak);
@@ -465,8 +489,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             `${fxOverdue.length} FX call(s) are still pending at least ${FX_STALE_ALERT_AFTER_DAYS} day(s) after ` +
             `their resolution date, because fx_rates holds no quote dated that day for their currency. The oldest ` +
             `was due ${oldest}. Countries: ${named}. They are not scored. source-fx-rates stores only the current ` +
-            'day, so these will not resolve by themselves: a quote dated the resolution day has to be stored, or ' +
-            'the owner decides what these calls become.',
+            'day, so they resolve only if a quote dated the resolution day is stored; otherwise each is settled ' +
+            `as unresolvable (never scored) ${UNRESOLVABLE_GRACE_DAYS} days after its date.`,
         });
       } else {
         await clearAlert(FX_STALE_ALERT_KEY);

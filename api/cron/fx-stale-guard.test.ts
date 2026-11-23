@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import resolveCalls, { FX_STALE_ALERT_AFTER_DAYS, FX_STALE_ALERT_KEY, fxQuoteIsFreshFor } from './resolve-calls.js';
 import sourceFxRates from './source-fx-rates.js';
-import { fxDepreciationPct } from '../_lib/calls.js';
-import { ledgerTruthVerdict, OVERDUE_KEY, PAST_GRACE_DAYS, SILENT_KEY } from '../_lib/ledger-truth.js';
+import { fxDepreciationPct, UNRESOLVABLE_GRACE_DAYS } from '../_lib/calls.js';
+import {
+  checkDateFor,
+  ledgerTruthVerdict,
+  OVERDUE_KEY,
+  PAST_GRACE_DAYS,
+  SILENT_KEY,
+  type LedgerTruthReading,
+} from '../_lib/ledger-truth.js';
 
 /**
  * AN FX CALL IS NEVER SCORED ON A QUOTE THAT IS NOT FRESH FOR ITS RESOLUTION DAY.
@@ -19,6 +26,9 @@ import { ledgerTruthVerdict, OVERDUE_KEY, PAST_GRACE_DAYS, SILENT_KEY } from '..
  *   A. no fx_rates row dated the resolution day (the newest is the day before);
  *   B. the provider's own update time is the day before, and the collector
  *      used to store it under today's date anyway.
+ *
+ * A held call never waits forever: at the existing grace it is settled
+ * unresolvable, never scored (section 6).
  *
  * The AR fixture is SYNTHETIC: a reference and a window built to reproduce
  * the two figures the independent check derived (114 bp stale, +1.98% fresh,
@@ -520,5 +530,89 @@ describe('5. the alert path fires after the set period', () => {
         oldestPastGrace: '2026-11-21',
       }).map((a) => a.key),
     ).toEqual([OVERDUE_KEY]);
+  });
+});
+
+/**
+ * What cron-health reads (cron-health.ts:93–101), computed from the stubbed
+ * book at `isoInstant` with the same predicates.
+ */
+function ledgerReadingAt(isoInstant: string): LedgerTruthReading {
+  const checkDate = checkDateFor(new Date(isoInstant));
+  const today = isoInstant.slice(0, 10);
+  const cutoff = new Date(`${today}T00:00:00Z`);
+  cutoff.setUTCDate(cutoff.getUTCDate() - PAST_GRACE_DAYS);
+  const floor = cutoff.toISOString().slice(0, 10);
+  const due = h.state.calls.filter((c) => c.resolves_on === checkDate);
+  const past = h.state.calls.filter((c) => c.status === 'pending' && c.resolves_on < floor);
+  return {
+    checkDate,
+    dueOnCheckDate: due.length,
+    dueDisposedOnCheckDate: due.filter((c) => c.status !== 'pending').length,
+    pastGrace: past.length,
+    oldestPastGrace: past.map((c) => c.resolves_on).sort()[0] ?? null,
+  };
+}
+
+const dayAt = (n: number) => {
+  const d = new Date(Date.UTC(2026, 10, 21 + n, 9, 45));
+  return d.toISOString();
+};
+
+describe('6. a held call never waits forever: settled unresolvable at the existing grace', () => {
+  it('the grace is the existing one, unchanged', () => {
+    expect(UNRESOLVABLE_GRACE_DAYS).toBe(7);
+    expect(PAST_GRACE_DAYS).toBe(UNRESOLVABLE_GRACE_DAYS);
+  });
+
+  it('pending through day 6; on day 7 settled unresolvable with the reason — never a hit or a miss', async () => {
+    h.state.calls = [arCall()];
+    h.state.fx = [...AR_THROUGH_20];
+    for (let d = 0; d < UNRESOLVABLE_GRACE_DAYS; d++) {
+      await resolveAt(dayAt(d));
+      expect(h.state.calls[0].status).toBe('pending');
+    }
+    const res = await resolveAt(dayAt(UNRESOLVABLE_GRACE_DAYS)); // 2026-11-28
+    const c = h.state.calls[0];
+    expect(c.status).toBe('unresolvable');
+    expect(c.evidence_count).toBeNull();
+    expect(c.void_reason).toContain('no fresh quote');
+    expect(c.void_reason).toContain('2026-11-21');
+    expect(c.void_reason).toContain('newest in window: 2026-11-20');
+    expect(res.body).toMatchObject({ resolved: 0, hits: 0, misses: 0, unresolvable: 1, fx_awaiting_quote: 0 });
+    const settle = updates();
+    expect(settle).toHaveLength(1);
+    expect(settle[0].text).toBe(
+      "UPDATE calls SET status = 'unresolvable', void_reason = ?, resolved_at = NOW() WHERE id = ? AND status = 'pending'",
+    );
+    // Settled, so the day-1 warning stands down.
+    expect(fxAlertClears().length).toBeGreaterThan(0);
+  });
+
+  it('a quote stored on day 6 still resolves it on the evidence', async () => {
+    h.state.calls = [arCall()];
+    h.state.fx = [...AR_THROUGH_20];
+    await resolveAt(dayAt(5));
+    h.state.fx.push(AR_FRESH_21);
+    await resolveAt(dayAt(6));
+    expect(h.state.calls[0]).toMatchObject({ status: 'hit', evidence_count: 198 });
+  });
+
+  it('ledger-truth’s past-grace check stays true: nothing held is ever overdue while the resolver runs', async () => {
+    h.state.calls = [arCall()];
+    h.state.fx = [...AR_THROUGH_20];
+    for (let d = 0; d <= UNRESOLVABLE_GRACE_DAYS + 1; d++) {
+      await resolveAt(dayAt(d));
+      // cron-health's 10:30 tick on the same day
+      const v = ledgerTruthVerdict(ledgerReadingAt(dayAt(d).replace('09:45', '10:30')));
+      expect(v.map((a) => a.key)).not.toContain(OVERDUE_KEY);
+    }
+    expect(h.state.calls[0].status).toBe('unresolvable');
+  });
+
+  it('…and if the resolver stops running, the past-grace check still catches the held call', () => {
+    h.state.calls = [arCall()];
+    const v = ledgerTruthVerdict(ledgerReadingAt(dayAt(PAST_GRACE_DAYS + 1).replace('09:45', '10:30')));
+    expect(v.map((a) => a.key)).toContain(OVERDUE_KEY);
   });
 });
