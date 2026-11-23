@@ -102,6 +102,19 @@ export interface BriefData {
   openCallsRead?: boolean;
 }
 
+/**
+ * The prompt's OUR OPEN CALLS section when the open-call read failed. It used
+ * to say "No open calls.", the words of a book read and found empty, and the
+ * system prompt tells the model to write "No open calls today." when the
+ * context lists none: a failed read could put that false sentence in a
+ * model-written edition. This names the failure and forbids both sentences the
+ * system prompt would otherwise reach for. A read that succeeds, with calls or
+ * with none, gets the prompt it always had.
+ */
+const OPEN_CALLS_UNREAD_PROMPT =
+  'Open calls could not be read today. Make no statement about open calls: do not say there are none, do not ' +
+  'describe any, and do not write "No open calls today." or "No calls on the book this week."';
+
 interface WeeklyTrend {
   name: string;
   code: string;
@@ -1017,7 +1030,7 @@ ${censorshipLines.length > 0 ? censorshipLines.join('\n') : `No OONI measurement
 ${briefData.resolvedCallLines.length > 0 ? briefData.resolvedCallLines.join('\n') : isSunday ? 'No calls resolved this week.' : 'No calls resolved today.'}
 
 === OUR OPEN CALLS (dated, falsifiable, resolved against OONI and FX reference rates) ===
-${briefData.openCallLines.length > 0 ? briefData.openCallLines.join('\n') : 'No open calls.'}
+${briefData.openCallLines.length > 0 ? briefData.openCallLines.join('\n') : briefData.openCallsRead === true ? 'No open calls.' : OPEN_CALLS_UNREAD_PROMPT}
 
 === SANCTIONS DESIGNATION CHANGES (OFAC SDN + UN consolidated, last 7 days) ===
 ${sanctionsLines.length > 0 ? sanctionsLines.join('\n') : 'No designation changes observed in the last 7 days.'}

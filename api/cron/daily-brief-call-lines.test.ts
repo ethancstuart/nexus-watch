@@ -63,6 +63,15 @@ const RESOLVED_ROWS = [
   },
 ];
 
+/**
+ * What the prompt's OUR OPEN CALLS section says when the open-call read failed. Before rel4 it said
+ * "No open calls.", the same words as a book read and found empty, so the model could write the false
+ * "No open calls today." The words are pinned here; a successful read never carries them.
+ */
+const OPEN_CALLS_UNREAD =
+  'Open calls could not be read today. Make no statement about open calls: do not say there are none, do not ' +
+  'describe any, and do not write "No open calls today." or "No calls on the book this week."';
+
 /** The lines these fixtures produce: worked by hand from the formatters. */
 const TOP_OPEN_LINE =
   'Iran (IR): 62% chance of a confirmed censorship event by 2026-12-01 — +18pts vs its base rate of 44%';
@@ -318,12 +327,61 @@ describe('model key set: the prompt is handed exactly the call lines it was befo
     expect(promptSection(prompt, 'OUR OPEN CALLS')).toBe('No open calls.');
   });
 
-  it('the open-call query throws: the sections read as they did before', async () => {
+  it('the open-call query throws: the prompt says the book could not be read, and to say nothing about it', async () => {
     db.failOpenQuery = true;
     await runBrief();
     const prompt = modelPrompt();
+    expect(promptSection(prompt, 'OUR OPEN CALLS')).toBe(OPEN_CALLS_UNREAD);
+    expect(prompt).not.toContain('No open calls.');
+    // The resolved reads share the failed read's try, so this section is as it was (see REL4.md, not fixed).
     expect(promptSection(prompt, 'RESOLVED CALLS')).toBe('No calls resolved today.');
-    expect(promptSection(prompt, 'OUR OPEN CALLS')).toBe('No open calls.');
+  });
+
+  it('the open-call query throws: every other byte of the request is the read-and-empty request', async () => {
+    db.open = [];
+    db.resolved = [];
+    db.totals = { total: 0, hits: 0 };
+    await runBrief();
+    const readAndEmpty = modelRequests[0];
+    modelRequests = [];
+    db.claimed = false; // a second run on the same day must be able to claim the edition again
+    db.failOpenQuery = true;
+    await runBrief();
+    const unread = modelRequests[0];
+    expect(unread).not.toBe(readAndEmpty);
+    // Request bodies are JSON, so the sentence appears there JSON-escaped.
+    const asJson = (s: string) => JSON.stringify(s).slice(1, -1);
+    expect(unread.split(asJson(OPEN_CALLS_UNREAD))).toHaveLength(2);
+    expect(unread.replace(asJson(OPEN_CALLS_UNREAD), 'No open calls.')).toBe(readAndEmpty);
+  });
+
+  it('a read that succeeds never carries the unread wording, with calls, with none, or on a Sunday', async () => {
+    for (const setup of [
+      () => {},
+      () => {
+        db.open = [];
+      },
+      () => {
+        db.open = [];
+        db.resolved = [];
+        db.totals = { total: 0, hits: 0 };
+      },
+    ]) {
+      for (const day of [TODAY, SUNDAY]) {
+        db.open = OPEN_ROWS;
+        db.resolved = RESOLVED_ROWS;
+        db.totals = { total: 3, hits: 1 };
+        db.claimed = false;
+        modelRequests = [];
+        setup();
+        await runBrief(day);
+        const prompt = modelPrompt();
+        expect(prompt).not.toContain('could not be read');
+        expect(promptSection(prompt, 'OUR OPEN CALLS')).toBe(
+          db.open.length > 0 ? OPEN_LINES.join('\n') : 'No open calls.',
+        );
+      }
+    }
   });
 
   it('the model call fails: the mechanical edition carries the same lines', async () => {
