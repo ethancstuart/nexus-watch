@@ -327,7 +327,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'afterwards is not a rule — it is an explanation.</p>' +
         '<p class="lede">Currency calls follow a rule added later, after some had already resolved. A ' +
         'currency call is scored only once an exchange rate dated the last day of its window has been ' +
-        `stored. If none is stored within ${UNRESOLVABLE_GRACE_DAYS} days, it is marked ` +
+        `stored. If none is stored within ${UNRESOLVABLE_GRACE_DAYS} days of the resolution date, it is marked ` +
         '<strong>unresolvable</strong> with the reason “no fresh quote”, whichever way it was heading.</p>',
     );
 
