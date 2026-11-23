@@ -14,6 +14,7 @@ import {
   type ScoredCall,
 } from '../_lib/calls.js';
 import { assembleByKind } from '../_lib/ledger-by-kind.js';
+import { callNotesPayload, notesForCall } from '../_lib/call-notes.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -63,6 +64,17 @@ function withoutCorrectionColumns(
     ...rest
   } = c;
   return rest;
+}
+
+/**
+ * A DATED NOTE TRAVELS WITH THE CALL IT IS ON, as `notes`, and only on a call
+ * that carries an approved one (api/_lib/call-notes.ts): every other row is
+ * emitted exactly as before. A note changes no verdict, so nothing above this
+ * line reads it: no count, no score, no `correction`.
+ */
+function withNotes<T extends { id: number | string }>(c: T): T | (T & { notes: ReturnType<typeof callNotesPayload> }) {
+  const notes = notesForCall(c);
+  return notes.length === 0 ? c : { ...c, notes: callNotesPayload(notes) };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -378,22 +390,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
        * a number is owed that this endpoint does not yet publish.
        */
       corrections_outside_scored_cohort: correctionsOutsideScoredCohort,
-      open,
+      open: open.map(withNotes),
       // The correction rides WITH its call rather than in a separate list, so
       // no surface can render the verdict and miss the correction. `status`
       // stays exactly what was published; `correction` is what the evidence
       // says now. Null for the overwhelming majority.
-      resolved: (wantsAll ? resolved : resolved.slice(0, 100)).map((c) => ({
-        ...withoutCorrectionColumns(c),
-        correction: c.correction_cause
-          ? {
-              cause: c.correction_cause,
-              corrected_status: c.correction_status,
-              note: c.correction_note,
-              issued_on: c.correction_issued_on,
-            }
-          : null,
-      })),
+      resolved: (wantsAll ? resolved : resolved.slice(0, 100)).map((c) =>
+        withNotes({
+          ...withoutCorrectionColumns(c),
+          correction: c.correction_cause
+            ? {
+                cause: c.correction_cause,
+                corrected_status: c.correction_status,
+                note: c.correction_note,
+                issued_on: c.correction_issued_on,
+              }
+            : null,
+        }),
+      ),
     });
   } catch (err) {
     console.error('[calls/ledger] failed:', err instanceof Error ? err.message : err);
