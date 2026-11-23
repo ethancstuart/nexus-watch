@@ -112,14 +112,35 @@ const CURRENCY_MAP: Record<string, string> = {
 // We filter by CURRENCY_MAP keys when processing the response.
 
 /**
- * The UTC day the provider says its rates are for, read from its own
- * `time_last_update_unix`. Null when the response does not say.
+ * HOW OLD THE PROVIDER'S UPDATE MAY BE WHEN THIS JOB STORES IT AS TODAY'S ROW.
+ *
+ * Measured by age, not by calendar date. The provider publishes once a day,
+ * at 00:02 UTC on the days we have seen, 2.5 minutes after midnight, so a
+ * calendar test ("stamped today") would refuse every day if that job ever
+ * moved to 23:58.
+ *
+ * The bound, from this job's 05:00 UTC schedule and the resolver's 09:45 run:
+ *  - It must be under 24 hours, the provider's cadence, so the previous day's
+ *    update is always refused. Yesterday's 00:02 update is 28 h 58 min old at
+ *    05:00.
+ *  - It must admit any update that yesterday's calls could not have used. The
+ *    resolver ran at 09:45 yesterday, which is 19 h 15 min before 05:00.
+ *  - 20 hours is the whole hour above 19 h 15 min. At the scheduled run it
+ *    admits any update published after 09:00 UTC yesterday. It also leaves a
+ *    4-hour margin under 24, so an update that came 4 hours late yesterday
+ *    and was not followed by a new one today is still refused.
+ *
+ * The cost: a manual re-run of this job is admitted only up to 20 hours after
+ * the provider's update, which is about 20:00 UTC for a 00:02 update.
  */
-export function providerQuoteDate(body: { time_last_update_unix?: unknown }): string | null {
+export const FX_QUOTE_MAX_AGE_HOURS = 20;
+
+/** When the provider says it last updated, from its own `time_last_update_unix`. Null when it does not say. */
+export function providerUpdatedAt(body: { time_last_update_unix?: unknown }): Date | null {
   const t = body.time_last_update_unix;
   if (typeof t !== 'number' || !Number.isFinite(t) || t <= 0) return null;
   const d = new Date(t * 1000);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 /** This collector's own key on the existing alert path. */
@@ -133,7 +154,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sql = neon(dbUrl);
 
   const result = { ingested: 0, errors: [] as string[] };
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  // Logged on every run: the provider's own update time, the one fact that
+  // tells a stale-stamp morning from a fresh-stamp, stale-values morning.
+  let providerUpdate = 'none';
 
   try {
     // Fetch latest rates from open.er-api.com (free, no auth, reliable)
@@ -147,17 +172,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // A ROW DATED TODAY MUST HOLD TODAY'S QUOTE. Every row below is dated by
     // this job's own clock, not the provider's. On Sat 21 Nov 2026 all 65
     // currencies repeated their 20 Nov values, and the 66 FX calls due that
-    // day were scored without a quote fresher than 20 Nov. So a response the
-    // provider last updated before today is not stored under today's date:
-    // no row is written, and the day reads as missing rather than as fresh.
+    // day were scored without a quote fresher than 20 Nov. So an update older
+    // than FX_QUOTE_MAX_AGE_HOURS is not stored under today's date: no row is
+    // written, and the day reads as missing rather than as fresh.
     // resolve-calls does not score a call whose last day has no row
     // (fxQuoteIsFreshFor).
-    const quotedOn = providerQuoteDate(latestData);
-    if (quotedOn === null || quotedOn < today) {
+    const updatedAt = providerUpdatedAt(latestData);
+    if (updatedAt === null) throw new Error(`open.er-api gave no update time; nothing stored for ${today}`);
+    const ageHours = (now.getTime() - updatedAt.getTime()) / 3_600_000;
+    providerUpdate = `${updatedAt.toISOString()} (${ageHours.toFixed(1)} h old)`;
+    if (ageHours > FX_QUOTE_MAX_AGE_HOURS) {
       throw new Error(
-        quotedOn === null
-          ? `open.er-api gave no update time; nothing stored for ${today}`
-          : `open.er-api last updated ${quotedOn}, not ${today}; nothing stored for ${today}`,
+        `open.er-api last updated ${updatedAt.toISOString()}, ${ageHours.toFixed(1)} h ago ` +
+          `(limit ${FX_QUOTE_MAX_AGE_HOURS} h); nothing stored for ${today}`,
       );
     }
     const rates = latestData.rates || {};
@@ -218,10 +245,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         body:
           `${scrubForLog(result.errors[0] ?? 'no rates in the response')}` +
           `${result.errors.length > 1 ? ` (and ${result.errors.length - 1} more error(s))` : ''}. ` +
-          `FX calls due ${today} are held until a quote dated ${today} is stored. Running this job again the ` +
-          'same UTC day, once the provider has updated, stores it, and the next resolve-calls run picks the ' +
-          'calls up; a held call is ' +
-          `settled as unresolvable, never scored, ${UNRESOLVABLE_GRACE_DAYS} days after its date.`,
+          `Provider update: ${providerUpdate}. FX calls due ${today} are held until a quote dated ${today} ` +
+          'is stored. Running this job again once the provider has updated stores it, if the update is under ' +
+          `${FX_QUOTE_MAX_AGE_HOURS} hours old; the next resolve-calls run then picks the calls up. A held call ` +
+          `is settled as unresolvable, never scored, ${UNRESOLVABLE_GRACE_DAYS} days after its date.`,
       });
     } else {
       await clearAlert(FX_COLLECTOR_ALERT_KEY);
@@ -230,6 +257,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('[source-fx-rates] alert failed (non-fatal):', alertErr);
   }
 
-  console.log(`[source-fx-rates] ingested=${result.ingested}, errors=${result.errors.length}`);
+  console.log(
+    `[source-fx-rates] provider update ${providerUpdate}; ingested=${result.ingested}, ` +
+      `errors=${result.errors.length}`,
+  );
   return res.status(storedNothing ? 502 : 200).json(result);
 }

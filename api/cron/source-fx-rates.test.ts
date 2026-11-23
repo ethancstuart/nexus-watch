@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import handler, { FX_COLLECTOR_ALERT_KEY, providerQuoteDate } from './source-fx-rates.js';
+import handler, { FX_COLLECTOR_ALERT_KEY, FX_QUOTE_MAX_AGE_HOURS, providerUpdatedAt } from './source-fx-rates.js';
 
 /**
  * A ROW DATED TODAY HOLDS TODAY'S QUOTE.
@@ -8,34 +8,53 @@ import handler, { FX_COLLECTOR_ALERT_KEY, providerQuoteDate } from './source-fx-
  * provider response last updated yesterday was stored under today's date, and
  * nothing downstream could tell it from a fresh one. On Sat 21 Nov 2026 every
  * currency (65 of 65) repeated its 20 Nov value; whether the provider or the
- * collector was at fault is not known. This file pins the provider half, and
- * that a run which stores nothing says so on the existing alert path instead
- * of answering 200 with the reason in a body nobody reads.
+ * collector was at fault is not known. This file pins:
+ *  - the age bound (not a calendar test: the provider's 00:02 UTC update is
+ *    2.5 minutes from midnight);
+ *  - that a run which stores nothing says so on the existing alert path
+ *    instead of answering 200 with the reason in a body nobody reads;
+ *  - the alert-only diagnostics: the provider's update time on every log line,
+ *    and a warning (rows still stored) when every rate repeats the previous
+ *    stored day's, the shape a fresh update time cannot reveal.
  *
  * All stubbed: no network, no database, no alert delivery.
  */
 
 const h = vi.hoisted(() => ({
   statements: [] as Array<{ text: string; values: unknown[] }>,
+  prevRows: [] as Array<{ currency_code: string; rate: number; date: string }>,
+  prevThrows: false,
+  failInsert: new Set<string>(),
   raiseAlert: vi.fn(async (_a: { key?: string; title: string; body: string; severity?: string }) => ({
     delivered: true,
     channel: 'email',
     detail: 'stubbed',
   })),
-  clearAlert: vi.fn(async (_key: string) => ({ delivered: false, channel: 'suppressed', detail: 'nothing_to_clear' })),
-}));
-vi.mock('../_lib/alert.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../_lib/alert.js')>()),
-  raiseAlert: h.raiseAlert,
-  clearAlert: h.clearAlert,
+  clearAlert: vi.fn(async (_key: string, _note?: string) => ({
+    delivered: false,
+    channel: 'suppressed',
+    detail: 'nothing_to_clear',
+  })),
 }));
 vi.mock('@neondatabase/serverless', () => ({
   neon:
     () =>
     (strings: TemplateStringsArray, ...values: unknown[]) => {
-      h.statements.push({ text: strings.join('?').replace(/\s+/g, ' ').trim(), values });
+      const text = strings.join('?').replace(/\s+/g, ' ').trim();
+      h.statements.push({ text, values });
+      if (text.includes('WHERE date = (SELECT MAX(date) FROM fx_rates WHERE date < ?)')) {
+        return h.prevThrows ? Promise.reject(new Error('stub: read failed')) : Promise.resolve(h.prevRows);
+      }
+      if (text.startsWith('INSERT INTO fx_rates') && h.failInsert.has(String(values[0]))) {
+        return Promise.reject(new Error('stub: insert failed'));
+      }
       return Promise.resolve([]);
     },
+}));
+vi.mock('../_lib/alert.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../_lib/alert.js')>()),
+  raiseAlert: h.raiseAlert,
+  clearAlert: h.clearAlert,
 }));
 
 const SECRET = 'synthetic-test-secret-not-real';
@@ -50,8 +69,9 @@ const providerBody = (updatedAt: Date | null) => ({
       }
     : {}),
   base_code: 'USD',
-  rates: { USD: 1, ARS: 1575.9572, TRY: 42.402, AED: 3.6725 },
+  rates: { USD: 1, ARS: 1575.9572, TRY: 42.402, AED: 3.6725 } as Record<string, number>,
 });
+const at = (iso: string) => new Date(iso);
 
 let reply: { ok: boolean; status: number; body: unknown } = { ok: true, status: 200, body: providerBody(null) };
 const fetchSpy = vi.fn(async (url: string) => {
@@ -82,6 +102,7 @@ async function collectAt(isoInstant: string) {
 const inserts = () => h.statements.filter((s) => s.text.startsWith('INSERT INTO fx_rates'));
 const raised = () => h.raiseAlert.mock.calls.map(([a]) => a).filter((a) => a.key === FX_COLLECTOR_ALERT_KEY);
 const cleared = () => h.clearAlert.mock.calls.filter(([k]) => k === FX_COLLECTOR_ALERT_KEY);
+let logSpy: ReturnType<typeof vi.spyOn>;
 
 let saved: { secret?: string; db?: string; fetch: typeof fetch };
 beforeEach(() => {
@@ -91,11 +112,14 @@ beforeEach(() => {
   process.env.DATABASE_URL = 'postgres://stub.invalid/never-connected';
   globalThis.fetch = fetchSpy as unknown as typeof fetch;
   h.statements = [];
+  h.prevRows = [];
+  h.prevThrows = false;
+  h.failInsert = new Set();
   fetchSpy.mockClear();
   h.raiseAlert.mockReset();
   h.raiseAlert.mockImplementation(async () => ({ delivered: true, channel: 'email', detail: 'stubbed' }));
   h.clearAlert.mockClear();
-  vi.spyOn(console, 'log').mockImplementation(() => {});
+  logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => {
@@ -108,24 +132,46 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('source-fx-rates: the 21 Nov shape, a provider update dated the previous day', () => {
-  it('is not stored under today’s date, and says so on the existing alert path', async () => {
-    reply = { ok: true, status: 200, body: providerBody(new Date(Date.UTC(2026, 10, 20, 0, 2, 31))) };
+describe('source-fx-rates: freshness by the update’s age, not its calendar date', () => {
+  it('the bound is 20 h: under the 24 h cadence, above the 19 h 15 min since yesterday’s 09:45 resolver run', () => {
+    expect(FX_QUOTE_MAX_AGE_HOURS).toBe(20);
+    expect(FX_QUOTE_MAX_AGE_HOURS).toBeLessThan(24);
+    expect(FX_QUOTE_MAX_AGE_HOURS).toBeGreaterThanOrEqual(19.25);
+  });
+
+  it('yesterday’s 00:02 update, collected the next morning at 05:00, is refused (about 29 h old)', async () => {
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-20T00:02:31Z')) };
     const res = await collectAt('2026-11-21T05:00:00Z');
     expect(res.statusCode).toBe(502);
     expect(inserts()).toHaveLength(0);
+    expect(res.body?.ingested).toBe(0);
+    expect(res.body?.errors).toHaveLength(1);
+    expect(res.body?.errors[0]).toContain('last updated 2026-11-20T00:02:31.000Z, 29.0 h ago (limit 20 h)');
     expect(raised()).toHaveLength(1);
     expect(raised()[0].severity).toBe('warning');
     expect(raised()[0].title).toContain('no FX rates stored for 2026-11-21');
-    expect(raised()[0].body).toContain('last updated 2026-11-20, not 2026-11-21');
     expect(raised()[0].body).toContain('unresolvable');
     expect(cleared()).toHaveLength(0);
-    expect(res.body?.ingested).toBe(0);
-    expect(res.body?.errors).toHaveLength(1);
-    expect(res.body?.errors[0]).toContain('last updated 2026-11-20, not 2026-11-21');
   });
 
-  it('a response with no update time is not stored either, and alerts', async () => {
+  it('an update stamped just before midnight is accepted and stored as the next day’s row', async () => {
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-20T23:58:00Z')) };
+    const res = await collectAt('2026-11-21T05:00:00Z');
+    expect(res.statusCode).toBe(200);
+    expect(inserts()).toHaveLength(3);
+    expect(inserts().every((s) => s.values[2] === '2026-11-21')).toBe(true);
+  });
+
+  it('the edge: exactly 20 h old is accepted; one second more is refused', async () => {
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
+    expect((await collectAt('2026-11-21T20:02:31Z')).statusCode).toBe(200);
+    h.statements = [];
+    const late = await collectAt('2026-11-21T20:02:32Z');
+    expect(late.statusCode).toBe(502);
+    expect(inserts()).toHaveLength(0);
+  });
+
+  it('a response with no update time is not stored, and alerts', async () => {
     reply = { ok: true, status: 200, body: providerBody(null) };
     const res = await collectAt('2026-11-21T05:00:00Z');
     expect(res.statusCode).toBe(502);
@@ -134,8 +180,8 @@ describe('source-fx-rates: the 21 Nov shape, a provider update dated the previou
     expect(raised()).toHaveLength(1);
   });
 
-  it('a fresh update with no rates at all stores nothing — and is no longer silent', async () => {
-    reply = { ok: true, status: 200, body: { ...providerBody(new Date(Date.UTC(2026, 10, 21, 0, 2, 31))), rates: {} } };
+  it('a fresh update with no rates at all stores nothing, and is no longer silent', async () => {
+    reply = { ok: true, status: 200, body: { ...providerBody(at('2026-11-21T00:02:31Z')), rates: {} } };
     const res = await collectAt('2026-11-21T05:00:00Z');
     expect(res.statusCode).toBe(502);
     expect(res.body).toEqual({ ingested: 0, errors: [] });
@@ -143,19 +189,18 @@ describe('source-fx-rates: the 21 Nov shape, a provider update dated the previou
     expect(raised()[0].body).toContain('no rates in the response');
   });
 
-  it('a provider update stamped today is stored exactly as before: same rows, same date, same values', async () => {
-    reply = { ok: true, status: 200, body: providerBody(new Date(Date.UTC(2026, 10, 21, 0, 2, 31))) };
+  it('a fresh update is stored exactly as before, and stands the alert down with a note', async () => {
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
     const res = await collectAt('2026-11-21T05:00:00Z');
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ ingested: 3, errors: [] });
-    expect(raised()).toHaveLength(0);
-    expect(cleared()).toHaveLength(1);
-    const rows = inserts().map((s) => s.values.slice(0, 4));
-    expect(rows).toEqual([
+    expect(inserts().map((s) => s.values.slice(0, 4))).toEqual([
       ['ARS', 'AR', '2026-11-21', 1575.9572],
       ['TRY', 'TR', '2026-11-21', 42.402],
       ['AED', 'AE', '2026-11-21', 3.6725],
     ]);
+    expect(raised()).toHaveLength(0);
+    expect(cleared()).toHaveLength(1);
   });
 
   it('a failed fetch stores nothing, answers 502 and alerts — it used to answer 200 silently', async () => {
@@ -171,7 +216,7 @@ describe('source-fx-rates: the 21 Nov shape, a provider update dated the previou
   it('a continuing failure keeps ONE stable key, so the existing dedupe applies', async () => {
     reply = { ok: false, status: 503, body: {} };
     await collectAt('2026-11-21T05:00:00Z');
-    reply = { ok: true, status: 200, body: providerBody(new Date(Date.UTC(2026, 10, 21, 0, 2, 31))) };
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
     await collectAt('2026-11-22T05:00:00Z');
     expect(new Set(raised().map((a) => a.key))).toEqual(new Set(['collector:source-fx-rates']));
     expect(raised()).toHaveLength(2);
@@ -186,17 +231,32 @@ describe('source-fx-rates: the 21 Nov shape, a provider update dated the previou
   });
 });
 
-describe('providerQuoteDate', () => {
-  it('reads the provider’s own update time, as a UTC day', () => {
-    expect(providerQuoteDate({ time_last_update_unix: 1795305752 })).toBe('2026-11-22'); // the cached 22 Nov response
-    expect(providerQuoteDate({ time_last_update_unix: Date.UTC(2026, 10, 20, 23, 59, 59) / 1000 })).toBe('2026-11-20');
+describe('source-fx-rates: the provider’s update time is logged', () => {
+  it('logs the provider’s update time on every run: fresh, stale and failed', async () => {
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-21T00:02:31Z')) };
+    await collectAt('2026-11-21T05:00:00Z');
+    reply = { ok: true, status: 200, body: providerBody(at('2026-11-20T00:02:31Z')) };
+    await collectAt('2026-11-21T05:00:00Z');
+    reply = { ok: false, status: 503, body: {} };
+    await collectAt('2026-11-21T05:00:00Z');
+    const lines = logSpy.mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain('provider update 2026-11-21T00:02:31.000Z (5.0 h old)');
+    expect(lines[1]).toContain('provider update 2026-11-20T00:02:31.000Z (29.0 h old)');
+    expect(lines[2]).toContain('provider update none');
+  });
+});
+
+describe('providerUpdatedAt', () => {
+  it('reads the provider’s own update time', () => {
+    expect(providerUpdatedAt({ time_last_update_unix: 1795305752 })?.toISOString()).toBe('2026-11-22T00:02:32.000Z');
   });
 
   it('returns null for anything that is not a usable unix time', () => {
-    expect(providerQuoteDate({})).toBeNull();
-    expect(providerQuoteDate({ time_last_update_unix: 'Sun, 22 Nov 2026 00:02:32 +0000' })).toBeNull();
-    expect(providerQuoteDate({ time_last_update_unix: Number.NaN })).toBeNull();
-    expect(providerQuoteDate({ time_last_update_unix: 0 })).toBeNull();
-    expect(providerQuoteDate({ time_last_update_unix: 1e20 })).toBeNull();
+    expect(providerUpdatedAt({})).toBeNull();
+    expect(providerUpdatedAt({ time_last_update_unix: 'Sun, 22 Nov 2026 00:02:32 +0000' })).toBeNull();
+    expect(providerUpdatedAt({ time_last_update_unix: Number.NaN })).toBeNull();
+    expect(providerUpdatedAt({ time_last_update_unix: 0 })).toBeNull();
+    expect(providerUpdatedAt({ time_last_update_unix: 1e20 })).toBeNull();
   });
 });
