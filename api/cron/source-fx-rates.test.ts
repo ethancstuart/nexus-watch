@@ -321,6 +321,9 @@ describe('source-fx-rates: diagnostics that store as before and only alert', () 
     expect(raised()).toHaveLength(1);
     expect(raised()[0].title).toContain('stored with 1 warning');
     expect(raised()[0].body).toContain('all 3 rates stored equal those stored for 2026-11-20');
+    // Neutral: the 21 Nov shape itself is UNKNOWN, so the alert must not claim it.
+    expect(raised()[0].body).toContain('the same repeated-values pattern that 21 Nov showed');
+    expect(raised()[0].body).not.toContain('as on 21 Nov');
     expect(raised()[0].body).toContain('will be scored');
     expect(cleared()).toHaveLength(0);
     expect(logged()).toContain('same as 2026-11-20: 3/3');

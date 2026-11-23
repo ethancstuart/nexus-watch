@@ -328,7 +328,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (allIdentical) {
       concerns.push(
         `all ${compared} rates stored equal those stored for ${prevDate}. The provider may have repeated ` +
-          'the values of the previous day under a new update time, as on 21 Nov. The rows are stored and will be scored',
+          'the values of the previous day under a new update time: the same repeated-values pattern that ' +
+          '21 Nov showed. The rows are stored and will be scored',
       );
     }
   }
