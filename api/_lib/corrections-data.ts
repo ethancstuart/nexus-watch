@@ -552,6 +552,6 @@ export const CORRECTIONS_PAGE_INTRO: CorrectionsPageIntro = {
     "Why four editions (8, 13, 18 and 25 October) printed five days of data labelled seven. That is inference: our audit's reading is that the collector ran a day behind, but we did not read the database or logs.",
     '17 to 27 July: our archive holds a placeholder for each of those days but no edition text.',
     "Independent re-checks agreed with 39 of 40 sampled verdicts for 8 September to 6 November, with all 248 of our audit's verdicts for 23 August to 7 September, and with all 39 for 21 and 22 November.",
-    "Method and data. The figures are OONI's published daily totals for web connectivity tests, 1 March to 21 November 2026, for 23 countries, as fetched on 23 November 2026. OONI's totals for past days can still rise slightly as late measurements arrive.",
+    "Method and data. The figures are OONI's published daily totals for web connectivity tests, 1 March to 21 November 2026, for 23 countries, as fetched on 23 November 2026. OONI's totals for past days can still change slightly.",
   ],
 };

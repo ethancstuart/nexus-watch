@@ -28,7 +28,7 @@ import { esc } from './_lib/ssr-shell.js';
  * owner's decision of 23 Nov 2026 covers; change the text there and here
  * together.
  */
-const PAGE_DIGEST = '1fd61c9cda0a1bb137d74ecdcd65a6db196566dd733fbf16d461dd65e97c25d3';
+const PAGE_DIGEST = '9e4832f0d0de05c933e4f9dfd26c2bb5b384c483e596f80202a92ef7e6020b84';
 const NOTES_DIGEST = 'd801389b4ebbef978db04a1571dcc09e57a0ab8435d42501bc34534be950f413';
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
