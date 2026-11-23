@@ -531,27 +531,19 @@ describe('5. the alert path fires after the set period', () => {
     expect(h.state.calls[1].status).toBe('hit');
   });
 
-  it('the existing ledger-truth backstops still see it: same day when nothing is disposed, and past grace', () => {
-    // The 21 Nov shape on day 0: every FX call due that day is held.
-    expect(
-      ledgerTruthVerdict({
-        checkDate: '2026-11-21',
-        dueOnCheckDate: 66,
-        dueDisposedOnCheckDate: 0,
-        pastGrace: 0,
-        oldestPastGrace: null,
-      }).map((a) => a.key),
-    ).toEqual([SILENT_KEY]);
-    // A held call that never gets its quote is still pending past the grace window.
-    expect(
-      ledgerTruthVerdict({
-        checkDate: `2026-11-${21 + PAST_GRACE_DAYS + 1}`,
-        dueOnCheckDate: 66,
-        dueDisposedOnCheckDate: 66,
-        pastGrace: 1,
-        oldestPastGrace: '2026-11-21',
-      }).map((a) => a.key),
-    ).toEqual([OVERDUE_KEY]);
+  it('a day when every due call is held: ledger-truth pages from the book, and its body says why', async () => {
+    // Three FX calls due 21 Nov, none with a quote dated 21 Nov.
+    h.state.calls = [arCall({ id: 1 }), arCall({ id: 2, country_code: 'TR' }), arCall({ id: 3, country_code: 'NG' })];
+    h.state.fx = [...AR_THROUGH_20];
+    const res = await resolveAt('2026-11-21T09:45:00Z');
+    expect(res.body).toMatchObject({ resolved: 0, unresolvable: 0, fx_awaiting_quote: 3 });
+
+    const reading = ledgerReadingAt('2026-11-21T10:30:00Z');
+    expect(reading).toMatchObject({ checkDate: '2026-11-21', dueOnCheckDate: 3, dueDisposedOnCheckDate: 0 });
+    const v = ledgerTruthVerdict(reading);
+    expect(v.map((a) => a.key)).toEqual([SILENT_KEY]);
+    expect(v[0].body).toContain('fx_awaiting_quote');
+    expect(v[0].body).toContain('held FX calls because no quote dated their resolution day was stored');
   });
 });
 

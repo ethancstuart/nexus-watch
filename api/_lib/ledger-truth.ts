@@ -77,10 +77,12 @@ export interface LedgerTruthReading {
    * the book cannot satisfy it: the first draft counted any call disposed of
    * that day, which one grace-expired settlement would have satisfied while
    * every call actually due sat untouched. An independent review caught it.
-   * Held calls stay pending and simply do not count; FX is never held and is
-   * due every day, weekends included (measured 2026-08-29 → 09-12: 34 to 113
-   * same-day disposals on every date), so a cohort with nothing disposed is a
-   * resolver that did not run.
+   * Held calls stay pending and simply do not count. FX is due every day,
+   * weekends included (measured 2026-08-29 → 09-12: 34 to 113 same-day
+   * disposals on every date), so a cohort with nothing disposed is a resolver
+   * that did not run — or, since the FX stale-quote guard, a day on which no
+   * FX quote dated that day was stored and every FX call due was held. Both
+   * leave the day's verdicts unpublished, so both page; the body names both.
    */
   dueDisposedOnCheckDate: number;
   /** Pending calls with resolves_on strictly more than PAST_GRACE_DAYS ago. */
@@ -109,7 +111,9 @@ export function ledgerTruthVerdict(r: LedgerTruthReading): LedgerTruthAlert[] {
       body:
         `${r.dueOnCheckDate} call(s) were due on ${r.checkDate} and not one was resolved, missed, or settled ` +
         `as unresolvable. resolve-calls runs 09:45 UTC daily; it did not run, or ran and wrote nothing. ` +
-        `Check the cron's last invocation in Vercel and /api/cron/resolve-calls output.`,
+        `Check the cron's last invocation in Vercel and /api/cron/resolve-calls output. If fx_awaiting_quote ` +
+        `there is not zero, it ran and held FX calls because no quote dated their resolution day was stored ` +
+        `(see the source-fx-rates and resolver:fx-stale-quote alerts).`,
     });
   }
   if (r.pastGrace > 0) {
@@ -119,7 +123,8 @@ export function ledgerTruthVerdict(r: LedgerTruthReading): LedgerTruthAlert[] {
       title: `${r.pastGrace} call(s) still pending past the grace window`,
       body:
         `${r.pastGrace} call(s) are pending more than ${PAST_GRACE_DAYS} days after their resolution date; the ` +
-        `oldest was due ${r.oldestPastGrace ?? 'unknown'}. A coverage-held call is settled as unresolvable at ` +
+        `oldest was due ${r.oldestPastGrace ?? 'unknown'}. A held call (thin coverage, or no FX quote for its ` +
+        `last day) is settled as unresolvable at ` +
         `exactly ${PAST_GRACE_DAYS} days, so these are rows the resolver is skipping — look for per-call ` +
         `errors in /api/cron/resolve-calls output.`,
     });
