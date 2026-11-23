@@ -219,3 +219,18 @@ describe('a scope rule: later calls of one kind, country and currency code', () 
     }
   });
 });
+
+describe('the threshold line escapes what it reads from the database', () => {
+  it('a hostile currency code is printed as text', () => {
+    const html = thresholdLineHtml(
+      { countries: ['AA', 'ZW'], calls: 2, hits: 0, skillWith: -0.03, skillWithout: -0.04 },
+      new Map([
+        ['AA', '<img src=x onerror=alert(1)>'],
+        ['ZW', 'Z&W"'],
+      ]),
+    );
+    expect(html).toContain('(&lt;img src=x onerror=alert(1)&gt;, Z&amp;W&quot;)');
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('Z&W"');
+  });
+});
