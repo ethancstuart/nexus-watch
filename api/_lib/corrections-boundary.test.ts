@@ -100,3 +100,47 @@ describe('the correction drafts stay on the server', () => {
     expect(specifiers(KEYS)).toEqual([]);
   });
 });
+
+/**
+ * THE SAME TWO PROPERTIES FOR THE CALL NOTES (call-notes-data.ts, behind the
+ * gate call-notes.ts). /methodology fetches its approved notes from
+ * /api/method-notes; nothing in src/ may import the drafts or the gate.
+ */
+describe('the call-note drafts stay on the server', () => {
+  const NOTE_DATA = join(ROOT, 'api/_lib/call-notes-data.ts');
+  const NOTE_GATE = join(ROOT, 'api/_lib/call-notes.ts');
+  const NOTE_KEYS = join(ROOT, 'api/_lib/call-notes-approvals.ts');
+
+  it('no module reachable from src/ is the call-note data, its gate or its keys', () => {
+    const seen = new Set<string>();
+    const stack = walk(join(ROOT, 'src'));
+    while (stack.length > 0) {
+      const f = stack.pop() as string;
+      if (seen.has(f)) continue;
+      seen.add(f);
+      for (const s of specifiers(f)) {
+        const t = resolveRelative(f, s);
+        if (t && !seen.has(t)) stack.push(t);
+      }
+    }
+    expect(seen.has(join(ROOT, 'src/pages/methodology.ts'))).toBe(true);
+    for (const target of [NOTE_DATA, NOTE_GATE, NOTE_KEYS]) {
+      expect(seen.has(target), `src/ reaches ${relative(ROOT, target)}: the drafts would ship in the bundle`).toBe(
+        false,
+      );
+    }
+  });
+
+  it('on the server, only the gate imports the call-note data and keys', () => {
+    for (const target of [NOTE_DATA, NOTE_KEYS]) {
+      const importers = walk(join(ROOT, 'api'))
+        .filter((f) => specifiers(f).some((s) => resolveRelative(f, s) === target))
+        .map((f) => relative(ROOT, f));
+      expect(importers, relative(ROOT, target)).toEqual(['api/_lib/call-notes.ts']);
+    }
+  });
+
+  it('the call-note keys import nothing at runtime', () => {
+    expect(specifiers(NOTE_KEYS)).toEqual([]);
+  });
+});
