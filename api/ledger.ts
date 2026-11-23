@@ -16,6 +16,7 @@ import {
 import { shell, esc, pct } from './_lib/ssr-shell.js';
 import { outcomeMarks } from '../src/styles/register-tokens.js';
 import { describeCorrections } from './_lib/ledger-by-kind.js';
+import { ledgerSectionsHtml, thresholdGroup, thresholdLineApproved, thresholdLineHtml } from './_lib/call-notes.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -453,6 +454,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               `</span><span class="trail">skill withheld</span></div>`,
           );
         }
+
+        // THE THRESHOLD LINE (FX-WORDING R3b), under the FX row once approved
+        // (api/_lib/call-notes.ts). Computed here, per request, by the stated
+        // rule over exactly the rows the row above scored, so it cannot go
+        // stale the way a literal would. It moves no figure: the row above is
+        // already printed. If the codes cannot be read, no line.
+        if (kind === 'fx_devaluation' && thresholdLineApproved()) {
+          const group = thresholdGroup(rows);
+          if (group) {
+            try {
+              const codes = (await sql`
+                SELECT DISTINCT ON (country_code) country_code, split_part(claim, ' ', 1) AS code
+                FROM calls WHERE kind = ${kind} AND country_code = ANY(${group.countries})
+                ORDER BY country_code, made_on DESC
+              `) as unknown as Array<{ country_code: string; code: string }>;
+              parts.push(thresholdLineHtml(group, new Map(codes.map((r) => [r.country_code, r.code]))));
+            } catch {
+              // No line rather than a list we could not read.
+            }
+          }
+        }
       }
       parts.push('<div class="grid">');
     }
@@ -497,6 +519,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // forecast we got wrong.
     const scoredDisplay = resolved.filter((c) => isScored(c.status));
     const unscoredDisplay = resolved.filter((c) => !isScored(c.status));
+
+    // DATED NOTES THAT CHANGE NO VERDICT (api/_lib/call-notes.ts), before the
+    // corrections and never counted with them: a note is not a call we were
+    // wrong about. Empty until the owner approves one.
+    const noteSections = ledgerSectionsHtml();
+    if (noteSections) parts.push(noteSections);
 
     // THE CORRECTION GOES ABOVE THE RECORD IT CORRECTS, and it goes HERE —
     // on the server-rendered page. /ledger rewrites to this file, so a direct
