@@ -167,7 +167,8 @@ export const CALL_NOTES: readonly CallNote[] = [
   },
   {
     id: 'fx-2026-11-21-resolved-miss-az',
-    status: 'draft',
+    status: 'approved',
+    issuedOn: '2026-11-23',
     scope: { ids: [6049] },
     text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, every exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give. A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov rate would have made this call a hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
   },

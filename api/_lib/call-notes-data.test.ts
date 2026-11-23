@@ -29,6 +29,7 @@ import { isIsoDate } from './correction-words.js';
  */
 const APPROVED_IDS: string[] = [
   'fx-2026-11-21-resolved-miss',
+  'fx-2026-11-21-resolved-miss-az',
   'fx-2026-11-21-resolved-hit',
   'fx-2026-11-21-made',
   'fx-zw-zwl-label',
