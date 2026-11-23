@@ -12,7 +12,15 @@
  * Imports only correction-words.ts, for the shared date format, so a note and a
  * correction added the same day read the same date the same way.
  */
-import { formatCorrectionDate } from './correction-words.js';
+import { formatCorrectionDate, type PageAmendment } from './correction-words.js';
+
+/**
+ * A dated amendment to a note's published text: "Amended D Mon YYYY: <text>",
+ * the same form as /corrections (correction-words.ts, amendmentLine), so a
+ * reader sees that the published words changed, when, and what they first
+ * said. The date is rendered from `on`, never typed into the prose.
+ */
+export type NoteAmendment = PageAmendment;
 
 /**
  * Which calls carry a note: an explicit list of call ids, generated and
@@ -51,6 +59,8 @@ interface CallNoteFields {
   text: string;
   /** For a text holding REFERENCE_SLOT: the reference figure each call's claim states, by call id. */
   references?: Readonly<Record<number, string>>;
+  /** Amendments to this note's published text, oldest first, each appended after the text. */
+  amendments?: readonly NoteAmendment[];
 }
 
 /** A draft is never shown. An approved note must say when it went live. */
@@ -67,6 +77,8 @@ interface PageNoteFields {
   heading: string;
   /** Plain-text paragraphs, in order. */
   paragraphs: readonly string[];
+  /** Amendments to this section's published text, oldest first, each its own last paragraph. */
+  amendments?: readonly NoteAmendment[];
 }
 
 /** A dated section of a page: /ledger, or /methodology. */
