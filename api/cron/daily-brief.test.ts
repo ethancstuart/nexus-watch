@@ -89,10 +89,22 @@ describe('buildFallbackText — the safe harbor honours the structure contract',
       weeklyTrends: [],
       resolvedCallLines: [],
       openCallLines: [],
+      // The book was read and is empty: the only case that may say so.
+      openCallsRead: true,
     };
     const text = buildFallbackText(empty);
     expect(validateBriefStructure(text, false).pass).toBe(true);
     expect(text).toContain('No open calls today.');
+  });
+
+  it('an unread book is never reported as empty (2026-11-23, the first no-key day)', () => {
+    for (const openCallsRead of [false, undefined]) {
+      const unread: BriefData = { ...base, openCallLines: [], openCallsRead };
+      const text = buildFallbackText(unread);
+      expect(text).not.toContain('No open calls today.');
+      expect(text).toContain('Open calls could not be read today.');
+      expect(validateBriefStructure(text, false).pass).toBe(true);
+    }
   });
 
   it("leads Today's Call with the first (most divergent) open call, verbatim", () => {
