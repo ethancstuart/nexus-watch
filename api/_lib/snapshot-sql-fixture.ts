@@ -87,6 +87,25 @@ const withoutCorrection = (c: SnapCall) => {
 /** Switches a test may flip to make one read fail. */
 export const fixtureFaults = { codes: false };
 
+/**
+ * Runs `fn` with extra OPEN calls on the book (calls made after the snapshot),
+ * then takes them off again. They answer every query as snapshot calls do.
+ */
+export async function withExtraOpenCalls<T>(calls: SnapCall[], fn: () => Promise<T>): Promise<T> {
+  SNAPSHOT.open.push(...calls);
+  ALL_CALLS.push(...calls);
+  for (const c of calls) CALL_BY_ID.set(Number(c.id), c);
+  try {
+    return await fn();
+  } finally {
+    for (const c of calls) {
+      SNAPSHOT.open.splice(SNAPSHOT.open.indexOf(c), 1);
+      ALL_CALLS.splice(ALL_CALLS.indexOf(c), 1);
+      CALL_BY_ID.delete(Number(c.id));
+    }
+  }
+}
+
 const byResolvedDesc = (a: SnapCall, b: SnapCall) => (b.resolved_at ?? '').localeCompare(a.resolved_at ?? '');
 const corrected = SNAPSHOT.resolved.filter((c) => c.correction);
 

@@ -8,6 +8,7 @@ import {
   approvedCallNotes,
   approvedLedgerSections,
   approvedMethodologyNotes,
+  notesForCall,
   thresholdLineApproved,
 } from './call-notes.js';
 import { REFERENCE_SLOT, type CallNote } from './call-note-words.js';
@@ -109,6 +110,29 @@ describe('call notes: the lists, re-derived from the 22 Nov 2026 snapshot', () =
     expect(sorted(note('fx-zw-zwl-label').scope.ids)).toEqual(ids(zw));
     // No call outside ZW names ZWL.
     expect(fx.filter((c) => c.claim.includes('ZWL') && c.country_code !== 'ZW')).toHaveLength(0);
+  });
+
+  it('the ZW note also reaches later ZW currency calls naming ZWL by rule, and no other call', () => {
+    const n = note('fx-zw-zwl-label');
+    expect(n.scope.rule).toEqual({
+      kind: 'fx_devaluation',
+      countryCode: 'ZW',
+      claimCode: 'ZWL',
+      madeAfter: '2026-11-22',
+    });
+    // Every call on the 22 Nov book was made on or before 22 Nov: the list, not the rule, covers them.
+    expect(fx.every((c) => c.made_on <= '2026-11-22')).toBe(true);
+    const keys = [n.id];
+    const approved: CallNote = { ...n, status: 'approved', issuedOn: '2026-11-23' };
+    // Moved to 1 Dec, as if made later, every call on the book: only the 92 ZW currency calls get the note.
+    const all = [...snapshot.open, ...snapshot.resolved];
+    const reached = all.filter(
+      (c) => notesForCall({ ...c, id: 900000 + Number(c.id), made_on: '2026-12-01' }, [approved], keys).length > 0,
+    );
+    expect(reached).toHaveLength(92);
+    expect(reached.every((c) => c.country_code === 'ZW' && c.kind === 'fx_devaluation')).toBe(true);
+    // No other note has a rule.
+    expect(CALL_NOTES.filter((x) => x.scope.rule).map((x) => x.id)).toEqual(['fx-zw-zwl-label']);
   });
 
   it('no Azerbaijan call carries any note', () => {

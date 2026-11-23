@@ -134,7 +134,7 @@ const MADE_21_NOV_REFERENCES: Readonly<Record<number, string>> = {
 /**
  * Every Zimbabwe currency call on the book on 22 Nov 2026: 92, of which 78
  * resolved (none a hit) and 14 open. Every claim names the code ZWL. A ZW call
- * made after 22 Nov carries no note until its id is added here.
+ * made after 22 Nov carries the same note by ZW_AFTER_22_NOV below.
  */
 const ZW_CALLS: readonly number[] = [
   91, 352, 996, 1100, 1204, 1308, 1412, 1477, 1542, 1607, 1672, 1736, 1800, 1865, 1930, 1995, 2061, 2141, 2207, 2271,
@@ -143,6 +143,20 @@ const ZW_CALLS: readonly number[] = [
   4892, 4959, 5026, 5093, 5160, 5227, 5294, 5375, 5442, 5509, 5576, 5643, 5710, 5777, 5844, 5911, 5978, 6044, 6110,
   6176, 6242, 6308, 6374, 6454, 6520, 6586, 6652, 6718, 6784, 6849, 6914, 6979, 7044, 7109,
 ];
+
+/**
+ * R2 is "on every ZW call" (FX-WORDING 2B: "92 now, plus each new one while
+ * the code stays ZWL"). So a currency call in ZW made after 22 Nov whose claim
+ * names ZWL carries it too, through the same approval, dated the later of
+ * issuedOn and the day the call was made. A relabelled claim (FX-WORDING 2C)
+ * no longer names ZWL and so no longer carries it.
+ */
+const ZW_AFTER_22_NOV = {
+  kind: 'fx_devaluation',
+  countryCode: 'ZW',
+  claimCode: 'ZWL',
+  madeAfter: '2026-11-22',
+} as const;
 
 export const CALL_NOTES: readonly CallNote[] = [
   {
@@ -167,7 +181,7 @@ export const CALL_NOTES: readonly CallNote[] = [
   {
     id: 'fx-zw-zwl-label',
     status: 'draft',
-    scope: { ids: ZW_CALLS },
+    scope: { ids: ZW_CALLS, rule: ZW_AFTER_22_NOV },
     text: "This call names the currency ZWL, the code under which our rates source publishes this rate. On 16 and 22 Nov 2026 the source published the same rate under ZWG, the code of the ZiG: 26.5861 and 26.5872. We have not compared the two codes on any other day. The rate, threshold and verdict are unchanged. Source: our rates source's published quotes, 16 and 22 Nov 2026.",
   },
 ];

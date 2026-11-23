@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { snapshotSql, fakeRes, ALL_CALLS } from './_lib/snapshot-sql-fixture.js';
+import { snapshotSql, fakeRes, withExtraOpenCalls, ALL_CALLS } from './_lib/snapshot-sql-fixture.js';
 import { CALL_NOTES, LEDGER_FX_THRESHOLD_LINE, LEDGER_SECTIONS, METHODOLOGY_NOTES } from './_lib/call-notes-data.js';
 import {
   approvedCallNotes,
@@ -96,6 +96,32 @@ describe('unpublished notes show nowhere', () => {
       expect(html, String(id)).not.toMatch(/<div class="kicker">Notes?<\/div>/);
       expect(html, String(id)).not.toMatch(/except the dated (correction and )?notes? below/);
     }
+  });
+
+  it('a ZW call made after 22 Nov, which only a scope rule reaches, shows no withheld note', async () => {
+    const later = {
+      id: '7175',
+      kind: 'fx_devaluation',
+      country_code: 'ZW',
+      claim: 'ZWL depreciates 0.85% or more against USD at any point within 14 days, from 26.5872.',
+      probability: 0.2,
+      base_rate: 0.26,
+      made_on: '2026-11-23',
+      resolves_on: '2026-12-07',
+      status: 'pending',
+      evidence_count: null,
+      resolved_at: null,
+    };
+    const ruled = HELD_CALL.filter((n) => n.scope.rule);
+    await withExtraOpenCalls([later], async () => {
+      const html = await callPage(7175);
+      const cardHtml = await card(7175);
+      for (const n of ruled) expect(html).not.toContain(fragment(n.text));
+      if (!approvedCallNotes().some((n) => n.scope.rule)) {
+        expect(html).not.toContain('Note added');
+        expect(cardHtml).not.toContain('NOTE ADDED');
+      }
+    });
   });
 
   it('the share card: no note line', async () => {

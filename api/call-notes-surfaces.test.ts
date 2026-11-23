@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { snapshotSql, fakeRes, fixtureFaults, CALL_BY_ID, SNAPSHOT } from './_lib/snapshot-sql-fixture.js';
+import {
+  snapshotSql,
+  fakeRes,
+  fixtureFaults,
+  withExtraOpenCalls,
+  CALL_BY_ID,
+  SNAPSHOT,
+  type SnapCall,
+} from './_lib/snapshot-sql-fixture.js';
 
 /**
  * AN APPROVED NOTE RENDERS ON EVERY SURFACE, ESCAPED, AND MOVES NO VERDICT,
@@ -421,5 +429,94 @@ describe('every surface escapes a note', () => {
     });
     expect(html).toContain(esc(HOSTILE));
     expect(html).not.toContain('<script>');
+  });
+});
+
+describe('a ZW call made after 22 Nov carries the ZWL note by rule; no other call does, and no count moves', () => {
+  const zwl = (id: number, madeOn: string, over: Partial<SnapCall> = {}): SnapCall => ({
+    id: String(id),
+    kind: 'fx_devaluation',
+    country_code: 'ZW',
+    claim: 'ZWL depreciates 0.85% or more against USD at any point within 14 days, from 26.5872.',
+    probability: 0.2,
+    base_rate: 0.26,
+    made_on: madeOn,
+    resolves_on: '2026-12-08',
+    status: 'pending',
+    evidence_count: null,
+    resolved_at: null,
+    ...over,
+  });
+  /** Synthetic calls made after the snapshot. Only the first two are ZW currency calls naming ZWL. */
+  const LATER = [
+    zwl(7175, '2026-11-23'),
+    zwl(7240, '2026-11-24'),
+    zwl(7241, '2026-11-24', {
+      kind: 'censorship_event',
+      claim: 'OONI records at least 1 confirmed website or app blocking event in ZW within 14 days.',
+    }),
+    zwl(7242, '2026-11-24', {
+      country_code: 'VE',
+      claim: 'VES depreciates 7.12% or more against USD at any point within 14 days, from 301.442.',
+    }),
+    zwl(7243, '2026-11-24', {
+      claim: 'ZWG depreciates 0.85% or more against USD at any point within 14 days, from 26.5872.',
+    }),
+    zwl(7244, '2026-11-24', { country_code: 'XX' }),
+  ];
+  const r2On = (date: string) => R2.replace('Note added 23 Nov 2026.', `Note added ${date}.`);
+
+  it('/call/:id and the card: dated the later of 23 Nov and the day the call was made', async () => {
+    await withExtraOpenCalls(LATER, async () => {
+      expect(paragraphs(await callPage(7175))).toContain(esc(r2On('23 Nov 2026')));
+      expect(paragraphs(await callPage(7240))).toContain(esc(r2On('24 Nov 2026')));
+      expect(await card(7175)).toContain('NOTE ADDED 23 NOV 2026 · SEE THE CALL PAGE');
+      expect(await card(7240)).toContain('NOTE ADDED 24 NOV 2026 · SEE THE CALL PAGE');
+      for (const id of [7241, 7242, 7243, 7244]) {
+        expect(await callPage(id), String(id)).not.toContain('Note added');
+        expect(await card(id), String(id)).not.toContain('NOTE ADDED');
+      }
+    });
+  });
+
+  it('the JSON: notes on the two, none on the rest; every count and score identical on and off', async () => {
+    await withExtraOpenCalls(LATER, async () => {
+      h.keys = [...ALL_IDS];
+      const on = await ledgerJson();
+      h.keys = [];
+      const off = await ledgerJson();
+      const later = (j: Record<string, unknown>) =>
+        (j.open as Array<Record<string, unknown>>).filter((r) => Number(r.id) >= 7175);
+      expect(later(on).map((r) => [Number(r.id), r.notes ?? null])).toEqual([
+        [7175, [{ issued_on: '2026-11-23', note: r2On('23 Nov 2026') }]],
+        [7240, [{ issued_on: '2026-11-24', note: r2On('24 Nov 2026') }]],
+        [7241, null],
+        [7242, null],
+        [7243, null],
+        [7244, null],
+      ]);
+      for (const list of ['open', 'resolved'] as const) {
+        for (const r of on[list] as Array<Record<string, unknown>>) delete r.notes;
+      }
+      expect(JSON.stringify(on)).toBe(JSON.stringify(off));
+      expect((on.counts as Record<string, number>).open).toBe(SNAPSHOT.open.length - 14);
+    });
+  });
+
+  it('/ledger: the same 54 calls we were wrong about, and the same bytes once the notes are removed', async () => {
+    await withExtraOpenCalls(LATER, async () => {
+      h.keys = [...ALL_IDS];
+      const on = await ledgerPage();
+      h.keys = [];
+      const off = await ledgerPage();
+      expect(on).toContain('<h2>54 calls we were wrong about</h2>');
+      const stripped = on
+        .replace(/<div class="rule"><\/div><div class="kicker">Exchange rates, 21 November 2026<\/div>.*?<\/p>\n/, '')
+        .replace(
+          /<div class="row unscored"><span class="lead">&nbsp;<\/span><span class="det">Includes .*?<\/div>\n/,
+          '',
+        );
+      expect(stripped).toBe(off);
+    });
   });
 });

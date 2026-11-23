@@ -166,3 +166,56 @@ describe('the threshold line: below base on every resolved call, and at most one
     expect(html).toContain('<a href="/methodology">/methodology</a>.</span></div>');
   });
 });
+
+describe('a scope rule: later calls of one kind, country and currency code', () => {
+  const rule = { kind: 'fx_devaluation', countryCode: 'ZW', claimCode: 'ZWL', madeAfter: '2026-11-22' };
+  const zw = note({ id: 'zw', scope: { ids: [91], rule } });
+  const call = (over: Record<string, unknown> = {}) => ({
+    id: '7175',
+    kind: 'fx_devaluation',
+    country_code: 'ZW',
+    claim: 'ZWL depreciates 0.85% or more against USD at any point within 14 days, from 26.5872.',
+    made_on: '2026-11-23',
+    ...over,
+  });
+  const texts = (c: Record<string, unknown>) =>
+    notesForCall(c as never, [zw], ['zw']).map((n) => [n.issuedOn, n.text] as const);
+
+  it('reaches a matching call made after its date, dated the later of issuedOn and made_on', () => {
+    expect(texts(call())).toEqual([['2026-11-23', 'Note added 23 Nov 2026. Body.']]);
+    expect(texts(call({ made_on: '2026-12-01' }))).toEqual([['2026-12-01', 'Note added 1 Dec 2026. Body.']]);
+  });
+
+  it('reaches nothing else: not on or before its date, another kind, country or code, or a call missing a field', () => {
+    for (const over of [
+      { made_on: '2026-11-22' },
+      { made_on: '2026-11-01' },
+      { kind: 'censorship_event' },
+      { country_code: 'VE' },
+      { claim: 'ZWG depreciates 0.85% or more against USD at any point within 14 days, from 26.5872.' },
+      { claim: 'The ZWL depreciates.' },
+      { made_on: undefined },
+      { kind: undefined },
+      { claim: undefined },
+      { made_on: '2026-13-01' },
+    ]) {
+      expect(texts(call(over)), JSON.stringify(over)).toEqual([]);
+    }
+    // A listed call keeps the note's own date whatever its made_on.
+    expect(texts(call({ id: 91, made_on: '2026-08-23' }))).toEqual([['2026-11-23', 'Note added 23 Nov 2026. Body.']]);
+  });
+
+  it('needs the same two keys as its note, and fails closed when malformed', () => {
+    expect(notesForCall(call() as never, [zw], [])).toEqual([]);
+    expect(notesForCall(call() as never, [{ ...zw, status: 'draft' } as CallNote], ['zw'])).toEqual([]);
+    for (const bad of [
+      { ...rule, madeAfter: '22 Nov' },
+      { ...rule, countryCode: '' },
+      { ...rule, claimCode: ' ' },
+      { ...rule, kind: '' },
+    ]) {
+      const n = note({ id: 'zw', scope: { ids: [91], rule: bad } });
+      expect(approvedCallNotes([n], ['zw']), JSON.stringify(bad)).toEqual([]);
+    }
+  });
+});

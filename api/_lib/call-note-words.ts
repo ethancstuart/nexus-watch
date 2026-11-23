@@ -14,9 +14,29 @@
  */
 import { formatCorrectionDate } from './correction-words.js';
 
-/** Which calls carry a note: an explicit list of call ids, generated and reviewed. */
+/**
+ * Which calls carry a note: an explicit list of call ids, generated and
+ * reviewed, and optionally a rule for calls made after that list was drawn.
+ */
 export interface CallNoteScope {
   readonly ids: readonly number[];
+  readonly rule?: CallNoteRule;
+}
+
+/**
+ * A call made AFTER `madeAfter` carries the note when it is of `kind`, in
+ * `countryCode`, and the first word of its claim is `claimCode` (the currency
+ * code the claim names). It reaches no call of another country or kind. Such a
+ * note is dated the later of its issuedOn and the call's made_on, so it never
+ * reads as added before the call existed. It goes through the same two keys as
+ * the note it belongs to: no key per call.
+ */
+export interface CallNoteRule {
+  readonly kind: string;
+  readonly countryCode: string;
+  readonly claimCode: string;
+  /** YYYY-MM-DD. Calls made on or before it are covered by the id list, or not at all. */
+  readonly madeAfter: string;
 }
 
 interface CallNoteFields {

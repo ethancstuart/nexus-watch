@@ -400,11 +400,12 @@ export async function lookupCall(id: number): Promise<CallLookup> {
   try {
     const sql = neon(dbUrl);
     const rows = (await sql`
-      SELECT id, country_code, claim, probability::float AS probability,
+      SELECT id, kind, country_code, claim, probability::float AS probability,
              resolves_on::text AS resolves_on, made_on::text AS made_on, status
       FROM calls WHERE id = ${id}
     `) as Array<{
       id: number;
+      kind: string;
       country_code: string;
       claim: string;
       probability: number;

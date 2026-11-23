@@ -14,6 +14,7 @@ import {
   type ApprovedPageNote,
   type CallNote,
   type CallNotePayload,
+  type CallNoteRule,
   type ComputedNote,
   type MethodNotePayload,
   type PageNote,
@@ -51,12 +52,19 @@ function bothKeys(n: Gated, keys: NoteKeys): boolean {
 
 const nonEmpty = (s: unknown): s is string => typeof s === 'string' && s.trim() !== '';
 
+function isWellFormedRule(r: CallNoteRule | undefined): boolean {
+  return (
+    r === undefined || (nonEmpty(r.kind) && nonEmpty(r.countryCode) && nonEmpty(r.claimCode) && isIsoDate(r.madeAfter))
+  );
+}
+
 function isPublishableCallNote(n: CallNote, keys: NoteKeys): n is ApprovedCallNote {
   return (
     bothKeys(n, keys) &&
     nonEmpty(n.text) &&
     Array.isArray(n.scope?.ids) &&
     n.scope.ids.every((id) => Number.isInteger(id) && id > 0) &&
+    isWellFormedRule(n.scope.rule) &&
     (!n.text.includes(REFERENCE_SLOT) || (typeof n.references === 'object' && n.references !== null))
   );
 }
@@ -106,9 +114,30 @@ export function thresholdLineApproved(
 
 // ── Call notes: /call/:id, the share card, the JSON ──────────────────────────
 
-/** A call as every surface already reads it. The id may arrive as a string: the column is bigint. */
+/**
+ * A call as every surface already reads it. The id may arrive as a string: the
+ * column is bigint. The other fields are needed only by a scope rule; a call
+ * without them matches no rule.
+ */
 export interface NoteTarget {
   id: number | string;
+  kind?: string;
+  country_code?: string;
+  claim?: string;
+  made_on?: string;
+}
+
+/** Whether a scope rule reaches this call: made after its date, its kind, its country, its claim's currency code. */
+function ruleReaches(r: CallNoteRule, call: NoteTarget): call is NoteTarget & { made_on: string } {
+  return (
+    typeof call.made_on === 'string' &&
+    isIsoDate(call.made_on) &&
+    call.made_on > r.madeAfter &&
+    call.kind === r.kind &&
+    call.country_code === r.countryCode &&
+    typeof call.claim === 'string' &&
+    call.claim.split(' ')[0] === r.claimCode
+  );
 }
 
 /** One note as a reader sees it, for one call. */
@@ -132,14 +161,18 @@ export function notesForCall(
   if (!Number.isInteger(id) || id <= 0) return [];
   const out: RenderedCallNote[] = [];
   for (const n of approvedCallNotes(notes, keys)) {
-    if (!n.scope.ids.includes(id)) continue;
+    const listed = n.scope.ids.includes(id);
+    const rule = n.scope.rule;
+    if (!listed && !(rule && ruleReaches(rule, call))) continue;
     let body = n.text;
     if (body.includes(REFERENCE_SLOT)) {
       const ref = n.references?.[id];
       if (!nonEmpty(ref)) continue; // fail closed: never a note with a hole in it
       body = body.split(REFERENCE_SLOT).join(ref);
     }
-    out.push({ id: n.id, issuedOn: n.issuedOn, text: `${noteAdded(n.issuedOn)} ${body}` });
+    // A call the rule reached may be newer than the note: date it from the call then.
+    const added = !listed && call.made_on && call.made_on > n.issuedOn ? call.made_on : n.issuedOn;
+    out.push({ id: n.id, issuedOn: added, text: `${noteAdded(added)} ${body}` });
   }
   // Array.prototype.sort is stable, so data order holds within a day.
   return out.sort((a, b) => a.issuedOn.localeCompare(b.issuedOn));
