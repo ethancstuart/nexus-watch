@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderMethodology } from './methodology.ts';
-import { MIN_MEASUREMENTS_PER_REQUIRED_DAY, coverageRequirement } from '../../api/_lib/calls.ts';
+import {
+  MIN_MEASUREMENTS_PER_REQUIRED_DAY,
+  UNRESOLVABLE_GRACE_DAYS,
+  coverageRequirement,
+} from '../../api/_lib/calls.ts';
 
 /**
  * The coverage rule governs live, irreversible public verdicts, so the page
@@ -76,5 +80,16 @@ describe('methodology publishes the coverage rule the resolver actually runs', (
     // "Three of the calls resolving on 5 September" was true when typed and
     // wrong within two days. The live count belongs on the Ledger.
     expect(text).not.toMatch(/\b(three|four|five|six|seven|eight|nine)\s+of\s+the\s+calls\s+resolving/i);
+  });
+  it('publishes the FX rule the resolver runs: last-day rate, grace from the module, both outcomes held', () => {
+    // resolve-calls holds an FX call until a rate dated its last day is stored
+    // and settles it unresolvable at UNRESOLVABLE_GRACE_DAYS, whichever way it
+    // was heading. The page must say so, with the grace derived, and must not
+    // let the censorship asymmetry above read as if it covered FX.
+    expect(text).toMatch(/scored only once an exchange rate dated the last day of its window has been stored/);
+    expect(text).toContain(`within ${UNRESOLVABLE_GRACE_DAYS} days of the resolution date`);
+    expect(text).toMatch(/no fresh quote/);
+    expect(text).toMatch(/holds hits and misses alike/);
+    expect(text).toMatch(/A rate missing earlier in the window does not hold the call/);
   });
 });

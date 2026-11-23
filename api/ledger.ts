@@ -10,6 +10,7 @@ import {
   coverageRequirement,
   isScored,
   SCORED_STATUSES,
+  UNRESOLVABLE_GRACE_DAYS,
   type ScoredCall,
 } from './_lib/calls.js';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
@@ -323,7 +324,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'result.</p>'
           : '') +
         '<p class="lede">We are stating this before the first calls resolve, because a rule published ' +
-        'afterwards is not a rule — it is an explanation.</p>',
+        'afterwards is not a rule — it is an explanation.</p>' +
+        '<p class="lede">Currency calls follow a rule added later, after some had already resolved. A ' +
+        'currency call is scored only once an exchange rate dated the last day of its window has been ' +
+        `stored. If none is stored within ${UNRESOLVABLE_GRACE_DAYS} days, it is marked ` +
+        '<strong>unresolvable</strong> with the reason “no fresh quote”, whichever way it was heading.</p>',
     );
 
     // The honest hero. With nothing resolved, report the open book rather than
@@ -556,9 +561,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           '<h2>Calls we could not honestly resolve</h2>' +
           '<p class="lede">These carry no outcome and are excluded from every number above. ' +
           'A call is <strong>void</strong> when our own criterion was unsound, and ' +
-          '<strong>unresolvable</strong> when the resolver did not observe the country densely ' +
-          'enough to score it either way. Neither is a forecast we got wrong, and neither is ' +
-          'ever deleted.</p>',
+          '<strong>unresolvable</strong> when the evidence to score it either way never came: OONI ' +
+          'did not observe the country densely enough, or no exchange rate was stored for the last ' +
+          'day of a currency call. Neither is a forecast we got wrong, and neither is ever deleted.</p>',
       );
       for (const c of unscoredDisplay) {
         const reason = c.void_reason ? ` — ${c.void_reason}` : '';

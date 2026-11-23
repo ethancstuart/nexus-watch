@@ -5,7 +5,11 @@ import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 // api/_lib/calls.ts has no imports of its own, so it bundles into the client
 // cleanly - and this page cannot drift from the rule that governs live
 // resolutions the way its previous wording did.
-import { MIN_MEASUREMENTS_PER_REQUIRED_DAY, coverageRequirement } from '../../api/_lib/calls.ts';
+import {
+  MIN_MEASUREMENTS_PER_REQUIRED_DAY,
+  UNRESOLVABLE_GRACE_DAYS,
+  coverageRequirement,
+} from '../../api/_lib/calls.ts';
 
 /**
  * CII Methodology page — explains the Country Instability Index algorithm.
@@ -130,6 +134,15 @@ export function renderMethodology(root: HTMLElement): void {
       it. The count of calls currently expected to be unresolvable, and the countries, are recomputed
       live on <a href="#/ledger">the Ledger</a> rather than stated here, because a number written into
       a page is only true on the day it is typed.</p>
+      <p><strong>Currency (FX) calls have a separate rule, added after some had already
+      resolved.</strong> An FX call is scored only once an exchange rate dated the last day of its
+      window has been stored. Until then it stays <code>pending</code>. If no such rate is stored
+      within <strong>${UNRESOLVABLE_GRACE_DAYS} days</strong> of the resolution date, the call is
+      marked <code>unresolvable</code> with the reason &ldquo;no fresh quote&rdquo; and excluded from
+      every number we publish. Unlike the censorship rule, it holds hits and misses alike, so a lost
+      day removes that day&rsquo;s calls whatever their outcome, not only the would-be misses. A rate
+      missing earlier in the window does not hold the call: it is scored on the rates that were
+      stored.</p>
 
       <h2 class="brief-section-header">What is CII?</h2>
       <p>As of <strong>2026-08-23</strong> the Country Instability Index is <strong>two numbers, never one sum</strong>:</p>
@@ -151,7 +164,7 @@ export function renderMethodology(root: HTMLElement): void {
       </p>
       <ul class="method-list">
         <li><strong>OONI</strong> — Open Observatory of Network Interference, <code>web_connectivity</code> measurements at day grain. Collected every six hours; resolves every censorship call. Data is licensed CC BY-NC-SA 4.0.</li>
-        <li><strong>Exchange-rate reference rates</strong> — daily USD reference rates, collected at 05:00 UTC. Resolves every FX call.</li>
+        <li><strong>Exchange-rate reference rates</strong> — daily USD reference rates, collected at 05:00 UTC. Resolves every FX call that has a rate stored for its last day.</li>
         <li><strong>USGS</strong> — earthquake catalogue, queried directly at resolution time rather than collected. Resolves the seismicity calibration calls.</li>
         <li><strong>UCDP</strong> — Uppsala Conflict Data Program georeferenced events, monthly candidate files plus annual curated releases (~1 month lag). Drives the derived conflict baseline.</li>
         <li><strong>OFAC and the UN consolidated list</strong> — sanctions designations, collected every six hours.</li>
