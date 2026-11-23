@@ -80,7 +80,7 @@ const ALL_IDS = [
 // ── The approved wording, word for word (lanes8/FX-WORDING.md §6), dated 23 Nov 2026. ──
 const R1A_HEAD =
   "Note added 23 Nov 2026. This call's window ended on 21 Nov 2026. When that day's calls were issued, the newest " +
-  'exchange rate we held for each of the 65 currencies we issue calls on was still the 20 Nov rate; all 65 changed ' +
+  'exchange rate we held for each of the 66 currencies we have calls on was still the 20 Nov rate; all 66 changed ' +
   "on 22 Nov. This call's score is the one the rates from 7 to 20 Nov give.";
 const R1A_MISS =
   `${R1A_HEAD} A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov ` +
@@ -100,18 +100,16 @@ const R2 =
 const R1C_KICKER = 'Exchange rates, 21 November 2026';
 const R1C_HEADING = 'One day without new rates';
 const R1C =
-  "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 65 " +
-  'currencies we issue calls on was still the 20 Nov rate. All 65 changed on 22 Nov. We do not know whether our ' +
-  'collector or our source missed the day. Of the 66 calls that resolved on 21 Nov, the 65 in these currencies were ' +
-  'scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 38 as ' +
-  'misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 38 ' +
-  'misses would differ. 21 Nov also falls inside the windows of 65 of the 66 calls that resolved on 22 Nov, whose ' +
-  'scores are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows ' +
-  'of 780 open calls in these currencies, which had not yet been scored. We have not yet checked our calls on ' +
-  'Azerbaijan (AZN), the ' +
-  'last of which was made on 17 Nov. The 65 calls made on 21 Nov state the 20 Nov rate as their reference. We have ' +
-  'changed no verdict. On 22 Nov 2026 our FX skill was −3.0% with the 66 calls resolved on 21 Nov and −3.1% ' +
-  'without them; every figure on this page counts them as published.';
+  "On 21 Nov 2026, when that day's calls were issued, the newest exchange rate we held for each of the 66 " +
+  'currencies we have calls on was still the 20 Nov rate. All 66 changed on 22 Nov. We do not know whether our ' +
+  'collector or our source missed the day. The 66 calls that resolved on 21 Nov, all in these currencies, were ' +
+  'scored that morning. Each score is the one the rates from 7 to 20 Nov give: 27 were published as hits and 39 as ' +
+  'misses. A missing day can only turn a hit into a miss, so the 27 hits stand; we do not know whether any of the 39 ' +
+  'misses would differ. 21 Nov also falls inside the windows of all 66 calls that resolved on 22 Nov, whose scores ' +
+  'are the ones the rates of 8 to 20 Nov and 22 Nov give. As of 22 Nov 2026, it also fell inside the windows of 789 ' +
+  'open calls in these currencies, which had not yet been scored. The 65 calls made on 21 Nov state the 20 Nov rate ' +
+  'as their reference. We have changed no verdict. On 22 Nov 2026 our FX skill was \u22123.0% with the 66 calls ' +
+  'resolved on 21 Nov and \u22123.1% without them; every figure on this page counts them as published.';
 const R3A_HEADING = 'How a currency threshold is set, and what it does to the score';
 const R3A =
   "Added 23 Nov 2026. A currency call's threshold is the 75th percentile of that currency's 14-day peak " +
@@ -184,6 +182,12 @@ beforeEach(() => {
 });
 
 describe('/call/:id: a block above the grid, the verdict unchanged', () => {
+  it('AZ 6049, the 66th call resolved 21 Nov: the MISS note, word for word', async () => {
+    expect(CALL_BY_ID.get(6049)?.status).toBe('miss');
+    expect(paragraphs(await callPage(6049))).toContain(esc(R1A_MISS));
+    expect(await card(6049)).toContain('NOTE ADDED 23 NOV 2026 · SEE THE CALL PAGE');
+  });
+
   it('a MISS resolved 21 Nov (AR 6047): the MISS note, word for word', async () => {
     const html = await callPage(6047);
     expect(html).toContain('<div class="rule"></div><div class="kicker">Note</div>');
@@ -227,7 +231,7 @@ describe('/call/:id: a block above the grid, the verdict unchanged', () => {
   });
 
   it('the grid, the criterion and the description are what they were; an unnoted call is unchanged', async () => {
-    for (const id of [6047, 6048, 7002, 6110, 7109, 6049, 6115, 1346]) {
+    for (const id of [6047, 6048, 6049, 7002, 6110, 7109, 6115, 6723, 6175, 1346]) {
       h.keys = [...ALL_IDS];
       const on = await callPage(id);
       h.keys = [];
@@ -235,7 +239,7 @@ describe('/call/:id: a block above the grid, the verdict unchanged', () => {
       expect(grid(on), String(id)).toBe(grid(off));
       expect(on.slice(on.indexOf('The criterion')), String(id)).toBe(off.slice(off.indexOf('The criterion')));
       expect(on.match(/<head>[\s\S]*<\/head>/)?.[0]).toBe(off.match(/<head>[\s\S]*<\/head>/)?.[0]);
-      if (id === 6049 || id === 6115 || id === 1346) expect(on, String(id)).toBe(off);
+      if ([6115, 6723, 6175, 1346].includes(id)) expect(on, String(id)).toBe(off);
     }
   });
 
@@ -255,7 +259,7 @@ describe('/call/:id: a block above the grid, the verdict unchanged', () => {
 
 describe('the share card: one line, the verdict unchanged', () => {
   it('a noted call: NOTE ADDED 23 NOV 2026 · SEE THE CALL PAGE, once, under the badge it had', async () => {
-    for (const id of [6047, 6048, 7002, 6110, 7109]) {
+    for (const id of [6047, 6048, 6049, 7002, 6110, 7109]) {
       h.keys = [...ALL_IDS];
       const on = await card(id);
       h.keys = [];
@@ -267,23 +271,24 @@ describe('the share card: one line, the verdict unchanged', () => {
   });
 
   it('an unnoted call: no line', async () => {
-    for (const id of [6049, 6115, 1346]) expect(await card(id)).not.toContain('NOTE ADDED');
+    for (const id of [6115, 6723, 6175, 1346]) expect(await card(id)).not.toContain('NOTE ADDED');
   });
 });
 
 describe('/api/calls/ledger: a notes field on the noted calls, and nothing else moves', () => {
-  it('notes on exactly the 27 + 38 + 65 + 92 noted calls (2 overlap), word for word', async () => {
+  it('notes on exactly the 27 + 39 + 65 + 92 noted calls (2 overlap), word for word', async () => {
     const j = await ledgerJson();
     const rows = [...(j.open as Array<Record<string, unknown>>), ...(j.resolved as Array<Record<string, unknown>>)];
     const noted = rows.filter((r) => 'notes' in r);
-    expect(noted).toHaveLength(27 + 38 + 65 + 92 - 2);
+    expect(noted).toHaveLength(27 + 39 + 65 + 92 - 2);
     const notesOf = (id: number) =>
       (rows.find((r) => Number(r.id) === id)?.notes as Array<{ issued_on: string; note: string }>) ?? [];
     expect(notesOf(6047)).toEqual([{ issued_on: '2026-11-23', note: R1A_MISS }]);
     expect(notesOf(6048)).toEqual([{ issued_on: '2026-11-23', note: R1A_HIT }]);
     expect(notesOf(7002)).toEqual([{ issued_on: '2026-11-23', note: r1b('1.81120e+6') }]);
     expect(notesOf(6110).map((n) => n.note)).toEqual([R1A_MISS, R2]);
-    expect(notesOf(6049)).toEqual([]);
+    expect(notesOf(6049)).toEqual([{ issued_on: '2026-11-23', note: R1A_MISS }]);
+    for (const id of [6115, 6723, 6175]) expect(notesOf(id), String(id)).toEqual([]);
   });
 
   it('every count, score, verdict and correction is identical with and without the notes', async () => {

@@ -41,8 +41,11 @@ const HELD_METHOD = METHODOLOGY_NOTES.filter((s) => !approvedMethodologyNotes().
 const LINE_HELD = !thresholdLineApproved();
 /** Calls some approved note names: these may legitimately show "Note added". */
 const NOTED_BY_PUBLISHED = new Set(approvedCallNotes().flatMap((n) => [...n.scope.ids]));
-/** Calls no note names at all: AZ 6049 and 6115 (unchecked), and a corrected censorship call. */
-const UNNOTED = [6049, 6115, 1346];
+/**
+ * Calls no note names at all: AZ 6115 (resolved 22 Nov) and 6723 (open), ZA 6175 (resolved 22 Nov), and a
+ * corrected censorship call.
+ */
+const UNNOTED = [6115, 6723, 6175, 1346];
 const HELD_IDS = [...new Set(HELD_CALL.flatMap((n) => [...n.scope.ids]))];
 
 /** A stretch of each withheld text long enough to be unique, cut before any reference slot. */
