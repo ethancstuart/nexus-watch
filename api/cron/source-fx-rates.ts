@@ -109,6 +109,17 @@ const CURRENCY_MAP: Record<string, string> = {
 // CURRENCIES list no longer needed — open.er-api returns all currencies.
 // We filter by CURRENCY_MAP keys when processing the response.
 
+/**
+ * The UTC day the provider says its rates are for, read from its own
+ * `time_last_update_unix`. Null when the response does not say.
+ */
+export function providerQuoteDate(body: { time_last_update_unix?: unknown }): string | null {
+  const t = body.time_last_update_unix;
+  if (typeof t !== 'number' || !Number.isFinite(t) || t <= 0) return null;
+  const d = new Date(t * 1000);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireCron(req, res)) return;
 
@@ -126,7 +137,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       signal: AbortSignal.timeout(15000),
     });
     if (!latestRes.ok) throw new Error(`open.er-api ${latestRes.status}`);
-    const latestData = (await latestRes.json()) as { rates?: Record<string, number> };
+    const latestData = (await latestRes.json()) as { rates?: Record<string, number>; time_last_update_unix?: unknown };
+
+    // A ROW DATED TODAY MUST HOLD TODAY'S QUOTE. Every row below is dated by
+    // this job's own clock, not the provider's. On Sat 21 Nov 2026 all 65
+    // currencies repeated their 20 Nov values, and the 66 FX calls due that
+    // day were scored without a quote fresher than 20 Nov. So a response the
+    // provider last updated before today is not stored under today's date:
+    // no row is written, and the day reads as missing rather than as fresh.
+    const quotedOn = providerQuoteDate(latestData);
+    if (quotedOn === null || quotedOn < today) {
+      throw new Error(
+        quotedOn === null
+          ? `open.er-api gave no update time; nothing stored for ${today}`
+          : `open.er-api last updated ${quotedOn}, not ${today}; nothing stored for ${today}`,
+      );
+    }
     const rates = latestData.rates || {};
 
     // Upsert today's rates
