@@ -3,6 +3,7 @@ import { neon } from '@neondatabase/serverless';
 import {
   brierScore,
   baseRate,
+  meanStatedBaseRate,
   independentUnits,
   resolutionBatches,
   MIN_RESOLUTION_BATCHES,
@@ -14,6 +15,7 @@ import {
   type ScoredCall,
 } from './_lib/calls.js';
 import { shell, esc, pct } from './_lib/ssr-shell.js';
+import { landedRatesDetail } from './_lib/ledger-words.js';
 import { outcomeMarks } from '../src/styles/register-tokens.js';
 import { describeCorrections } from './_lib/ledger-by-kind.js';
 import { ledgerSectionsHtml, thresholdGroup, thresholdLineApproved, thresholdLineHtml } from './_lib/call-notes.js';
@@ -412,10 +414,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // resolution batch, no skill number separates forecasting from the
       // fortnight the world happened to have — so it is withheld and SAID to
       // be withheld, which is the more honest artifact anyway.
-      const br = baseRate(scored);
+      //
+      // `baseRate()` is the OBSERVED HIT RATE of these calls, not a base rate
+      // any of them stated; this line once called it "stated base rate". The
+      // mean of the base rates they did state is printed beside it, over the
+      // same rows (api/_lib/ledger-words.ts).
+      const rates = landedRatesDetail(baseRate(scored), meanStatedBaseRate(scored));
       parts.push(
         `<div class="stat"><div class="v wide">${t.hits}/${t.resolved}</div><div class="l">calls that landed</div>` +
-          `<div class="d">${Number.isFinite(br) ? `stated base rate ${pct(br)}` : ''}</div>` +
+          `<div class="d">${rates ? esc(rates) : ''}</div>` +
           `<div class="p">as of ${asOf} · calls table</div></div>`,
       );
 

@@ -2,6 +2,7 @@ import { createElement } from '../utils/dom.ts';
 import { installSurfaces, stat, sectionRule, figure, capture, row } from '../ui/kit/index.ts';
 import { setPageSeo } from '../utils/seo.ts';
 import { isScored } from '../../api/_lib/calls.ts';
+import { landedRatesDetail } from '../../api/_lib/ledger-words.ts';
 
 /**
  * The Ledger — /ledger, and the front door for the only claim nobody else in
@@ -70,7 +71,11 @@ interface LedgerData {
   min_batches_for_skill?: number;
   scoring: {
     note?: string;
+    /** The OBSERVED HIT RATE, despite the key's name; `base_rate_note` says so. */
     base_rate: number | null;
+    base_rate_note?: string;
+    /** The mean of the base rates the same calls stated. Absent from an older server. */
+    mean_stated_base_rate?: number | null;
     murphy: { reliability: number; resolution: number; uncertainty: number } | null;
     calibration: CalibrationBin[];
     /** Present when kinds under correction are left out of `calibration`; said beside it. */
@@ -278,11 +283,15 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
     const units = data.independent_units ?? counts.resolved;
     const batches = data.resolution_batches ?? 0;
     const minBatches = data.min_batches_for_skill ?? 3;
+    // `scoring.base_rate` is the OBSERVED HIT RATE; this line once called it
+    // "stated base rate" (and the tile below "base rate"). Same words as the
+    // server page, from the same function (api/_lib/ledger-words.ts).
+    const rates = landedRatesDetail(scoring.base_rate, scoring.mean_stated_base_rate);
     grid.appendChild(
       stat({
         value: `${counts.hits}/${counts.resolved}`,
         label: 'calls that landed',
-        detail: scoring.base_rate === null ? undefined : `stated base rate ${pct(scoring.base_rate)}`,
+        detail: rates,
         provenance: `as of ${asOf} · calls table`,
         size: 'hero',
       }),
@@ -309,7 +318,7 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
       stat({
         value: `${counts.hits}/${counts.resolved}`,
         label: 'calls that landed',
-        detail: scoring.base_rate === null ? undefined : `base rate ${pct(scoring.base_rate)}`,
+        detail: rates,
         provenance: `as of ${asOf} · calls table`,
       }),
     );

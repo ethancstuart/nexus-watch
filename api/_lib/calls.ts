@@ -248,10 +248,31 @@ export function brierScore(calls: ScoredCall[]): number {
   return sum / calls.length;
 }
 
-/** Share of resolved calls that actually happened — the base rate. */
+/**
+ * Share of resolved calls that actually happened: the OBSERVED HIT RATE, which
+ * pooled scoring uses as its climatology. Despite the name it is not a stated
+ * base rate. Each call states its own (`ScoredCall.baseRate`), and their mean
+ * is `meanStatedBaseRate`. /ledger once printed this figure as "stated base
+ * rate"; see api/_lib/ledger-words.ts.
+ */
 export function baseRate(calls: ScoredCall[]): number {
   if (calls.length === 0) return NaN;
   return calls.reduce((acc, c) => acc + c.outcome, 0) / calls.length;
+}
+
+/**
+ * The mean of the base rates the calls STATED: each call's own long-run rate
+ * at issue (`calls.base_rate`), averaged over the calls. This, not `baseRate`,
+ * is what "the stated base rate" of a set of calls means.
+ *
+ * NaN when there are no calls or any call lacks a base rate: a mean over only
+ * some of the calls would sit beside a hit rate over all of them and describe
+ * a different set.
+ */
+export function meanStatedBaseRate(calls: ScoredCall[]): number {
+  if (calls.length === 0) return NaN;
+  if (calls.some((c) => c.baseRate === undefined || !Number.isFinite(c.baseRate))) return NaN;
+  return calls.reduce((acc, c) => acc + (c.baseRate as number), 0) / calls.length;
 }
 
 /**

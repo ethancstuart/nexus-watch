@@ -5,6 +5,7 @@ import {
   resolutionBatches,
   MIN_RESOLUTION_BATCHES,
   baseRate,
+  meanStatedBaseRate,
   calibrationBins,
   murphyDecomposition,
   CALIBRATION_KINDS,
@@ -20,6 +21,7 @@ import {
   type ScoredRow,
 } from '../_lib/ledger-by-kind.js';
 import { callNotesPayload, notesForCall } from '../_lib/call-notes.js';
+import { BASE_RATE_NOTE } from '../_lib/ledger-words.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -403,7 +405,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'dominated by whichever wrote more rows. Skill is withheld for any kind until it has resolved ' +
           `in at least ${MIN_RESOLUTION_BATCHES} independent batches — with one batch there is no way to ` +
           'separate forecasting skill from the fortnight the world happened to have.',
+        // `base_rate` is the OBSERVED HIT RATE of `scored`, not a base rate any
+        // call stated. The key keeps its name because the daily snapshots and
+        // outside readers depend on it; the note says what it holds, and the
+        // mean of the stated base rates over the same calls rides beside it.
+        // It covers every scored claim, including kinds left out of
+        // `calibration` and `murphy` below.
         base_rate: scored.length ? num(baseRate(scored)) : null,
+        base_rate_note: BASE_RATE_NOTE,
+        mean_stated_base_rate: scored.length ? num(meanStatedBaseRate(scored)) : null,
         calibration: tableCalls.length ? calibrationBins(tableCalls) : [],
         calibration_note: calibrationExclusionNote(excludedFromTable),
         murphy: tableCalls.length ? murphyDecomposition(tableCalls) : null,
