@@ -34,10 +34,12 @@
  */
 import {
   brierScore,
+  calibrationBins,
   correctedReadingOf,
   independentUnits,
   resolutionBatches,
   publishableSkill,
+  type CalibrationBin,
   type ScoredCall,
 } from './calls.js';
 
@@ -118,6 +120,14 @@ export interface KindFigures {
   scored_rows_used: number;
   scoring_complete: boolean;
   /**
+   * Said against happened, for THIS KIND ONLY: calibrationBins over the same
+   * rows as `brier`, under the same completeness gate, so a surface can show
+   * one kind's table without pooling it with another. Empty when there is
+   * nothing to bin or the set is incomplete. The landing's hero table reads
+   * the currency one.
+   */
+  calibration: CalibrationBin[];
+  /**
    * The second reading, on corrected evidence. Null when no call of this kind
    * carries a correction — which is the ordinary case and must not render as
    * a zeroed-out object that looks like a measurement.
@@ -145,6 +155,7 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
       batches: 0,
       scored_rows_used: 0,
       scoring_complete: true,
+      calibration: [],
       corrected: null,
     };
   }
@@ -202,6 +213,7 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
     if (!out[kind].scoring_complete) continue;
 
     out[kind].brier = calls.length > 0 ? num(brierScore(calls)) : null;
+    out[kind].calibration = calibrationBins(calls);
     // Withheld until the kind has resolved in enough independent batches for
     // the number to separate skill from one fortnight's weather.
     out[kind].skill_vs_base_rate = num(publishableSkill({ calls, batches: out[kind].batches }));

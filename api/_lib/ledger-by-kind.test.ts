@@ -296,6 +296,69 @@ describe('corrected reading', () => {
   });
 });
 
+/**
+ * PER-KIND CALIBRATION, so a surface can show one kind's said-against-happened
+ * table without pooling. The landing's hero table was the pooled
+ * `scoring.calibration`, which mixes currencies with censorship: the very
+ * pooling the ledger refuses for its scores. Same function, one kind's rows,
+ * the same completeness gate as the Brier beside it. Figures worked by hand.
+ */
+describe('per-kind calibration', () => {
+  const counts: KindCountRow[] = [
+    { kind: 'fx_devaluation', open: 0, resolved: 4, hits: 2, unscored: 0 },
+    { kind: 'censorship_event', open: 0, resolved: 2, hits: 2, unscored: 0 },
+  ];
+  const row = (kind: string, probability: number, outcome: 0 | 1): ScoredRow => ({
+    kind,
+    countryCode: 'XX',
+    probability,
+    baseRate: 0.25,
+    outcome,
+    resolvedOn: '2026-11-01',
+  });
+  const rows: ScoredRow[] = [
+    row('fx_devaluation', 0.15, 1),
+    row('fx_devaluation', 0.17, 0),
+    row('fx_devaluation', 0.25, 1),
+    row('fx_devaluation', 0.27, 0),
+    row('censorship_event', 0.95, 1),
+    row('censorship_event', 0.15, 1),
+  ];
+
+  it("bins only that kind's rows", () => {
+    const fx = assembleByKind(counts, rows).fx_devaluation.calibration;
+    expect(fx).toHaveLength(2);
+    expect(fx[0].from).toBeCloseTo(0.1, 12);
+    expect(fx[0].count).toBe(2);
+    expect(fx[0].meanPredicted).toBeCloseTo(0.16, 12);
+    expect(fx[0].observed).toBeCloseTo(0.5, 12);
+    expect(fx[1].from).toBeCloseTo(0.2, 12);
+    expect(fx[1].count).toBe(2);
+    expect(fx[1].meanPredicted).toBeCloseTo(0.26, 12);
+    expect(fx[1].observed).toBeCloseTo(0.5, 12);
+    // The censorship call at 15% is not in the currency 10-20% band.
+    expect(fx.reduce((a, b) => a + b.count, 0)).toBe(4);
+  });
+
+  it('is empty for a kind with no scored rows', () => {
+    const out = assembleByKind(
+      [...counts, { kind: 'seismicity_window', open: 3, resolved: 0, hits: 0, unscored: 0 }],
+      rows,
+    );
+    expect(out.seismicity_window.calibration).toEqual([]);
+  });
+
+  it('is withheld, as an empty list, when the scored set is incomplete', () => {
+    const short: KindCountRow[] = [
+      { kind: 'fx_devaluation', open: 0, resolved: 900, hits: 2, unscored: 0 },
+      { kind: 'censorship_event', open: 0, resolved: 2, hits: 2, unscored: 0 },
+    ];
+    const out = assembleByKind(short, rows);
+    expect(out.fx_devaluation.scoring_complete).toBe(false);
+    expect(out.fx_devaluation.calibration).toEqual([]);
+  });
+});
+
 describe('describeCorrections', () => {
   it('names the direction, not just the count', () => {
     const rows = [

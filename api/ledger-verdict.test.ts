@@ -8,7 +8,7 @@ import {
   type SnapCall,
 } from './_lib/snapshot-sql-fixture.js';
 import { verdictHtml } from './_lib/verdict-html.js';
-import type { Verdict } from './_lib/verdict-words.js';
+import { frontDoorVerdict, figuresFromLedgerJson, type Verdict } from './_lib/verdict-words.js';
 
 /**
  * /ledger OPENS WITH A PLAIN, DATED VERDICT, IN THE SERVER-RENDERED HTML.
@@ -236,5 +236,50 @@ describe('escaping holds', () => {
   it('without a corrections sentence there is no anchor at all', () => {
     const html = verdictHtml({ dateline: 'As of 1 Dec 2026:', body: 'x.', corrections: null, text: 'unused' });
     expect(html).toBe('<p class="lede" id="verdict"><strong>As of 1 Dec 2026:</strong> x.</p>');
+  });
+});
+
+/**
+ * THE LANDING SAYS WHAT /ledger SAYS. The landing is drawn in the browser from
+ * /api/calls/ledger; it renders frontDoorVerdict(figuresFromLedgerJson(json))
+ * (src/pages/landing-verdict.test.ts proves that half). This proves the other
+ * half: from the same book, the JSON yields the same sentence the server page
+ * prints, and the currency table the landing draws is the currency calls only.
+ */
+describe('the landing and /ledger give the same verdict for the same book', () => {
+  async function ledgerJson(): Promise<Record<string, unknown>> {
+    const { default: handler } = await import('./calls/ledger.js');
+    const res = fakeRes();
+    await handler({ method: 'GET', query: {} } as never, res as never);
+    expect(res.state.status).toBe(200);
+    return JSON.parse(JSON.stringify(res.state.json)) as Record<string, unknown>;
+  }
+
+  it('the same sentence, word for word', async () => {
+    const fromJson = frontDoorVerdict(figuresFromLedgerJson(await ledgerJson(), true)!)!;
+    expect(fromJson.text).toBe(plain(verdictOf(await ledgerPage()) as string));
+  });
+
+  it('still the same once the book changes', async () => {
+    await withExtraOpenCalls([fxCall(990101, {}), fxCall(990102, {})], async () => {
+      const fromJson = frontDoorVerdict(figuresFromLedgerJson(await ledgerJson(), true)!)!;
+      expect(fromJson.text).toBe(plain(verdictOf(await ledgerPage()) as string));
+      expect(fromJson.text).toContain(`${grouped(bookFigures().open)} open.`);
+    });
+  });
+
+  it("the JSON's currency table holds the currency calls, and only them", async () => {
+    const fx = SNAPSHOT.resolved.filter(
+      (c) => c.kind === 'fx_devaluation' && (c.status === 'hit' || c.status === 'miss'),
+    );
+    const byKind = (await ledgerJson()).by_kind as Record<string, { calibration: Array<Record<string, number>> }>;
+    const bins = byKind.fx_devaluation.calibration;
+    expect(bins.reduce((a, b) => a + b.count, 0)).toBe(fx.length);
+    for (const b of bins) {
+      const inBand = fx.filter((c) => Math.min(9, Math.floor(c.probability * 10)) === Math.round(b.from * 10));
+      expect(b.count).toBe(inBand.length);
+      expect(b.observed).toBeCloseTo(inBand.filter((c) => c.status === 'hit').length / inBand.length, 12);
+      expect(b.meanPredicted).toBeCloseTo(inBand.reduce((a, c) => a + c.probability, 0) / inBand.length, 12);
+    }
   });
 });
