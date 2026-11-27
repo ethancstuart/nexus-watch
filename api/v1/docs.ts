@@ -76,7 +76,11 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     },
     // The register itself is not under /v1. These are the stable public reads.
     alsoPublic: {
-      'GET /api/calls/ledger': 'Every call, open and resolved, with corrections attached',
+      // The capped live view. Every call is at /data (api/calls/download.ts).
+      'GET /api/calls/ledger':
+        'The live ledger view, capped: counts and per-kind scores, up to 200 open calls (those furthest from ' +
+        'their base rate) and the 100 most recently resolved, with corrections attached. Every call, as CSV or ' +
+        'JSON: https://nexuswatch.dev/data',
       'GET /api/call?id=N': 'One call and its evidence',
       'GET /api/briefs': 'The brief archive',
     },

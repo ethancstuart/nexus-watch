@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import handler from './data.js';
 import {
   renderDataPageBody,
@@ -131,7 +134,7 @@ describe('/data documents the files', () => {
   });
 });
 
-describe('/ledger and the sitemap point to /data', () => {
+describe('/ledger, /call/:id, the API docs and the sitemap point to /data', () => {
   it('/ledger carries one sentence linking /data', async () => {
     process.env.DATABASE_URL = 'postgres://stub';
     const { default: ledger } = await import('./ledger.js');
@@ -143,6 +146,42 @@ describe('/ledger and the sitemap point to /data', () => {
     expect(text(res.state.body)).toContain(
       'Every call, open and resolved, can be downloaded as CSV or JSON, with a documented schema, from /data .',
     );
+  });
+
+  it('/call/:id sends a reader who wants every call to /data, not the capped /api/calls/ledger', async () => {
+    process.env.DATABASE_URL = 'postgres://stub';
+    const { default: call } = await import('./call.js');
+    const res = fakeRes();
+    await call({ method: 'GET', query: { id: '6176' } } as never, res as never);
+    expect(res.state.status).toBe(200);
+    expect(res.state.body).toContain(
+      '<p class="foot"><a href="/ledger">← The full ledger</a> · <a href="/data">every call, as CSV or JSON</a></p>',
+    );
+    expect(res.state.body).not.toContain('href="/api/calls/ledger"');
+  });
+
+  it('the API docs keep /api/calls/ledger as the capped live view and send every-call readers to /data', async () => {
+    const { default: docs } = await import('./v1/docs.js');
+    let body: { alsoPublic: Record<string, string> } | undefined;
+    const res = {
+      setHeader: () => res,
+      json: (b: typeof body) => {
+        body = b;
+        return res;
+      },
+    };
+    docs({} as never, res as never);
+    expect(body?.alsoPublic['GET /api/calls/ledger']).toBe(
+      'The live ledger view, capped: counts and per-kind scores, up to 200 open calls (those furthest from their ' +
+        'base rate) and the 100 most recently resolved, with corrections attached. Every call, as CSV or JSON: ' +
+        'https://nexuswatch.dev/data',
+    );
+    // The caps the line states are the endpoint's own: 200 open, ordered by
+    // distance from the base rate, and 100 resolved, unless ?all=1.
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'calls', 'ledger.ts'), 'utf8');
+    expect(src).toContain('const openLimit = wantsAll ? 100000 : 200;');
+    expect(src).toContain('ORDER BY ABS(probability - COALESCE(base_rate, probability)) DESC');
+    expect(src).toContain('(wantsAll ? resolved : resolved.slice(0, 100))');
   });
 
   it('the sitemap lists /data', async () => {

@@ -356,7 +356,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     parts.push(
       `<p class="foot"><a href="/ledger">← The full ledger</a> · ` +
-        `<a href="/api/calls/ledger">the same data as JSON</a></p>`,
+        `<a href="/data">every call, as CSV or JSON</a></p>`,
     );
 
     const title = `${c.country_code}: ${c.claim} — Call #${c.id} · NexusWatch`;

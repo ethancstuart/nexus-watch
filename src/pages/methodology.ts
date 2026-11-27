@@ -39,14 +39,13 @@ export function renderMethodology(root: HTMLElement): void {
       <p class="method-lede">Data sources, trust layer, and verification methodology behind every CII score.</p>
 
       <h2 class="brief-section-header">The Trust Layer</h2>
-      <p>Every NexusWatch number is <strong>auditable</strong>. Every call carries the criterion it was issued with, the source that resolves it and the evidence that source returned, and the whole book is downloadable as JSON from <code>/api/calls/ledger</code>. Where a published verdict has since been contradicted by better evidence, the correction is shown beside it rather than replacing it.</p>
+      <p>Every NexusWatch number is <strong>auditable</strong>. Every call carries the criterion it was issued with, the source that resolves it and the evidence that source returned, and the whole book is downloadable as CSV or JSON from <a class="method-link" href="/data">/data</a>. Where a published verdict has since been contradicted by better evidence, the correction is shown beside it rather than replacing it.</p>
       <ul class="method-list">
         <li><strong>Confidence levels</strong> (HIGH/MEDIUM/LOW) based on source count, freshness, and data volume</li>
         <li><strong>Verification badges</strong> — events are CONFIRMED (3+ sources), CORROBORATED (2), UNVERIFIED (1), or CONTESTED</li>
         <li><strong>Explicit data gaps</strong> — we show you what we DON'T have, not just what we do</li>
         <li><strong>Source freshness</strong> — live/recent/stale/offline indicators on every feed</li>
         <li><strong>The Ledger</strong> — every dated, falsifiable call, resolved against external sources, at <a class="method-link" href="#/ledger">/ledger</a></li>
-        <li><strong>The data</strong> — every call, open and resolved, as CSV or JSON with a documented schema, at <a class="method-link" href="/data">/data</a></li>
       </ul>
 
       <h2 class="brief-section-header">How the Ledger forecasts — and what the first score can show</h2>
