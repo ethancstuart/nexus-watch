@@ -57,6 +57,18 @@
       "destination": "/api/corrections"
     },
     {
+      "source": "/data",
+      "destination": "/api/data"
+    },
+    {
+      "source": "/data/calls.csv",
+      "destination": "/api/calls/download?format=csv"
+    },
+    {
+      "source": "/data/calls.json",
+      "destination": "/api/calls/download?format=json"
+    },
+    {
       "source": "/accuracy",
       "destination": "/index.html"
     },
