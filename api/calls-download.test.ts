@@ -325,6 +325,34 @@ describe('CSV and JSON hold the same rows in the same order', () => {
       expect(r[col('has_note')], `call ${r[0]}`).toBe(notesForCall(call as never).length > 0);
     }
 
+    // WHY THE evidence_count MEANING SAYS WHAT IT SAYS (review F2). A currency
+    // call is decided on the unrounded fall and stored rounded to whole basis
+    // points, so a miss can carry evidence equal to its threshold; a corrected
+    // row keeps the reading the correction overturned; an unresolvable row has
+    // none.
+    const at = (r: unknown[], name: string) => r[col(name)];
+    const fxEqualMisses = json.rows.filter(
+      (r) =>
+        at(r, 'kind') === 'fx_devaluation' &&
+        at(r, 'status') === 'miss' &&
+        at(r, 'evidence_count') === Math.round((at(r, 'threshold_pct') as number) * 100),
+    );
+    expect(fxEqualMisses.length).toBeGreaterThan(0);
+    const corrected = json.rows.filter((r) => at(r, 'has_correction') === true);
+    for (const r of corrected) {
+      expect(at(r, 'evidence_count')).toBe(CALL_BY_ID.get(r[0] as number)?.evidence_count);
+    }
+    const unresolvable = json.rows.filter((r) => at(r, 'status') === 'unresolvable');
+    expect(unresolvable.length).toBeGreaterThan(0);
+    for (const r of unresolvable) expect(at(r, 'evidence_count')).toBeNull();
+
+    // FORMULA-INJECTION TRIPWIRE (review F6). No text cell may open with a
+    // character a spreadsheet reads as a formula. Nothing is escaped: every
+    // text cell comes from code templates or enums, and escaping would alter
+    // the data a re-scorer reads. If this ever fails, decide then.
+    const textCols = DOWNLOAD_COLUMNS.filter((c) => c.type === 'text').map((c) => COLUMN_NAMES.indexOf(c.name));
+    for (const r of json.rows) for (const i of textCols) expect(String(r[i] ?? '')).not.toMatch(/^[=+\-@\t\r]/);
+
     // SIZE. A Vercel Function response is limited to 4.5 MB. Rows as arrays
     // keep the JSON within a quarter of the CSV; rows as objects were about
     // two and a half times it, and would cross the limit near 8,800 calls.

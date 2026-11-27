@@ -79,6 +79,9 @@ describe('/data documents the files', () => {
     const status = DOWNLOAD_COLUMNS.find((c) => c.name === 'status')?.meaning ?? '';
     for (const s of ['pending', 'hit', 'miss', 'void', 'unresolvable']) expect(status).toContain(`${s} (`);
     expect(status).toContain('Only hit and miss are scored.');
+    // A published verdict, not a fact about the world, and a pointer to the correction (review F1).
+    expect(status).toContain('miss (published as not having come true)');
+    expect(status).toContain('Where has_correction is true, later evidence supports correction_status instead.');
   });
 
   it('says how a call is scored, with the batch rule read from the scoring module, and links /methodology', () => {
@@ -95,6 +98,11 @@ describe('/data documents the files', () => {
     const dark = renderDataPageBody({ correctionsPageLive: false });
     expect(text(live)).toContain('The status column is the verdict as we published it, and we do not change it.');
     expect(text(live)).toContain('changes no verdict');
+    // How to score on corrected evidence, said where the caveat is (review F1).
+    expect(text(live)).toContain(
+      'To score the record on corrected evidence, take correction_status where has_correction is true and status ' +
+        'everywhere else; status alone reproduces the scores as published.',
+    );
     expect(live).toContain('<a href="/corrections">/corrections</a>');
     expect(dark).not.toContain('/corrections');
     // The served page follows the same gate /corrections itself answers by.

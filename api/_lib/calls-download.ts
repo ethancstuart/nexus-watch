@@ -127,9 +127,10 @@ export const DOWNLOAD_COLUMNS: readonly DownloadColumn[] = [
     name: 'status',
     type: 'text',
     meaning:
-      'The verdict as published, never rewritten: pending (not yet resolved), hit (the claim came true), miss ' +
-      '(it did not), void (withdrawn because our own criterion was unsound) or unresolvable (the source did not ' +
-      'observe enough to judge either way). Only hit and miss are scored.',
+      'The verdict as we published it, never rewritten: pending (not yet resolved), hit (published as having ' +
+      'come true), miss (published as not having come true), void (withdrawn because our own criterion was ' +
+      'unsound) or unresolvable (the source did not observe enough to judge either way). Only hit and miss are ' +
+      'scored. Where has_correction is true, later evidence supports correction_status instead.',
   },
   { name: 'resolved_at', type: 'timestamp', meaning: 'When the call was settled. Empty while it is pending.' },
   { name: 'void_reason', type: 'text', meaning: 'Why a void or unresolvable call was not scored. Empty otherwise.' },
@@ -138,8 +139,8 @@ export const DOWNLOAD_COLUMNS: readonly DownloadColumn[] = [
     name: 'threshold',
     type: 'integer',
     meaning:
-      'For censorship and seismicity calls, how many qualifying events the source must record for a hit. ' +
-      'Currency calls store 1 here and use threshold_pct.',
+      'For censorship and seismicity calls, the count evidence_count must reach for a hit, in the same units ' +
+      '(days with a confirmed block; qualifying earthquakes). Currency calls store 1 here and use threshold_pct.',
   },
   {
     name: 'threshold_pct',
@@ -159,9 +160,13 @@ export const DOWNLOAD_COLUMNS: readonly DownloadColumn[] = [
     name: 'evidence_count',
     type: 'integer',
     meaning:
-      'What the source recorded, in units that depend on kind: days with a confirmed block for censorship calls; ' +
-      'the largest fall in the window, in basis points, for currency calls (112 means 1.12%); qualifying ' +
-      'earthquakes for seismicity calls. Empty while the call is pending.',
+      'What the resolver recorded when it settled the call, in units that depend on kind: days with a confirmed ' +
+      'block for censorship calls; the largest fall in the window for currency calls, in basis points rounded to ' +
+      'the nearest whole one (112 means 1.12%); qualifying earthquakes for seismicity calls. It is the reading the ' +
+      'published status was decided on and is never updated: where has_correction is true it is the reading the ' +
+      'correction overturned, and the corrected evidence is on the call’s own page. A currency call was decided ' +
+      'on the unrounded fall, so one whose evidence_count equals its threshold_pct in basis points can be a miss. ' +
+      'Empty while the call is pending, and for unresolvable calls.',
   },
   {
     name: 'has_correction',

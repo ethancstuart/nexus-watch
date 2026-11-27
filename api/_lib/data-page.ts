@@ -27,7 +27,7 @@ export const METHODOLOGY_PATH = '/methodology';
 const SNAPSHOTS_URL = 'https://github.com/ethancstuart/nexus-watch/tree/main/ledger-snapshots';
 const LICENSE_URL = 'https://github.com/ethancstuart/nexus-watch/blob/main/LICENSE';
 
-/** Shorter than the files': the page changes only on deploy. */
+/** The same as the files' (DOWNLOAD_CACHE_CONTROL); the page itself changes only on deploy. */
 export const DATA_PAGE_CACHE_CONTROL = 'public, max-age=300, s-maxage=3600';
 
 export const DATA_PAGE_TITLE = 'The data — every NexusWatch call, as CSV and JSON';
@@ -160,9 +160,12 @@ export function renderDataPageBody(opts: DataPageOptions): string {
     '<p class="lede">The <code>status</code> column is the verdict as we published it, and we do not change it. ' +
       'When later evidence shows a published verdict was wrong, we record a correction beside the call: ' +
       '<code>has_correction</code> is true, <code>correction_status</code> gives the verdict the evidence ' +
-      'supports, and <code>correction_issued_on</code> the day we issued it. A note is different: it records ' +
-      'something a reader should know about a call, such as a day without new exchange rates, and changes no ' +
-      'verdict. Each call’s own page carries the correction’s evidence or the note’s full text.</p>',
+      'supports, and <code>correction_issued_on</code> the day we issued it. To score the record on corrected ' +
+      'evidence, take <code>correction_status</code> where <code>has_correction</code> is true and ' +
+      '<code>status</code> everywhere else; <code>status</code> alone reproduces the scores as published. A note ' +
+      'is different: it records something a reader should know about a call, such as a day without new exchange ' +
+      'rates, and changes no verdict. Each call’s own page carries the correction’s evidence or the note’s full ' +
+      'text.</p>',
   );
   parts.push(
     '<p class="lede">The ledger’s published scores count every call as it was published, and print the reading on ' +
