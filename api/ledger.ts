@@ -17,6 +17,9 @@ import { shell, esc, pct } from './_lib/ssr-shell.js';
 import { outcomeMarks } from '../src/styles/register-tokens.js';
 import { describeCorrections } from './_lib/ledger-by-kind.js';
 import { ledgerSectionsHtml, thresholdGroup, thresholdLineApproved, thresholdLineHtml } from './_lib/call-notes.js';
+import { frontDoorVerdict } from './_lib/verdict-words.js';
+import { verdictHtml } from './_lib/verdict-html.js';
+import { correctionsNewestFirst } from './_lib/corrections.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
@@ -65,6 +68,35 @@ const KIND_LABEL: Record<string, string> = {
   fx_devaluation: 'Currency depreciation (FX reference rates)',
   seismicity_window: 'Seismicity (USGS) — calibration harness',
 };
+
+/** One kind's scored rows, as the scoring query returns them. */
+interface KindScoringRow {
+  probability: number;
+  base_rate: number | null;
+  status: string;
+  resolved_at: string | null;
+}
+
+/**
+ * ONE KIND, SCORED ONCE. The per-kind row and the verdict at the top of the
+ * page both read their skill from here, so the two cannot print different
+ * numbers for the same calls.
+ */
+function scoreKind(rows: KindScoringRow[]) {
+  const calls: ScoredCall[] = rows.map((r) => ({
+    probability: r.probability,
+    outcome: (r.status === 'hit' ? 1 : 0) as 0 | 1,
+    baseRate: r.base_rate ?? undefined,
+  }));
+  const batches = resolutionBatches(rows.map((r) => (r.resolved_at ?? '').slice(0, 10)));
+  return {
+    calls,
+    batches,
+    hits: rows.filter((r) => r.status === 'hit').length,
+    brier: brierScore(calls),
+    skill: publishableSkill({ calls, batches }),
+  };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // The unfurl card for the register's front page. This shell used to declare
@@ -209,6 +241,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const parts: string[] = [];
     parts.push('<div class="rule"></div><div class="kicker">The Ledger</div>');
     parts.push('<h1>Every call we make, scored against something that isn’t us.</h1>');
+
+    // THE VERDICT FIRST (R1, "the open forecast record"): one plain, dated
+    // statement of what the record shows, before any method. Its figures are
+    // this page's own, read above at request time: the counts from `totals`,
+    // the currency skill from the same scoreKind() the FX row below prints.
+    // The ledger computes no interval, so none is passed, and the words never
+    // call a positive estimate skill (api/_lib/verdict-words.ts). With no
+    // approved correction /corrections answers 404, so then no link.
+    const fxRows = scoredRows.filter((r) => r.kind === 'fx_devaluation');
+    const fx = fxRows.length > 0 ? scoreKind(fxRows) : null;
+    const verdict = frontDoorVerdict({
+      asOn: asOf,
+      scored: t.resolved,
+      open: t.open,
+      fx: fx
+        ? {
+            skill: Number.isFinite(fx.skill) ? fx.skill : null,
+            batches: fx.batches,
+            minBatches: MIN_RESOLUTION_BATCHES,
+            interval: null,
+          }
+        : null,
+      correctionsPage: correctionsNewestFirst().length > 0,
+    });
+    if (verdict) parts.push(verdictHtml(verdict));
     parts.push(
       '<p class="lede">Each call names an external source, a threshold and a resolution date before the outcome is known. ' +
         'The score is published whether it flatters us or not — a record that only reports its wins is not a record.</p>',
@@ -389,15 +446,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const kinds = [...new Set(scoredRows.map((r) => r.kind))];
       for (const kind of kinds) {
         const rows = scoredRows.filter((r) => r.kind === kind);
-        const ks: ScoredCall[] = rows.map((r) => ({
-          probability: r.probability,
-          outcome: (r.status === 'hit' ? 1 : 0) as 0 | 1,
-          baseRate: r.base_rate ?? undefined,
-        }));
-        const kBatches = resolutionBatches(rows.map((r) => (r.resolved_at ?? '').slice(0, 10)));
-        const kHits = rows.filter((r) => r.status === 'hit').length;
-        const kBrier = brierScore(ks);
-        const kSkill = publishableSkill({ calls: ks, batches: kBatches });
+        const { batches: kBatches, hits: kHits, brier: kBrier, skill: kSkill } = scoreKind(rows);
         const trail = Number.isFinite(kSkill)
           ? `skill ${kSkill >= 0 ? '+' : ''}${Math.round(kSkill * 100)}%`
           : 'skill withheld';
