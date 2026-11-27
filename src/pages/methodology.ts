@@ -46,6 +46,7 @@ export function renderMethodology(root: HTMLElement): void {
         <li><strong>Explicit data gaps</strong> — we show you what we DON'T have, not just what we do</li>
         <li><strong>Source freshness</strong> — live/recent/stale/offline indicators on every feed</li>
         <li><strong>The Ledger</strong> — every dated, falsifiable call, resolved against external sources, at <a class="method-link" href="#/ledger">/ledger</a></li>
+        <li><strong>The data</strong> — every call, open and resolved, as CSV or JSON with a documented schema, at <a class="method-link" href="/data">/data</a></li>
       </ul>
 
       <h2 class="brief-section-header">How the Ledger forecasts — and what the first score can show</h2>

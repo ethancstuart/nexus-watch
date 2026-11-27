@@ -113,3 +113,26 @@ describe('/data documents the files', () => {
     expect(pageCss).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
   });
 });
+
+describe('/ledger and the sitemap point to /data', () => {
+  it('/ledger carries one sentence linking /data', async () => {
+    process.env.DATABASE_URL = 'postgres://stub';
+    const { default: ledger } = await import('./ledger.js');
+    const res = fakeRes();
+    await ledger({ method: 'GET', query: {} } as never, res as never);
+    expect(res.state.status).toBe(200);
+    const links = res.state.body.match(/<a href="\/data">/g) ?? [];
+    expect(links).toHaveLength(1);
+    expect(text(res.state.body)).toContain(
+      'Every call, open and resolved, can be downloaded as CSV or JSON, with a documented schema, from /data .',
+    );
+  });
+
+  it('the sitemap lists /data', async () => {
+    const { default: sitemap } = await import('./sitemap.js');
+    const res = fakeRes();
+    delete process.env.DATABASE_URL;
+    await sitemap({ method: 'GET', query: {} } as never, res as never);
+    expect(res.state.body).toContain('<loc>https://nexuswatch.dev/data</loc>');
+  });
+});
