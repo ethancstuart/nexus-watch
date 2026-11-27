@@ -107,7 +107,8 @@ describe('brief sitemap entries survive whatever the driver returns', () => {
  * table and read back every URL it serves, across every file.
  */
 const BASE = 'https://nexuswatch.dev';
-const STATIC_COUNT = 12;
+// 13 since /data (the documented download of every call) joined the static routes.
+const STATIC_COUNT = 13;
 
 function synthCalls(n: number) {
   return Array.from({ length: n }, (_, i) => ({

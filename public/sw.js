@@ -51,6 +51,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // The call download, /data and /data/* on this origin: network-first with
+  // stale fallback, as the API above. It is API data under another path,
+  // rebuilt every day, and the static branch below is cache-first with no
+  // expiry, which would pin a reader to the first copy they ever fetched. It
+  // sits before the navigate branch, which stores every response as
+  // /index.html, so opening the CSV cannot become the offline page. After the
+  // origin check, so another site's /data/ path is never intercepted.
+  if (url.pathname === '/data' || url.pathname.startsWith('/data/')) {
+    event.respondWith(networkFirstWithCache(event.request, API_CACHE));
+    return;
+  }
+
   // Navigate requests: network-first so new deploys take effect immediately
   if (event.request.mode === 'navigate') {
     event.respondWith(

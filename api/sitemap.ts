@@ -109,6 +109,9 @@ const STATIC_ROUTES: Array<{ path: string; changefreq: string; priority: string 
   { path: 'methodology', changefreq: 'monthly', priority: '0.5' },
   { path: 'roadmap', changefreq: 'weekly', priority: '0.4' },
   { path: 'ledger', changefreq: 'daily', priority: '0.9' },
+  // The page documenting the download. The files it links change daily; the
+  // page itself changes only when the schema does.
+  { path: 'data', changefreq: 'monthly', priority: '0.6' },
   { path: 'faq', changefreq: 'monthly', priority: '0.4' },
   { path: 'terms', changefreq: 'yearly', priority: '0.2' },
   { path: 'privacy', changefreq: 'yearly', priority: '0.2' },

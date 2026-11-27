@@ -652,6 +652,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // THE WHOLE BOOK AS A FILE (api/_lib/data-page.ts). This page shows a
+    // window of the book; /data documents a download of every row.
+    parts.push(
+      '<p class="lede">Every call, open and resolved, can be downloaded as CSV or JSON, with a documented ' +
+        'schema, from <a href="/data">/data</a>.</p>',
+    );
+
     parts.push(
       `<p class="foot">The brief opens with this ledger, every morning. ` +
         `<a href="https://nexuswatch.dev/briefs">Read the latest issue</a> · ` +
