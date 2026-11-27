@@ -184,3 +184,63 @@ describe('correction notes in the SPA', () => {
     }
   });
 });
+
+/**
+ * The record-only (mechanical) edition on the SPA's single-brief page (plan R1).
+ * Its byline cannot say a model wrote it, and its own-site links render as
+ * links. A model edition is exactly as before. Synthetic rows; fetch is stubbed.
+ */
+describe('a mechanical edition in the SPA', () => {
+  async function renderOne(response: Record<string, unknown>): Promise<HTMLElement> {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify(response), { status: 200 }))),
+    );
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    renderBrief(root, String(response.brief_date));
+    await vi.waitFor(() => {
+      if (!root.querySelector('.dossier-body')) throw new Error('brief not rendered yet');
+    });
+    return root;
+  }
+
+  const TEXT =
+    '## 🏁 What resolved today\n\n- UG (UG): MISS — we said 40%. [Call #7001](https://nexuswatch.dev/call/7001)\n\n' +
+    '## 📝 About this edition\n\nCorrections are listed on [the corrections page](https://nexuswatch.dev/corrections).\n';
+  const row = (edition?: string) => ({
+    brief_date: '2026-11-27',
+    summary: null,
+    content: { briefText: TEXT, ...(edition ? { edition } : {}) },
+    generated_at: null,
+  });
+
+  it('says no model wrote it, and names no source it did not use', async () => {
+    const root = await renderOne(row('mechanical'));
+    const byline = root.querySelector('.dossier-byline')?.textContent ?? '';
+    expect(byline).toContain("Mechanical edition: assembled by code from the ledger's own entries. No model wrote it.");
+    expect(byline).not.toMatch(/Written by a model|USGS|Wikipedia/);
+    expect(root.querySelector('.dossier-byline a')?.getAttribute('href')).toBe('#/methodology');
+  });
+
+  it('renders its own-site links as links', async () => {
+    const root = await renderOne(row('mechanical'));
+    const links = [...root.querySelectorAll('.dossier-body a')].map((a) => [a.getAttribute('href'), a.textContent]);
+    expect(links).toEqual([
+      ['https://nexuswatch.dev/call/7001', 'Call #7001'],
+      ['https://nexuswatch.dev/corrections', 'the corrections page'],
+    ]);
+    expect(root.querySelector('.dossier-body')?.textContent).not.toContain('](');
+  });
+
+  it('a model edition (or a row with no edition) keeps its byline and renders no links', async () => {
+    for (const edition of [undefined, 'model', 'MECHANICAL']) {
+      document.body.textContent = '';
+      const root = await renderOne(row(edition));
+      expect(root.querySelector('.dossier-byline')?.textContent).toContain(
+        "Written by a model from the day's collected data.",
+      );
+      expect(root.querySelectorAll('.dossier-body a')).toHaveLength(0);
+    }
+  });
+});

@@ -9,6 +9,7 @@ import {
   isUsableSubject,
   chooseSubject,
   fallbackSubject,
+  countedSubject,
   SUBJECT_MAX,
 } from './brief-structure.js';
 
@@ -201,5 +202,25 @@ describe('fallbackSubject — never a headline, always the ledger, always labell
 
   it('fits the subject limit that clampSubject enforces', () => {
     expect(fallbackSubject('2026-09-12', { resolved: 1000, hits: 1000 }).length).toBeLessThanOrEqual(SUBJECT_MAX);
+  });
+});
+
+describe('countedSubject reads back what fallbackSubject writes', () => {
+  // Moved here from api/brief/og.ts so the share images (one an edge function)
+  // use the page's rule. The brief job's own subject must pass it, for any count.
+  it('a counted subject passes; the "unchanged" one, and any other date, never does', () => {
+    for (const [resolved, hits] of [
+      [1, 0],
+      [66, 31],
+      [1234567, 7],
+    ]) {
+      const s = fallbackSubject('2026-11-27', { resolved, hits });
+      expect(countedSubject('2026-11-27', { subject: s, edition: 'mechanical' })).toBe(s);
+      expect(countedSubject('2026-11-28', { subject: s, edition: 'mechanical' })).toBeNull();
+      expect(countedSubject('2026-11-27', { subject: s, edition: 'model' })).toBeNull();
+    }
+    for (const record of [null, { resolved: 0, hits: 0 }]) {
+      expect(countedSubject('2026-11-27', { subject: fallbackSubject('2026-11-27', record) })).toBeNull();
+    }
   });
 });

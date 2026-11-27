@@ -207,6 +207,24 @@ export function fallbackSubject(date: string, record: { resolved: number; hits: 
   return clampSubject(`${lead} — mechanical edition, ${date}`);
 }
 
+const COUNTED_SUBJECT = /^(\d{1,7}) calls settled, (\d{1,7}) hit — mechanical edition, (\d{4}-\d{2}-\d{2})$/;
+
+/**
+ * The archived subject when it is fallbackSubject's COUNTED form for this date,
+ * on a row not flagged as a model edition; otherwise null. Only that form is
+ * repeated on a public surface (a page title, a share image): code wrote it
+ * from the day's resolved-call counts. "The Ledger, unchanged" is also written
+ * when the day's record could not be read, so it is never repeated (review M2,
+ * api/brief/og.ts).
+ */
+export function countedSubject(date: string, content: { subject?: unknown; edition?: unknown }): string | null {
+  if (content.edition !== undefined && content.edition !== null && content.edition !== 'mechanical') return null;
+  const s = typeof content.subject === 'string' ? content.subject.replace(/\s+/g, ' ').trim() : '';
+  const m = COUNTED_SUBJECT.exec(s);
+  if (!m || m[3] !== date || Number(m[2]) > Number(m[1])) return null;
+  return s;
+}
+
 export function extractSubject(markdown: string): string | null {
   for (const section of ['Top Signal', "Today's Call", "This Week's Calls", 'The Week That Was']) {
     const idx = markdown.indexOf(section);

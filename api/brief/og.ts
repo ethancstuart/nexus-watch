@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { markdownToHtml } from '../_lib/markdown.js';
+import { countedSubject } from '../_lib/brief-structure.js';
 import { approvedNoteFor, correctionBlockHtml, CORRECTION_BLOCK_CSS } from '../_lib/corrections.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
@@ -110,19 +111,13 @@ export function dateTitle(date: string): string {
   return `NexusWatch Situation Brief · ${date}`;
 }
 
-const COUNTED_SUBJECT = /^(\d{1,7}) calls settled, (\d{1,7}) hit — mechanical edition, (\d{4}-\d{2}-\d{2})$/;
-
 /**
  * The archived subject when it is fallbackSubject's counted form for this
- * date, on a row not flagged as a model edition; otherwise null.
+ * date, on a row not flagged as a model edition; otherwise null. It lives in
+ * brief-structure.ts beside fallbackSubject, so the share images (one of them
+ * an edge function) apply the same rule; re-exported here for its callers.
  */
-export function countedSubject(date: string, content: { subject?: unknown; edition?: unknown }): string | null {
-  if (content.edition !== undefined && content.edition !== null && content.edition !== 'mechanical') return null;
-  const s = typeof content.subject === 'string' ? content.subject.replace(/\s+/g, ' ').trim() : '';
-  const m = COUNTED_SUBJECT.exec(s);
-  if (!m || m[3] !== date || Number(m[2]) > Number(m[1])) return null;
-  return s;
-}
+export { countedSubject };
 
 /** `NexusWatch · <counted subject>`, else the date title. */
 export function briefTitle(date: string, content: { subject?: unknown; edition?: unknown }): string {
@@ -227,6 +222,7 @@ function renderShell(opts: {
     .brief ul, .brief ol { padding-left: 22px; }
     .brief li { margin: 0 0 8px; }
     .brief hr { border: 0; border-top: 1px solid #c9c3b4; margin: 40px 0; }
+    .brief a { font: inherit; letter-spacing: normal; text-transform: none; border: 0; padding: 0; border-radius: 0; display: inline; text-decoration: underline; }
     .more { margin-top: 48px; }
     .kicker { font-family: 'JetBrains Mono', Menlo, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.2em; color: #9a1b1b; text-transform: uppercase; margin-bottom: 12px; }
     h1 { font-family: 'Tiempos Headline', Georgia, serif; font-size: 32px; font-weight: 600; margin: 0 0 16px 0; }

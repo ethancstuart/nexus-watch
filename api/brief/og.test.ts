@@ -252,3 +252,32 @@ describe('/brief/:date', () => {
     for (const t of [...shell.titles, ...shell.descriptions]) expect(t).toBe('Daily Briefs · NexusWatch');
   });
 });
+
+/**
+ * The record-only (mechanical) edition on its server-rendered page (plan R1).
+ * Its call, ledger and corrections links render inside the article as ordinary
+ * links; the page's only button-styled link stays the one below the article.
+ */
+describe('/brief/:date: the record-only edition', () => {
+  const TEXT =
+    `## 🏁 What resolved today\n\n**The Ledger** — 67 resolved today, 22 hit\n\n` +
+    `- UG (UG): MISS — we said 40% (base rate 30%). [Call #7001](https://nexuswatch.dev/call/7001)\n\n` +
+    `## 📝 About this edition\n\nCorrections to earlier editions of this brief are listed on ` +
+    `[the corrections page](https://nexuswatch.dev/corrections).\n`;
+
+  it('its links render as links in the article, styled as text, not as the page button', async () => {
+    row = { brief_date: DATE, summary: '', content: { briefText: TEXT, subject: COUNTED, edition: 'mechanical' } };
+    const html = await page({ date: DATE });
+    const article = html.slice(html.indexOf('<div class="brief">'), html.indexOf('<p class="more">'));
+    expect(article).toContain('<a href="https://nexuswatch.dev/call/7001" rel="noopener">Call #7001</a>');
+    expect(article).toContain('<a href="https://nexuswatch.dev/corrections" rel="noopener">the corrections page</a>');
+    expect(article).not.toContain('](');
+    // The article's links undo the page button's capitals, border and padding.
+    const rule = /\.brief a \{([^}]*)\}/.exec(html)?.[1] ?? '';
+    for (const d of ['text-transform: none', 'border: 0', 'padding: 0', 'display: inline', 'font: inherit']) {
+      expect(rule).toContain(d);
+    }
+    // Title and description are the counted subject, as before.
+    expect(metadata(html).titles[0]).toBe(`NexusWatch · ${COUNTED}`);
+  });
+});
