@@ -55,7 +55,7 @@ describe('the SPA never calls the observed hit rate a base rate', () => {
       base_rate: 0.3099342456015639,
       mean_stated_base_rate: 0.25636271547894085,
     });
-    for (const d of details) expect(d).toBe('observed hit rate 31% · mean stated base rate 26%');
+    for (const d of details) expect(d).toBe('observed hit rate 31% as published · mean stated base rate 26%');
     expect(grid).not.toMatch(/(?<!mean )stated base rate/);
     for (const m of grid.matchAll(/base rate (\d+)%/g)) {
       expect(grid.slice(Math.max(0, (m.index ?? 0) - 'mean stated '.length), m.index)).toBe('mean stated ');
@@ -64,12 +64,12 @@ describe('the SPA never calls the observed hit rate a base rate', () => {
 
   it('both figures come from the response', async () => {
     const { details } = await render({ base_rate: 0.55, mean_stated_base_rate: 0.38 });
-    for (const d of details) expect(d).toBe('observed hit rate 55% · mean stated base rate 38%');
+    for (const d of details) expect(d).toBe('observed hit rate 55% as published · mean stated base rate 38%');
   });
 
   it('a server without the mean: the hit rate alone, still not called a base rate', async () => {
     const { details, grid } = await render({ base_rate: 0.3116 });
-    for (const d of details) expect(d).toBe('observed hit rate 31%');
+    for (const d of details) expect(d).toBe('observed hit rate 31% as published');
     expect(grid).not.toMatch(/base rate \d+%/);
   });
 

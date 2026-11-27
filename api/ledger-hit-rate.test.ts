@@ -127,10 +127,10 @@ describe('the two figures, as functions', () => {
   });
 
   it('the label names the observed figure a hit rate, and only the mean a base rate', () => {
-    expect(landedRatesDetail(0.3116, 0.2564)).toBe('observed hit rate 31% · mean stated base rate 26%');
-    expect(landedRatesDetail(0.3116, null)).toBe('observed hit rate 31%');
-    expect(landedRatesDetail(0.3116, undefined)).toBe('observed hit rate 31%');
-    expect(landedRatesDetail(0.3116, Number.NaN)).toBe('observed hit rate 31%');
+    expect(landedRatesDetail(0.3116, 0.2564)).toBe('observed hit rate 31% as published · mean stated base rate 26%');
+    expect(landedRatesDetail(0.3116, null)).toBe('observed hit rate 31% as published');
+    expect(landedRatesDetail(0.3116, undefined)).toBe('observed hit rate 31% as published');
+    expect(landedRatesDetail(0.3116, Number.NaN)).toBe('observed hit rate 31% as published');
     expect(landedRatesDetail(null, 0.2564)).toBeUndefined();
     expect(landedRatesDetail('0.31', '0.26')).toBeUndefined();
   });
@@ -161,7 +161,7 @@ describe('verified on the 26 Nov 2026 snapshot', () => {
 
   it('and the line those calls would print', () => {
     expect(landedRatesDetail(baseRate(asCalls(rows)), meanStatedBaseRate(asCalls(rows)))).toBe(
-      'observed hit rate 31% · mean stated base rate 26%',
+      'observed hit rate 31% as published · mean stated base rate 26%',
     );
   });
 });
@@ -170,7 +170,7 @@ describe('/ledger (server-rendered), on the 22 Nov 2026 book', () => {
   it('labels the landed share an observed hit rate, with the mean stated base rate beside it', async () => {
     const f = byHand(SNAPSHOT.resolved);
     expect(heroDetail(await ledgerPage())).toBe(
-      `observed hit rate ${pct(f.observed)} · mean stated base rate ${pct(f.meanStated)}`,
+      `observed hit rate ${pct(f.observed)} as published · mean stated base rate ${pct(f.meanStated)}`,
     );
     expect([pct(f.observed), pct(f.meanStated)]).toEqual(['30%', '26%']);
   });
@@ -188,7 +188,7 @@ describe('/ledger (server-rendered), on the 22 Nov 2026 book', () => {
       const f = byHand(SNAPSHOT.resolved);
       expect([pct(f.observed), pct(f.meanStated)]).toEqual(['55%', '38%']);
       expect(heroDetail(await ledgerPage())).toBe(
-        `observed hit rate ${pct(f.observed)} · mean stated base rate ${pct(f.meanStated)}`,
+        `observed hit rate ${pct(f.observed)} as published · mean stated base rate ${pct(f.meanStated)}`,
       );
     });
   });

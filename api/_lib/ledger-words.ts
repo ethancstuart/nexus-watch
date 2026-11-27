@@ -25,12 +25,12 @@ export const BASE_RATE_NOTE =
   'stated.';
 
 /**
- * "observed hit rate 31% · mean stated base rate 26%", or the hit rate alone
+ * "observed hit rate 31% as published · mean stated base rate 26%", or the hit rate alone
  * when no mean is supplied (an older server, or a call without a base rate).
  * With no observed rate, no line. Neither figure is ever called anything else.
  */
 export function landedRatesDetail(observedHitRate: unknown, meanStatedBaseRate: unknown): string | undefined {
   if (!finite(observedHitRate)) return undefined;
-  const observed = `observed hit rate ${pct(observedHitRate)}`;
+  const observed = `observed hit rate ${pct(observedHitRate)} as published`;
   return finite(meanStatedBaseRate) ? `${observed} · mean stated base rate ${pct(meanStatedBaseRate)}` : observed;
 }
