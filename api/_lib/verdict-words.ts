@@ -71,9 +71,12 @@ export interface Verdict {
 // ── The fixed words. Each needs the owner's sign-off (lanes12/FRONTDOOR.md). ──
 
 const MINUS = '−';
-const CORRECTIONS_BEFORE = 'Corrections to our censorship reporting are published on ';
+// /corrections covers the daily brief's corrected editions. Corrected forecast
+// outcomes are on each call's page (and in /ledger's own corrections section),
+// so the sentence says which is which (lead, 27 Nov 2026).
+const CORRECTIONS_BEFORE = 'Corrections to our daily brief\u2019s censorship reporting are published on ';
 const CORRECTIONS_LINK = 'our corrections page';
-const CORRECTIONS_AFTER = '.';
+const CORRECTIONS_AFTER = '; corrected forecast outcomes appear on their call pages.';
 
 const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
 const isFiniteNumber = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
@@ -123,7 +126,8 @@ function currencySentence(fx: FxFigures): string {
   const interval = usableInterval(fx.interval, skill);
   if (!interval) {
     return skill > 0
-      ? `${lead}. No interval is computed for that figure, so it does not show skill.`
+      ? // Says only what we do, not what the forecasts are (REVIEW-FRONTDOOR finding 2).
+        `${lead}. We compute no interval for that figure yet, so we claim no skill from it.`
       : `${lead}: no detectable skill.`;
   }
 

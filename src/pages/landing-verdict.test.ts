@@ -108,7 +108,8 @@ describe('the hero: the verdict first, then the currency table', () => {
     const v = verdict(await drawn(LEDGER)) as HTMLElement;
     expect(v.textContent).toBe(
       `As of 27 Nov 2026: 5,693 forecasts scored, 980 open. Currency forecasts score ${MINUS}3% against their base ` +
-        'rate: no detectable skill. Corrections to our censorship reporting are published on our corrections page.',
+        'rate: no detectable skill. Corrections to our daily brief’s censorship reporting are published on our ' +
+        'corrections page; corrected forecast outcomes appear on their call pages.',
     );
     expect(v.querySelector('strong')?.textContent).toBe('As of 27 Nov 2026:');
     const links = v.querySelectorAll('a');
@@ -136,7 +137,7 @@ describe('the hero: the verdict first, then the currency table', () => {
     };
     const t = verdict(await drawn(up))?.textContent ?? '';
     expect(t).toContain(
-      'Currency forecasts score +4% against their base rate. No interval is computed for that figure, so it does not show skill.',
+      'Currency forecasts score +4% against their base rate. We compute no interval for that figure yet, so we claim no skill from it.',
     );
     expect(t).not.toMatch(/detectable skill/);
   });

@@ -122,7 +122,8 @@ describe('/ledger opens with the verdict', () => {
     expect(verdictOf(await ledgerPage())).toBe(
       '<p class="lede" id="verdict"><strong>As of 22 Nov 2026:</strong> 5,429 forecasts scored, 919 open. ' +
         `Currency forecasts score ${MINUS}3% against their base rate: no detectable skill. ` +
-        'Corrections to our censorship reporting are published on <a href="/corrections">our corrections page</a>.</p>',
+        'Corrections to our daily brief’s censorship reporting are published on ' +
+        '<a href="/corrections">our corrections page</a>; corrected forecast outcomes appear on their call pages.</p>',
     );
   });
 
@@ -180,8 +181,8 @@ describe('the verdict is computed per request, never written down', () => {
       const p = plain(verdictOf(await ledgerPage()) as string);
       expect(p).toContain(`${grouped(f.scored)} forecasts scored`);
       expect(p).toContain(
-        `Currency forecasts score ${points(f.fxSkill)} against their base rate. No interval is computed for that ` +
-          'figure, so it does not show skill.',
+        `Currency forecasts score ${points(f.fxSkill)} against their base rate. We compute no interval for that ` +
+          'figure yet, so we claim no skill from it.',
       );
       expect(p).not.toMatch(/detectable skill/);
     });

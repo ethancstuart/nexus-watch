@@ -47,7 +47,9 @@ const text = (f: VerdictFigures) => {
   return v.text;
 };
 
-const CORRECTIONS = 'Corrections to our censorship reporting are published on our corrections page.';
+const CORRECTIONS =
+  'Corrections to our daily brief’s censorship reporting are published on our corrections page; corrected ' +
+  'forecast outcomes appear on their call pages.';
 
 describe('the words, branch by branch', () => {
   it('the lead’s example: counts, then currencies, then the corrections link', () => {
@@ -58,9 +60,9 @@ describe('the words, branch by branch', () => {
     );
     expect(v?.dateline).toBe('As of 27 Nov 2026:');
     expect(v?.corrections).toEqual({
-      before: 'Corrections to our censorship reporting are published on ',
+      before: 'Corrections to our daily brief’s censorship reporting are published on ',
       link: 'our corrections page',
-      after: '.',
+      after: '; corrected forecast outcomes appear on their call pages.',
       href: '/corrections',
     });
     // The pieces put back together are the whole text: no surface can render
@@ -78,8 +80,8 @@ describe('the words, branch by branch', () => {
 
   it('a positive estimate with no interval is never called skill', () => {
     expect(text(figures({ fx: fx({ skill: 0.021 }) }))).toContain(
-      'Currency forecasts score +2% against their base rate. No interval is computed for that figure, so it does ' +
-        'not show skill.',
+      'Currency forecasts score +2% against their base rate. We compute no interval for that figure yet, so we ' +
+        'claim no skill from it.',
     );
   });
 
@@ -141,7 +143,7 @@ describe('the words, branch by branch', () => {
  */
 const NEGATIVE_SKILL_PHRASES = [
   'no detectable skill',
-  'so it does not show skill',
+  'so we claim no skill from it',
   'have no skill figure yet',
   'carry no published skill figure',
 ];
@@ -212,7 +214,7 @@ describe('"skill" is said positively only when an interval excludes zero', () =>
     for (const interval of bad) {
       const t = text(figures({ fx: fx({ skill: 0.15, interval: interval as SkillInterval }) }));
       expect(saysSkillPositively(t), JSON.stringify(interval)).toBe(false);
-      expect(t).toContain('No interval is computed for that figure, so it does not show skill.');
+      expect(t).toContain('We compute no interval for that figure yet, so we claim no skill from it.');
     }
   });
 
