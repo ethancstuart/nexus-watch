@@ -89,7 +89,12 @@ describe('/api/brief/screenshot (the og:image of /brief/:date)', () => {
   });
 
   it('a mechanical edition without a counted subject draws no count at all', async () => {
-    for (const subject of [`The Ledger, unchanged — mechanical edition, ${DATE}`, undefined, '<b>66</b> calls']) {
+    for (const subject of [
+      `The Ledger, unchanged — mechanical edition, ${DATE}`,
+      `The Ledger — mechanical edition, ${DATE}`,
+      undefined,
+      '<b>66</b> calls',
+    ]) {
       row = { brief_date: DATE, content: { edition: 'mechanical', subject } };
       const out = await shot();
       expect(out.body).toContain('>The Ledger<');
@@ -120,7 +125,11 @@ describe('/api/og?type=brief', () => {
       tension: null,
       mechanical: true,
     });
-    for (const subject of [`The Ledger, unchanged — mechanical edition, ${DATE}`, undefined]) {
+    for (const subject of [
+      `The Ledger, unchanged — mechanical edition, ${DATE}`,
+      `The Ledger — mechanical edition, ${DATE}`,
+      undefined,
+    ]) {
       expect(briefCardWords(DATE, summary, { edition: 'mechanical', subject }).headline).toBe(MECHANICAL_EDITION_LINE);
     }
   });

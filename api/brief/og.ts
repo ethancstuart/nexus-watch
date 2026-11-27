@@ -93,10 +93,11 @@ function escapeHtml(s: string): string {
  * through the corrections gate, and only once approved.
  *
  * WHY ONLY THE COUNTED MECHANICAL FORM (review M2). fallbackSubject also
- * writes "The Ledger, unchanged — mechanical edition, <date>" whenever the
- * day's record is missing, which includes the day the resolved-calls query
- * fails: calls may have settled while that subject says nothing changed. Any
- * subject not in the counted form, for this page's date, gets the date title.
+ * writes "The Ledger, unchanged — mechanical edition, <date>" (the day was read
+ * and none settled) and, since R1, "The Ledger — mechanical edition, <date>"
+ * (no read of the day succeeded; until R1 that case also said "unchanged",
+ * which could be false). Neither carries a count. Any subject not in the
+ * counted form, for this page's date, gets the date title.
  *
  * Every possible output, for sign-off: `NexusWatch Situation Brief · <date>`
  * (title and description), `NexusWatch · <N> calls settled, <H> hit —

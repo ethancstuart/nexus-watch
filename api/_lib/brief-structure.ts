@@ -203,8 +203,16 @@ export function chooseSubject(declared: string | null, body: string): string | n
  * as an ordinary morning.
  */
 export function fallbackSubject(date: string, record: { resolved: number; hits: number } | null): string {
+  // Three cases, each true when it is written. Calls settled: the count. The
+  // day was read and none settled: "unchanged". The day could not be read (null,
+  // every read failed): no claim about it at all. That case used to say
+  // "unchanged" too, which was false whenever calls had settled (review M2).
   const lead =
-    record && record.resolved > 0 ? `${record.resolved} calls settled, ${record.hits} hit` : 'The Ledger, unchanged';
+    record === null
+      ? 'The Ledger'
+      : record.resolved > 0
+        ? `${record.resolved} calls settled, ${record.hits} hit`
+        : 'The Ledger, unchanged';
   return clampSubject(`${lead} — mechanical edition, ${date}`);
 }
 
@@ -214,9 +222,9 @@ const COUNTED_SUBJECT = /^(\d{1,7}) calls settled, (\d{1,7}) hit — mechanical 
  * The archived subject when it is fallbackSubject's COUNTED form for this date,
  * on a row not flagged as a model edition; otherwise null. Only that form is
  * repeated on a public surface (a page title, a share image): code wrote it
- * from the day's resolved-call counts. "The Ledger, unchanged" is also written
- * when the day's record could not be read, so it is never repeated (review M2,
- * api/brief/og.ts).
+ * from the day's resolved-call counts. The other two forms ("The Ledger,
+ * unchanged" and, when nothing could be read, "The Ledger") carry no count, so
+ * they are never repeated (review M2, api/brief/og.ts).
  */
 export function countedSubject(date: string, content: { subject?: unknown; edition?: unknown }): string | null {
   if (content.edition !== undefined && content.edition !== null && content.edition !== 'mechanical') return null;

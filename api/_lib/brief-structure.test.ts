@@ -187,11 +187,22 @@ describe('fallbackSubject — never a headline, always the ledger, always labell
     );
   });
 
-  it('says the ledger is unchanged when nothing settled, rather than inventing a number', () => {
+  it('says the ledger is unchanged when the day was read and nothing settled, rather than inventing a number', () => {
     expect(fallbackSubject('2026-09-12', { resolved: 0, hits: 0 })).toBe(
       'The Ledger, unchanged — mechanical edition, 2026-09-12',
     );
-    expect(fallbackSubject('2026-09-12', null)).toBe('The Ledger, unchanged — mechanical edition, 2026-09-12');
+  });
+
+  // CHANGED WITH R1: when no read of the day succeeded (null) the subject used
+  // to say "unchanged" as well, which was false whenever calls had in fact
+  // settled (review M2). It now makes no claim about the day at all.
+  it('claims nothing about a day it could not read: never "unchanged", never a number', () => {
+    const s = fallbackSubject('2026-09-12', null);
+    expect(s).toBe('The Ledger — mechanical edition, 2026-09-12');
+    expect(s).not.toMatch(/unchanged|settled|\d+ hit/);
+    // Still labelled, so the edition is named in the subject and /api/status can read it.
+    expect(s).toContain('mechanical edition');
+    expect(countedSubject('2026-09-12', { subject: s, edition: 'mechanical' })).toBeNull();
   });
 
   it('is never the scraped headline, even when one is available', () => {

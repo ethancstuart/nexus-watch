@@ -115,9 +115,11 @@ describe('countedSubject', () => {
 
   it('refuses every other subject (review M2)', () => {
     for (const subject of [
-      // fallbackSubject's form when the day's record is missing, including the
-      // day the resolved-calls query fails: it can be false.
+      // fallbackSubject's form when the day was read and none settled (and,
+      // before R1, also when it could not be read, when it could be false).
       `The Ledger, unchanged — mechanical edition, ${DATE}`,
+      // Its form since R1 when no read of the day succeeded: no count either.
+      `The Ledger — mechanical edition, ${DATE}`,
       // Counted, but another day's.
       '67 calls settled, 22 hit — mechanical edition, 2026-11-14',
       // More hits than calls settled.

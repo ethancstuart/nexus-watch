@@ -373,14 +373,17 @@ describe('the record-only edition on every surface (no model key, as production 
     expect(s['brief page (/brief/:date)']).not.toContain('**The Ledger**');
     expect(s['email subject']).toBe(`3 calls settled, 1 hit — mechanical edition, ${TODAY} — The NexusWatch Brief`);
     expect(s['email plain text']).toContain('3 calls settled today against external ground truth: 1 hit, 2 miss.');
-    // Both reads failed: no count anywhere, so the subject says nothing changed only when nothing was read.
+    // Both reads failed: no count is known, so the subject claims nothing about the day.
     db.row = null;
     db.claims = new Set();
     db.failRecord = true;
     await runBrief();
-    expect((db.row!.content as { subject: string }).subject).toBe(
-      `The Ledger, unchanged — mechanical edition, ${TODAY}`,
-    );
+    const unread = (db.row!.content as { subject: string }).subject;
+    expect(unread).toBe(`The Ledger — mechanical edition, ${TODAY}`);
+    expect(unread).not.toContain('unchanged');
+    const s2 = await surfaces();
+    expect(s2['email subject']).toBe(`The Ledger — mechanical edition, ${TODAY} — The NexusWatch Brief`);
+    for (const [name, text] of Object.entries(s2)) expect(text, name).not.toContain('The Ledger, unchanged');
   });
 
   it('the page, the email and the feeds carry the sections in order, and the calls linked', async () => {
