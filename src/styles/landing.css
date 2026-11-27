@@ -973,9 +973,9 @@
   border: 0;
 }
 
-/* ── The calibration figure — the hero ──────────────────────────────────────
-   Replaces a decorative globe with the only artifact on the site that shows
-   the SHAPE of the record rather than a summary of it. Two bars per band on a
+/* ── The calibration figure — in the hero, under the verdict ────────────────
+   The currency calls only. It shows the SHAPE of the record rather than a
+   summary of it. Two bars per band on a
    shared 0-100% scale, each labelled with its own number so the reader is
    never asked to judge a length against an unstated axis.
 
@@ -985,7 +985,9 @@
    the same colour. That is the same rule the ledger's outcome marks follow.
 */
 .nw-hero-figure {
-  margin: 40px auto 0;
+  /* In the hero's text column now, between the verdict and the sub-line:
+     the verdict above already leaves 36px, so this spaces only what follows. */
+  margin: 0 auto 36px;
   max-width: 62ch;
   width: 100%;
   border-top: 2px solid var(--nw-gold, #c9a86b);

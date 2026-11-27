@@ -34,10 +34,12 @@
  */
 import {
   brierScore,
+  calibrationBins,
   correctedReadingOf,
   independentUnits,
   resolutionBatches,
   publishableSkill,
+  type CalibrationBin,
   type ScoredCall,
 } from './calls.js';
 
@@ -118,6 +120,18 @@ export interface KindFigures {
   scored_rows_used: number;
   scoring_complete: boolean;
   /**
+   * Said against happened, for THIS KIND ONLY: calibrationBins over the same
+   * rows as `brier`, under the same completeness gate, so a surface can show
+   * one kind's table without pooling it with another. Empty when there is
+   * nothing to bin or the set is incomplete. The landing's hero table reads
+   * the currency one.
+   *
+   * Null when any call of this kind carries an outcome-changing correction: a
+   * table of published outcomes that the evidence contradicts is withheld, as
+   * the corrected skill is.
+   */
+  calibration: CalibrationBin[] | null;
+  /**
    * The second reading, on corrected evidence. Null when no call of this kind
    * carries a correction — which is the ordinary case and must not render as
    * a zeroed-out object that looks like a measurement.
@@ -145,6 +159,7 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
       batches: 0,
       scored_rows_used: 0,
       scoring_complete: true,
+      calibration: [],
       corrected: null,
     };
   }
@@ -212,6 +227,7 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
     // set would be as misleading as a published one, and more so for sitting
     // next to a number that is whole.
     const reading = correctedReadingOf(rows.map((r, i) => ({ ...calls[i], correctedOutcome: r.correctedOutcome })));
+    out[kind].calibration = reading ? null : calibrationBins(calls);
     if (reading) {
       out[kind].corrected = {
         brier: reading.brier,
@@ -229,6 +245,38 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
   }
 
   return out;
+}
+
+/**
+ * Kinds whose outcomes are UNDER CORRECTION: at least one scored row's evidence
+ * disagrees with its published verdict. Exactly the condition under which
+ * assembleByKind gives a kind a second reading, withholds its corrected skill
+ * and withholds its calibration table, so all of them move together.
+ */
+export function kindsUnderCorrection(rows: ScoredRow[]): Set<string> {
+  return new Set(rows.filter((r) => r.correctedOutcome !== undefined).map((r) => r.kind));
+}
+
+/** How a kind is named in the sentence beside the pooled calibration table. */
+const TABLE_KIND_NAME: Record<string, string> = {
+  censorship_event: 'Censorship',
+  fx_devaluation: 'Currency',
+};
+
+/**
+ * The plain sentence beside the pooled calibration table when kinds are left
+ * out of it, or null when none is. Words for the owner's sign-off
+ * (lanes12/FRONTDOOR.md): "Censorship forecasts are left out of this table
+ * while their outcomes are under correction."
+ */
+export function calibrationExclusionNote(kinds: Iterable<string>): string | null {
+  const names = [...new Set(kinds)].sort().map((k, i) => {
+    const name = TABLE_KIND_NAME[k] ?? k;
+    return i === 0 ? name : name.toLowerCase();
+  });
+  if (names.length === 0) return null;
+  const subject = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `${subject} forecasts are left out of this table while their outcomes are under correction.`;
 }
 
 // Moved to calls.ts so the daily brief can use it; re-exported so callers are unchanged.

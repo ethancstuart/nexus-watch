@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { assembleByKind, describeCorrections, type KindCountRow, type ScoredRow } from './ledger-by-kind.js';
+import {
+  assembleByKind,
+  calibrationExclusionNote,
+  describeCorrections,
+  kindsUnderCorrection,
+  type KindCountRow,
+  type ScoredRow,
+} from './ledger-by-kind.js';
 
 /**
  * REGRESSION FOR A DEFECT THAT WAS LIVE ON THE PUBLIC API.
@@ -293,6 +300,134 @@ describe('corrected reading', () => {
     expect(withCorrections.hits).toBe(clean.hits);
     expect(withCorrections.resolved).toBe(clean.resolved);
     expect(withCorrections.skill_vs_base_rate).toBe(clean.skill_vs_base_rate);
+  });
+});
+
+/**
+ * PER-KIND CALIBRATION, so a surface can show one kind's said-against-happened
+ * table without pooling. The landing's hero table was the pooled
+ * `scoring.calibration`, which mixes currencies with censorship: the very
+ * pooling the ledger refuses for its scores. Same function, one kind's rows,
+ * the same completeness gate as the Brier beside it. Figures worked by hand.
+ */
+describe('per-kind calibration', () => {
+  const counts: KindCountRow[] = [
+    { kind: 'fx_devaluation', open: 0, resolved: 4, hits: 2, unscored: 0 },
+    { kind: 'censorship_event', open: 0, resolved: 2, hits: 2, unscored: 0 },
+  ];
+  const row = (kind: string, probability: number, outcome: 0 | 1): ScoredRow => ({
+    kind,
+    countryCode: 'XX',
+    probability,
+    baseRate: 0.25,
+    outcome,
+    resolvedOn: '2026-11-01',
+  });
+  const rows: ScoredRow[] = [
+    row('fx_devaluation', 0.15, 1),
+    row('fx_devaluation', 0.17, 0),
+    row('fx_devaluation', 0.25, 1),
+    row('fx_devaluation', 0.27, 0),
+    row('censorship_event', 0.95, 1),
+    row('censorship_event', 0.15, 1),
+  ];
+
+  it("bins only that kind's rows", () => {
+    const fx = assembleByKind(counts, rows).fx_devaluation.calibration!;
+    expect(fx).toHaveLength(2);
+    expect(fx[0].from).toBeCloseTo(0.1, 12);
+    expect(fx[0].count).toBe(2);
+    expect(fx[0].meanPredicted).toBeCloseTo(0.16, 12);
+    expect(fx[0].observed).toBeCloseTo(0.5, 12);
+    expect(fx[1].from).toBeCloseTo(0.2, 12);
+    expect(fx[1].count).toBe(2);
+    expect(fx[1].meanPredicted).toBeCloseTo(0.26, 12);
+    expect(fx[1].observed).toBeCloseTo(0.5, 12);
+    // The censorship call at 15% is not in the currency 10-20% band.
+    expect(fx.reduce((a, b) => a + b.count, 0)).toBe(4);
+  });
+
+  it('is empty for a kind with no scored rows', () => {
+    const out = assembleByKind(
+      [...counts, { kind: 'seismicity_window', open: 3, resolved: 0, hits: 0, unscored: 0 }],
+      rows,
+    );
+    expect(out.seismicity_window.calibration).toEqual([]);
+  });
+
+  it('is withheld, as an empty list, when the scored set is incomplete', () => {
+    const short: KindCountRow[] = [
+      { kind: 'fx_devaluation', open: 0, resolved: 900, hits: 2, unscored: 0 },
+      { kind: 'censorship_event', open: 0, resolved: 2, hits: 2, unscored: 0 },
+    ];
+    const out = assembleByKind(short, rows);
+    expect(out.fx_devaluation.scoring_complete).toBe(false);
+    expect(out.fx_devaluation.calibration).toEqual([]);
+  });
+
+  // REVIEW-FRONTDOOR finding 1. A said-against-happened table on published
+  // outcomes the evidence contradicts is withheld, as the corrected skill is:
+  // the same gate as the second reading.
+  it('is withheld, as null, for a kind with an outcome-changing correction; the kind beside it keeps its bins', () => {
+    const withCorrection: ScoredRow[] = [
+      ...rows.filter((r) => r.kind === 'fx_devaluation'),
+      row('censorship_event', 0.95, 1),
+      { ...row('censorship_event', 0.15, 0), correctedOutcome: 1 },
+    ];
+    const out = assembleByKind(counts, withCorrection);
+    expect(out.censorship_event.corrected).not.toBeNull();
+    expect(out.censorship_event.calibration).toBeNull();
+    expect(out.fx_devaluation.corrected).toBeNull();
+    expect(out.fx_devaluation.calibration).toHaveLength(2);
+    expect(out.fx_devaluation.calibration!.reduce((a, b) => a + b.count, 0)).toBe(4);
+  });
+
+  it('a correction that agrees with what was published withholds nothing', () => {
+    const agreeing: ScoredRow[] = rows.map((r) => ({ ...r, correctedOutcome: undefined }));
+    const out = assembleByKind(counts, agreeing);
+    expect(out.censorship_event.corrected).toBeNull();
+    expect(out.censorship_event.calibration).toHaveLength(2);
+  });
+});
+
+describe('the pooled table and kinds under correction', () => {
+  const r = (kind: string, correctedOutcome?: 0 | 1): ScoredRow => ({
+    kind,
+    countryCode: 'XX',
+    probability: 0.2,
+    baseRate: 0.25,
+    outcome: 0,
+    resolvedOn: '2026-11-01',
+    correctedOutcome,
+  });
+
+  it('a kind is under correction when any of its rows has an outcome-changing correction', () => {
+    expect([...kindsUnderCorrection([r('fx_devaluation'), r('censorship_event', 1), r('censorship_event')])]).toEqual([
+      'censorship_event',
+    ]);
+    expect(kindsUnderCorrection([r('fx_devaluation'), r('censorship_event')]).size).toBe(0);
+  });
+
+  it('is exactly the condition that gives a kind its second reading', () => {
+    const rows = [r('fx_devaluation'), r('censorship_event', 1), r('censorship_event')];
+    const counts: KindCountRow[] = [
+      { kind: 'fx_devaluation', open: 0, resolved: 1, hits: 0, unscored: 0 },
+      { kind: 'censorship_event', open: 0, resolved: 2, hits: 0, unscored: 0 },
+    ];
+    const out = assembleByKind(counts, rows);
+    for (const kind of Object.keys(out)) {
+      expect(kindsUnderCorrection(rows).has(kind)).toBe(out[kind].corrected !== null);
+    }
+  });
+
+  it('the sentence beside the table names the kinds left out, or is absent', () => {
+    expect(calibrationExclusionNote(['censorship_event'])).toBe(
+      'Censorship forecasts are left out of this table while their outcomes are under correction.',
+    );
+    expect(calibrationExclusionNote(['fx_devaluation', 'censorship_event'])).toBe(
+      'Censorship and currency forecasts are left out of this table while their outcomes are under correction.',
+    );
+    expect(calibrationExclusionNote([])).toBeNull();
   });
 });
 

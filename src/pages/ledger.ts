@@ -73,6 +73,8 @@ interface LedgerData {
     base_rate: number | null;
     murphy: { reliability: number; resolution: number; uncertainty: number } | null;
     calibration: CalibrationBin[];
+    /** Present when kinds under correction are left out of `calibration`; said beside it. */
+    calibration_note?: string | null;
   };
   by_kind: Record<
     string,
@@ -350,6 +352,9 @@ export async function renderLedgerPage(root: HTMLElement): Promise<void> {
         caption:
           'When we say 70%, does it happen 70% of the time? Points on the diagonal are calibrated; ' +
           'dot size is how many calls sit in that band.' +
+          // The server's sentence when it left a kind under correction out of
+          // this table (api/calls/ledger.ts): said beside the table it describes.
+          (typeof scoring.calibration_note === 'string' ? ` ${scoring.calibration_note}` : '') +
           (m
             ? ` Reliability ${m.reliability.toFixed(3)}, resolution ${m.resolution.toFixed(3)}, uncertainty ${m.uncertainty.toFixed(3)}.`
             : ''),
