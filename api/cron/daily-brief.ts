@@ -3108,8 +3108,19 @@ async function gatherRecord(sql: SqlTag, nameOf: Map<string, string>): Promise<B
     );
   }
 
-  // Repository data, not a read: /corrections answers 404 until a note is approved.
-  return { resolved, open, correctionsPage: correctionsNewestFirst().length > 0 };
+  // Repository data, not a read: /corrections answers 404 until a note is
+  // approved (api/corrections.ts asks exactly this). Guarded all the same: a
+  // brief must still go out, and with no line rather than a dead link.
+  let correctionsPage = false;
+  try {
+    correctionsPage = correctionsNewestFirst().length > 0;
+  } catch (err) {
+    console.error(
+      '[daily-brief] record: corrections gate unavailable (non-fatal):',
+      err instanceof Error ? err.message : err,
+    );
+  }
+  return { resolved, open, correctionsPage };
 }
 
 /**
