@@ -268,6 +268,15 @@ describe('the landing and /ledger give the same verdict for the same book', () =
     });
   });
 
+  it('the censorship table is withheld while its outcomes are under correction (REVIEW-FRONTDOOR finding 1)', async () => {
+    const byKind = (await ledgerJson()).by_kind as Record<string, { calibration: unknown; corrected: unknown }>;
+    expect(SNAPSHOT.resolved.some((c) => c.kind === 'censorship_event' && c.correction)).toBe(true);
+    expect(byKind.censorship_event.corrected).not.toBeNull();
+    expect(byKind.censorship_event.calibration).toBeNull();
+    expect(byKind.fx_devaluation.corrected).toBeNull();
+    expect(Array.isArray(byKind.fx_devaluation.calibration)).toBe(true);
+  });
+
   it("the JSON's currency table holds the currency calls, and only them", async () => {
     const fx = SNAPSHOT.resolved.filter(
       (c) => c.kind === 'fx_devaluation' && (c.status === 'hit' || c.status === 'miss'),

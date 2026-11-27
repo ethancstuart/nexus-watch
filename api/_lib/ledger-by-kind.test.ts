@@ -326,7 +326,7 @@ describe('per-kind calibration', () => {
   ];
 
   it("bins only that kind's rows", () => {
-    const fx = assembleByKind(counts, rows).fx_devaluation.calibration;
+    const fx = assembleByKind(counts, rows).fx_devaluation.calibration!;
     expect(fx).toHaveLength(2);
     expect(fx[0].from).toBeCloseTo(0.1, 12);
     expect(fx[0].count).toBe(2);
@@ -356,6 +356,30 @@ describe('per-kind calibration', () => {
     const out = assembleByKind(short, rows);
     expect(out.fx_devaluation.scoring_complete).toBe(false);
     expect(out.fx_devaluation.calibration).toEqual([]);
+  });
+
+  // REVIEW-FRONTDOOR finding 1. A said-against-happened table on published
+  // outcomes the evidence contradicts is withheld, as the corrected skill is:
+  // the same gate as the second reading.
+  it('is withheld, as null, for a kind with an outcome-changing correction; the kind beside it keeps its bins', () => {
+    const withCorrection: ScoredRow[] = [
+      ...rows.filter((r) => r.kind === 'fx_devaluation'),
+      row('censorship_event', 0.95, 1),
+      { ...row('censorship_event', 0.15, 0), correctedOutcome: 1 },
+    ];
+    const out = assembleByKind(counts, withCorrection);
+    expect(out.censorship_event.corrected).not.toBeNull();
+    expect(out.censorship_event.calibration).toBeNull();
+    expect(out.fx_devaluation.corrected).toBeNull();
+    expect(out.fx_devaluation.calibration).toHaveLength(2);
+    expect(out.fx_devaluation.calibration!.reduce((a, b) => a + b.count, 0)).toBe(4);
+  });
+
+  it('a correction that agrees with what was published withholds nothing', () => {
+    const agreeing: ScoredRow[] = rows.map((r) => ({ ...r, correctedOutcome: undefined }));
+    const out = assembleByKind(counts, agreeing);
+    expect(out.censorship_event.corrected).toBeNull();
+    expect(out.censorship_event.calibration).toHaveLength(2);
   });
 });
 

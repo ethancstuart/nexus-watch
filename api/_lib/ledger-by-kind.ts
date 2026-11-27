@@ -125,8 +125,12 @@ export interface KindFigures {
    * one kind's table without pooling it with another. Empty when there is
    * nothing to bin or the set is incomplete. The landing's hero table reads
    * the currency one.
+   *
+   * Null when any call of this kind carries an outcome-changing correction: a
+   * table of published outcomes that the evidence contradicts is withheld, as
+   * the corrected skill is.
    */
-  calibration: CalibrationBin[];
+  calibration: CalibrationBin[] | null;
   /**
    * The second reading, on corrected evidence. Null when no call of this kind
    * carries a correction — which is the ordinary case and must not render as
@@ -213,7 +217,6 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
     if (!out[kind].scoring_complete) continue;
 
     out[kind].brier = calls.length > 0 ? num(brierScore(calls)) : null;
-    out[kind].calibration = calibrationBins(calls);
     // Withheld until the kind has resolved in enough independent batches for
     // the number to separate skill from one fortnight's weather.
     out[kind].skill_vs_base_rate = num(publishableSkill({ calls, batches: out[kind].batches }));
@@ -224,6 +227,7 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
     // set would be as misleading as a published one, and more so for sitting
     // next to a number that is whole.
     const reading = correctedReadingOf(rows.map((r, i) => ({ ...calls[i], correctedOutcome: r.correctedOutcome })));
+    out[kind].calibration = reading ? null : calibrationBins(calls);
     if (reading) {
       out[kind].corrected = {
         brier: reading.brier,
