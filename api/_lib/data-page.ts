@@ -36,13 +36,23 @@ export const DATA_PAGE_DESCRIPTION =
   'the claim, the probability we stated, the verdict as published, and any correction or note since.';
 
 /**
- * The licence line. The repository's LICENSE is the MIT License (copyright
- * 2026 Ethan Stuart), written for "the Software"; whether the owner wants it,
- * or a data licence, to govern this file is his decision (lanes12/DOWNLOAD.md).
- * Set to null to leave the line off the page.
+ * The line drafted for the repository's own licence. NOT SHOWN: kept so the
+ * owner can choose it. The repository's LICENSE is the MIT License (copyright
+ * 2026 Ethan Stuart), written for "the Software".
  */
-export const LICENCE_HTML: string | null =
-  `Licence: the <a href="${LICENSE_URL}">MIT License</a>, the licence of the NexusWatch repository.`;
+export const REPOSITORY_LICENCE_HTML = `Licence: the <a href="${LICENSE_URL}">MIT License</a>, the licence of the NexusWatch repository.`;
+
+/**
+ * The licence line on /data, or null for none.
+ *
+ * NULL BY LEAD DECISION, 27 Nov 2026: /data claims no licence for the data
+ * until the owner chooses one. MIT covers the software; whether it, or a data
+ * licence, covers this file is the owner's call (lanes12/DOWNLOAD.md). To
+ * publish one, set this to the chosen line, for MIT REPOSITORY_LICENCE_HTML.
+ * The section heading follows: "Licence and citation" with a line,
+ * "Citation" without.
+ */
+export const LICENCE_HTML: string | null = null;
 
 /** The citation as printed on the page, with the date left for the reader. */
 export const CITATION_TEMPLATE = `NexusWatch forecast ledger, retrieved <date>, ${DATA_PAGE_URL}`;
@@ -80,10 +90,13 @@ function typesHtml(): string {
 export interface DataPageOptions {
   /** Whether /corrections is live (it answers 404 until a note is approved). */
   correctionsPageLive: boolean;
+  /** The licence line, or null for none. Defaults to LICENCE_HTML; tests pass their own. */
+  licenceHtml?: string | null;
 }
 
 /** The page body, for ssr-shell. */
 export function renderDataPageBody(opts: DataPageOptions): string {
+  const licence = opts.licenceHtml === undefined ? LICENCE_HTML : opts.licenceHtml;
   const parts: string[] = [];
 
   parts.push('<div class="rule"></div><div class="kicker">The data</div>');
@@ -161,8 +174,8 @@ export function renderDataPageBody(opts: DataPageOptions): string {
       '</p>',
   );
 
-  parts.push(section('Using the data', 'Licence and citation'));
-  if (LICENCE_HTML) parts.push(`<p class="lede">${LICENCE_HTML}</p>`);
+  parts.push(section('Using the data', licence ? 'Licence and citation' : 'Citation'));
+  if (licence) parts.push(`<p class="lede">${licence}</p>`);
   parts.push('<p class="lede">Cite it as:</p>');
   parts.push(`<p class="cite">${esc(CITATION_TEMPLATE)}</p>`);
   parts.push(

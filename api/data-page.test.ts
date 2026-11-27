@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import handler from './data.js';
-import { renderDataPageBody, DATA_PAGE_CACHE_CONTROL, LICENCE_HTML } from './_lib/data-page.js';
+import {
+  renderDataPageBody,
+  DATA_PAGE_CACHE_CONTROL,
+  LICENCE_HTML,
+  REPOSITORY_LICENCE_HTML,
+} from './_lib/data-page.js';
 import { DOWNLOAD_COLUMNS, COLUMN_TYPES } from './_lib/calls-download.js';
 import { correctionsNewestFirst } from './_lib/corrections.js';
 import { MIN_RESOLUTION_BATCHES } from './_lib/calls.js';
@@ -93,13 +98,25 @@ describe('/data documents the files', () => {
     expect(page().body.includes('href="/corrections"')).toBe(correctionsNewestFirst().length > 0);
   });
 
-  it('carries the licence line and the citation line', () => {
+  it('claims no licence for the data until the owner chooses one (lead decision, 27 Nov 2026)', () => {
     const { body } = page();
-    expect(LICENCE_HTML).not.toBeNull();
-    expect(body).toContain(
-      'Licence: the <a href="https://github.com/ethancstuart/nexus-watch/blob/main/LICENSE">MIT License</a>, the licence of the NexusWatch repository.',
+    expect(LICENCE_HTML).toBeNull();
+    expect(text(body)).not.toMatch(/Licence|License/);
+    expect(body).not.toContain('LICENSE');
+    expect(body).toContain('<h2>Citation</h2>');
+  });
+
+  it('keeps the licence path: a chosen line is printed, under "Licence and citation"', () => {
+    const withLine = renderDataPageBody({ correctionsPageLive: true, licenceHtml: REPOSITORY_LICENCE_HTML });
+    expect(withLine).toContain(
+      '<p class="lede">Licence: the <a href="https://github.com/ethancstuart/nexus-watch/blob/main/LICENSE">MIT License</a>, the licence of the NexusWatch repository.</p>',
     );
-    expect(body).toContain(
+    expect(withLine).toContain('<h2>Licence and citation</h2>');
+    expect(renderDataPageBody({ correctionsPageLive: true, licenceHtml: null })).not.toContain('Licence');
+  });
+
+  it('carries the citation line', () => {
+    expect(page().body).toContain(
       '<p class="cite">NexusWatch forecast ledger, retrieved &lt;date&gt;, https://nexuswatch.dev/data</p>',
     );
   });
