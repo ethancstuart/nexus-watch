@@ -82,8 +82,8 @@ const ALL_IDS = [
 const R1A_HEAD =
   "Note added 23 Nov 2026. This call's window ended on 21 Nov 2026. When that day's calls were issued, every " +
   "exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give.";
-/** On the notes whose published text changed on 23 Nov (all but 6049, which is new). */
-const R1A_AMENDED = ' Amended 23 Nov 2026: this note first counted the currencies whose rates were stale.';
+/** On the notes whose published text changed on 27 Nov (all but 6049, which is new). */
+const R1A_AMENDED = ' Amended 27 Nov 2026: this note first counted the currencies whose rates were stale.';
 /** AZ 6049's note: new on 23 Nov, so no amendment line. */
 const R1A_MISS_NEW =
   `${R1A_HEAD} A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov ` +
@@ -115,7 +115,7 @@ const R1C =
   'verdict. On 22 Nov 2026 our FX skill was \u22123.0% with the 66 calls resolved on 21 Nov and \u22123.1% without ' +
   'them; every figure on this page counts them as published.';
 const R1C_AMENDED =
-  'Amended 23 Nov 2026: this section first said we did not know whether our collector or our source missed the day, ' +
+  'Amended 27 Nov 2026: this section first said we did not know whether our collector or our source missed the day, ' +
   'and left out Azerbaijan. A read of our stored rates settled both.';
 const R3A_HEADING = 'How a currency threshold is set, and what it does to the score';
 const R3A =

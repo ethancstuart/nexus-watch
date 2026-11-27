@@ -162,13 +162,13 @@ export const CALL_NOTES: readonly CallNote[] = [
     status: 'approved',
     issuedOn: '2026-11-23',
     scope: { ids: RESOLVED_21_NOV_MISS },
-    amendments: [{ on: '2026-11-23', text: 'this note first counted the currencies whose rates were stale.' }],
+    amendments: [{ on: '2026-11-27', text: 'this note first counted the currencies whose rates were stale.' }],
     text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, every exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give. A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov rate would have made this call a hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
   },
   {
     id: 'fx-2026-11-21-resolved-miss-az',
     status: 'approved',
-    issuedOn: '2026-11-23',
+    issuedOn: '2026-11-27',
     scope: { ids: [6049] },
     text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, every exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give. A missing day can turn a hit into a miss, never a miss into a hit. We do not know whether a 21 Nov rate would have made this call a hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
   },
@@ -177,7 +177,7 @@ export const CALL_NOTES: readonly CallNote[] = [
     status: 'approved',
     issuedOn: '2026-11-23',
     scope: { ids: RESOLVED_21_NOV_HIT },
-    amendments: [{ on: '2026-11-23', text: 'this note first counted the currencies whose rates were stale.' }],
+    amendments: [{ on: '2026-11-27', text: 'this note first counted the currencies whose rates were stale.' }],
     text: "This call's window ended on 21 Nov 2026. When that day's calls were issued, every exchange rate we held was still the 20 Nov rate. This call's score is the one the rates from 7 to 20 Nov give. A missing day can only turn a hit into a miss, so a 21 Nov rate could not have changed this hit. The published verdict is unchanged. Source: our stored daily exchange rates.",
   },
   {
@@ -235,7 +235,7 @@ export const LEDGER_SECTIONS: readonly PageNote[] = [
     heading: 'One day without new rates',
     amendments: [
       {
-        on: '2026-11-23',
+        on: '2026-11-27',
         text: 'this section first said we did not know whether our collector or our source missed the day, and left out Azerbaijan. A read of our stored rates settled both.',
       },
     ],

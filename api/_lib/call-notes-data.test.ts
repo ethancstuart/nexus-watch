@@ -215,7 +215,7 @@ describe('call notes: integrity', () => {
     for (const n of CALL_NOTES) {
       const expected =
         n.id === 'fx-2026-11-21-resolved-miss' || n.id === 'fx-2026-11-21-resolved-hit'
-          ? [{ on: '2026-11-23', text: 'this note first counted the currencies whose rates were stale.' }]
+          ? [{ on: '2026-11-27', text: 'this note first counted the currencies whose rates were stale.' }]
           : [];
       expect(amendedOn(n), n.id).toEqual(expected);
     }
@@ -226,7 +226,7 @@ describe('call notes: integrity', () => {
         'ledger-fx-2026-11-21',
         [
           {
-            on: '2026-11-23',
+            on: '2026-11-27',
             text:
               'this section first said we did not know whether our collector or our source missed the day, ' +
               'and left out Azerbaijan. A read of our stored rates settled both.',
