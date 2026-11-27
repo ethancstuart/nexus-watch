@@ -19,6 +19,17 @@ import { setPageSeo, PAGE_SEO } from '../utils/seo.ts';
 import { capture, installSurfaces } from '../ui/kit/index.ts';
 // Fixed words only; never the correction data, which must not enter the bundle.
 import { correctionAdded, isIsoDate } from '../../api/_lib/correction-words.ts';
+// Words only: every figure comes from /api/calls/ledger at load time.
+import { frontDoorVerdict, figuresFromLedgerJson, type Verdict } from '../../api/_lib/verdict-words.ts';
+
+/**
+ * Whether /corrections is live, which it is while any correction note is
+ * approved. This page cannot read the corrections data (it must not reach the
+ * browser bundle), so it states the fact rather than checking it, and
+ * api/ledger-verdict.test.ts fails if /corrections stops being live. If every
+ * note is ever withdrawn, set this to false. /ledger checks for itself.
+ */
+const CORRECTIONS_PAGE_LIVE = true;
 
 const FALLBACK_BRIEF = {
   date: 'Sample',
@@ -33,6 +44,54 @@ interface BriefResponse {
   summary?: string;
   /** Present only when an approved correction note sits beside this brief (api/v1/brief.ts). */
   correction?: { correctedOn?: unknown };
+}
+
+interface CalibrationBinJson {
+  from: number;
+  to: number;
+  count: number;
+  meanPredicted: number;
+  observed: number;
+}
+
+/**
+ * The CURRENCY calls' calibration table from /api/calls/ledger, or nothing.
+ * Never the pooled `scoring.calibration`: it mixes currencies with censorship,
+ * the pooling the ledger refuses for its scores. A bin with any field that is
+ * not a finite number means the whole table is not drawn.
+ */
+function fxCalibration(d: unknown): CalibrationBinJson[] {
+  const bins = (d as { by_kind?: { fx_devaluation?: { calibration?: unknown } } } | null)?.by_kind?.fx_devaluation
+    ?.calibration;
+  if (!Array.isArray(bins)) return [];
+  const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+  const ok = bins.every(
+    (b) =>
+      b !== null &&
+      typeof b === 'object' &&
+      ['from', 'to', 'count', 'meanPredicted', 'observed'].every((k) => finite((b as Record<string, unknown>)[k])),
+  );
+  return ok ? (bins as CalibrationBinJson[]) : [];
+}
+
+/**
+ * The verdict, drawn as text: the dateline in bold, then the body, then the
+ * corrections sentence around its one link. Nothing here is parsed as HTML.
+ */
+function renderVerdict(root: HTMLElement, v: Verdict | null): void {
+  const el = root.querySelector<HTMLElement>('#nw-hero-verdict');
+  if (!el || !v) return;
+  el.textContent = '';
+  const dateline = document.createElement('strong');
+  dateline.textContent = v.dateline;
+  el.append(dateline, ` ${v.body}`);
+  if (v.corrections) {
+    const a = document.createElement('a');
+    a.href = v.corrections.href;
+    a.textContent = v.corrections.link;
+    el.append(` ${v.corrections.before}`, a, v.corrections.after);
+  }
+  el.hidden = false;
 }
 
 /**
@@ -54,10 +113,7 @@ interface BriefResponse {
  * No colour carries meaning here: the two bars differ in fill, not hue, so the
  * figure reads identically in greyscale and to a dichromat.
  */
-function renderCalibrationFigure(
-  root: HTMLElement,
-  bins: Array<{ from: number; to: number; count: number; meanPredicted: number; observed: number }>,
-): void {
+function renderCalibrationFigure(root: HTMLElement, bins: CalibrationBinJson[]): void {
   const fig = root.querySelector<HTMLElement>('#nw-hero-figure');
   const rows = root.querySelector<HTMLElement>('#nw-figure-rows');
   if (!fig || !rows || bins.length === 0) return;
@@ -119,27 +175,27 @@ export function renderLanding(root: HTMLElement): void {
     </nav>
 
     <section class="nw-hero" aria-label="Hero">
-      <!-- THE FIGURE IS THE HERO. This was a decorative rotating globe, then a
-           black void once the globe was removed. It is now the calibration
-           table: what we said would happen against what happened, in every
-           probability band we have issued calls in. It is the only artifact on
-           the site that shows the SHAPE of the record rather than a summary of
-           it, it needs no query the ledger does not already answer, and it
-           reads as eight lines of mono on a phone. Rendered from live data or
-           not at all — never from a placeholder. -->
-      <figure class="nw-hero-figure" id="nw-hero-figure" hidden>
-        <figcaption class="nw-figure-caption">
-          <span class="nw-figure-title">Said, against happened</span>
-          <span class="nw-figure-note">Every resolved call, grouped by the probability we gave it.</span>
-        </figcaption>
-        <div class="nw-figure-rows" id="nw-figure-rows"></div>
-      </figure>
-
+      <!-- THE VERDICT IS THE HERO (R1, "the open forecast record"). First a
+           plain, dated statement of what the record shows, then the currency
+           calls' said-against-happened table. The table used to come first,
+           pooled across currencies and censorship, under "The world, graded."
+           The pooling is what /ledger refuses for its scores, and the headline
+           implied a record of world events in general. Both are drawn from
+           /api/calls/ledger at load, or not at all: never from a placeholder.
+           /ledger carries the same verdict in its server-rendered HTML. -->
       <div class="nw-hero-content" id="nw-hero-content">
         <span class="nw-eyebrow" id="nw-hero-eyebrow">The public forecasting ledger</span>
-        <h1 class="nw-hero-headline word-stagger" aria-label="The world, graded.">
-          <span>The</span> <span>world,</span> <span>graded<span class="nw-hero-period">.</span></span>
+        <h1 class="nw-hero-headline word-stagger" aria-label="Our forecasts, graded.">
+          <span>Our</span> <span>forecasts,</span> <span>graded<span class="nw-hero-period">.</span></span>
         </h1>
+        <p class="nw-hero-sub" id="nw-hero-verdict" hidden></p>
+        <figure class="nw-hero-figure" id="nw-hero-figure" hidden>
+          <figcaption class="nw-figure-caption">
+            <span class="nw-figure-title">Said, against happened</span>
+            <span class="nw-figure-note">Currency forecasts only, grouped by the probability we gave them. Closer is better: a perfectly calibrated forecaster’s two numbers match.</span>
+          </figcaption>
+          <div class="nw-figure-rows" id="nw-figure-rows"></div>
+        </figure>
         <p class="nw-hero-sub">
           Every call we make is dated, falsifiable, and scored against someone else's data —
           published whether it flatters us or not.
@@ -291,43 +347,22 @@ export function renderLanding(root: HTMLElement): void {
     heroCapture.appendChild(capture({ source: 'landing-hero', cta: 'Get tomorrow’s brief' }));
   }
 
-  // ── Live count from the ledger ──
-  // Reads the real number rather than stating one. The eyebrow says something
-  // deliberately unimpressive but true; the previous hero claimed "158
-  // countries scored" against a real 85.
-  const eyebrow = main.querySelector<HTMLElement>('#nw-hero-eyebrow');
-  if (eyebrow) {
-    void fetch('/api/calls/ledger')
-      .then((r) =>
-        r.ok
-          ? (r.json() as Promise<{
-              counts?: { open?: number; resolved?: number };
-              scoring?: {
-                calibration?: Array<{
-                  from: number;
-                  to: number;
-                  count: number;
-                  meanPredicted: number;
-                  observed: number;
-                }>;
-              };
-            }>)
-          : null,
-      )
-      .then((d) => {
-        renderCalibrationFigure(main, d?.scoring?.calibration ?? []);
-        const open = d?.counts?.open;
-        const resolved = d?.counts?.resolved;
-        if (typeof open !== 'number') return;
-        eyebrow.textContent =
-          typeof resolved === 'number' && resolved > 0
-            ? `${open} calls open · ${resolved} resolved and scored`
-            : `${open} calls open · the public forecasting ledger`;
-      })
-      .catch(() => {
-        /* leave the static eyebrow — never invent a count */
-      });
-  }
+  // ── The verdict and the currency table, from the ledger ──
+  // Reads the real figures rather than stating any: the date, the counts and
+  // the currency skill are the ledger's own (api/_lib/verdict-words.ts words
+  // them, and api/ledger-verdict.test.ts proves the sentence is the one /ledger
+  // prints for the same book). A failed or malformed read draws nothing. The
+  // eyebrow used to carry the counts; the verdict carries them now.
+  void fetch('/api/calls/ledger')
+    .then((r) => (r.ok ? (r.json() as Promise<unknown>) : null))
+    .then((d) => {
+      const figures = figuresFromLedgerJson(d, CORRECTIONS_PAGE_LIVE);
+      renderVerdict(main, figures ? frontDoorVerdict(figures) : null);
+      renderCalibrationFigure(main, fxCalibration(d));
+    })
+    .catch(() => {
+      /* draw nothing — never invent a figure */
+    });
 
   // The hero globe block lived here. It set a "static fallback" class on a
   // div that no longer exists; the figure above replaced it.
