@@ -441,7 +441,7 @@ describe('no model key: the mechanical edition carries the real record', () => {
       expect(out.status).toBe(200);
       const text = mechanicalText();
       expect(text).toContain('Resolved calls could not be read today.');
-      expect(text).not.toMatch(/No calls resolved|settled today|came due/);
+      expect(text).not.toMatch(/No calls resolved|No call was scored|settled today|came due/);
       expect(text).toContain(UG_NEXT);
       expect(text).toContain("Why this call: today's resolutions could not be read.");
     }

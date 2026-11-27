@@ -39,6 +39,7 @@ import {
   type OpenRead,
   type RecordCall,
   type ResolvedRead,
+  UNREAD_RECORD,
 } from '../_lib/brief-record.js';
 import { correctionsNewestFirst } from '../_lib/corrections.js';
 import { countryName } from '../_lib/country-names.js';
@@ -3057,7 +3058,7 @@ async function gatherRecord(sql: SqlTag, nameOf: Map<string, string>): Promise<B
       ) cc ON cc.call_id = c.id
       WHERE c.status = ANY(${scored}) AND NOT (c.kind = ANY(${calKinds}))
         AND c.resolved_at::date = CURRENT_DATE
-      ORDER BY ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC, c.id ASC
+      ORDER BY (c.base_rate IS NULL), ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC, c.id ASC
       LIMIT ${RESOLVED_LIST_CAP}
     `) as unknown as RecordCallRow[];
     // Over the whole day, not the page, as the totals are.
@@ -3100,7 +3101,8 @@ async function gatherRecord(sql: SqlTag, nameOf: Map<string, string>): Promise<B
              c.evidence_count, NULL::text AS corrected_status
       FROM calls c
       WHERE c.status = 'pending' AND NOT (c.kind = ANY(${calKinds})) AND c.resolves_on > CURRENT_DATE
-      ORDER BY c.resolves_on ASC, ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC, c.id ASC
+      ORDER BY c.resolves_on ASC, (c.base_rate IS NULL),
+               ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC, c.id ASC
       LIMIT ${OPEN_LIST_CAP}
     `) as unknown as RecordCallRow[];
     open = { read: true, total: counts[0]?.open_total ?? 0, held: counts[0]?.held ?? 0, next: named(next) };
@@ -3138,7 +3140,9 @@ async function gatherRecord(sql: SqlTag, nameOf: Map<string, string>): Promise<B
  * mechanical day, and the share images no longer draw on the index.
  */
 export function archivedData(data: BriefData, onFallback: boolean): object {
-  if (onFallback) return { date: data.date, utcTime: data.utcTime, record: data.record ?? null };
+  // Always an object on a mechanical day: its presence is how a reader of the
+  // row knows the edition is record-only (the SPA byline reads it).
+  if (onFallback) return { date: data.date, utcTime: data.utcTime, record: data.record ?? UNREAD_RECORD };
   const modelDay: Partial<BriefData> = { ...data };
   delete modelDay.record;
   return modelDay;

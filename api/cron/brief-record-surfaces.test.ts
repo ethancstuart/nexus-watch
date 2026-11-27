@@ -422,6 +422,7 @@ describe('the record-only edition on every surface (no model key, as production 
     const s = await surfaces();
     for (const [name, text] of Object.entries(s)) {
       expect(text, name).not.toContain('No open calls today.');
+      expect(text, name).not.toContain('No call was scored today.');
       expect(text, name).not.toContain('No calls resolved today.');
       expect(text, name).not.toContain('No call to explain today');
     }

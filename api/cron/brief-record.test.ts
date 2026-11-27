@@ -23,6 +23,8 @@ import {
   RESOLVED_UNREAD,
   UNREAD_RECORD,
   chooseExplainedCall,
+  explainCall,
+  WHY_NO_BASE,
   type BriefRecord,
   type RecordCall,
 } from '../_lib/brief-record.js';
@@ -30,7 +32,7 @@ import { recordCall, recordDay } from '../_lib/brief-record-fixture.js';
 import { DAILY_SECTIONS, SUNDAY_SECTIONS } from '../_lib/brief-structure.js';
 import { markdownToHtml } from '../_lib/markdown.js';
 import { checkComparativeClaims } from '../_lib/comparative-claims.js';
-import { renderBriefBody } from '../../src/utils/briefRenderer.js';
+import { renderBriefBody, renderInline } from '../../src/utils/briefRenderer.js';
 
 /**
  * THE MECHANICAL EDITION IS THE RECORD (plan R1, DISCOVERY.md §5: "The daily
@@ -138,12 +140,11 @@ function renderings(text: string): Record<string, string> {
 }
 
 const day = recordDay();
+/** The rule's own order, worked independently: exact thousandths, then the lower id. */
+const thousandthsGap = (c: RecordCall) =>
+  Math.abs(Math.round(c.probability * 1000) - Math.round((c.base_rate ?? c.probability) * 1000));
 const shownResolved = [...(day.resolved as Extract<BriefRecord['resolved'], { read: true }>).calls]
-  .sort(
-    (a, b) =>
-      Math.abs(b.probability - (b.base_rate ?? b.probability)) -
-        Math.abs(a.probability - (a.base_rate ?? a.probability)) || a.id - b.id,
-  )
+  .sort((a, b) => thousandthsGap(b) - thousandthsGap(a) || a.id - b.id)
   .slice(0, RESOLVED_LIST_CAP);
 const nextOpen = (day.open as Extract<BriefRecord['open'], { read: true }>).next;
 
@@ -326,6 +327,27 @@ describe('links', () => {
     }
   });
 
+  it('a link to any other host is never rendered as one, in the email or the SPA (review finding 4)', () => {
+    const foreign =
+      '[x](https://evil.example/a) [y](https://nexuswatch.dev.evil.example/b) [z](http://nexuswatch.dev/c)';
+    const out = renderDossierEmail({
+      briefText: `## 🏁 What resolved today\n\n${foreign}`,
+      date: '2026-11-27',
+      time: '10:00 UTC',
+      markets: [],
+      edition: 'mechanical',
+    });
+    for (const html of [out.emailHtml, out.beehiivHtml, renderInline(foreign, true)]) {
+      expect(html).not.toContain('href="https://evil.example');
+      expect(html).not.toContain('href="https://nexuswatch.dev.evil');
+      expect(html).not.toContain('href="http://');
+    }
+    // And our own site still is, so the check above is not vacuous.
+    expect(renderInline('[ok](https://nexuswatch.dev/ledger)', true)).toBe(
+      '<a href="https://nexuswatch.dev/ledger">ok</a>',
+    );
+  });
+
   it('plain text gives each link as "label (address)"', () => {
     const c = shownResolved[0];
     expect(out.plainText).toContain(`Call #${c.id} (https://nexuswatch.dev/call/${c.id})`);
@@ -374,6 +396,35 @@ describe('the one-call rule is deterministic', () => {
     ).toBe(4);
   });
 
+  it('a decimal tie goes to the lower id, though floating point would split it (review finding 5)', () => {
+    // 0.300 − 0.100 and 0.500 − 0.300 are both 0.2; in floating point the first is smaller.
+    expect(0.3 - 0.1).toBeLessThan(0.5 - 0.3);
+    const calls = [
+      recordCall({ id: 2, probability: 0.5, base_rate: 0.3 }),
+      recordCall({ id: 1, probability: 0.3, base_rate: 0.1 }),
+    ];
+    for (const order of [calls, [...calls].reverse()]) {
+      expect(chooseExplainedCall({ resolved: read(order), open: openBook([]), correctionsPage: true }).call?.id).toBe(
+        1,
+      );
+      const text = edition({ resolved: read(order), open: openBook([]), correctionsPage: true });
+      expect(text.indexOf('[Call #1]')).toBeLessThan(text.indexOf('[Call #2]'));
+    }
+  });
+
+  it('a call with no stored base rate ranks after every call that has one (finding 6)', () => {
+    const calls = [
+      recordCall({ id: 1, probability: 0.9, base_rate: null }),
+      recordCall({ id: 2, probability: 0.26, base_rate: 0.25 }),
+    ];
+    expect(chooseExplainedCall({ resolved: read(calls), open: openBook([]), correctionsPage: true }).call?.id).toBe(2);
+    const next = [
+      recordCall({ id: 5, status: 'pending', resolves_on: '2026-11-28', base_rate: null }),
+      recordCall({ id: 6, status: 'pending', resolves_on: '2026-11-28', probability: 0.25, base_rate: 0.25 }),
+    ];
+    expect(chooseExplainedCall({ resolved: read([]), open: openBook(next), correctionsPage: true }).call?.id).toBe(6);
+  });
+
   it('a tie goes to the lower call id', () => {
     const calls = [recordCall({ id: 9, probability: 0.31 }), recordCall({ id: 7, probability: 0.31 })];
     for (const order of [calls, [...calls].reverse()]) {
@@ -403,12 +454,36 @@ describe('the one-call rule is deterministic', () => {
 
   it('resolutions unread: the same pick from the open book, saying the resolutions could not be read', () => {
     const next = [recordCall({ id: 21, status: 'pending', resolves_on: '2026-11-28' })];
-    for (const resolved of [{ read: false } as const, read([], 66)]) {
-      const e = chooseExplainedCall({ resolved, open: openBook(next), correctionsPage: true });
-      expect(e).toMatchObject({ why: 'next-resolved-unread', call: { id: 21 } });
-      const text = edition({ resolved, open: openBook(next), correctionsPage: true });
-      expect(text).toContain("Why this call: today's resolutions could not be read.");
-      expect(text).not.toContain('no call resolved today');
+    const resolved = { read: false } as const;
+    const e = chooseExplainedCall({ resolved, open: openBook(next), correctionsPage: true });
+    expect(e).toMatchObject({ why: 'next-resolved-unread', call: { id: 21 } });
+    const text = edition({ resolved, open: openBook(next), correctionsPage: true });
+    expect(text).toContain("Why this call: today's resolutions could not be read.");
+    expect(text).not.toContain('no call resolved today');
+    // A pending call is open in every path: never an outcome (review finding 3).
+    expect(text).toContain('The status: open. It resolves on 2026-11-28, and is not scored until then.');
+    expect(text).toContain('What we say: ');
+    expect(text).not.toContain('The outcome:');
+  });
+
+  it('resolutions counted but not listed (a count above 0, an empty page): it says they could not be listed', () => {
+    const next = [recordCall({ id: 21, status: 'pending', resolves_on: '2026-11-28' })];
+    const r = { resolved: read([], 66), open: openBook(next), correctionsPage: true };
+    expect(chooseExplainedCall(r)).toMatchObject({ why: 'next-resolved-unlisted', call: { id: 21 } });
+    const text = edition(r);
+    expect(text).toContain('66 calls settled today against external ground truth');
+    expect(text).toContain("Why this call: today's resolutions could not be listed.");
+    expect(text).not.toContain('could not be read');
+    expect(text).not.toContain('The outcome:');
+  });
+
+  it('a pending call never prints an outcome, whatever path chose it (review finding 3)', () => {
+    const pending = recordCall({ id: 31, status: 'pending', resolves_on: '2026-11-28' });
+    for (const why of ['resolved', 'next-none-resolved', 'next-resolved-unread', 'next-resolved-unlisted'] as const) {
+      const text = explainCall({ call: pending, why }).join('\n');
+      expect(text, why).toContain('The status: open. It resolves on 2026-11-28, and is not scored until then.');
+      expect(text, why).toContain('What we say: 37%.');
+      expect(text, why).not.toMatch(/The outcome:|\bMISS\b|\bHIT\b/);
     }
   });
 
@@ -472,7 +547,7 @@ describe('the one-call rule is deterministic', () => {
       'The threshold: a depreciation of 0.415% or more against USD within the window. What we said: 31%. ' +
         'How often it happens anyway, its base rate at issue: 25%. We sat 6 points above it.',
     );
-    expect(section).toContain('The outcome: HIT. What the claim names happened.');
+    expect(section).toContain('The outcome: HIT. Its declared source recorded what the claim names inside the window.');
   });
 
   it('a miss, a call below its base rate, one at it, one with none, and a corrected verdict', () => {
@@ -480,15 +555,45 @@ describe('the one-call rule is deterministic', () => {
       const text = edition({ resolved: read([recordCall(over)]), open: openBook([]), correctionsPage: true });
       return text.slice(text.indexOf(RECORD_SECTIONS[2]), text.indexOf(RECORD_SECTIONS[3]));
     };
-    expect(one({ status: 'miss' })).toContain('The outcome: MISS. What the claim names did not happen.');
+    // A MISS rests on the declared source's record, never on the world (review finding 2).
+    const miss = one({ status: 'miss' });
+    expect(miss).toContain(
+      'The outcome: MISS. Its declared source did not record what the claim names inside the window.',
+    );
+    expect(miss).not.toMatch(/did not happen|happened/);
     expect(one({ probability: 0.2, base_rate: 0.26 })).toContain('We sat 6 points below it.');
-    expect(one({ probability: 0.251, base_rate: 0.25 })).toContain('What we said matched the base rate.');
+    // "Matched" only for an exact match; a gap that rounds away is "less than a point" (finding 8).
+    expect(one({ probability: 0.25, base_rate: 0.25 })).toContain('What we said matched the base rate.');
+    expect(one({ probability: 0.254, base_rate: 0.246 })).toContain('We sat less than a point above it.');
+    expect(one({ probability: 0.246, base_rate: 0.254 })).toContain('We sat less than a point below it.');
+    expect(one({ probability: 0.254, base_rate: 0.246 })).not.toContain('matched');
     expect(one({ probability: 0.26, base_rate: 0.25 })).toContain('We sat 1 point above it.');
-    expect(one({ base_rate: null })).toContain('No base rate is stored for this call.');
+    // No base rate: the reason does not claim a distance from one (finding 6).
+    const noBase = one({ base_rate: null });
+    expect(noBase).toContain('No base rate is stored for this call.');
+    expect(noBase).toContain(WHY_NO_BASE);
+    expect(noBase).not.toContain('differed most from its base rate');
     const corrected = one({ kind: 'censorship_event', status: 'miss', corrected_status: 'hit', threshold: 1 });
     expect(corrected).toContain('The outcome: MISS as published, the evidence records as HIT.');
-    expect(corrected).not.toContain('did not happen');
+    expect(corrected).not.toContain('declared source');
     expect(corrected).toContain('The threshold: at least 1 qualifying event inside the window.');
+    // A correction to a status that is not scored is still stated (finding 9).
+    for (const to of ['unresolvable', 'void']) {
+      const text = one({ status: 'miss', corrected_status: to });
+      expect(text).toContain(`The outcome: MISS as published; a correction records it as ${to.toUpperCase()}.`);
+      expect(text).not.toContain('declared source');
+      expect(
+        edition({
+          resolved: read([recordCall({ status: 'miss', corrected_status: to })]),
+          open: openBook([]),
+          correctionsPage: true,
+        }),
+      ).toContain(`MISS as published; a correction records it as ${to.toUpperCase()} — we said`);
+    }
+    // A correction that agrees with the published verdict is not one.
+    expect(one({ status: 'miss', corrected_status: 'miss' })).toContain(
+      'The outcome: MISS. Its declared source did not record',
+    );
   });
 
   it('a corrected verdict among today’s resolutions is stated beside the published counts', () => {
@@ -703,7 +808,25 @@ describe('the cause line: the existing honest sentence, its truth conditions unc
 
 describe('the gate the model must pass, the edition passes too', () => {
   it('no comparison, record or superlative the context does not support', () => {
-    for (const record of [recordDay(), UNREAD_RECORD]) {
+    const one = (over: Partial<RecordCall>): BriefRecord => ({
+      resolved: { read: true, total: 1, hits: 0, corrections: [], calls: [recordCall(over)] },
+      open: { read: true, total: 0, held: 0, next: [] },
+      correctionsPage: true,
+    });
+    const pending = recordCall({ status: 'pending', resolves_on: '2026-11-28' });
+    for (const record of [
+      recordDay(),
+      UNREAD_RECORD,
+      one({ probability: 0.254, base_rate: 0.246 }),
+      one({ base_rate: null }),
+      one({ status: 'hit' }),
+      one({ status: 'miss', corrected_status: 'unresolvable' }),
+      {
+        resolved: { read: true as const, total: 9, hits: 1, corrections: [], calls: [] },
+        open: { read: true as const, total: 1, held: 0, next: [pending] },
+        correctionsPage: true,
+      },
+    ]) {
       const r = checkComparativeClaims(edition(record), '');
       expect(r.unsupported).toEqual([]);
       expect(r.unitViolations).toEqual([]);

@@ -33,7 +33,7 @@
  * Pure: no database, no clock, no network. Every string a reader sees is in
  * this file, so the owner signs off one list.
  */
-import { correctedOutcomeOf, describeCorrections } from './calls.js';
+import { correctedOutcomeOf, describeCorrections, isScored } from './calls.js';
 
 export const SITE = 'https://nexuswatch.dev';
 export const LEDGER_URL = `${SITE}/ledger`;
@@ -106,14 +106,23 @@ export const UNREAD_RECORD: BriefRecord = { resolved: { read: false }, open: { r
 // The rule for "one call explained"
 // ---------------------------------------------------------------------------
 
-/** How far what we said sits from the base rate. A call with no base rate sits nowhere. */
+/**
+ * How far what we said sits from the base rate, in THOUSANDTHS, an integer.
+ * Both columns are NUMERIC(4,3), so this is exact: in floating point 0.3 − 0.1
+ * is less than 0.5 − 0.3, and a decimal tie would not go to the lower id as the
+ * rule says (review finding 5). Postgres orders the same NUMERIC values exactly.
+ */
 function gap(c: RecordCall): number {
-  return Math.abs(c.probability - (c.base_rate ?? c.probability));
+  return Math.abs(Math.round(c.probability * 1000) - Math.round((c.base_rate ?? c.probability) * 1000));
 }
 
-/** Most informative first: the larger gap, then the lower id. Total, so the order never depends on the database's. */
+/**
+ * Most informative first: a call with a stored base rate before one without
+ * (which sits nowhere), then the larger gap, then the lower id. Total, so the
+ * order never depends on the database's.
+ */
 function byInformation(a: RecordCall, b: RecordCall): number {
-  return gap(b) - gap(a) || a.id - b.id;
+  return Number(a.base_rate === null) - Number(b.base_rate === null) || gap(b) - gap(a) || a.id - b.id;
 }
 
 /** Soonest first: the earlier date, then the larger gap, then the lower id. */
@@ -128,6 +137,8 @@ export type ExplainedCall =
   | { call: RecordCall; why: 'next-none-resolved' }
   /** Today's resolutions could not be read: the same pick from the open book. */
   | { call: RecordCall; why: 'next-resolved-unread' }
+  /** Today's resolutions were counted but could not be listed (a count above 0, an empty page): the same pick. */
+  | { call: RecordCall; why: 'next-resolved-unlisted' }
   /** Every read succeeded and there is no candidate. */
   | { call: null; why: 'none' }
   /** No candidate, and at least one read failed. */
@@ -137,10 +148,11 @@ export type ExplainedCall =
  * THE RULE, deterministic for any input:
  *   1. If any call resolved today, the one whose stated probability sat
  *      furthest from its base rate (the most informative resolution: a hit at
- *      16% against a 10% base says more than a hit at 84% against 90%).
- *      Ties go to the lower call id.
+ *      16% against a 10% base says more than a hit at 84% against 90%),
+ *      compared exactly in thousandths. Ties go to the lower call id. A call
+ *      with no stored base rate ranks after every call that has one.
  *   2. Otherwise the next open call to resolve: the earliest resolution date
- *      after today, then the furthest from its base rate, then the lower id.
+ *      after today, then the same order as rule 1.
  *   3. Otherwise none, and the edition says why.
  * A failed read is never treated as "none resolved": the fallback to rule 2
  * says the resolutions could not be read.
@@ -148,13 +160,15 @@ export type ExplainedCall =
 export function chooseExplainedCall(record: BriefRecord | undefined): ExplainedCall {
   const r = record ?? UNREAD_RECORD;
   // A count above zero with an empty page is a read we cannot list from.
-  const resolvedListed = r.resolved.read && !(r.resolved.total > 0 && r.resolved.calls.length === 0);
+  const unlisted = r.resolved.read && r.resolved.total > 0 && r.resolved.calls.length === 0;
+  const resolvedListed = r.resolved.read && !unlisted;
   // The page is used only beside a count that agrees there was something to list.
   if (r.resolved.read && r.resolved.total > 0 && r.resolved.calls.length > 0) {
     return { call: [...r.resolved.calls].sort(byInformation)[0], why: 'resolved' };
   }
   if (r.open.read && r.open.next.length > 0) {
     const call = [...r.open.next].sort(byNextToResolve)[0];
+    if (unlisted) return { call, why: 'next-resolved-unlisted' };
     return resolvedListed ? { call, why: 'next-none-resolved' } : { call, why: 'next-resolved-unread' };
   }
   return resolvedListed && r.open.read ? { call: null, why: 'none' } : { call: null, why: 'unread' };
@@ -220,13 +234,30 @@ function claimPhrase(c: RecordCall): string {
   return `the outcome it names, against its declared external source, by ${by}`;
 }
 
-/** HIT, MISS, or the published verdict beside the one the evidence records. */
+/**
+ * HIT or MISS for a scored call, with the correction beside it when there is
+ * one. Only a scored status is ever mapped to HIT or MISS: a pending call is
+ * never printed as a MISS (review finding 3), and any other status prints as
+ * itself.
+ */
 function verdict(c: RecordCall): string {
+  if (!isScored(c.status)) return plainText(c.status).toUpperCase();
   const published = c.status === 'hit' ? 'HIT' : 'MISS';
   const recorded = correctedOutcomeOf(c.status, c.corrected_status);
-  return recorded === undefined
-    ? published
-    : `${published} as published, the evidence records as ${recorded === 1 ? 'HIT' : 'MISS'}`;
+  if (recorded !== undefined) {
+    return `${published} as published, the evidence records as ${recorded === 1 ? 'HIT' : 'MISS'}`;
+  }
+  // A correction to an unscored status (unresolvable, void) changes no verdict
+  // the score uses, but it is still a correction, and it is stated (finding 9).
+  if (corrected(c)) {
+    return `${published} as published; a correction records it as ${plainText(c.corrected_status ?? '').toUpperCase()}`;
+  }
+  return published;
+}
+
+/** The call carries a correction whose status differs from the published one. */
+function corrected(c: RecordCall): boolean {
+  return c.corrected_status !== null && c.corrected_status !== c.status;
 }
 
 function baseNote(c: RecordCall): string {
@@ -249,7 +280,11 @@ export function openLine(c: RecordCall): string {
 }
 
 export const RESOLVED_UNREAD = 'Resolved calls could not be read today.';
-export const NONE_RESOLVED = 'No calls resolved today.';
+/**
+ * Scored statuses only, as the Ledger line counts them: a day that closed only
+ * unresolvable or void calls scored none (review finding 12).
+ */
+export const NONE_RESOLVED = 'No call was scored today.';
 export const OPEN_UNREAD = 'Open calls could not be read today.';
 export const NONE_OPEN = 'No open calls today.';
 
@@ -295,7 +330,7 @@ function openSection(o: OpenRead): string[] {
   return out;
 }
 
-const WHY: Record<'resolved' | 'next-none-resolved' | 'next-resolved-unread', string> = {
+const WHY: Record<Exclude<ExplainedCall['why'], 'none' | 'unread'>, string> = {
   resolved: "Why this call: of today's resolutions, it is the one where what we said differed most from its base rate.",
   'next-none-resolved':
     'Why this call: no call resolved today. Of the calls due to resolve next, it is the one where what we say ' +
@@ -303,7 +338,12 @@ const WHY: Record<'resolved' | 'next-none-resolved' | 'next-resolved-unread', st
   'next-resolved-unread':
     "Why this call: today's resolutions could not be read. Of the calls due to resolve next, it is the one where " +
     'what we say differs most from its base rate.',
+  'next-resolved-unlisted':
+    "Why this call: today's resolutions could not be listed. Of the calls due to resolve next, it is the one where " +
+    'what we say differs most from its base rate.',
 };
+/** The reason when the chosen call has no stored base rate (every candidate then has none: finding 6). */
+export const WHY_NO_BASE = 'Why this call: none of these calls has a stored base rate; it is the lowest-numbered.';
 export const NO_CALL_TO_EXPLAIN = 'No call to explain today: none resolved, and none is due to resolve after today.';
 export const NO_CALL_READ = 'No call can be explained today: the calls could not all be read.';
 
@@ -320,7 +360,9 @@ function thresholdPhrase(c: RecordCall): string {
 /** The explanation, from the call's own fields. `open` changes only the tense. */
 export function explainCall(e: Extract<ExplainedCall, { call: RecordCall }>): string[] {
   const c = e.call;
-  const open = e.why !== 'resolved';
+  // A pending call is open whatever path chose it: it never gets an outcome
+  // (review finding 3). Neither does any status that is not scored.
+  const open = e.why !== 'resolved' || c.status === 'pending';
   const said = pct(c.probability);
   let baseSentence: string;
   if (c.base_rate === null) {
@@ -329,23 +371,35 @@ export function explainCall(e: Extract<ExplainedCall, { call: RecordCall }>): st
     const base = pct(c.base_rate);
     const d = said - base;
     const sit = open ? 'We sit' : 'We sat';
+    // Thousandths, exact: equal rounded percents are not always a match (finding 8).
+    const exact = Math.round(c.probability * 1000) - Math.round(c.base_rate * 1000);
     baseSentence =
       `How often it happens anyway, its base rate at issue: ${base}%. ` +
-      (d === 0
-        ? `What we ${open ? 'say matches' : 'said matched'} the base rate.`
-        : `${sit} ${Math.abs(d)} ${plural(Math.abs(d), 'point', 'points')} ${d > 0 ? 'above' : 'below'} it.`);
+      (d !== 0
+        ? `${sit} ${Math.abs(d)} ${plural(Math.abs(d), 'point', 'points')} ${d > 0 ? 'above' : 'below'} it.`
+        : exact === 0
+          ? `What we ${open ? 'say matches' : 'said matched'} the base rate.`
+          : `${sit} less than a point ${exact > 0 ? 'above' : 'below'} it.`);
   }
   let outcome: string;
   if (open) {
     outcome = `The status: open. It resolves on ${plainText(c.resolves_on)}, and is not scored until then.`;
-  } else if (correctedOutcomeOf(c.status, c.corrected_status) !== undefined) {
-    // The published verdict and the evidence's, side by side; nothing more is claimed.
+  } else if (!isScored(c.status) || corrected(c)) {
+    // The published verdict and the correction's, side by side (or a status
+    // that is not scored, as itself); nothing more is claimed.
     outcome = `The outcome: ${verdict(c)}.`;
   } else {
-    outcome = `The outcome: ${verdict(c)}. What the claim names ${c.status === 'hit' ? 'happened' : 'did not happen'}.`;
+    // A MISS means the declared source did not record the event, not that it
+    // did not happen: absence of evidence is not evidence of absence (review
+    // finding 2; calls.ts, missHoldReason).
+    outcome =
+      `The outcome: ${verdict(c)}. ` +
+      (c.status === 'hit'
+        ? 'Its declared source recorded what the claim names inside the window.'
+        : 'Its declared source did not record what the claim names inside the window.');
   }
   return [
-    `**${who(c)}, call #${c.id}.** ${WHY[e.why]}`,
+    `**${who(c)}, call #${c.id}.** ${c.base_rate === null ? WHY_NO_BASE : WHY[e.why]}`,
     `The claim, frozen when the call was made on ${plainText(c.made_on)}: “${plainText(c.claim)}”`,
     `The threshold: ${thresholdPhrase(c)}. What we ${open ? 'say' : 'said'}: ${said}%. ${baseSentence}`,
     `${outcome} ${link(`Read call #${c.id}`, callUrl(c.id))}`,
