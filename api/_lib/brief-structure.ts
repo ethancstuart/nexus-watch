@@ -203,28 +203,31 @@ export function chooseSubject(declared: string | null, body: string): string | n
  * as an ordinary morning.
  */
 export function fallbackSubject(date: string, record: { resolved: number; hits: number } | null): string {
-  // Three cases, each true when it is written. Calls settled: the count. The
-  // day was read and none settled: "unchanged". The day could not be read (null,
-  // every read failed): no claim about it at all. That case used to say
-  // "unchanged" too, which was false whenever calls had settled (review M2).
+  // Three cases, each true when it is written. Calls settled: the count, its
+  // noun agreeing with it ("1 call settled"). The day was read and none
+  // settled: "no calls settled" (it used to say "unchanged", false on most days
+  // because new calls are issued daily; R1 review finding 11). The day could
+  // not be read (null, every read failed): no claim about it at all.
   const lead =
     record === null
       ? 'The Ledger'
       : record.resolved > 0
-        ? `${record.resolved} calls settled, ${record.hits} hit`
-        : 'The Ledger, unchanged';
+        ? `${record.resolved} ${record.resolved === 1 ? 'call' : 'calls'} settled, ${record.hits} hit`
+        : 'The Ledger, no calls settled';
   return clampSubject(`${lead} — mechanical edition, ${date}`);
 }
 
-const COUNTED_SUBJECT = /^(\d{1,7}) calls settled, (\d{1,7}) hit — mechanical edition, (\d{4}-\d{2}-\d{2})$/;
+const COUNTED_SUBJECT = /^(\d{1,7}) calls? settled, (\d{1,7}) hit — mechanical edition, (\d{4}-\d{2}-\d{2})$/;
 
 /**
  * The archived subject when it is fallbackSubject's COUNTED form for this date,
  * on a row not flagged as a model edition; otherwise null. Only that form is
  * repeated on a public surface (a page title, a share image): code wrote it
- * from the day's resolved-call counts. The other two forms ("The Ledger,
- * unchanged" and, when nothing could be read, "The Ledger") carry no count, so
- * they are never repeated (review M2, api/brief/og.ts).
+ * from the day's resolved-call counts, singular or plural. The other two forms
+ * ("The Ledger, no calls settled" and, when nothing could be read, "The
+ * Ledger") carry no count, so they are never repeated (review M2,
+ * api/brief/og.ts). Rows archived before R1 may say "The Ledger, unchanged";
+ * that is refused too.
  */
 export function countedSubject(date: string, content: { subject?: unknown; edition?: unknown }): string | null {
   if (content.edition !== undefined && content.edition !== null && content.edition !== 'mechanical') return null;

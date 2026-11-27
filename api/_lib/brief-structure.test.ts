@@ -187,10 +187,27 @@ describe('fallbackSubject — never a headline, always the ledger, always labell
     );
   });
 
-  it('says the ledger is unchanged when the day was read and nothing settled, rather than inventing a number', () => {
+  // CHANGED WITH R1 (review finding 11): "unchanged" was false on most days,
+  // because new calls are issued daily. It says what is true: none settled.
+  it('says no calls settled when the day was read and nothing settled, rather than inventing a number', () => {
     expect(fallbackSubject('2026-09-12', { resolved: 0, hits: 0 })).toBe(
-      'The Ledger, unchanged — mechanical edition, 2026-09-12',
+      'The Ledger, no calls settled — mechanical edition, 2026-09-12',
     );
+    expect(fallbackSubject('2026-09-12', { resolved: 0, hits: 0 })).not.toContain('unchanged');
+  });
+
+  // R1 review finding 10: the noun agrees with the count, and the pages still accept it.
+  it('one call settled is singular, and still the counted form', () => {
+    const s = fallbackSubject('2026-11-27', { resolved: 1, hits: 1 });
+    expect(s).toBe('1 call settled, 1 hit — mechanical edition, 2026-11-27');
+    expect(countedSubject('2026-11-27', { subject: s, edition: 'mechanical' })).toBe(s);
+    expect(fallbackSubject('2026-11-27', { resolved: 2, hits: 1 })).toBe(
+      '2 calls settled, 1 hit — mechanical edition, 2026-11-27',
+    );
+    // A malformed noun is not the counted form.
+    for (const bad of ['1 callss settled, 1 hit — mechanical edition, 2026-11-27', '2 call settledx, 1 hit']) {
+      expect(countedSubject('2026-11-27', { subject: bad, edition: 'mechanical' })).toBeNull();
+    }
   });
 
   // CHANGED WITH R1: when no read of the day succeeded (null) the subject used

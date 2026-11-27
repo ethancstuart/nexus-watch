@@ -118,7 +118,8 @@ describe('countedSubject', () => {
       // fallbackSubject's form when the day was read and none settled (and,
       // before R1, also when it could not be read, when it could be false).
       `The Ledger, unchanged — mechanical edition, ${DATE}`,
-      // Its form since R1 when no read of the day succeeded: no count either.
+      // Its forms since R1: none settled, and no read of the day succeeded. No count either.
+      `The Ledger, no calls settled — mechanical edition, ${DATE}`,
       `The Ledger — mechanical edition, ${DATE}`,
       // Counted, but another day's.
       '67 calls settled, 22 hit — mechanical edition, 2026-11-14',
@@ -281,5 +282,15 @@ describe('/brief/:date: the record-only edition', () => {
     }
     // Title and description are the counted subject, as before.
     expect(metadata(html).titles[0]).toBe(`NexusWatch · ${COUNTED}`);
+  });
+});
+
+describe('/brief/:date: one call settled (R1 review finding 10)', () => {
+  it('the singular counted subject is the title and description', async () => {
+    const one = `1 call settled, 1 hit — mechanical edition, ${DATE}`;
+    row = { brief_date: DATE, summary: '', content: { briefText: WEEKDAY, subject: one, edition: 'mechanical' } };
+    const m = metadata(await page({ date: DATE }));
+    expect(m.titles[0]).toBe(`NexusWatch · ${one}`);
+    expect(m.descriptions[0]).toBe(one);
   });
 });

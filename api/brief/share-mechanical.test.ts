@@ -91,6 +91,7 @@ describe('/api/brief/screenshot (the og:image of /brief/:date)', () => {
   it('a mechanical edition without a counted subject draws no count at all', async () => {
     for (const subject of [
       `The Ledger, unchanged — mechanical edition, ${DATE}`,
+      `The Ledger, no calls settled — mechanical edition, ${DATE}`,
       `The Ledger — mechanical edition, ${DATE}`,
       undefined,
       '<b>66</b> calls',
@@ -127,6 +128,7 @@ describe('/api/og?type=brief', () => {
     });
     for (const subject of [
       `The Ledger, unchanged — mechanical edition, ${DATE}`,
+      `The Ledger, no calls settled — mechanical edition, ${DATE}`,
       `The Ledger — mechanical edition, ${DATE}`,
       undefined,
     ]) {
@@ -153,5 +155,14 @@ describe('/api/og?type=brief', () => {
     expect(briefCardWords(DATE, '', { tensionIndex: 61.6 }).tension).toBe(62);
     expect(renderBriefCard(DATE, 'x', null)).toContain('TENSION INDEX');
     expect(renderBriefCard(DATE, 'x', 62)).toContain('TENSION 62');
+  });
+});
+
+describe('one call settled (R1 review finding 10)', () => {
+  it('the share image and card take the singular counted subject', async () => {
+    const one = `1 call settled, 1 hit — mechanical edition, ${DATE}`;
+    row = { brief_date: DATE, content: { edition: 'mechanical', subject: one } };
+    expect((await shot()).body).toContain('>1 call settled, 1 hit<');
+    expect(briefCardWords(DATE, '', { edition: 'mechanical', subject: one }).headline).toBe(one);
   });
 });
