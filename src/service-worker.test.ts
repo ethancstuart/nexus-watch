@@ -56,18 +56,19 @@ function loadWorker({ online }: { online: boolean }) {
   };
   runInNewContext(SW, { self, caches, fetch, URL, Response, Headers, Date, console, parseInt, JSON, String });
 
-  return async function request(path: string, mode: Mode) {
+  return async function request(path: string, mode: Mode, origin: string = ORIGIN) {
     let responded: Promise<Response> | undefined;
     handlers.fetch?.({
-      request: { url: `${ORIGIN}${path}`, mode },
+      request: { url: `${origin}${path}`, mode },
       respondWith: (p: Promise<Response>) => {
         responded = p;
       },
     });
+    const intercepted = responded !== undefined;
     const body = await (await responded)?.text();
     // Let the cache writes the worker does not await settle.
     await new Promise((r) => setTimeout(r, 0));
-    return { body, network, puts };
+    return { intercepted, body, network, puts };
   };
 }
 
@@ -98,6 +99,19 @@ describe('the service worker never serves /data cache-first', () => {
     const { body, network } = await loadWorker({ online: true })('/assets/index-abc.js', 'no-cors');
     expect(network).toEqual([]);
     expect(body).toBe('stale');
+  });
+
+  it("another site's /data/ path is never intercepted (review F5)", async () => {
+    for (const mode of ['cors', 'navigate', 'no-cors'] as const) {
+      const { intercepted, network, puts } = await loadWorker({ online: true })(
+        '/data/x.json',
+        mode,
+        'https://example.org',
+      );
+      expect(intercepted, mode).toBe(false);
+      expect(network).toEqual([]);
+      expect(puts).toEqual([]);
+    }
   });
 
   it('a path that merely begins with "data" is not swept in', async () => {

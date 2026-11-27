@@ -39,13 +39,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // API routes: network-first with stale fallback.
-  // /data and /data/* too: the call download (/data/calls.csv, /data/calls.json)
-  // is API data under another path, rebuilt every day, and the static branch
-  // below is cache-first with no expiry, which would pin a reader to the first
-  // copy they ever fetched. Taking it here also keeps a navigation to the CSV
-  // out of the navigate branch, which stores every response as /index.html.
-  if (url.pathname.startsWith('/api/') || url.pathname === '/data' || url.pathname.startsWith('/data/')) {
+  // API routes: network-first with stale fallback
+  if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkFirstWithCache(event.request, API_CACHE));
     return;
   }
@@ -53,6 +48,18 @@ self.addEventListener('fetch', (event) => {
   // External assets: let the browser handle natively (no SW interception)
   // This avoids caching 503 error responses that stick in the browser cache
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // The call download, /data and /data/* on this origin: network-first with
+  // stale fallback, as the API above. It is API data under another path,
+  // rebuilt every day, and the static branch below is cache-first with no
+  // expiry, which would pin a reader to the first copy they ever fetched. It
+  // sits before the navigate branch, which stores every response as
+  // /index.html, so opening the CSV cannot become the offline page. After the
+  // origin check, so another site's /data/ path is never intercepted.
+  if (url.pathname === '/data' || url.pathname.startsWith('/data/')) {
+    event.respondWith(networkFirstWithCache(event.request, API_CACHE));
     return;
   }
 
