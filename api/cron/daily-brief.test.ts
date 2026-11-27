@@ -13,14 +13,19 @@ import {
   renderDossierEmail,
   type BriefData,
 } from './daily-brief.js';
-import { validateBriefStructure } from '../_lib/brief-structure.js';
+import { DAILY_SECTIONS } from '../_lib/brief-structure.js';
+import { RECORD_SECTIONS, NONE_OPEN, OPEN_UNREAD, NONE_RESOLVED, RESOLVED_UNREAD } from '../_lib/brief-record.js';
+import { recordDay } from '../_lib/brief-record-fixture.js';
 import { type, typeStyleAttr } from '../../src/styles/email-tokens.js';
 
 /**
- * The one fixture that must never break: the deterministic fallback is the
- * publish gate's safe harbor, so IT must satisfy the same structural contract
- * the gate enforces on the model. A fallback that fails its own gate's spec
- * means a refused draft has nowhere safe to fall.
+ * The deterministic fallback is the publish gate's safe harbor: the edition a
+ * reader gets whenever the model's draft does not ship. CHANGED WITH R1 (plan
+ * "the open forecast record", DISCOVERY.md §5): it is now the record-only
+ * edition (api/_lib/brief-record.ts), with its own four sections, and no longer
+ * borrows the model's section spine. The structure gate still applies to model
+ * drafts, unchanged; it never ran on the fallback at run time. The record-only
+ * edition's full contract is pinned in brief-record.test.ts.
  */
 
 const base: BriefData = {
@@ -72,48 +77,31 @@ const base: BriefData = {
   ],
 };
 
-describe('buildFallbackText — the safe harbor honours the structure contract', () => {
-  it('passes the daily structure gate with full data', () => {
-    const r = validateBriefStructure(buildFallbackText(base), false);
-    expect(r.missing).toEqual([]);
-    expect(r.extra).toEqual([]);
-    expect(r.pass).toBe(true);
+describe('buildFallbackText — the safe harbor is the record (CHANGED WITH R1)', () => {
+  it('is the record’s four sections, in order, and none of the model’s', () => {
+    const text = buildFallbackText({ ...base, record: recordDay() });
+    expect([...text.matchAll(/^## .+$/gm)].map((m) => m[0])).toEqual([...RECORD_SECTIONS]);
+    for (const h of DAILY_SECTIONS) expect(text).not.toContain(h);
   });
 
-  it('passes the gate even with empty feeds and no open calls', () => {
-    const empty: BriefData = {
+  it('an empty book, read and found empty, says so', () => {
+    const text = buildFallbackText({
       ...base,
-      topRiskCountries: [],
-      markets: [],
-      newsHeadlines: [],
-      weeklyTrends: [],
-      resolvedCallLines: [],
-      openCallLines: [],
-      // The book was read and is empty: the only case that may say so.
-      openCallsRead: true,
-    };
-    const text = buildFallbackText(empty);
-    expect(validateBriefStructure(text, false).pass).toBe(true);
+      record: { ...recordDay(), open: { read: true, total: 0, held: 0, next: [] } },
+    });
     expect(text).toContain('No open calls today.');
   });
 
   it('an unread book is never reported as empty (2026-11-23, the first no-key day)', () => {
-    for (const openCallsRead of [false, undefined]) {
-      const unread: BriefData = { ...base, openCallLines: [], openCallsRead };
-      const text = buildFallbackText(unread);
-      expect(text).not.toContain('No open calls today.');
-      expect(text).toContain('Open calls could not be read today.');
-      expect(validateBriefStructure(text, false).pass).toBe(true);
+    // No record (nothing read), or a record whose open read failed. The prompt's
+    // own flags say nothing about the edition's reads.
+    for (const record of [undefined, { ...recordDay(), open: { read: false as const } }]) {
+      for (const openCallsRead of [true, false, undefined]) {
+        const text = buildFallbackText({ ...base, openCallLines: [], openCallsRead, record });
+        expect(text).not.toContain(NONE_OPEN);
+        expect(text).toContain(OPEN_UNREAD);
+      }
     }
-  });
-
-  it("leads Today's Call with the first (most divergent) open call, verbatim", () => {
-    expect(buildFallbackText(base)).toContain(base.openCallLines[0]);
-  });
-
-  it('never attributes a driver — every mover line says so explicitly', () => {
-    const text = buildFallbackText(base);
-    expect(text).toContain("driver not identified in today's data.");
   });
 });
 
@@ -134,14 +122,16 @@ describe('buildFallbackText — the wording names the real cause', () => {
   it('a refused draft says a publish gate withheld it', () => {
     const text = buildFallbackText(base, 'draft-refused');
     expect(text).toContain('the model draft was withheld by a publish gate, so today carries data without narrative.');
-    expect(text).toContain('the model draft was withheld today');
+    // CHANGED WITH R1: the second sentence about the draft sat in the wire
+    // headline's paragraph, which the record-only edition does not carry.
+    expect(text).not.toContain('as the wire carried it');
     expect(text).not.toContain('no model draft was produced');
   });
 
   it('no draft says so, and never claims a gate withheld anything', () => {
     const text = buildFallbackText(base, 'no-draft');
     expect(text).toContain('no model draft was produced today, so today carries data without narrative.');
-    expect(text).toContain('no model draft was produced today, so we give you the lead');
+    expect(text).not.toContain('so we give you the lead');
     for (const phrase of FALSE_FOR_NO_DRAFT) expect(text).not.toContain(phrase);
   });
 
@@ -163,20 +153,19 @@ describe('buildFallbackText — the wording names the real cause', () => {
     }
   });
 
-  it('both causes keep the same section spine and pass the structure gate', () => {
+  it('both causes keep the same record sections', () => {
     for (const cause of ['draft-refused', 'no-draft'] as FallbackCause[]) {
-      const r = validateBriefStructure(buildFallbackText(base, cause), false);
-      expect(r.missing).toEqual([]);
-      expect(r.extra).toEqual([]);
-      expect(r.pass).toBe(true);
+      const text = buildFallbackText({ ...base, record: recordDay() }, cause);
+      expect([...text.matchAll(/^## .+$/gm)].map((m) => m[0])).toEqual([...RECORD_SECTIONS]);
     }
   });
 
-  it('the cause changes only the two sentences about the draft', () => {
+  // CHANGED WITH R1: one sentence about the draft, not two (the wire paragraph is gone).
+  it('the cause changes only the one sentence about the draft', () => {
     const a = buildFallbackText(base, 'draft-refused').split('\n');
     const b = buildFallbackText(base, 'no-draft').split('\n');
     expect(a.length).toBe(b.length);
-    expect(a.filter((line, i) => line !== b[i]).length).toBe(2);
+    expect(a.filter((line, i) => line !== b[i]).length).toBe(1);
   });
 
   // BRIEF_MODEL_MODE is not `live` and the draft cleared every gate: a draft
@@ -185,14 +174,14 @@ describe('buildFallbackText — the wording names the real cause', () => {
   describe('dry run', () => {
     const dry = buildFallbackText(base, 'dry-run');
 
-    it('says a draft is being tested and was not sent, in both sentences about the draft', () => {
+    it('says a draft is being tested and was not sent, in its one sentence about the draft', () => {
       expect(DRY_RUN_CLAUSE).toBe('a model-written draft is being tested and was not sent');
+      // CHANGED WITH R1: the same sentence, now a paragraph closing the edition
+      // rather than a bullet; the wire paragraph's second sentence is gone.
       expect(dry).toContain(
-        '- This is the mechanical edition: a model-written draft is being tested and was not sent, so today carries data without narrative.',
+        '\nThis is the mechanical edition: a model-written draft is being tested and was not sent, so today carries data without narrative.',
       );
-      expect(dry).toContain(
-        'This is the mechanical edition — a model-written draft is being tested and was not sent, so we give you the lead as the wire carried it rather than a synthesis.',
-      );
+      expect(dry).not.toContain('as the wire carried it');
     });
 
     it('claims neither that no draft existed nor that a gate withheld one', () => {
@@ -200,19 +189,16 @@ describe('buildFallbackText — the wording names the real cause', () => {
       for (const phrase of FALSE_FOR_NO_DRAFT) expect(dry).not.toContain(phrase);
     });
 
-    it('exposes no internals and keeps the section spine', () => {
+    it('exposes no internals and keeps the record sections', () => {
       for (const word of INTERNALS) expect(dry).not.toContain(word);
-      const r = validateBriefStructure(dry, false);
-      expect(r.missing).toEqual([]);
-      expect(r.extra).toEqual([]);
-      expect(r.pass).toBe(true);
+      expect([...dry.matchAll(/^## .+$/gm)].map((m) => m[0])).toEqual([...RECORD_SECTIONS]);
     });
 
-    it('changes only the same two sentences', () => {
+    it('changes only the same one sentence', () => {
       const a = dry.split('\n');
       const b = buildFallbackText(base, 'no-draft').split('\n');
       expect(a.length).toBe(b.length);
-      expect(a.filter((line, i) => line !== b[i]).length).toBe(2);
+      expect(a.filter((line, i) => line !== b[i]).length).toBe(1);
     });
   });
 });
@@ -429,30 +415,29 @@ describe('resolution day is first-class', () => {
    * All of this exists because of 2026-09-05: 39 calls settled for the first
    * time and the brief led with an unrelated FX call, because the model's
    * context selected only status='pending' and the fallback read only
-   * openCallLines. These tests pin the repaired behaviour on both paths.
+   * openCallLines. CHANGED WITH R1: the fallback reads its own record, and what
+   * resolved today is its first section.
    */
-  const resolvedDay: BriefData = {
-    ...base,
-    resolvedCallLines: [
-      '34 calls settled against external ground truth: 10 hit, 24 miss. 5 due calls remain pending under the coverage-grace rule (thin evidence, never scored as a miss).',
-      'Kazakhstan (KZ): HIT — we said 16% (base rate 10%) for a confirmed censorship event by 2026-09-05 — OONI confirmed blocking on 2 days in the window',
-    ],
-  };
-
-  it('the fallback leads with the record, then the open call', () => {
-    const text = buildFallbackText(resolvedDay);
-    const agg = text.indexOf('34 calls settled');
-    const detail = text.indexOf('Kazakhstan (KZ): HIT');
-    const open = text.indexOf(base.openCallLines[0]);
+  it('the fallback leads with what resolved, then what is open', () => {
+    const text = buildFallbackText({ ...base, record: recordDay() });
+    const agg = text.indexOf('14 calls settled today against external ground truth: 6 hit, 8 miss.');
+    const detail = text.indexOf('- ', agg);
+    const open = text.indexOf('789 calls are open.');
     expect(agg).toBeGreaterThan(-1);
     expect(detail).toBeGreaterThan(agg);
     expect(open).toBeGreaterThan(detail);
-    // And it still satisfies the gate that would otherwise refuse it.
-    expect(validateBriefStructure(text, false).pass).toBe(true);
   });
 
-  it('with no resolutions the fallback is byte-identical to before', () => {
-    expect(buildFallbackText(base)).not.toContain('settled against external ground truth');
+  it('with no resolutions it says none resolved, and only after a successful read', () => {
+    const none = buildFallbackText({
+      ...base,
+      record: { ...recordDay(), resolved: { read: true, total: 0, hits: 0, corrections: [], calls: [] } },
+    });
+    expect(none).toContain(NONE_RESOLVED);
+    expect(none).not.toContain('settled today against external ground truth');
+    const unread = buildFallbackText({ ...base, record: { ...recordDay(), resolved: { read: false } } });
+    expect(unread).toContain(RESOLVED_UNREAD);
+    expect(unread).not.toContain(NONE_RESOLVED);
   });
 });
 
@@ -570,9 +555,13 @@ describe('spliceLedgerLine', () => {
     expect(spliceLedgerLine(body, 'x')).not.toContain('\n> ');
   });
 
-  it('still satisfies the structure gate', () => {
-    const full = buildFallbackText(base);
-    expect(validateBriefStructure(spliceLedgerLine(full, '1 open'), false).pass).toBe(true);
+  // CHANGED WITH R1: the mechanical edition's first section is what resolved
+  // today, and the Ledger line opens it, above the day's resolutions.
+  it('opens the record edition’s first section, above what resolved today', () => {
+    const out = spliceLedgerLine(buildFallbackText({ ...base, record: recordDay() }), '1 open').split('\n');
+    expect(out[0]).toBe(RECORD_SECTIONS[0]);
+    expect(out[2]).toBe('**The Ledger** — 1 open');
+    expect(out[4]).toBe('14 calls settled today against external ground truth: 6 hit, 8 miss.');
   });
 
   it('appends rather than losing the line when no header exists', () => {

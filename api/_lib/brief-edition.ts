@@ -13,6 +13,18 @@
 
 export type BriefEdition = 'model' | 'mechanical';
 
+/**
+ * The one line that names the mechanical edition at the top of every output.
+ * Reader-facing, so it needs the owner's sign-off. Kept short on purpose: it
+ * sits in the 10px kicker style, where a sentence of ~100 characters wraps to
+ * two lines at 640px and more on a phone. It says only what is true of the
+ * mechanical edition (no model wrote today) and claims nothing about cause or
+ * about what the body contains. Moved here from api/cron/daily-brief.ts (which
+ * re-exports it) so the share-image edge function can print it without
+ * importing the brief job.
+ */
+export const MECHANICAL_EDITION_LINE = 'Mechanical edition: no narrative today.';
+
 export function editionFor(onFallback: boolean): BriefEdition {
   return onFallback ? 'mechanical' : 'model';
 }

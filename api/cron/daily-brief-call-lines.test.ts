@@ -100,13 +100,56 @@ const RESOLVED_LINES = [
 // Fake database
 // ---------------------------------------------------------------------------
 
+/**
+ * The mechanical edition's own record (gatherRecord, plan R1): today's
+ * resolutions with their call ids, and the open book. Read by separate queries
+ * from the prompt's, so each side can fail on its own.
+ */
+const RECORD_RESOLVED = RESOLVED_ROWS.map((r, i) => ({
+  id: 7001 + i,
+  claim: `${r.country_code} claim, frozen at issue.`,
+  threshold: 1,
+  threshold_pct: r.kind === 'fx_devaluation' ? 2.5 : null,
+  made_on: '2026-11-09',
+  ...r,
+}));
+const RECORD_NEXT = [
+  {
+    id: 7101,
+    kind: 'fx_devaluation',
+    country_code: 'UG',
+    claim: 'UGX depreciates 3.00% or more against USD at any point within 14 days, from 3700.00.',
+    probability: 0.38,
+    base_rate: 0.25,
+    threshold: 1,
+    threshold_pct: 3,
+    made_on: '2026-11-10',
+    resolves_on: '2026-11-24',
+    status: 'pending',
+    evidence_count: null,
+    corrected_status: null,
+  },
+];
+
 const db = {
   open: OPEN_ROWS as unknown[],
   resolved: RESOLVED_ROWS as unknown[],
   totals: { total: 3, hits: 1 },
   failOpenQuery: false,
   failResolvedQuery: false,
-  archived: null as { briefText?: string; openCallLines?: string[]; resolvedCallLines?: string[] } | null,
+  recordPage: RECORD_RESOLVED as unknown[],
+  recordTotals: { total: 3, hits: 1 },
+  recordOpen: { open_total: 3, held: 0 },
+  recordNext: RECORD_NEXT as unknown[],
+  failRecordResolved: false,
+  failRecordOpen: false,
+  recordQueries: [] as string[],
+  archived: null as {
+    briefText?: string;
+    openCallLines?: string[];
+    resolvedCallLines?: string[];
+    record?: unknown;
+  } | null,
   claimed: false,
 };
 
@@ -130,7 +173,28 @@ async function fakeSql(strings: TemplateStringsArray, ...values: unknown[]): Pro
     return CII_ROWS;
   }
 
-  // The open book (prompt and mechanical edition).
+  // The mechanical edition's record: today's resolutions (the calendar day, every
+  // day of the week) and the open book.
+  if (
+    text.includes('resolved_at::date = CURRENT_DATE') &&
+    /^SELECT (COUNT\(\*\)::int AS total|c\.id::int AS id|c\.status, cc\.corrected_status)/.test(text)
+  ) {
+    db.recordQueries.push(text);
+    if (db.failRecordResolved) throw new Error("synthetic: the record's resolved read is unavailable");
+    if (text.startsWith('SELECT COUNT(*)::int AS total')) return [db.recordTotals];
+    if (text.startsWith('SELECT c.id::int AS id')) return db.recordPage;
+    return [];
+  }
+  if (
+    text.startsWith('SELECT COUNT(*)::int AS open_total') ||
+    (text.startsWith('SELECT c.id::int AS id') && text.includes("c.status = 'pending'"))
+  ) {
+    db.recordQueries.push(text);
+    if (db.failRecordOpen) throw new Error("synthetic: the record's open read is unavailable");
+    return text.startsWith('SELECT COUNT') ? [db.recordOpen] : db.recordNext;
+  }
+
+  // The open book (the prompt's lines).
   if (text.includes('FROM calls') && text.includes(OPEN_CALLS_QUERY)) {
     if (db.failOpenQuery) throw new Error('synthetic: relation "calls" is unavailable');
     return db.open;
@@ -231,6 +295,13 @@ beforeEach(() => {
   db.totals = { total: 3, hits: 1 };
   db.failOpenQuery = false;
   db.failResolvedQuery = false;
+  db.recordPage = RECORD_RESOLVED;
+  db.recordTotals = { total: 3, hits: 1 };
+  db.recordOpen = { open_total: 3, held: 0 };
+  db.recordNext = RECORD_NEXT;
+  db.failRecordResolved = false;
+  db.failRecordOpen = false;
+  db.recordQueries = [];
   db.archived = null;
   db.claimed = false;
   modelRequests = [];
@@ -262,26 +333,44 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 
-describe('no model key: the mechanical edition carries the real call lines', () => {
-  it('calls exist: the top open call and the resolved lines are printed, never "No open calls today."', async () => {
+/**
+ * CHANGED WITH R1 (the record-only edition): the mechanical edition is built
+ * from its own record reads (gatherRecord), not from the prompt's lines. What
+ * the 23 Nov fix established still holds, on the record's own reads: they run
+ * with or without a key, and an unread book or day is never printed as empty.
+ */
+describe('no model key: the mechanical edition carries the real record', () => {
+  const RESOLVED_AGGREGATE = '3 calls settled today against external ground truth: 1 hit, 2 miss.';
+  const UG_RESOLVED =
+    'UG (UG): MISS — we said 40% (base rate 30%) for currency depreciation of 2.5% or more against USD by 2026-11-23. [Call #7001](https://nexuswatch.dev/call/7001)';
+  const KZ_RESOLVED =
+    'KZ (KZ): HIT — we said 16% (base rate 10%) for a confirmed censorship event by 2026-11-23 — OONI confirmed blocking on 2 days in the window. [Call #7002](https://nexuswatch.dev/call/7002)';
+  const UG_NEXT =
+    'UG (UG): we say 38% (base rate 25%) for currency depreciation of 3% or more against USD by 2026-11-24. [Call #7101](https://nexuswatch.dev/call/7101)';
+
+  it('calls exist: what resolved and what is open are printed, linked, never "No open calls today."', async () => {
     const out = await runBrief();
     expect(out.body.ai).toBe('no-api-key');
     expect(modelRequests).toHaveLength(0);
 
     const text = mechanicalText();
-    expect(text).toContain(TOP_OPEN_LINE);
-    expect(text).toContain(RESOLVED_LINES[0]);
-    expect(text).toContain(RESOLVED_LINES[1]);
+    expect(text).toContain(RESOLVED_AGGREGATE);
+    expect(text).toContain(`- ${UG_RESOLVED}`);
+    expect(text).toContain(`- ${KZ_RESOLVED}`);
+    expect(text).toContain('3 calls are open.');
+    expect(text).toContain(`- ${UG_NEXT}`);
     expect(text).not.toContain('No open calls today.');
-    // Record first, then the open call, as on a model day.
-    expect(text.indexOf(RESOLVED_LINES[0])).toBeLessThan(text.indexOf(TOP_OPEN_LINE));
-    // The archive row carries the same lines the edition was built from.
-    expect(db.archived!.openCallLines).toEqual(OPEN_LINES);
-    expect(db.archived!.resolvedCallLines).toEqual(RESOLVED_LINES);
+    // What resolved first, then what is open.
+    expect(text.indexOf(RESOLVED_AGGREGATE)).toBeLessThan(text.indexOf('3 calls are open.'));
+    // The archive row carries the record the edition was built from, not the prompt's lines.
+    expect(db.archived!.record).toMatchObject({ resolved: { read: true, total: 3 }, open: { read: true, total: 3 } });
+    expect(db.archived!.openCallLines).toBeUndefined();
+    expect(db.archived!.resolvedCallLines).toBeUndefined();
   });
 
-  it('the open-call query throws: the edition does not say the book is empty, and the run completes', async () => {
+  it('the open reads throw: the edition does not say the book is empty, and the run completes', async () => {
     db.failOpenQuery = true;
+    db.failRecordOpen = true;
     const out = await runBrief();
     expect(out.status).toBe(200);
     expect(out.body.ai).toBe('no-api-key');
@@ -289,42 +378,66 @@ describe('no model key: the mechanical edition carries the real call lines', () 
     const text = mechanicalText();
     expect(text).not.toContain('No open calls today.');
     expect(text).toContain('Open calls could not be read today.');
-    expect(text).not.toContain(TOP_OPEN_LINE);
+    expect(text).not.toContain(UG_NEXT);
   });
 
-  it("Sunday: the resolved lines cover the last 7 days, as the prompt's always did", async () => {
+  it("Sunday: the edition's resolutions are today's, as the Ledger line and the subject count them", async () => {
     await runBrief(SUNDAY);
     const text = mechanicalText();
-    expect(text).toContain(RESOLVED_LINES[0].replace('settled today', 'settled in the last 7 days'));
-    expect(text).toContain(TOP_OPEN_LINE);
+    expect(text).toContain(RESOLVED_AGGREGATE);
+    expect(text).not.toContain('in the last 7 days');
+    const resolvedReads = db.recordQueries.filter((q) => q.includes('resolved_at::date'));
+    expect(resolvedReads).toHaveLength(3);
+    for (const q of resolvedReads) {
+      expect(q).toContain('resolved_at::date = CURRENT_DATE');
+      expect(q).not.toContain('CURRENT_DATE - ');
+    }
   });
 
-  it('the resolved-call read throws: the edition says nothing about resolved calls, and keeps the open call', async () => {
+  it('the resolved reads throw: the edition says they could not be read, never that none resolved, and keeps the open calls', async () => {
     db.failResolvedQuery = true;
+    db.failRecordResolved = true;
     for (const day of [TODAY, SUNDAY]) {
       db.archived = null;
       db.claimed = false;
       const out = await runBrief(day);
       expect(out.status).toBe(200);
       const text = mechanicalText();
-      expect(text).not.toMatch(/resolved|settled|came due|No calls/i);
-      expect(text).toContain(TOP_OPEN_LINE);
-      expect(db.archived!.resolvedCallLines).toEqual([]);
+      expect(text).toContain('Resolved calls could not be read today.');
+      expect(text).not.toMatch(/No calls resolved|settled today|came due/);
+      expect(text).toContain(UG_NEXT);
+      expect(text).toContain("Why this call: today's resolutions could not be read.");
     }
   });
 
-  it('the open-call read throws: nothing about resolved calls either (their reads never ran)', async () => {
+  it('the open reads throw: what resolved is still printed (the two reads are independent)', async () => {
     db.failOpenQuery = true;
+    db.failRecordOpen = true;
     await runBrief();
-    expect(mechanicalText()).not.toMatch(/resolved|settled|came due|No calls/i);
+    const text = mechanicalText();
+    expect(text).toContain(RESOLVED_AGGREGATE);
+    expect(text).toContain('Open calls could not be read today.');
   });
 
-  it('the query succeeds with zero open calls: "No open calls today." still appears', async () => {
+  it('the reads succeed with zero open calls: "No open calls today." still appears', async () => {
     db.open = [];
+    db.recordOpen = { open_total: 0, held: 0 };
+    db.recordNext = [];
     await runBrief();
     const text = mechanicalText();
     expect(text).toContain('No open calls today.');
     expect(text).not.toContain('Open calls could not be read today.');
+  });
+
+  it('the prompt-side reads failing does not make the edition call anything empty or unread', async () => {
+    // The record is read separately: the prompt's failure does not reach it.
+    db.failOpenQuery = true;
+    db.failResolvedQuery = true;
+    await runBrief();
+    const text = mechanicalText();
+    expect(text).toContain(RESOLVED_AGGREGATE);
+    expect(text).toContain(`- ${UG_NEXT}`);
+    expect(text).not.toContain('could not be read');
   });
 });
 
@@ -471,12 +584,14 @@ describe('model key set: the prompt is handed exactly the call lines it was befo
     }
   });
 
-  it('the model call fails: the mechanical edition carries the same lines', async () => {
+  // CHANGED WITH R1: the mechanical edition carries the record, not the prompt's lines.
+  it('the model call fails: the mechanical edition carries the record', async () => {
     const out = await runBrief();
     expect(out.body.ai).toMatch(/^ai-failed:500/);
     const text = mechanicalText();
-    expect(text).toContain(TOP_OPEN_LINE);
-    expect(text).toContain(RESOLVED_LINES[0]);
+    expect(text).toContain('3 calls settled today against external ground truth: 1 hit, 2 miss.');
+    expect(text).toContain('[Call #7101](https://nexuswatch.dev/call/7101)');
+    expect(text).not.toContain(TOP_OPEN_LINE);
     expect(text).not.toContain('No open calls today.');
   });
 });
