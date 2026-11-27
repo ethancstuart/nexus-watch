@@ -710,3 +710,29 @@ describe('the gate the model must pass, the edition passes too', () => {
     }
   });
 });
+
+describe('country names: never a code twice', () => {
+  const one = (over: Partial<RecordCall>) =>
+    edition({
+      resolved: { read: true, total: 1, hits: 0, corrections: [], calls: [recordCall(over)] },
+      open: { read: true, total: 1, held: 0, next: [recordCall({ ...over, id: 90_900, status: 'pending' })] },
+      correctionsPage: true,
+    });
+
+  it('a named country reads "Name (CC)"', () => {
+    const text = one({ country_code: 'SE', name: 'Sweden' });
+    expect(text).toContain('- Sweden (SE): MISS — we said');
+    expect(text).toContain('- Sweden (SE): we say');
+    expect(text).toContain('**Sweden (SE), call #90001.**');
+  });
+
+  it('no name, or a "name" that is only the code: the code alone, once', () => {
+    for (const name of [null, '', 'SE', '  ']) {
+      const text = one({ country_code: 'SE', name });
+      expect(text).toContain('- SE: MISS — we said');
+      expect(text).toContain('- SE: we say');
+      expect(text).toContain('**SE, call #90001.**');
+      expect(text).not.toContain('SE (SE)');
+    }
+  });
+});

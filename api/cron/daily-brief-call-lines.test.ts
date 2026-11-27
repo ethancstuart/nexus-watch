@@ -143,6 +143,7 @@ const db = {
   recordNext: RECORD_NEXT as unknown[],
   failRecordResolved: false,
   failRecordOpen: false,
+  failCii: false,
   recordQueries: [] as string[],
   archived: null as {
     briefText?: string;
@@ -170,6 +171,7 @@ async function fakeSql(strings: TemplateStringsArray, ...values: unknown[]): Pro
 
   // CII, so names resolve (Iran) and the map reaches the call lines.
   if (text.startsWith('SELECT DISTINCT ON (country_code) country_code, country_name, score, components')) {
+    if (db.failCii) throw new Error('synthetic: the country index is unavailable');
     return CII_ROWS;
   }
 
@@ -301,6 +303,7 @@ beforeEach(() => {
   db.recordNext = RECORD_NEXT;
   db.failRecordResolved = false;
   db.failRecordOpen = false;
+  db.failCii = false;
   db.recordQueries = [];
   db.archived = null;
   db.claimed = false;
@@ -342,11 +345,11 @@ afterEach(() => {
 describe('no model key: the mechanical edition carries the real record', () => {
   const RESOLVED_AGGREGATE = '3 calls settled today against external ground truth: 1 hit, 2 miss.';
   const UG_RESOLVED =
-    'UG (UG): MISS — we said 40% (base rate 30%) for currency depreciation of 2.5% or more against USD by 2026-11-23. [Call #7001](https://nexuswatch.dev/call/7001)';
+    'Uganda (UG): MISS — we said 40% (base rate 30%) for currency depreciation of 2.5% or more against USD by 2026-11-23. [Call #7001](https://nexuswatch.dev/call/7001)';
   const KZ_RESOLVED =
-    'KZ (KZ): HIT — we said 16% (base rate 10%) for a confirmed censorship event by 2026-11-23 — OONI confirmed blocking on 2 days in the window. [Call #7002](https://nexuswatch.dev/call/7002)';
+    'Kazakhstan (KZ): HIT — we said 16% (base rate 10%) for a confirmed censorship event by 2026-11-23 — OONI confirmed blocking on 2 days in the window. [Call #7002](https://nexuswatch.dev/call/7002)';
   const UG_NEXT =
-    'UG (UG): we say 38% (base rate 25%) for currency depreciation of 3% or more against USD by 2026-11-24. [Call #7101](https://nexuswatch.dev/call/7101)';
+    'Uganda (UG): we say 38% (base rate 25%) for currency depreciation of 3% or more against USD by 2026-11-24. [Call #7101](https://nexuswatch.dev/call/7101)';
 
   it('calls exist: what resolved and what is open are printed, linked, never "No open calls today."', async () => {
     const out = await runBrief();
@@ -366,6 +369,40 @@ describe('no model key: the mechanical edition carries the real record', () => {
     expect(db.archived!.record).toMatchObject({ resolved: { read: true, total: 3 }, open: { read: true, total: 3 } });
     expect(db.archived!.openCallLines).toBeUndefined();
     expect(db.archived!.resolvedCallLines).toBeUndefined();
+  });
+
+  // Country names come from the repository (api/_lib/country-names.ts), on
+  // every run. This harness's index holds only Iran, and no key is set.
+  it('real country names, though the index row is missing and no key is set; never a code twice', async () => {
+    await runBrief();
+    const text = mechanicalText();
+    expect(text).toContain('Uganda (UG): MISS');
+    expect(text).toContain('Kazakhstan (KZ): HIT');
+    expect(text).toContain('**Uganda (UG), call #7001.**');
+    expect(text).not.toMatch(/\b([A-Z]{2}) \(\1\)/);
+  });
+
+  it('real country names when the index read fails outright', async () => {
+    db.failCii = true;
+    const out = await runBrief();
+    expect(out.status).toBe(200);
+    const text = mechanicalText();
+    expect(text).toContain(`- ${UG_RESOLVED}`);
+    expect(text).toContain(`- ${UG_NEXT}`);
+    expect(text).not.toMatch(/\b([A-Z]{2}) \(\1\)/);
+  });
+
+  it('a country no source names prints its code alone, once', async () => {
+    db.recordPage = [{ ...RECORD_RESOLVED[0], id: 7009, country_code: 'XK' }];
+    db.recordTotals = { total: 1, hits: 0 };
+    db.recordNext = [{ ...RECORD_NEXT[0], id: 7109, country_code: 'XK' }];
+    await runBrief();
+    const text = mechanicalText();
+    expect(text).toContain('- XK: MISS — we said 40%');
+    expect(text).toContain('- XK: we say 38%');
+    expect(text).toContain('**XK, call #7009.**');
+    expect(text).not.toContain('XK (XK)');
+    expect(text).not.toMatch(/\b([A-Z]{2}) \(\1\)/);
   });
 
   it('the open reads throw: the edition does not say the book is empty, and the run completes', async () => {

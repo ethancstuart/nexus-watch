@@ -60,7 +60,7 @@ export interface RecordCall {
   id: number;
   kind: string;
   country_code: string;
-  /** The country's display name when the brief's country table knows the code; else null. */
+  /** The country's display name (api/_lib/country-names.ts, else the index row); null when neither knows the code. */
   name: string | null;
   claim: string;
   probability: number;
@@ -197,9 +197,15 @@ function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
 }
 
+/**
+ * "Uganda (UG)". A country with no known name prints its code alone, once
+ * ("SE"), never twice ("SE (SE)"). Names come from api/_lib/country-names.ts
+ * (repository data, every run), then the index row (gatherRecord).
+ */
 function who(c: RecordCall): string {
   const code = plainText(c.country_code);
-  return `${c.name ? plainText(c.name) : code} (${code})`;
+  const name = c.name ? plainText(c.name) : '';
+  return name && name !== code ? `${name} (${code})` : code;
 }
 
 /** What the call claims, in a phrase, by kind. No default that lies: an unknown kind gets words true of every call. */

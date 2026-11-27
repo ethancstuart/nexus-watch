@@ -41,6 +41,7 @@ import {
   type ResolvedRead,
 } from '../_lib/brief-record.js';
 import { correctionsNewestFirst } from '../_lib/corrections.js';
+import { countryName } from '../_lib/country-names.js';
 import { checkBudget, recordAnthropicSpend } from '../_lib/llm-budget.js';
 import { buildBriefRequest, readBriefReply, BRIEF_TIMEOUT_MS } from '../_lib/brief-model.js';
 import {
@@ -3031,8 +3032,10 @@ type RecordCallRow = Omit<RecordCall, 'name'>;
 async function gatherRecord(sql: SqlTag, nameOf: Map<string, string>): Promise<BriefRecord> {
   const calKinds = [...CALIBRATION_KINDS];
   const scored = [...SCORED_STATUSES];
+  // Names from the repository first (country-names.ts: every run, whatever the
+  // index read did), then the index row, else none: the line prints the code once.
   const named = (rows: RecordCallRow[]): RecordCall[] =>
-    rows.map((r) => ({ ...r, name: nameOf.get(r.country_code) ?? null }));
+    rows.map((r) => ({ ...r, name: countryName(r.country_code) ?? nameOf.get(r.country_code) ?? null }));
 
   let resolved: ResolvedRead = { read: false };
   try {
