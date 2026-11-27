@@ -65,6 +65,7 @@ const db = {
     generated_at: string;
   },
   failRecord: false,
+  failLedger: false,
   subscribers: [] as Array<{ email: string; timezone: string }>,
   claims: new Set<string>(),
 };
@@ -144,6 +145,7 @@ async function fakeSql(strings: TemplateStringsArray, ...values: unknown[]): Pro
 
   // The Ledger line: today's resolutions, every scored row, the open count.
   if (text.startsWith('SELECT country_code, status, probability::float AS probability FROM calls WHERE resolved_at')) {
+    if (db.failLedger) throw new Error('synthetic: the Ledger line read is unavailable');
     return RESOLVED.map((r) => ({ country_code: r.country_code, status: r.status, probability: r.probability }));
   }
   if (
@@ -268,6 +270,7 @@ async function surfaces(): Promise<Record<string, string>> {
 beforeEach(() => {
   db.row = null;
   db.failRecord = false;
+  db.failLedger = false;
   db.subscribers = [];
   db.claims = new Set();
   sent = [];
@@ -361,6 +364,23 @@ describe('the record-only edition on every surface (no model key, as production 
     expect(s['email plain text']).toContain('3 calls settled today against external ground truth: 1 hit, 2 miss.');
     expect(s['brief page (/brief/:date)']).toContain(`<title>NexusWatch · 3 calls settled, 1 hit — mechanical edition`);
     expect(s['share image (/api/brief/screenshot)']).toContain('>3 calls settled, 1 hit<');
+  });
+
+  it('the Ledger line read fails: the subject is counted from the edition’s own read, never "unchanged"', async () => {
+    db.failLedger = true;
+    await runBrief();
+    const s = await surfaces();
+    expect(s['brief page (/brief/:date)']).not.toContain('**The Ledger**');
+    expect(s['email subject']).toBe(`3 calls settled, 1 hit — mechanical edition, ${TODAY} — The NexusWatch Brief`);
+    expect(s['email plain text']).toContain('3 calls settled today against external ground truth: 1 hit, 2 miss.');
+    // Both reads failed: no count anywhere, so the subject says nothing changed only when nothing was read.
+    db.row = null;
+    db.claims = new Set();
+    db.failRecord = true;
+    await runBrief();
+    expect((db.row!.content as { subject: string }).subject).toBe(
+      `The Ledger, unchanged — mechanical edition, ${TODAY}`,
+    );
   });
 
   it('the page, the email and the feeds carry the sections in order, and the calls linked', async () => {

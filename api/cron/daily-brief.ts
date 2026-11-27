@@ -1402,7 +1402,14 @@ ${(() => {
     // as the subject of this register. See fallbackSubject. The record-only
     // edition (plan R1) has no Top Signal; its subject is still counted from the
     // Ledger line's own query, the same day's resolutions its first section lists.
-    const subject = onFallback ? fallbackSubject(today, ledgerRecord) : chooseSubject(declaredSubject, briefText);
+    //
+    // When the Ledger line's read failed but the edition's own read of today's
+    // resolutions succeeded, the subject is counted from that read (the same
+    // filter), so it cannot say "unchanged" above a list of the day's
+    // resolutions. Only on a mechanical day; a model day is untouched.
+    const subjectRecord =
+      ledgerRecord ?? (record.resolved.read ? { resolved: record.resolved.total, hits: record.resolved.hits } : null);
+    const subject = onFallback ? fallbackSubject(today, subjectRecord) : chooseSubject(declaredSubject, briefText);
     const archiveT0 = Date.now();
     // The edition travels with the stored content (from the same flag, not the
     // text) so /api/status can report it without parsing anything.
