@@ -24,6 +24,7 @@ import {
   UNREAD_RECORD,
   chooseExplainedCall,
   explainCall,
+  resolvedLine,
   WHY_NO_BASE,
   type BriefRecord,
   type RecordCall,
@@ -857,5 +858,30 @@ describe('country names: never a code twice', () => {
       expect(text).toContain('**SE, call #90001.**');
       expect(text).not.toContain('SE (SE)');
     }
+  });
+});
+
+describe('only a scored call is ever HIT or MISS (review finding 3, the second guard)', () => {
+  it('a pending or unscored status prints as itself in a list line, never as MISS', () => {
+    expect(resolvedLine(recordCall({ status: 'pending' }))).toMatch(/^Uganda \(UG\): PENDING — we said/);
+    expect(resolvedLine(recordCall({ status: 'void' }))).toMatch(/^Uganda \(UG\): VOID — we said/);
+    for (const status of ['pending', 'void', 'unresolvable']) {
+      expect(resolvedLine(recordCall({ status }))).not.toMatch(/\bMISS\b|\bHIT\b/);
+    }
+  });
+
+  it('an unscored status chosen as resolved states itself and claims nothing about a source', () => {
+    const text = explainCall({ call: recordCall({ status: 'unresolvable' }), why: 'resolved' }).join('\n');
+    expect(text).toContain('The outcome: UNRESOLVABLE.');
+    expect(text).not.toMatch(/\bMISS\b|\bHIT\b|declared source/);
+  });
+});
+
+describe('a day that scored nothing says exactly that (review finding 12)', () => {
+  it('"No call was scored today.", never "No calls resolved today."', () => {
+    expect(NONE_RESOLVED).toBe('No call was scored today.');
+    const text = edition({ ...recordDay(), resolved: { read: true, total: 0, hits: 0, corrections: [], calls: [] } });
+    expect(text).toContain('No call was scored today.');
+    expect(text).not.toContain('No calls resolved today.');
   });
 });
