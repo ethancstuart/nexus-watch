@@ -48,7 +48,7 @@ vi.mock('@neondatabase/serverless', () => ({
   },
 }));
 
-const { default: download } = await import('./calls/download.js');
+const { default: download, SIZE_WARNING_BYTES } = await import('./calls/download.js');
 const { default: dataPage } = await import('./data.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -550,6 +550,28 @@ describe('cache headers', () => {
     const post = await get('csv', 'POST');
     expect([post.status, post.headers['Allow'], post.headers['Cache-Control']]).toEqual([405, 'GET, HEAD', 'no-store']);
     expect((await get('csv', 'HEAD')).status).toBe(200);
+  });
+
+  it('warns in the log when a file passes 3.5 MB, ahead of the 4.5 MB response limit (review F7)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await get('csv');
+      expect(warn).not.toHaveBeenCalled();
+      // 20,000 currency calls: over 3.5 MB in both formats.
+      h.calls = Array.from({ length: 20_000 }, (_, i) => ({ ...(SYNTH[0] as DownloadSourceRow), id: String(i + 1) }));
+      for (const format of ['csv', 'json']) {
+        warn.mockClear();
+        const r = await get(format);
+        expect(r.status).toBe(200);
+        expect(Buffer.byteLength(r.body)).toBeGreaterThan(SIZE_WARNING_BYTES);
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(String(warn.mock.calls[0]?.[0])).toMatch(
+          new RegExp(`^\\[calls/download\\] ${format} body is \\d+ bytes; the 4\\.5 MB response limit is near`),
+        );
+      }
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('reads the whole table, by id, with no LIMIT, and the timestamp in UTC', async () => {

@@ -11,6 +11,9 @@ import {
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
 
+/** A body above this logs a warning: the 4.5 MB response limit is near. */
+export const SIZE_WARNING_BYTES = 3_500_000;
+
 /**
  * GET /data/calls.csv and /data/calls.json (vercel.json rewrites each here
  * with `format`): every call in the book, documented on /data.
@@ -81,15 +84,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const records = buildDownloadRecords(calls, corrections);
 
+    const body = format === 'csv' ? toCsv(records) : toJson(records, new Date());
+
+    // AN EARLY WARNING BEFORE THE RESPONSE LIMIT. A Vercel Function response is
+    // limited to 4.5 MB (as remembered; api/sitemap.ts). At 65 calls a day the
+    // JSON passes 3.5 MB about 27 Feb 2027 and 4.5 MB about 24 Apr 2027; the
+    // daily snapshot of /api/calls/ledger?all=1 fails first, about 5 Mar 2027.
+    // The fix is an owner decision (lanes12/DOWNLOAD.md §6.1).
+    const bytes = Buffer.byteLength(body);
+    if (bytes > SIZE_WARNING_BYTES) {
+      console.warn(
+        `[calls/download] ${format} body is ${bytes} bytes; the 4.5 MB response limit is near (lanes12/DOWNLOAD.md §6.1)`,
+      );
+    }
+
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', DOWNLOAD_CACHE_CONTROL);
-    if (format === 'csv') {
-      // header=present: RFC 4180's own parameter for a CSV whose first line is a header.
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8; header=present');
-      return res.status(200).send(toCsv(records));
-    }
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    return res.status(200).send(toJson(records, new Date()));
+    // header=present: RFC 4180's own parameter for a CSV whose first line is a header.
+    res.setHeader(
+      'Content-Type',
+      format === 'csv' ? 'text/csv; charset=utf-8; header=present' : 'application/json; charset=utf-8',
+    );
+    return res.status(200).send(body);
   } catch (err) {
     console.error('[calls/download] failed:', err instanceof Error ? err.message : err);
     return fail(res, format, { status: 500, code: 'calls_unavailable' });
