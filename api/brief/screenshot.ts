@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { countedSubject } from '../_lib/brief-structure.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 10 };
 
@@ -182,6 +183,41 @@ function renderFallbackSvg(opts: {
 </svg>`;
 }
 
+/**
+ * The card for a MECHANICAL edition (plan R1: the record-only edition). That
+ * edition is the record: what resolved, what is open, one call explained. It
+ * names no top-risk country and prints no index score, so its share image
+ * shows neither, and no map is fetched for it. It says "The Ledger", the
+ * edition's label, and the day's counted subject when the archive holds one
+ * (code wrote it from the resolved-call counts; countedSubject, the rule the
+ * brief page's title uses). Same palette and positions as the card above.
+ */
+function renderMechanicalSvg(opts: { width: number; height: number; counted: string | null; date: string }): string {
+  const { width, height, counted, date } = opts;
+  const safeDate = date.replace(/[<>"'&]/g, '');
+  // "66 calls settled, 31 hit": digits, letters, commas and spaces only.
+  const lead = (counted ?? '').split(' — ')[0].replace(/[^0-9A-Za-z, ]/g, '');
+  const bgPage = '#FAF8F3';
+  const textPrimary = '#12161C';
+  const textTertiary = '#6B7280';
+  const accent = '#9A1B1B';
+  const divider = '#C9A86B';
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+  <rect width="${width}" height="${height}" fill="${bgPage}"/>
+  <rect x="0" y="${Math.round(height * 0.18)}" width="${width}" height="2" fill="${divider}"/>
+  <text x="${width / 2}" y="${Math.round(height * 0.14)}" font-family="'JetBrains Mono','SF Mono',Menlo,monospace" font-size="${Math.round(height * 0.035)}" letter-spacing="4" fill="${accent}" text-anchor="middle" font-weight="700">NEXUSWATCH · SITUATION BRIEF</text>
+  <text x="${width / 2}" y="${Math.round(height * 0.38)}" font-family="'Tiempos Headline','Georgia','Times New Roman',serif" font-size="${Math.round(height * 0.095)}" fill="${textPrimary}" text-anchor="middle" font-weight="600">The Ledger</text>${
+    lead
+      ? `
+  <text x="${width / 2}" y="${Math.round(height * 0.58)}" font-family="'Inter','Helvetica Neue',Arial,sans-serif" font-size="${Math.round(height * 0.065)}" fill="${textPrimary}" text-anchor="middle" font-weight="500">${lead}</text>`
+      : ''
+  }
+  <text x="${width / 2}" y="${Math.round(height * 0.72)}" font-family="'JetBrains Mono','SF Mono',Menlo,monospace" font-size="${Math.round(height * 0.045)}" fill="${textTertiary}" text-anchor="middle" letter-spacing="2">MECHANICAL EDITION</text>
+  <text x="${width / 2}" y="${Math.round(height * 0.92)}" font-family="'JetBrains Mono','SF Mono',Menlo,monospace" font-size="${Math.round(height * 0.03)}" fill="${textTertiary}" text-anchor="middle" letter-spacing="2">${safeDate}</text>
+</svg>`;
+}
+
 // ---------------------------------------------------------------------------
 // Mapbox Static Images URL builder
 // ---------------------------------------------------------------------------
@@ -229,6 +265,10 @@ interface CountryHit {
 }
 interface BriefContent {
   topRiskCountries?: CountryHit[];
+  /** 'mechanical' on a mechanical edition (absent on rows archived before 2026-11-16). */
+  edition?: unknown;
+  /** The archived subject; only its counted form is ever drawn. */
+  subject?: unknown;
 }
 
 function sendSvg(res: VercelResponse, svg: string) {
@@ -327,6 +367,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : ((row.content as BriefContent) ?? {});
   } catch {
     content = {};
+  }
+
+  // A mechanical edition is the record: no country, no index score, no map.
+  if (content.edition === 'mechanical') {
+    return sendSvg(
+      res,
+      renderMechanicalSvg({
+        width: size.width,
+        height: size.height,
+        counted: countedSubject(row.brief_date, content),
+        date: row.brief_date,
+      }),
+    );
   }
 
   const top = content.topRiskCountries?.[0];

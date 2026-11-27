@@ -6,6 +6,8 @@ import { colors as C } from '../src/styles/email-tokens.js';
 import type { VercelRequest } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { htmlToSatori } from './_lib/satori-html.js';
+import { countedSubject } from './_lib/brief-structure.js';
+import { MECHANICAL_EDITION_LINE } from './_lib/brief-edition.js';
 
 export const config = { runtime: 'edge' };
 
@@ -165,9 +167,11 @@ function renderSiteCard(): string {
   </div>`;
 }
 
-function renderBriefCard(date: string, headline: string, tension: number | null): string {
-  const tColor = tension == null ? C.textTertiary : ciiColor(tension);
-  const tLabel = tension == null ? 'TENSION INDEX' : `TENSION ${tension}`;
+export function renderBriefCard(date: string, headline: string, tension: number | null, mechanical = false): string {
+  // A mechanical edition is the record (plan R1): it carries no tension index,
+  // so its card names the ledger instead.
+  const tColor = mechanical || tension == null ? C.textTertiary : ciiColor(tension);
+  const tLabel = mechanical ? 'THE LEDGER' : tension == null ? 'TENSION INDEX' : `TENSION ${tension}`;
   const safeHeadline = escapeHtml(headline.slice(0, 140));
   return `<div style="display:flex;flex-direction:column;justify-content:space-between;width:100%;height:100%;background:${C.bgPage};border-top:8px solid ${C.divider};padding:56px 72px 64px 72px;font-family:${MONO};">
     <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -442,37 +446,57 @@ export async function lookupCall(id: number): Promise<CallLookup> {
   }
 }
 
-async function fetchBrief(date: string): Promise<{ headline: string; tension: number | null }> {
+/**
+ * The brief card's words. A MECHANICAL edition's headline is never cut from its
+ * HTML: that begins with the edition line, a section kicker and the Ledger line
+ * run together. It is the day's counted subject (code wrote it from the
+ * resolved-call counts; the rule the brief page's title uses), or the edition
+ * line when there is none.
+ */
+export function briefCardWords(
+  date: string,
+  summary: string | null,
+  content: unknown,
+): { headline: string; tension: number | null; mechanical: boolean } {
+  const c = (content ?? {}) as {
+    tensionIndex?: number;
+    topRiskCountries?: Array<{ name?: string }>;
+    edition?: unknown;
+    subject?: unknown;
+  };
+  if (c.edition === 'mechanical') {
+    return { headline: countedSubject(date, c) ?? MECHANICAL_EDITION_LINE, tension: null, mechanical: true };
+  }
+  let headline = (summary || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 140);
+  const tension = typeof c.tensionIndex === 'number' ? Math.round(c.tensionIndex) : null;
+  if (!headline && c.topRiskCountries?.[0]?.name) headline = `Top risk: ${c.topRiskCountries[0].name}.`;
+  if (!headline) headline = 'Daily geopolitical intelligence brief.';
+  return { headline, tension, mechanical: false };
+}
+
+async function fetchBrief(date: string): Promise<{ headline: string; tension: number | null; mechanical: boolean }> {
   const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) return { headline: 'Daily geopolitical intelligence brief.', tension: null };
+  const generic = { headline: 'Daily geopolitical intelligence brief.', tension: null, mechanical: false };
+  if (!dbUrl) return generic;
   try {
     const sql = neon(dbUrl);
     const rows = (await sql`
       SELECT summary, content FROM daily_briefs WHERE brief_date = ${date} LIMIT 1
     `) as Array<{ summary: string | null; content: unknown }>;
-    if (rows.length === 0) return { headline: 'Daily geopolitical intelligence brief.', tension: null };
-    let headline = (rows[0].summary || '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 140);
-    let tension: number | null = null;
+    if (rows.length === 0) return generic;
+    let content: unknown = {};
     try {
-      const c =
-        typeof rows[0].content === 'string'
-          ? (JSON.parse(rows[0].content) as { tensionIndex?: number; topRiskCountries?: Array<{ name?: string }> })
-          : (rows[0].content as { tensionIndex?: number; topRiskCountries?: Array<{ name?: string }> }) || {};
-      if (typeof c.tensionIndex === 'number') tension = Math.round(c.tensionIndex);
-      if (!headline && c.topRiskCountries?.[0]?.name) {
-        headline = `Top risk: ${c.topRiskCountries[0].name}.`;
-      }
+      content = typeof rows[0].content === 'string' ? JSON.parse(rows[0].content) : rows[0].content;
     } catch {
       /* fall back */
     }
-    if (!headline) headline = 'Daily geopolitical intelligence brief.';
-    return { headline, tension };
+    return briefCardWords(date, rows[0].summary, content);
   } catch {
-    return { headline: 'Daily geopolitical intelligence brief.', tension: null };
+    return generic;
   }
 }
 
@@ -507,8 +531,8 @@ export default async function handler(req: VercelRequest) {
   if (type === 'brief') {
     const date = (url.searchParams.get('date') || new Date().toISOString().slice(0, 10)).slice(0, 10);
     const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : new Date().toISOString().slice(0, 10);
-    const { headline, tension } = await fetchBrief(safeDate);
-    html = renderBriefCard(safeDate, headline, tension);
+    const { headline, tension, mechanical } = await fetchBrief(safeDate);
+    html = renderBriefCard(safeDate, headline, tension, mechanical);
   } else if (type === 'ledger') {
     html = renderLedgerCard(await fetchLedgerFacts());
   } else if (type === 'call') {
