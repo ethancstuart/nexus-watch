@@ -407,7 +407,8 @@ describe('1. mode unset, the draft clears every gate: readers get the mechanical
     expect((out.body as { ai: string }).ai).toBe('dry-run');
 
     expect(content().edition).toBe('mechanical');
-    expect(content().subject).toBe(`The Ledger, unchanged — mechanical edition, ${TODAY}`);
+    // CHANGED WITH R1 (review finding 11): "no calls settled", not "unchanged".
+    expect(content().subject).toBe(`The Ledger, no calls settled — mechanical edition, ${TODAY}`);
     expect(content().briefText).toContain(
       `This is the mechanical edition: ${DRY_RUN_CLAUSE}, so today carries data without narrative.`,
     );
@@ -577,7 +578,9 @@ describe('6. a marker in the draft subject and body reaches no reader surface', 
       for (const m of MARKERS) expect(text, `${name} carries ${m}`).not.toContain(m);
     }
     expect(beehiivTraffic()).toEqual([]);
-    expect(s['email subject']).toBe(`The Ledger, unchanged — mechanical edition, ${TODAY} — The NexusWatch Brief`);
+    expect(s['email subject']).toBe(
+      `The Ledger, no calls settled — mechanical edition, ${TODAY} — The NexusWatch Brief`,
+    );
   });
 });
 

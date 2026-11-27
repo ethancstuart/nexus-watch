@@ -115,9 +115,12 @@ describe('countedSubject', () => {
 
   it('refuses every other subject (review M2)', () => {
     for (const subject of [
-      // fallbackSubject's form when the day's record is missing, including the
-      // day the resolved-calls query fails: it can be false.
+      // fallbackSubject's form when the day was read and none settled (and,
+      // before R1, also when it could not be read, when it could be false).
       `The Ledger, unchanged — mechanical edition, ${DATE}`,
+      // Its forms since R1: none settled, and no read of the day succeeded. No count either.
+      `The Ledger, no calls settled — mechanical edition, ${DATE}`,
+      `The Ledger — mechanical edition, ${DATE}`,
       // Counted, but another day's.
       '67 calls settled, 22 hit — mechanical edition, 2026-11-14',
       // More hits than calls settled.
@@ -250,5 +253,44 @@ describe('/brief/:date', () => {
     }
     const shell = metadata(await page({}));
     for (const t of [...shell.titles, ...shell.descriptions]) expect(t).toBe('Daily Briefs · NexusWatch');
+  });
+});
+
+/**
+ * The record-only (mechanical) edition on its server-rendered page (plan R1).
+ * Its call, ledger and corrections links render inside the article as ordinary
+ * links; the page's only button-styled link stays the one below the article.
+ */
+describe('/brief/:date: the record-only edition', () => {
+  const TEXT =
+    `## 🏁 What resolved today\n\n**The Ledger** — 67 resolved today, 22 hit\n\n` +
+    `- UG (UG): MISS — we said 40% (base rate 30%). [Call #7001](https://nexuswatch.dev/call/7001)\n\n` +
+    `## 📝 About this edition\n\nCorrections to earlier editions of this brief are listed on ` +
+    `[the corrections page](https://nexuswatch.dev/corrections).\n`;
+
+  it('its links render as links in the article, styled as text, not as the page button', async () => {
+    row = { brief_date: DATE, summary: '', content: { briefText: TEXT, subject: COUNTED, edition: 'mechanical' } };
+    const html = await page({ date: DATE });
+    const article = html.slice(html.indexOf('<div class="brief">'), html.indexOf('<p class="more">'));
+    expect(article).toContain('<a href="https://nexuswatch.dev/call/7001" rel="noopener">Call #7001</a>');
+    expect(article).toContain('<a href="https://nexuswatch.dev/corrections" rel="noopener">the corrections page</a>');
+    expect(article).not.toContain('](');
+    // The article's links undo the page button's capitals, border and padding.
+    const rule = /\.brief a \{([^}]*)\}/.exec(html)?.[1] ?? '';
+    for (const d of ['text-transform: none', 'border: 0', 'padding: 0', 'display: inline', 'font: inherit']) {
+      expect(rule).toContain(d);
+    }
+    // Title and description are the counted subject, as before.
+    expect(metadata(html).titles[0]).toBe(`NexusWatch · ${COUNTED}`);
+  });
+});
+
+describe('/brief/:date: one call settled (R1 review finding 10)', () => {
+  it('the singular counted subject is the title and description', async () => {
+    const one = `1 call settled, 1 hit — mechanical edition, ${DATE}`;
+    row = { brief_date: DATE, summary: '', content: { briefText: WEEKDAY, subject: one, edition: 'mechanical' } };
+    const m = metadata(await page({ date: DATE }));
+    expect(m.titles[0]).toBe(`NexusWatch · ${one}`);
+    expect(m.descriptions[0]).toBe(one);
   });
 });

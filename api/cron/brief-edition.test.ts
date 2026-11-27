@@ -139,21 +139,25 @@ describe('the edition line — mechanical days only', () => {
   });
 });
 
-describe('the market lines are not printed twice on a mechanical day', () => {
-  it('PROOF: the fallback body already carries every market, with its price, from the same array', () => {
+describe('the market lines are not printed on a mechanical day', () => {
+  // CHANGED WITH R1 (the record-only edition, DISCOVERY.md §5): "the duplicated
+  // market block goes". The edition used to print every market itself, so
+  // Market Pulse was dropped as a duplicate; now neither prints, because neither
+  // is the record.
+  it('the record-only edition carries no market, though the array is full', () => {
     const body = buildFallbackText(data);
-    // Market Pulse prints {symbol, change}; the fallback's Markets line prints
-    // {symbol, price, change} for the same `markets` array (daily-brief.ts:825
-    // puts it in briefData; :1292 passes it to the renderer). Pulse is a strict
-    // subset of what the body already says.
-    for (const m of markets) expect(body).toContain(`${m.symbol}: ${m.price} (${m.change})`);
+    for (const m of markets) {
+      expect(body).not.toContain(m.symbol);
+      expect(body).not.toContain(m.change);
+    }
+    expect(body).not.toContain('Markets');
   });
 
-  it('mechanical: Market Pulse is omitted, each market change appears once', () => {
-    const { emailHtml, beehiivHtml } = render('mechanical', buildFallbackText(data));
-    for (const html of [emailHtml, beehiivHtml]) {
-      expect(html).not.toContain('Market Pulse');
-      for (const m of markets) expect(html.split(`(${m.change})`).length - 1).toBe(1);
+  it('mechanical: Market Pulse is omitted and no market change appears anywhere', () => {
+    const { emailHtml, beehiivHtml, plainText } = render('mechanical', buildFallbackText(data));
+    for (const out of [emailHtml, beehiivHtml, plainText]) {
+      expect(out).not.toContain('Market Pulse');
+      for (const m of markets) expect(out).not.toContain(`${m.change}`);
     }
   });
 

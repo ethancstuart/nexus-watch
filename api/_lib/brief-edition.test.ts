@@ -54,8 +54,11 @@ describe('the edition is written from the flag', () => {
   it('is what the handler actually writes: the archive UPDATE goes through archiveContent with onFallback', () => {
     // The handler is too large to run hermetically; pin the wiring in source.
     const src = readFileSync(resolve(process.cwd(), 'api/cron/daily-brief.ts'), 'utf8');
+    // CHANGED WITH R1 (the record-only edition): the data beside the edition is
+    // chosen by archivedData from the same flag (a mechanical day archives only
+    // its record), and the edition is still written by archiveContent from it.
     expect(src).toMatch(
-      /SET content = \$\{JSON\.stringify\(archiveContent\(briefData, briefText, subject, onFallback\)\)\}/,
+      /SET content = \$\{JSON\.stringify\(\s*archiveContent\(archivedData\(briefData, onFallback\), briefText, subject, onFallback\),?\s*\)\}/,
     );
     expect(src).not.toMatch(/JSON\.stringify\(\{ \.\.\.briefData, briefText, subject \}\)/);
   });

@@ -44,12 +44,24 @@ export function escapeHtml(s: string): string {
 }
 
 /**
+ * A Markdown link to one of our own pages, as the record-only (mechanical)
+ * edition writes them, matched AFTER escaping. Only https://nexuswatch.dev/
+ * URLs, and only characters escaping never produces, so an href can carry
+ * nothing but a path on our own site. The same pattern as the email renderer.
+ */
+const OWN_LINK = /\[([^\]\n]+)\]\((https:\/\/nexuswatch\.dev\/[A-Za-z0-9/_.#?=%-]*)\)/g;
+
+/**
  * Inline markdown rendering — handles **bold** and *italic* runs.
  * Escapes first, then reintroduces markup, so raw text with angle
  * brackets or quotes can't escape into the DOM.
+ *
+ * `links` is set only for a mechanical edition, whose own-site links it
+ * renders. Every other brief renders exactly as before.
  */
-export function renderInline(text: string): string {
+export function renderInline(text: string, links = false): string {
   let out = escapeHtml(text);
+  if (links) out = out.replace(OWN_LINK, '<a href="$2">$1</a>');
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   return out;
@@ -91,7 +103,8 @@ export function parseSections(markdown: string): BriefSection[] {
  * with whichever CSS consumes them (e.g., `dossier-` for the archive,
  * `nw-brief-panel-` for the map overlay).
  */
-export function renderBlocks(body: string, classPrefix = 'dossier'): string {
+export function renderBlocks(body: string, classPrefix = 'dossier', links = false): string {
+  const inline = (text: string) => renderInline(text, links);
   const blocks = body.split(/\n\s*\n/);
   const out: string[] = [];
   for (const raw of blocks) {
@@ -100,7 +113,7 @@ export function renderBlocks(body: string, classPrefix = 'dossier'): string {
 
     const numberedMatch = block.match(/^(\d+)\.\s+(.*)$/s);
     if (numberedMatch) {
-      out.push(`<p><strong>${numberedMatch[1]}.</strong> ${renderInline(numberedMatch[2])}</p>`);
+      out.push(`<p><strong>${numberedMatch[1]}.</strong> ${inline(numberedMatch[2])}</p>`);
       continue;
     }
 
@@ -109,7 +122,7 @@ export function renderBlocks(body: string, classPrefix = 'dossier'): string {
         .split(/\n/)
         .filter((l) => /^[-*]\s/.test(l.trim()))
         .map((l) => l.trim().replace(/^[-*]\s+/, ''));
-      out.push(`<ul>${items.map((i) => `<li>${renderInline(i)}</li>`).join('')}</ul>`);
+      out.push(`<ul>${items.map((i) => `<li>${inline(i)}</li>`).join('')}</ul>`);
       continue;
     }
 
@@ -118,13 +131,13 @@ export function renderBlocks(body: string, classPrefix = 'dossier'): string {
       out.push(
         `<div class="${classPrefix}-callout">` +
           `<span class="${classPrefix}-callout-label">Why it matters</span>` +
-          `<p>${renderInline(whyMatch[1])}</p>` +
+          `<p>${inline(whyMatch[1])}</p>` +
           `</div>`,
       );
       continue;
     }
 
-    out.push(`<p>${renderInline(block)}</p>`);
+    out.push(`<p>${inline(block)}</p>`);
   }
   return out.join('\n');
 }
@@ -147,6 +160,8 @@ export interface RenderBriefBodyOptions {
    * container and wants the sections as plain <div>s with the same classes.
    */
   wrapWithSection?: boolean;
+  /** Render own-site Markdown links. Set for a mechanical edition only (its `content.edition`). */
+  links?: boolean;
 }
 
 /**
@@ -175,7 +190,7 @@ export function renderBriefBody(briefText: string, opts: RenderBriefBodyOptions)
       return `<${Tag}>
   <h2>${heading}</h2>
   ${img}
-  ${renderBlocks(section.body, classPrefix)}
+  ${renderBlocks(section.body, classPrefix, opts.links === true)}
 </${Tag}>`;
     })
     .join('\n');

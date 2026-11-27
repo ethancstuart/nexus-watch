@@ -189,8 +189,9 @@ export function chooseSubject(declared: string | null, body: string): string | n
  * body worth scraping.
  *
  * WHY NOT SCRAPE ON THOSE DAYS. chooseSubject falls through to the first bold
- * phrase in Top Signal, and on the mechanical edition that phrase is the lead
- * news headline, verbatim. From 2026-09-10 to 09-12 the Anthropic account was
+ * phrase in Top Signal, and on the mechanical edition that phrase was the lead
+ * news headline, verbatim (until plan R1 made it the record-only edition, which
+ * has no Top Signal and prints no headline). From 2026-09-10 to 09-12 the Anthropic account was
  * out of credit, the news feed had not moved since the 7th, and four
  * subscribers received "Investigating a Murder: Public Records Uncover New
  * Clues in Chinatown" three mornings running as the subject of a forecast
@@ -202,9 +203,38 @@ export function chooseSubject(declared: string | null, body: string): string | n
  * as an ordinary morning.
  */
 export function fallbackSubject(date: string, record: { resolved: number; hits: number } | null): string {
+  // Three cases, each true when it is written. Calls settled: the count, its
+  // noun agreeing with it ("1 call settled"). The day was read and none
+  // settled: "no calls settled" (it used to say "unchanged", false on most days
+  // because new calls are issued daily; R1 review finding 11). The day could
+  // not be read (null, every read failed): no claim about it at all.
   const lead =
-    record && record.resolved > 0 ? `${record.resolved} calls settled, ${record.hits} hit` : 'The Ledger, unchanged';
+    record === null
+      ? 'The Ledger'
+      : record.resolved > 0
+        ? `${record.resolved} ${record.resolved === 1 ? 'call' : 'calls'} settled, ${record.hits} hit`
+        : 'The Ledger, no calls settled';
   return clampSubject(`${lead} — mechanical edition, ${date}`);
+}
+
+const COUNTED_SUBJECT = /^(\d{1,7}) calls? settled, (\d{1,7}) hit — mechanical edition, (\d{4}-\d{2}-\d{2})$/;
+
+/**
+ * The archived subject when it is fallbackSubject's COUNTED form for this date,
+ * on a row not flagged as a model edition; otherwise null. Only that form is
+ * repeated on a public surface (a page title, a share image): code wrote it
+ * from the day's resolved-call counts, singular or plural. The other two forms
+ * ("The Ledger, no calls settled" and, when nothing could be read, "The
+ * Ledger") carry no count, so they are never repeated (review M2,
+ * api/brief/og.ts). Rows archived before R1 may say "The Ledger, unchanged";
+ * that is refused too.
+ */
+export function countedSubject(date: string, content: { subject?: unknown; edition?: unknown }): string | null {
+  if (content.edition !== undefined && content.edition !== null && content.edition !== 'mechanical') return null;
+  const s = typeof content.subject === 'string' ? content.subject.replace(/\s+/g, ' ').trim() : '';
+  const m = COUNTED_SUBJECT.exec(s);
+  if (!m || m[3] !== date || Number(m[2]) > Number(m[1])) return null;
+  return s;
 }
 
 export function extractSubject(markdown: string): string | null {

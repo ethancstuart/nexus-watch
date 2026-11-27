@@ -9,6 +9,7 @@ import {
   isUsableSubject,
   chooseSubject,
   fallbackSubject,
+  countedSubject,
   SUBJECT_MAX,
 } from './brief-structure.js';
 
@@ -186,11 +187,39 @@ describe('fallbackSubject — never a headline, always the ledger, always labell
     );
   });
 
-  it('says the ledger is unchanged when nothing settled, rather than inventing a number', () => {
+  // CHANGED WITH R1 (review finding 11): "unchanged" was false on most days,
+  // because new calls are issued daily. It says what is true: none settled.
+  it('says no calls settled when the day was read and nothing settled, rather than inventing a number', () => {
     expect(fallbackSubject('2026-09-12', { resolved: 0, hits: 0 })).toBe(
-      'The Ledger, unchanged — mechanical edition, 2026-09-12',
+      'The Ledger, no calls settled — mechanical edition, 2026-09-12',
     );
-    expect(fallbackSubject('2026-09-12', null)).toBe('The Ledger, unchanged — mechanical edition, 2026-09-12');
+    expect(fallbackSubject('2026-09-12', { resolved: 0, hits: 0 })).not.toContain('unchanged');
+  });
+
+  // R1 review finding 10: the noun agrees with the count, and the pages still accept it.
+  it('one call settled is singular, and still the counted form', () => {
+    const s = fallbackSubject('2026-11-27', { resolved: 1, hits: 1 });
+    expect(s).toBe('1 call settled, 1 hit — mechanical edition, 2026-11-27');
+    expect(countedSubject('2026-11-27', { subject: s, edition: 'mechanical' })).toBe(s);
+    expect(fallbackSubject('2026-11-27', { resolved: 2, hits: 1 })).toBe(
+      '2 calls settled, 1 hit — mechanical edition, 2026-11-27',
+    );
+    // A malformed noun is not the counted form.
+    for (const bad of ['1 callss settled, 1 hit — mechanical edition, 2026-11-27', '2 call settledx, 1 hit']) {
+      expect(countedSubject('2026-11-27', { subject: bad, edition: 'mechanical' })).toBeNull();
+    }
+  });
+
+  // CHANGED WITH R1: when no read of the day succeeded (null) the subject used
+  // to say "unchanged" as well, which was false whenever calls had in fact
+  // settled (review M2). It now makes no claim about the day at all.
+  it('claims nothing about a day it could not read: never "unchanged", never a number', () => {
+    const s = fallbackSubject('2026-09-12', null);
+    expect(s).toBe('The Ledger — mechanical edition, 2026-09-12');
+    expect(s).not.toMatch(/unchanged|settled|\d+ hit/);
+    // Still labelled, so the edition is named in the subject and /api/status can read it.
+    expect(s).toContain('mechanical edition');
+    expect(countedSubject('2026-09-12', { subject: s, edition: 'mechanical' })).toBeNull();
   });
 
   it('is never the scraped headline, even when one is available', () => {
@@ -201,5 +230,25 @@ describe('fallbackSubject — never a headline, always the ledger, always labell
 
   it('fits the subject limit that clampSubject enforces', () => {
     expect(fallbackSubject('2026-09-12', { resolved: 1000, hits: 1000 }).length).toBeLessThanOrEqual(SUBJECT_MAX);
+  });
+});
+
+describe('countedSubject reads back what fallbackSubject writes', () => {
+  // Moved here from api/brief/og.ts so the share images (one an edge function)
+  // use the page's rule. The brief job's own subject must pass it, for any count.
+  it('a counted subject passes; the "unchanged" one, and any other date, never does', () => {
+    for (const [resolved, hits] of [
+      [1, 0],
+      [66, 31],
+      [1234567, 7],
+    ]) {
+      const s = fallbackSubject('2026-11-27', { resolved, hits });
+      expect(countedSubject('2026-11-27', { subject: s, edition: 'mechanical' })).toBe(s);
+      expect(countedSubject('2026-11-28', { subject: s, edition: 'mechanical' })).toBeNull();
+      expect(countedSubject('2026-11-27', { subject: s, edition: 'model' })).toBeNull();
+    }
+    for (const record of [null, { resolved: 0, hits: 0 }]) {
+      expect(countedSubject('2026-11-27', { subject: fallbackSubject('2026-11-27', record) })).toBeNull();
+    }
   });
 });

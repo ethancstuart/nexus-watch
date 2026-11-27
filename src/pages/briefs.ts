@@ -313,29 +313,44 @@ export function renderBrief(root: HTMLElement, date: string): void {
 
       // Prefer briefText (markdown) from content column; fall back to
       // the legacy HTML summary for pre-A.5 historical briefs.
-      let content: { briefText?: string } = {};
+      let content: { briefText?: string; edition?: unknown; record?: unknown } = {};
       if (typeof data.content === 'string') {
         try {
-          content = JSON.parse(data.content) as { briefText?: string };
+          content = JSON.parse(data.content) as { briefText?: string; edition?: unknown; record?: unknown };
         } catch {
           /* ignore */
         }
       } else if (data.content && typeof data.content === 'object') {
-        content = data.content as { briefText?: string };
+        content = data.content as { briefText?: string; edition?: unknown; record?: unknown };
       }
+      // Only an exact 'mechanical' (as api/cron/daily-brief.ts editionFromStoredContent reads it).
+      const mechanical = content.edition === 'mechanical';
+      // A RECORD-ONLY edition (plan R1) archives its record beside the text, as an
+      // object; mechanical rows archived before R1 have none, and their body is the
+      // older one (wire headline, index board, markets). Detected from the row,
+      // never from its date.
+      const recordOnly = mechanical && typeof content.record === 'object' && content.record !== null;
 
       const body = content.briefText
-        ? renderBriefBody(content.briefText, { dateForImage: briefDate })
+        ? renderBriefBody(content.briefText, { dateForImage: briefDate, links: mechanical })
         : (data.summary ?? '<p>Brief content unavailable.</p>');
+      // No model wrote a mechanical edition, so its byline cannot say one did.
+      const byline = recordOnly
+        ? `Mechanical edition: assembled by code from the ledger's own entries. No model wrote it.<br>
+          <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>`
+        : mechanical
+          ? `Mechanical edition: assembled by code. No model wrote it.<br>
+          <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>`
+          : `Written by a model from the day's collected data.<br>
+          Sources: OONI, USGS, UCDP, OFAC and the UN list, World Bank governance, Wikipedia pageviews, and daily
+          FX reference rates. <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>`;
 
       articleEl.innerHTML = `
         <div class="dossier-kicker">SITUATION BRIEF</div>
         <h1 class="dossier-title">NexusWatch · ${escapeHtml(briefDate)}</h1>
         <div class="dossier-article-date">${escapeHtml(dayName)}</div>${renderCorrectionBlock(data.correction)}
         <div class="dossier-byline" style="font-size:12px;color:#8b8478;margin-top:32px;padding-top:16px;border-top:1px solid #e5e0d4;line-height:1.6;">
-          Written by a model from the day's collected data.<br>
-          Sources: OONI, USGS, UCDP, OFAC and the UN list, World Bank governance, Wikipedia pageviews, and daily
-          FX reference rates. <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>
+          ${byline}
         </div>
         <div class="dossier-body">${body}</div>
         <div class="dossier-share" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">

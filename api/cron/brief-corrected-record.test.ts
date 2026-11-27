@@ -11,6 +11,7 @@ import {
 } from '../_lib/calls.js';
 import { assembleByKind, type ScoredRow } from '../_lib/ledger-by-kind.js';
 import { buildFallbackText, formatResolvedCallLines, spliceLedgerLine, type BriefData } from './daily-brief.js';
+import { recordCall } from '../_lib/brief-record-fixture.js';
 
 /**
  * THE BRIEF MUST SAY WHAT /ledger SAYS.
@@ -239,14 +240,27 @@ describe('the model is given the corrected reading', () => {
     expect(plain[1]).toMatch(/KZ\): MISS — we said 27%/);
   });
 
-  it('the fallback edition quotes the aggregate it is handed, corrections included', () => {
-    const lines = formatResolvedCallLines([row({ corrected_status: 'hit' })], 0, undefined, {
-      total: 1,
-      hits: 0,
-      corrections: [{ status: 'miss', corrected_status: 'hit' }],
-    });
-    const data = { ...fallbackBase(), resolvedCallLines: lines };
-    expect(buildFallbackText(data)).toContain('1 call published MISS that the evidence records as HIT');
+  // CHANGED WITH R1: the mechanical edition is built from its own record
+  // (api/_lib/brief-record.ts), not from the prompt's lines. The rule is the same:
+  // the day's corrections are stated beside the published counts, in /ledger's words.
+  it('the fallback edition states the day’s corrections beside the published counts', () => {
+    const data: BriefData = {
+      ...fallbackBase(),
+      record: {
+        resolved: {
+          read: true,
+          total: 1,
+          hits: 0,
+          corrections: [{ status: 'miss', corrected_status: 'hit' }],
+          calls: [recordCall({ kind: 'censorship_event', status: 'miss', corrected_status: 'hit' })],
+        },
+        open: { read: false },
+        correctionsPage: false,
+      },
+    };
+    const text = buildFallbackText(data);
+    expect(text).toContain('1 call published MISS that the evidence records as HIT');
+    expect(text).toContain('MISS as published, the evidence records as HIT');
   });
 });
 

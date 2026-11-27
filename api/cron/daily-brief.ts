@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { channelsToAlert, formatAlertBody } from '../_lib/delivery-health.js';
 import { raiseAlert, clearAlert } from '../_lib/alert.js';
-import { archiveContent, editionFor, type BriefEdition } from '../_lib/brief-edition.js';
+import { archiveContent, editionFor, MECHANICAL_EDITION_LINE, type BriefEdition } from '../_lib/brief-edition.js';
 import { groundDraft, type GroundingReport } from '../_lib/grounding.js';
 import { checkComparativeClaims, comparativeClaimLabel } from '../_lib/comparative-claims.js';
 import {
@@ -31,6 +31,18 @@ import {
   type LedgerSummaryRow,
 } from '../_lib/calls.js';
 import { UNSUB_PLACEHOLDER } from '../_lib/unsubscribe-token.js';
+import {
+  buildRecordEdition,
+  OPEN_LIST_CAP,
+  RESOLVED_LIST_CAP,
+  type BriefRecord,
+  type OpenRead,
+  type RecordCall,
+  type ResolvedRead,
+  UNREAD_RECORD,
+} from '../_lib/brief-record.js';
+import { correctionsNewestFirst } from '../_lib/corrections.js';
+import { countryName } from '../_lib/country-names.js';
 import { checkBudget, recordAnthropicSpend } from '../_lib/llm-budget.js';
 import { buildBriefRequest, readBriefReply, BRIEF_TIMEOUT_MS } from '../_lib/brief-model.js';
 import {
@@ -107,6 +119,14 @@ export interface BriefData {
    * call it empty.
    */
   resolvedCallsRead?: boolean;
+  /**
+   * The record the mechanical edition is built from (api/_lib/brief-record.ts):
+   * today's resolutions and the open book, each with its own read flag. Read on
+   * every run by gatherRecord. Never part of the model's prompt, and never
+   * archived on a model day. Absent means nothing was read, and the edition
+   * says so rather than calling anything empty.
+   */
+  record?: BriefRecord;
 }
 
 /**
@@ -906,6 +926,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Database reads that need no model key, so they run on every run: the
     // mechanical edition prints them too (gatherCallLines).
     const callLines = await gatherCallLines(sql, new Map(allCII.map((c) => [c.code, c.name])), isSunday);
+    // The mechanical edition's own reads (gatherRecord). Separate queries, so
+    // nothing the prompt is handed changes; their result reaches only
+    // buildFallbackText and, on a mechanical day, the archive.
+    const record = await gatherRecord(sql, new Map(allCII.map((c) => [c.code, c.name])));
 
     const briefData: BriefData = {
       date: today,
@@ -926,6 +950,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       resolvedCallLines: callLines.resolvedCallLines,
       openCallsRead: callLines.openCallsRead,
       resolvedCallsRead: callLines.resolvedCallsRead,
+      record,
     };
 
     // === Generate AI brief (outputs markdown text) ===
@@ -1373,17 +1398,26 @@ ${(() => {
     //
     // THE SUBJECT DEPENDS ON WHICH EDITION SHIPPED. On a model day it is the
     // declared line, or one scraped from Top Signal. On a mechanical day
-    // scraping is forbidden: the first bold phrase in the fallback's Top Signal
-    // is the lead news headline verbatim, and for three mornings in September
-    // 2026 that was a Chinatown murder story sent to every subscriber as the
-    // subject of this register. See fallbackSubject.
-    const subject = onFallback ? fallbackSubject(today, ledgerRecord) : chooseSubject(declaredSubject, briefText);
+    // scraping is forbidden: the first bold phrase in the old fallback's Top
+    // Signal was the lead news headline verbatim, and for three mornings in
+    // September 2026 that was a Chinatown murder story sent to every subscriber
+    // as the subject of this register. See fallbackSubject. The record-only
+    // edition (plan R1) has no Top Signal; its subject is still counted from the
+    // Ledger line's own query, the same day's resolutions its first section lists.
+    //
+    // When the Ledger line's read failed but the edition's own read of today's
+    // resolutions succeeded, the subject is counted from that read (the same
+    // filter), so it cannot say "unchanged" above a list of the day's
+    // resolutions. Only on a mechanical day; a model day is untouched.
+    const subjectRecord =
+      ledgerRecord ?? (record.resolved.read ? { resolved: record.resolved.total, hits: record.resolved.hits } : null);
+    const subject = onFallback ? fallbackSubject(today, subjectRecord) : chooseSubject(declaredSubject, briefText);
     const archiveT0 = Date.now();
     // The edition travels with the stored content (from the same flag, not the
     // text) so /api/status can report it without parsing anything.
     await sql`
       UPDATE daily_briefs
-      SET content = ${JSON.stringify(archiveContent(briefData, briefText, subject, onFallback))},
+      SET content = ${JSON.stringify(archiveContent(archivedData(briefData, onFallback), briefText, subject, onFallback))},
           summary = ${briefHtml}
       WHERE brief_date = ${today}
     `;
@@ -1794,15 +1828,8 @@ export function editionFromStoredContent(content: unknown): BriefEdition {
   return edition === 'mechanical' ? 'mechanical' : 'model';
 }
 
-/**
- * The one line that names the mechanical edition at the top of every output.
- * Reader-facing, so it needs the owner's sign-off. Kept short on purpose: it
- * sits in the 10px kicker style, where a sentence of ~100 characters wraps to
- * two lines at 640px and more on a phone. It says only what is true of the
- * mechanical edition (no model wrote today) and claims nothing about cause or
- * about what the body contains.
- */
-export const MECHANICAL_EDITION_LINE = 'Mechanical edition: no narrative today.';
+/** The line that names the mechanical edition (api/_lib/brief-edition.ts, so an edge function can read it too). */
+export { MECHANICAL_EDITION_LINE };
 
 export interface RenderBriefOptions {
   briefText: string; // Markdown body (Sonnet output or buildFallbackText)
@@ -1874,8 +1901,9 @@ function parseSections(markdown: string): BriefSection[] {
  *   - paragraphs separated by blank lines
  *   - inline "**Why it matters**" runs → oxblood callout blocks
  */
-function renderSectionBody(body: string): string {
+function renderSectionBody(body: string, links = false): string {
   if (!body.trim()) return '';
+  const renderInline = (text: string) => renderInlineText(text, links);
   const paragraphBase = typeStyle(type.body, { color: colors.textPrimary, margin: `0 0 ${space.md} 0` });
   const bulletBase = typeStyle(type.body, {
     color: colors.textPrimary,
@@ -1971,12 +1999,36 @@ function renderSectionBody(body: string): string {
 }
 
 /**
+ * A Markdown link to one of our own pages, as the record-only edition writes
+ * them (api/_lib/brief-record.ts), matched AFTER the text is HTML-escaped. Only
+ * https://nexuswatch.dev/ URLs, and only characters no escaping produces, so an
+ * href can carry nothing but a path on our own site. Exported for the tests.
+ */
+export const OWN_LINK = /\[([^\]\n]+)\]\((https:\/\/nexuswatch\.dev\/[A-Za-z0-9/_.#?=%-]*)\)/g;
+
+/** The plain-text form of an own-site link: the label, then the address. */
+export function plainLinks(text: string): string {
+  return text.replace(OWN_LINK, '$1 ($2)');
+}
+
+/**
  * Render inline markdown — **bold**, *italic*, and standalone "Why it matters"
  * phrases that appear mid-paragraph. Keeps the output safe by escaping raw
  * text first and then reintroducing the markup.
+ *
+ * `links` is set only for the mechanical edition, whose own-site links it
+ * renders. A model edition renders exactly as it always has: a model that
+ * wrote a link would get its brackets printed, as before.
  */
-function renderInline(text: string): string {
+function renderInlineText(text: string, links = false): string {
   let out = escapeHtml(text);
+  if (links) {
+    out = out.replace(
+      OWN_LINK,
+      (_m, label: string, href: string) =>
+        `<a href="${href}" ${styleAttr(style({ color: colors.accent, textDecoration: 'underline' }))}>${label}</a>`,
+    );
+  }
   // **bold**
   out = out.replace(/\*\*([^*]+)\*\*/g, `<strong ${styleAttr(style({ color: colors.textPrimary }))}>$1</strong>`);
   // *italic*
@@ -2213,7 +2265,7 @@ function renderMapOfTheDayImage(date: string): string {
  * auto-generated screenshot is prepended to the body text so readers get
  * the visual anchor before the caption.
  */
-function renderSection(section: BriefSection, dateForImage?: string): string {
+function renderSection(section: BriefSection, dateForImage?: string, links = false): string {
   const kickerStyle = styleAttr(
     typeStyle(type.kicker, {
       color: colors.accent,
@@ -2240,7 +2292,7 @@ function renderSection(section: BriefSection, dateForImage?: string): string {
     `<div ${kickerStyle}>${emojiInline}${escapeHtml(section.title.toUpperCase())}</div>` +
     `<h2 ${headlineStyle}>${escapeHtml(section.title)}</h2>` +
     imageBlock +
-    renderSectionBody(section.body) +
+    renderSectionBody(section.body, links) +
     `</div>`
   );
 }
@@ -2399,7 +2451,9 @@ function renderPlainText(
 ): string {
   // Strip bold/italic markers but keep the plain text. Section headers
   // already use `## ` and read fine as-is in a mono client.
-  const stripped = briefText
+  // A mechanical edition's own-site links read as "label (address)". A model
+  // edition is untouched, as in the HTML.
+  const stripped = (edition === 'mechanical' ? plainLinks(briefText) : briefText)
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .trim();
@@ -2448,21 +2502,22 @@ function renderDossierInner(
   watchlistCountries?: WatchlistCountry[],
   edition: BriefEdition = 'model',
 ): string {
-  // The mechanical edition's own body already prints every market with its
-  // price (buildFallbackText, "Markets"), from the same array. Market Pulse
-  // would print the same changes a second time with less information.
-  if (edition === 'mechanical') markets = [];
+  // The mechanical edition is the record (buildFallbackText, plan R1): it
+  // carries no market block of its own, and Market Pulse is not part of it.
+  // Its own-site links (call pages, /ledger, /corrections) render as links.
+  const mechanical = edition === 'mechanical';
+  if (mechanical) markets = [];
   const sections = parseSections(briefText);
   if (sections.length === 0) {
     // Fallback: wrap the whole body as a single paragraph block.
-    return `<div ${styleAttr(typeStyle(type.body, { color: colors.textPrimary }))}>${renderInline(briefText)}</div>`;
+    return `<div ${styleAttr(typeStyle(type.body, { color: colors.textPrimary }))}>${renderInlineText(briefText, mechanical)}</div>`;
   }
 
   const pieces: string[] = [];
   let marketPulseInserted = false;
 
   for (const section of sections) {
-    pieces.push(renderSection(section, date));
+    pieces.push(renderSection(section, date, mechanical));
     // Insert the Market Pulse module right after Top Signal, so the
     // reader gets price context before diving into the movers.
     if (!marketPulseInserted && /top signal|good morning/i.test(section.title)) {
@@ -2472,7 +2527,8 @@ function renderDossierInner(
   }
 
   // If there's no Good Morning section (shouldn't happen with Sonnet output,
-  // but defensive against the fallback builder), prepend Market Pulse.
+  // but defensive), prepend Market Pulse. On a mechanical day `markets` is
+  // empty and this adds nothing.
   if (!marketPulseInserted) {
     pieces.unshift(renderMarketPulse(markets));
   }
@@ -2480,7 +2536,8 @@ function renderDossierInner(
   // Per-recipient Watchlist module — empty string when interests is
   // undefined or no countries match, so the beehiiv shared post body
   // gets no Watchlist section automatically.
-  const watchlistHtml = renderYourWatchlist(interests, watchlistCountries);
+  // Not on a mechanical day: the watchlist is index rows, not the record.
+  const watchlistHtml = mechanical ? '' : renderYourWatchlist(interests, watchlistCountries);
   if (watchlistHtml) pieces.push(watchlistHtml);
 
   return pieces.join('\n');
@@ -2953,6 +3010,144 @@ async function gatherCallLines(
   return { openCallLines, resolvedCallLines, openCallsRead, resolvedCallsRead };
 }
 
+/** A calls row as the record's queries select it, before the country name is attached. */
+type RecordCallRow = Omit<RecordCall, 'name'>;
+
+/**
+ * The mechanical edition's reads (plan R1): today's scored resolutions and the
+ * open book, from the calls table. Database reads only, run on every run, and
+ * entirely separate from gatherCallLines, whose queries feed the model's prompt
+ * and are left exactly as they were.
+ *
+ * TODAY MEANS THE CALENDAR DAY, every day of the week: the same filter as the
+ * Ledger line's "N resolved today" and the subject's count (resolved_at::date =
+ * CURRENT_DATE, scored statuses, calibration kinds excluded), so the three agree.
+ * The open count is the Ledger line's too, and "next to resolve" uses its
+ * definition of next: a resolution date after today.
+ *
+ * The two halves are read in separate trys with separate flags: a failure costs
+ * that half's lines, says so, and never reads as an empty day or an empty book.
+ * Counts come from COUNT(*); the lists are capped pages, ordered in SQL by the
+ * same keys brief-record.ts sorts by, with the call id as the last tie-break.
+ */
+async function gatherRecord(sql: SqlTag, nameOf: Map<string, string>): Promise<BriefRecord> {
+  const calKinds = [...CALIBRATION_KINDS];
+  const scored = [...SCORED_STATUSES];
+  // Names from the repository first (country-names.ts: every run, whatever the
+  // index read did), then the index row, else none: the line prints the code once.
+  const named = (rows: RecordCallRow[]): RecordCall[] =>
+    rows.map((r) => ({ ...r, name: countryName(r.country_code) ?? nameOf.get(r.country_code) ?? null }));
+
+  let resolved: ResolvedRead = { read: false };
+  try {
+    const totals = (await sql`
+      SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'hit')::int AS hits
+      FROM calls
+      WHERE status = ANY(${scored}) AND NOT (kind = ANY(${calKinds}))
+        AND resolved_at::date = CURRENT_DATE
+    `) as unknown as Array<{ total: number; hits: number }>;
+    const page = (await sql`
+      SELECT c.id::int AS id, c.kind, c.country_code, c.claim, c.probability::float AS probability,
+             c.base_rate::float AS base_rate, c.threshold, c.threshold_pct::float AS threshold_pct,
+             c.made_on::text AS made_on, c.resolves_on::text AS resolves_on, c.status,
+             c.evidence_count, cc.corrected_status
+      FROM calls c
+      LEFT JOIN (
+        SELECT DISTINCT ON (call_id) call_id, corrected_status
+        FROM call_corrections ORDER BY call_id, issued_on DESC
+      ) cc ON cc.call_id = c.id
+      WHERE c.status = ANY(${scored}) AND NOT (c.kind = ANY(${calKinds}))
+        AND c.resolved_at::date = CURRENT_DATE
+      ORDER BY (c.base_rate IS NULL), ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC, c.id ASC
+      LIMIT ${RESOLVED_LIST_CAP}
+    `) as unknown as RecordCallRow[];
+    // Over the whole day, not the page, as the totals are.
+    const corrections = (await sql`
+      SELECT c.status, cc.corrected_status
+      FROM calls c
+      JOIN (
+        SELECT DISTINCT ON (call_id) call_id, corrected_status
+        FROM call_corrections ORDER BY call_id, issued_on DESC
+      ) cc ON cc.call_id = c.id
+      WHERE c.status = ANY(${scored}) AND NOT (c.kind = ANY(${calKinds}))
+        AND c.resolved_at::date = CURRENT_DATE
+    `) as unknown as Array<{ status: string; corrected_status: string }>;
+    resolved = {
+      read: true,
+      total: totals[0]?.total ?? 0,
+      hits: totals[0]?.hits ?? 0,
+      corrections: corrections.filter((r) => correctedOutcomeOf(r.status, r.corrected_status) !== undefined),
+      calls: named(page),
+    };
+  } catch (err) {
+    console.error(
+      '[daily-brief] record: resolved calls unavailable (non-fatal):',
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  let open: OpenRead = { read: false };
+  try {
+    const counts = (await sql`
+      SELECT COUNT(*)::int AS open_total,
+             COUNT(*) FILTER (WHERE resolves_on <= CURRENT_DATE)::int AS held
+      FROM calls
+      WHERE status = 'pending' AND NOT (kind = ANY(${calKinds}))
+    `) as unknown as Array<{ open_total: number; held: number }>;
+    const next = (await sql`
+      SELECT c.id::int AS id, c.kind, c.country_code, c.claim, c.probability::float AS probability,
+             c.base_rate::float AS base_rate, c.threshold, c.threshold_pct::float AS threshold_pct,
+             c.made_on::text AS made_on, c.resolves_on::text AS resolves_on, c.status,
+             c.evidence_count, NULL::text AS corrected_status
+      FROM calls c
+      WHERE c.status = 'pending' AND NOT (c.kind = ANY(${calKinds})) AND c.resolves_on > CURRENT_DATE
+      ORDER BY c.resolves_on ASC, (c.base_rate IS NULL),
+               ABS(c.probability - COALESCE(c.base_rate, c.probability)) DESC, c.id ASC
+      LIMIT ${OPEN_LIST_CAP}
+    `) as unknown as RecordCallRow[];
+    open = { read: true, total: counts[0]?.open_total ?? 0, held: counts[0]?.held ?? 0, next: named(next) };
+  } catch (err) {
+    console.error(
+      '[daily-brief] record: open calls unavailable (non-fatal):',
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  // Repository data, not a read: /corrections answers 404 until a note is
+  // approved (api/corrections.ts asks exactly this). Guarded all the same: a
+  // brief must still go out, and with no line rather than a dead link.
+  let correctionsPage = false;
+  try {
+    correctionsPage = correctionsNewestFirst().length > 0;
+  } catch (err) {
+    console.error(
+      '[daily-brief] record: corrections gate unavailable (non-fatal):',
+      err instanceof Error ? err.message : err,
+    );
+  }
+  return { resolved, open, correctionsPage };
+}
+
+/**
+ * The data archived beside the edition in daily_briefs.content.
+ *
+ * A model day archives what it always did: the model's inputs, unchanged (the
+ * record is left out, so not one byte of a model day's row moves). A mechanical
+ * day archives only the record it printed. The wire headlines, market quotes and
+ * index rows it no longer prints stay out of its public JSON (/api/v1/brief,
+ * the MCP get_brief tool), so that JSON says what the edition says. Nothing
+ * reads those fields from a mechanical row: delivery ignores markets on a
+ * mechanical day, and the share images no longer draw on the index.
+ */
+export function archivedData(data: BriefData, onFallback: boolean): object {
+  // Always an object on a mechanical day: its presence is how a reader of the
+  // row knows the edition is record-only (the SPA byline reads it).
+  if (onFallback) return { date: data.date, utcTime: data.utcTime, record: data.record ?? UNREAD_RECORD };
+  const modelDay: Partial<BriefData> = { ...data };
+  delete modelDay.record;
+  return modelDay;
+}
+
 /**
  * Why the mechanical edition shipped, as the reader is told it. Two cases, not
  * six: a reader needs to know whether a draft existed and was refused, or
@@ -3004,109 +3199,38 @@ export const FALLBACK_CAUSE: Record<FallbackPath, FallbackCause> = {
   'dry-run': 'dry-run',
 };
 
-// weekday shape rather than Week in Review, because the fallback only fires
-// when Sonnet is fully unavailable and we want coverage parity over format.
-export function buildFallbackText(data: BriefData, cause: FallbackCause = 'no-draft'): string {
-  // The deterministic edition — published when the model draft fails a gate
-  // (grounding, structure) or no draft was produced (API failure, no key,
-  // empty reply). Same section spine as the model
-  // version (brief-structure.ts), grounded by construction: every line below
-  // is a restatement of a value already in BriefData. It says plainly that it
-  // is the mechanical edition, and why. An unspecified or unknown cause
-  // defaults to 'no-draft': claiming a gate refused a draft that never
-  // existed is the one thing this must not do.
-  const draftLine =
-    cause === 'draft-refused'
-      ? 'the model draft was withheld today'
-      : cause === 'dry-run'
-        ? DRY_RUN_CLAUSE
-        : 'no model draft was produced today';
-  const trendArrow = (c: CIIEntry) => {
-    if (c.prevDeviation === null) return '';
-    const d = c.deviation - c.prevDeviation;
-    if (d >= 3) return ` ↑${d.toFixed(0)}`;
-    if (d <= -3) return ` ↓${Math.abs(d).toFixed(0)}`;
-    return ' →';
-  };
-  const topCountry = data.topRiskCountries[0];
-
-  let text = `${DAILY_SECTIONS[0]}\n\n`;
-  // The record first, when there is one. Same rule as the model prompt: a
-  // register that buries the day its calls settle is doing PR, and the
-  // mechanical edition is not exempt. Aggregate line, most informative
-  // resolution, then the top open call.
-  if (data.resolvedCallLines.length > 0) {
-    text += `${data.resolvedCallLines[0]}\n\n`;
-    if (data.resolvedCallLines.length > 1) text += `${data.resolvedCallLines[1]}\n\n`;
-  }
-  // "No open calls today." only when the book was read and is empty. An
-  // unread book is never reported as an empty one.
-  text +=
-    data.openCallLines.length > 0
-      ? `${data.openCallLines[0]}\n\n`
-      : data.openCallsRead === true
-        ? `No open calls today.\n\n`
-        : `Open calls could not be read today.\n\n`;
-
-  text += `${DAILY_SECTIONS[1]}\n\n`;
-  if (data.newsHeadlines.length > 0) {
-    const n = data.newsHeadlines[0];
-    text += `**${n.title}** (${n.source}). This is the mechanical edition — ${draftLine}, so we give you the lead as the wire carried it rather than a synthesis.\n\n`;
-  } else if (topCountry) {
-    text += `**${topCountry.name} leads the board — structural ${topCountry.score}/100, +${topCountry.deviation} live today${trendArrow(topCountry)}.** ${data.topRiskCountries.filter((c) => c.score >= 50).length} countries sit above CII 50 of ${data.totalCountries} scored.\n\n`;
-  } else {
-    text += `A quiet board. ${data.earthquakeCount} seismic events in 24h; nothing above the consequence threshold.\n\n`;
-  }
-
-  text += `${DAILY_SECTIONS[2]}\n\n`;
-  text += `**Movers**\n\n`;
-  const movers = data.topRiskCountries
-    .filter((c) => c.prevDeviation !== null && Math.abs(c.deviation - (c.prevDeviation as number)) >= 3)
-    .slice(0, 6);
-  if (movers.length > 0) {
-    for (const c of movers) {
-      const d = c.deviation - (c.prevDeviation as number);
-      text += `- **${c.name}** ${c.score} (${d > 0 ? '▲+' : '▼'}${d.toFixed(0)}) — driver not identified in today's data.\n`;
-    }
-    text += `\n`;
-  } else {
-    text += `No moves past the ±3 threshold in 24h.\n\n`;
-  }
-  text += `**Crises**\n\n`;
-  const crises = data.topRiskCountries
-    .filter((c) => c.deviation >= 8 || (c.score >= 80 && c.deviation > 0))
-    .slice(0, 4);
-  text +=
-    crises.length > 0
-      ? crises.map((c) => `- **${c.name}** — CII ${c.score}${trendArrow(c)}.`).join('\n') + `\n\n`
-      : `No active crisis triggers today.\n\n`;
-  text += `**Markets**\n\n`;
-  text +=
-    data.markets.length > 0
-      ? data.markets.map((m) => `${m.symbol}: ${m.price} (${m.change})`).join(' | ') + `\n\n`
-      : `Market data unavailable.\n\n`;
-  text += `**What would change our mind:** a confirmed OONI blocking event, or an FX reference-rate move past a stored threshold, in any country on the open book above — the resolvers check daily.\n\n`;
-
-  text += `${DAILY_SECTIONS[3]}\n\n`;
-  text += `- This is the mechanical edition: ${
+/**
+ * The cause line: why there is no narrative today. Its words and its truth
+ * conditions are exactly those of the line the mechanical edition has carried
+ * since November 2026; only its position changed (it closes the edition now).
+ */
+export function causeLineFor(cause: FallbackCause): string {
+  return `This is the mechanical edition: ${
     cause === 'draft-refused'
       ? 'the model draft was withheld by a publish gate'
       : cause === 'dry-run'
         ? DRY_RUN_CLAUSE
         : 'no model draft was produced today'
-  }, so today carries data without narrative.\n`;
-  text += `- Every mover above is unexplained by construction — we do not attribute causes mechanically.\n`;
-  if (data.conflictHeadlines.length === 0)
-    text += `- The conflict headline feed returned nothing today; that gap is a gap.\n`;
-  text += `\n`;
+  }, so today carries data without narrative.`;
+}
 
-  text += `${DAILY_SECTIONS[4]}\n\n`;
-  const trending = data.weeklyTrends.find((t) => t.direction === 'rising' || t.direction === 'falling');
-  text += trending
-    ? `${trending.name} has ${trending.direction === 'rising' ? 'risen' : 'fallen'} from ${trending.weekAgoScore ?? '?'} to ${trending.currentScore} over 7 days. If the direction holds through month-end, it moves onto the crisis list${trending.direction === 'falling' ? ' — or off it' : ''}.\n`
-    : `No sustained 7-day trajectory stands out; the long fuse is quiet.\n`;
-
-  return text;
+/**
+ * The deterministic edition, published when the model's draft did not ship: a
+ * gate refused it, none was produced (no key, API failure, empty or cut-off
+ * reply), or it is a dry run. Since plan R1 it is the RECORD-ONLY edition
+ * (api/_lib/brief-record.ts): what resolved today, what is open, one call
+ * explained, a corrections line and this cause line, all built by code from
+ * the calls table. The wire headline, the index board, the market block and
+ * the long fuse are gone: none of them was the record.
+ *
+ * The Ledger line is not written here; the handler splices it into the first
+ * section afterwards, as it does for a model draft. An unspecified or unknown
+ * cause defaults to 'no-draft': claiming a gate refused a draft that never
+ * existed is the one thing this must not do. A missing record reads as unread,
+ * never as empty.
+ */
+export function buildFallbackText(data: BriefData, cause: FallbackCause = 'no-draft'): string {
+  return buildRecordEdition(data.record, causeLineFor(cause));
 }
 
 function splitTextToChunks(text: string, maxLen: number): string[] {

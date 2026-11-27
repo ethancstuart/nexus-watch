@@ -184,3 +184,88 @@ describe('correction notes in the SPA', () => {
     }
   });
 });
+
+/**
+ * The record-only (mechanical) edition on the SPA's single-brief page (plan R1).
+ * Its byline cannot say a model wrote it, and its own-site links render as
+ * links. A model edition is exactly as before. Synthetic rows; fetch is stubbed.
+ */
+describe('a mechanical edition in the SPA', () => {
+  async function renderOne(response: Record<string, unknown>): Promise<HTMLElement> {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify(response), { status: 200 }))),
+    );
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    renderBrief(root, String(response.brief_date));
+    await vi.waitFor(() => {
+      if (!root.querySelector('.dossier-body')) throw new Error('brief not rendered yet');
+    });
+    return root;
+  }
+
+  const TEXT =
+    '## 🏁 What resolved today\n\n- UG (UG): MISS — we said 40%. [Call #7001](https://nexuswatch.dev/call/7001)\n\n' +
+    '## 📝 About this edition\n\nCorrections are listed on [the corrections page](https://nexuswatch.dev/corrections).\n';
+  // An R1 (record-only) row archives its record beside the text; that is how it is told apart.
+  const RECORD = { resolved: { read: true, total: 1 }, open: { read: true, total: 789 }, correctionsPage: true };
+  const row = (edition?: string, extra: Record<string, unknown> = { record: RECORD }) => ({
+    brief_date: '2026-11-27',
+    summary: null,
+    content: { briefText: TEXT, ...(edition ? { edition } : {}), ...extra },
+    generated_at: null,
+  });
+
+  it('says no model wrote it, and names no source it did not use', async () => {
+    const root = await renderOne(row('mechanical'));
+    const byline = root.querySelector('.dossier-byline')?.textContent ?? '';
+    expect(byline).toContain("Mechanical edition: assembled by code from the ledger's own entries. No model wrote it.");
+    expect(byline).not.toMatch(/Written by a model|USGS|Wikipedia/);
+    expect(root.querySelector('.dossier-byline a')?.getAttribute('href')).toBe('#/methodology');
+  });
+
+  // Review finding 1: mechanical rows archived before R1 carry the older body
+  // (the wire headline, the index board, markets), so "the ledger's own entries"
+  // would be false on them. They are told apart by the row, not by its date.
+  it('a mechanical row archived before R1 gets a byline true for it', async () => {
+    const PRE_R1 =
+      "## 🎯 Today's Call\n\nNo open calls today.\n\n## 📊 Top Signal\n\n**A headline** (Wire). This is the mechanical " +
+      'edition — no model draft was produced today, so we give you the lead as the wire carried it rather than a synthesis.\n';
+    for (const extra of [{}, { record: null }, { record: 'yes' }]) {
+      document.body.textContent = '';
+      const root = await renderOne({
+        brief_date: '2026-11-20',
+        summary: null,
+        content: { briefText: PRE_R1, edition: 'mechanical', ...extra },
+        generated_at: null,
+      });
+      const byline = root.querySelector('.dossier-byline')?.textContent ?? '';
+      expect(byline).not.toContain("ledger's own entries");
+      expect(byline).toContain('Mechanical edition: assembled by code. No model wrote it.');
+      expect(byline).not.toContain('Written by a model');
+      expect(root.querySelector('.dossier-body')?.textContent).toContain('as the wire carried it');
+    }
+  });
+
+  it('renders its own-site links as links', async () => {
+    const root = await renderOne(row('mechanical'));
+    const links = [...root.querySelectorAll('.dossier-body a')].map((a) => [a.getAttribute('href'), a.textContent]);
+    expect(links).toEqual([
+      ['https://nexuswatch.dev/call/7001', 'Call #7001'],
+      ['https://nexuswatch.dev/corrections', 'the corrections page'],
+    ]);
+    expect(root.querySelector('.dossier-body')?.textContent).not.toContain('](');
+  });
+
+  it('a model edition (or a row with no edition) keeps its byline and renders no links', async () => {
+    for (const edition of [undefined, 'model', 'MECHANICAL']) {
+      document.body.textContent = '';
+      const root = await renderOne(row(edition));
+      expect(root.querySelector('.dossier-byline')?.textContent).toContain(
+        "Written by a model from the day's collected data.",
+      );
+      expect(root.querySelectorAll('.dossier-body a')).toHaveLength(0);
+    }
+  });
+});
