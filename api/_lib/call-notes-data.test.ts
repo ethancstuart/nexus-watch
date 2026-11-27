@@ -29,6 +29,7 @@ import { isIsoDate } from './correction-words.js';
  */
 const APPROVED_IDS: string[] = [
   'fx-2026-11-21-resolved-miss',
+  'fx-2026-11-21-resolved-miss-az',
   'fx-2026-11-21-resolved-hit',
   'fx-2026-11-21-made',
   'fx-zw-zwl-label',
@@ -66,6 +67,16 @@ const note = (id: string): CallNote => {
 };
 const sorted = (xs: readonly number[]) => [...xs].sort((a, b) => a - b);
 
+/** AZN per USD as stored on 17-23 Nov 2026 (production read, 23 Nov; see the test that uses it). */
+const AZN_STORED: Readonly<Record<string, number>> = {
+  '2026-11-17': 1.699413,
+  '2026-11-18': 1.700728,
+  '2026-11-19': 1.699248,
+  '2026-11-20': 1.699783,
+  '2026-11-21': 1.699783,
+  '2026-11-22': 1.700099,
+};
+
 /** The 65 currencies whose 21 Nov calls state the same reference as their 20 Nov calls (FX-WORDING F2). */
 function repeatingCurrencies(): Set<string> {
   const ref = new Map(fx.map((c) => [`${c.made_on}|${c.country_code}`, statedReference(c.claim)]));
@@ -79,24 +90,52 @@ describe('call notes: the lists, re-derived from the 22 Nov 2026 snapshot', () =
     expect(fx.every((c) => statedReference(c.claim) !== undefined)).toBe(true);
   });
 
-  it('65 currencies repeated their 20 Nov rate on 21 Nov; Azerbaijan is not among them', () => {
+  it('65 currencies repeated their 20 Nov rate on 21 Nov in the claims; Azerbaijan is not among them', () => {
     const cur = repeatingCurrencies();
     expect(cur.size).toBe(65);
     expect(fx.filter((c) => c.made_on === '2026-11-21')).toHaveLength(65);
     expect(cur.has('AZ')).toBe(false);
   });
 
-  it('27 HIT and 38 MISS resolved 21 Nov in those currencies; AZ 6049, the 66th, has no note', () => {
-    const cur = repeatingCurrencies();
+  it("Azerbaijan repeated too: the production read shows AZN's 21 Nov rate equal to 20 Nov's, so 66 currencies", () => {
+    // AZ calls stopped after 17 Nov, so no claim states an AZN rate after it. The rates come from an
+    // owner-approved read-only query of fx_rates on 23 Nov (lead's file FX-21NOV-READ.md); the 22 Nov
+    // value is also the source's own published quote that morning.
+    expect(AZN_STORED['2026-11-21']).toBe(AZN_STORED['2026-11-20']);
+    expect(AZN_STORED['2026-11-22']).not.toBe(AZN_STORED['2026-11-21']);
+    expect(fx.filter((c) => c.country_code === 'AZ' && c.made_on > '2026-11-17')).toHaveLength(0);
+    expect(new Set([...repeatingCurrencies(), 'AZ']).size).toBe(66);
+  });
+
+  it('27 HIT and 39 MISS resolved 21 Nov, every one in those 66 currencies: AZ 6049 is a MISS among them', () => {
+    const cur = new Set([...repeatingCurrencies(), 'AZ']);
     const res21 = fx.filter((c) => c.resolves_on === '2026-11-21' && (c.status === 'hit' || c.status === 'miss'));
     expect(res21).toHaveLength(66);
-    const outside = res21.filter((c) => !cur.has(c.country_code)).map((c) => [Number(c.id), c.country_code, c.status]);
-    expect(outside).toEqual([[6049, 'AZ', 'miss']]);
-    const hits = res21.filter((c) => cur.has(c.country_code) && c.status === 'hit');
-    const misses = res21.filter((c) => cur.has(c.country_code) && c.status === 'miss');
-    expect([hits.length, misses.length]).toEqual([27, 38]);
+    expect(res21.every((c) => cur.has(c.country_code))).toBe(true);
+    const hits = res21.filter((c) => c.status === 'hit');
+    const misses = res21.filter((c) => c.status === 'miss');
+    expect([hits.length, misses.length]).toEqual([27, 39]);
+    expect(misses.find((c) => c.country_code === 'AZ')?.id).toBe('6049');
     expect(sorted(note('fx-2026-11-21-resolved-hit').scope.ids)).toEqual(ids(hits));
-    expect(sorted(note('fx-2026-11-21-resolved-miss').scope.ids)).toEqual(ids(misses));
+    // 6049 has its own entry: its note is new, so it carries no amendment line (the others' text changed).
+    expect(
+      sorted([...note('fx-2026-11-21-resolved-miss').scope.ids, ...note('fx-2026-11-21-resolved-miss-az').scope.ids]),
+    ).toEqual(ids(misses));
+    expect(note('fx-2026-11-21-resolved-miss-az').scope.ids).toEqual([6049]);
+    expect(note('fx-2026-11-21-resolved-miss-az').text).toBe(note('fx-2026-11-21-resolved-miss').text);
+  });
+
+  it("6049's score is the one AZN's rates from 7 to 20 Nov give: the stored evidence is that peak", () => {
+    const c = fx.find((x) => x.id === '6049') as SnapshotCall & { evidence_count: number };
+    const series = new Map(
+      fx.filter((x) => x.country_code === 'AZ').map((x) => [x.made_on, Number(statedReference(x.claim))]),
+    );
+    for (const [d, v] of Object.entries(AZN_STORED)) series.set(d, v);
+    const days = Array.from({ length: 15 }, (_, i) => `2026-11-${String(7 + i).padStart(2, '0')}`);
+    expect(days.every((d) => series.has(d))).toBe(true);
+    const ref = Number(statedReference(c.claim));
+    const peakBp = ((Math.max(...days.map((d) => series.get(d) as number)) - ref) / ref) * 10000;
+    expect(Math.abs(peakBp - c.evidence_count)).toBeLessThanOrEqual(1);
   });
 
   it('65 made 21 Nov, each with the reference its claim states', () => {
@@ -143,17 +182,19 @@ describe('call notes: the lists, re-derived from the 22 Nov 2026 snapshot', () =
     expect(CALL_NOTES.filter((x) => x.scope.rule).map((x) => x.id)).toEqual(['fx-zw-zwl-label']);
   });
 
-  it('no Azerbaijan call carries any note', () => {
+  it('of the 65 Azerbaijan calls, only 6049 carries a note, and only the MISS note', () => {
     const az = new Set(ids(fx.filter((c) => c.country_code === 'AZ')));
     expect(az.size).toBe(65);
-    for (const n of CALL_NOTES) for (const id of n.scope.ids) expect(az.has(id), `${n.id} ${id}`).toBe(false);
+    const noted = CALL_NOTES.flatMap((n) => n.scope.ids.filter((id) => az.has(id)).map((id) => [n.id, id]));
+    expect(noted).toEqual([['fx-2026-11-21-resolved-miss-az', 6049]]);
   });
 });
 
 describe('call notes: integrity', () => {
-  it('four call notes, one /ledger section, one /ledger line, one /methodology section; ids unique', () => {
+  it('five call notes, one /ledger section, one /ledger line, one /methodology section; ids unique', () => {
     expect(CALL_NOTES.map((n) => n.id)).toEqual([
       'fx-2026-11-21-resolved-miss',
+      'fx-2026-11-21-resolved-miss-az',
       'fx-2026-11-21-resolved-hit',
       'fx-2026-11-21-made',
       'fx-zw-zwl-label',
@@ -164,9 +205,57 @@ describe('call notes: integrity', () => {
       LEDGER_FX_THRESHOLD_LINE.id,
       ...METHODOLOGY_NOTES.map((n) => n.id),
     ];
-    expect(all).toHaveLength(7);
-    expect(new Set(all).size).toBe(7);
+    expect(all).toHaveLength(8);
+    expect(new Set(all).size).toBe(8);
     for (const n of CALL_NOTES) expect(new Set(n.scope.ids).size, n.id).toBe(n.scope.ids.length);
+  });
+
+  it('a changed published text says so: exactly the 65 changed call notes and the /ledger section carry an amendment', () => {
+    const amendedOn = (n: { amendments?: readonly { on: string; text: string }[] }) => n.amendments ?? [];
+    for (const n of CALL_NOTES) {
+      const expected =
+        n.id === 'fx-2026-11-21-resolved-miss' || n.id === 'fx-2026-11-21-resolved-hit'
+          ? [{ on: '2026-11-27', text: 'this note first counted the currencies whose rates were stale.' }]
+          : [];
+      expect(amendedOn(n), n.id).toEqual(expected);
+    }
+    expect(note('fx-2026-11-21-resolved-miss').scope.ids).toHaveLength(38);
+    expect(note('fx-2026-11-21-resolved-hit').scope.ids).toHaveLength(27);
+    expect(LEDGER_SECTIONS.map((s) => [s.id, amendedOn(s)])).toEqual([
+      [
+        'ledger-fx-2026-11-21',
+        [
+          {
+            on: '2026-11-27',
+            text:
+              'this section first said we did not know whether our collector or our source missed the day, ' +
+              'and left out Azerbaijan. A read of our stored rates settled both.',
+          },
+        ],
+      ],
+    ]);
+    expect(METHODOLOGY_NOTES.every((m) => amendedOn(m).length === 0)).toBe(true);
+  });
+
+  it('no 21 Nov text counts the currencies whose rates were stale', () => {
+    for (const t of [...CALL_NOTES.map((n) => n.text), ...LEDGER_SECTIONS.flatMap((s) => s.paragraphs)]) {
+      expect(t).not.toMatch(/\b(65|66|68) currencies|all 6[56] changed|All 6[56] changed/);
+    }
+  });
+
+  it('the cause of 21 Nov is stated, never left open: no text says we do not know whether collector or source missed it', () => {
+    const texts = [
+      ...CALL_NOTES.map((n) => n.text),
+      ...LEDGER_SECTIONS.flatMap((s) => s.paragraphs),
+      ...METHODOLOGY_NOTES.flatMap((s) => s.paragraphs),
+    ];
+    for (const t of texts) expect(t).not.toMatch(/collector or (our )?source|missed the day/);
+    const r1c = LEDGER_SECTIONS.find((s) => s.id === 'ledger-fx-2026-11-21')?.paragraphs.join(' ') ?? '';
+    expect(
+      r1c.split(
+        'Our collector ran as usual that morning; all 80 rates it stored for 21 Nov were identical to its 20 Nov rates.',
+      ),
+    ).toHaveLength(2);
   });
 
   it('each text is the note after its opening sentence: no typed date, no placeholder left', () => {

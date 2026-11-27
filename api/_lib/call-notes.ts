@@ -1,6 +1,6 @@
 import { CALL_NOTES, LEDGER_FX_THRESHOLD_LINE, LEDGER_SECTIONS, METHODOLOGY_NOTES } from './call-notes-data.js';
 import { APPROVED_NOTE_IDS } from './call-notes-approvals.js';
-import { isIsoDate } from './correction-words.js';
+import { amendmentLine, isIsoDate } from './correction-words.js';
 import {
   METHODOLOGY_PATH,
   NOTE_LABEL,
@@ -17,6 +17,7 @@ import {
   type CallNoteRule,
   type ComputedNote,
   type MethodNotePayload,
+  type NoteAmendment,
   type PageNote,
 } from './call-note-words.js';
 import { publishableSkill, resolutionBatches, type ScoredCall } from './calls.js';
@@ -58,9 +59,23 @@ function isWellFormedRule(r: CallNoteRule | undefined): boolean {
   );
 }
 
+/**
+ * An amendment the note cannot state truthfully (no real date, dated before the
+ * note went live, or empty) withholds the note rather than publish changed
+ * words without saying so: the rule /corrections follows (corrections.ts).
+ */
+function isWellFormedAmendments(list: readonly NoteAmendment[] | undefined, issuedOn: string | undefined): boolean {
+  return (
+    list === undefined ||
+    (Array.isArray(list) &&
+      list.every((a) => isIsoDate(a?.on) && typeof issuedOn === 'string' && a.on >= issuedOn && nonEmpty(a.text)))
+  );
+}
+
 function isPublishableCallNote(n: CallNote, keys: NoteKeys): n is ApprovedCallNote {
   return (
     bothKeys(n, keys) &&
+    isWellFormedAmendments(n.amendments, n.issuedOn) &&
     nonEmpty(n.text) &&
     Array.isArray(n.scope?.ids) &&
     n.scope.ids.every((id) => Number.isInteger(id) && id > 0) &&
@@ -72,6 +87,7 @@ function isPublishableCallNote(n: CallNote, keys: NoteKeys): n is ApprovedCallNo
 function isPublishablePageNote(n: PageNote, keys: NoteKeys): n is ApprovedPageNote {
   return (
     bothKeys(n, keys) &&
+    isWellFormedAmendments(n.amendments, n.issuedOn) &&
     nonEmpty(n.heading) &&
     (n.kicker === undefined || nonEmpty(n.kicker)) &&
     Array.isArray(n.paragraphs) &&
@@ -172,7 +188,13 @@ export function notesForCall(
     }
     // A call the rule reached may be newer than the note: date it from the call then.
     const added = !listed && call.made_on && call.made_on > n.issuedOn ? call.made_on : n.issuedOn;
-    out.push({ id: n.id, issuedOn: added, text: `${noteAdded(added)} ${body}` });
+    // An amendment says the published words changed. A call the rule reached
+    // after the amendment never showed the first words, so it gets no such line.
+    const amendments = (n.amendments ?? []).filter(
+      (a) => listed || (call.made_on !== undefined && a.on > call.made_on),
+    );
+    const tail = amendments.map((a) => ` ${amendmentLine(a)}`).join('');
+    out.push({ id: n.id, issuedOn: added, text: `${noteAdded(added)} ${body}${tail}` });
   }
   // Array.prototype.sort is stable, so data order holds within a day.
   return out.sort((a, b) => a.issuedOn.localeCompare(b.issuedOn));
@@ -212,7 +234,8 @@ export function ledgerSectionsHtml(sections: readonly ApprovedPageNote[] = appro
         '<div class="rule"></div>' +
         (s.kicker ? `<div class="kicker">${esc(s.kicker)}</div>` : '') +
         `<h2>${esc(s.heading)}</h2>` +
-        s.paragraphs.map((p) => `<p class="lede">${esc(p)}</p>`).join(''),
+        s.paragraphs.map((p) => `<p class="lede">${esc(p)}</p>`).join('') +
+        (s.amendments ?? []).map((a) => `<p class="lede">${esc(amendmentLine(a))}</p>`).join(''),
     )
     .join('\n');
 }
@@ -321,6 +344,9 @@ export function methodologyPayload(
   return notes.map((n) => ({
     heading: n.heading,
     added_on: n.issuedOn,
-    paragraphs: n.paragraphs.map((p, i) => (i === 0 ? `${methodNoteAdded(n.issuedOn)} ${p}` : p)),
+    paragraphs: [
+      ...n.paragraphs.map((p, i) => (i === 0 ? `${methodNoteAdded(n.issuedOn)} ${p}` : p)),
+      ...(n.amendments ?? []).map(amendmentLine),
+    ],
   }));
 }

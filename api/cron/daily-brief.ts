@@ -100,7 +100,38 @@ export interface BriefData {
    * line counting hundreds of open calls.
    */
   openCallsRead?: boolean;
+  /**
+   * True only when every resolved-call read ran and succeeded on this run.
+   * Absent or false means the window was not read (a resolved-call query
+   * failed, or the open-call read before them did), and the prompt must not
+   * call it empty.
+   */
+  resolvedCallsRead?: boolean;
 }
+
+/**
+ * The prompt's OUR OPEN CALLS section when the open-call read failed. It used
+ * to say "No open calls.", the words of a book read and found empty, and the
+ * system prompt tells the model to write "No open calls today." when the
+ * context lists none: a failed read could put that false sentence in a
+ * model-written edition. This names the failure and forbids both sentences the
+ * system prompt would otherwise reach for. A read that succeeds, with calls or
+ * with none, gets the prompt it always had.
+ */
+const OPEN_CALLS_UNREAD_PROMPT =
+  'Open calls could not be read today. Make no statement about open calls: do not say there are none, do not ' +
+  'describe any, and do not write "No open calls today." or "No calls on the book this week."';
+
+/**
+ * The prompt's RESOLVED CALLS section when the resolved-call reads failed, or
+ * never ran because the open-call read before them failed. It used to say "No
+ * calls resolved today." ("this week" on Sunday), the words of a window read
+ * and found empty, which is false on a resolution day. A read that succeeds,
+ * with resolutions or with none, gets the prompt it always had.
+ */
+const RESOLVED_CALLS_UNREAD_PROMPT =
+  'Resolved calls could not be read today. Make no statement about resolved calls: do not say none resolved, ' +
+  'do not describe any, and do not write "No calls resolved today." or "No calls on the book this week."';
 
 interface WeeklyTrend {
   name: string;
@@ -894,6 +925,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       openCallLines: callLines.openCallLines,
       resolvedCallLines: callLines.resolvedCallLines,
       openCallsRead: callLines.openCallsRead,
+      resolvedCallsRead: callLines.resolvedCallsRead,
     };
 
     // === Generate AI brief (outputs markdown text) ===
@@ -1014,10 +1046,10 @@ Each figure counts OONI test MEASUREMENTS that OONI confirmed as blocked. It ris
 ${censorshipLines.length > 0 ? censorshipLines.join('\n') : `No OONI measurements confirmed as blocked in the 7 complete days to ${censorshipEndDate}.`}
 
 === RESOLVED CALLS (settled against external ground truth — ${isSunday ? 'the last 7 days' : 'today'}) ===
-${briefData.resolvedCallLines.length > 0 ? briefData.resolvedCallLines.join('\n') : isSunday ? 'No calls resolved this week.' : 'No calls resolved today.'}
+${briefData.resolvedCallLines.length > 0 ? briefData.resolvedCallLines.join('\n') : briefData.resolvedCallsRead !== true ? RESOLVED_CALLS_UNREAD_PROMPT : isSunday ? 'No calls resolved this week.' : 'No calls resolved today.'}
 
 === OUR OPEN CALLS (dated, falsifiable, resolved against OONI and FX reference rates) ===
-${briefData.openCallLines.length > 0 ? briefData.openCallLines.join('\n') : 'No open calls.'}
+${briefData.openCallLines.length > 0 ? briefData.openCallLines.join('\n') : briefData.openCallsRead === true ? 'No open calls.' : OPEN_CALLS_UNREAD_PROMPT}
 
 === SANCTIONS DESIGNATION CHANGES (OFAC SDN + UN consolidated, last 7 days) ===
 ${sanctionsLines.length > 0 ? sanctionsLines.join('\n') : 'No designation changes observed in the last 7 days.'}
@@ -2772,10 +2804,11 @@ async function gatherCallLines(
   sql: SqlTag,
   nameOf: Map<string, string>,
   isSunday: boolean,
-): Promise<Pick<BriefData, 'openCallLines' | 'resolvedCallLines' | 'openCallsRead'>> {
+): Promise<Pick<BriefData, 'openCallLines' | 'resolvedCallLines' | 'openCallsRead' | 'resolvedCallsRead'>> {
   let openCallLines: string[] = [];
   let resolvedCallLines: string[] = [];
   let openCallsRead = false;
+  let resolvedCallsRead = false;
   try {
     // Ordered by DIVERGENCE from the base rate, not by probability.
     // Sorting by probability surfaced seven identical 84% calls — the
@@ -2910,13 +2943,14 @@ async function gatherCallLines(
       undefined,
       isSunday ? 'in the last 7 days' : 'today',
     );
+    resolvedCallsRead = true;
   } catch (callErr) {
     console.error(
       '[daily-brief] call lines unavailable (non-fatal):',
       callErr instanceof Error ? callErr.message : callErr,
     );
   }
-  return { openCallLines, resolvedCallLines, openCallsRead };
+  return { openCallLines, resolvedCallLines, openCallsRead, resolvedCallsRead };
 }
 
 /**

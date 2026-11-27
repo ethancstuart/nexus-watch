@@ -5,6 +5,7 @@ import {
   approvedMethodologyNotes,
   callNotesBlockHtml,
   callNotesCardLine,
+  ledgerSectionsHtml,
   methodologyPayload,
   notesForCall,
   thresholdGroup,
@@ -232,5 +233,74 @@ describe('the threshold line escapes what it reads from the database', () => {
     expect(html).toContain('(&lt;img src=x onerror=alert(1)&gt;, Z&amp;W&quot;)');
     expect(html).not.toContain('<img');
     expect(html).not.toContain('Z&W"');
+  });
+});
+
+describe('dated amendment lines: a changed published text says so, as 1588e52 does for /corrections', () => {
+  const amended = { on: '2026-11-23', text: 'this note first counted the currencies whose rates were stale.' };
+
+  it('a call note carries its amendment after its text, dated from data', () => {
+    const n = note({ id: 'a', issuedOn: '2026-11-23', amendments: [amended] });
+    expect(notesForCall({ id: 10 }, [n], ['a']).map((x) => x.text)).toEqual([
+      'Note added 23 Nov 2026. Body. Amended 23 Nov 2026: this note first counted the currencies whose rates were stale.',
+    ]);
+    // Escaped on the page like the rest of the note.
+    const html = callNotesBlockHtml(
+      notesForCall({ id: 10 }, [note({ id: 'b', amendments: [{ on: '2026-11-24', text: '<i>x</i> & y' }] })], ['b']),
+    );
+    expect(html).toContain('Body. Amended 24 Nov 2026: &lt;i&gt;x&lt;/i&gt; &amp; y</p>');
+  });
+
+  it('a note without amendments reads exactly as before', () => {
+    expect(notesForCall({ id: 10 }, [note({ id: 'a' })], ['a'])[0].text).toBe('Note added 23 Nov 2026. Body.');
+  });
+
+  it('fails closed on an amendment it cannot state truthfully: no real date, dated before the note, or empty', () => {
+    for (const bad of [
+      { on: '2026-02-30', text: 'x' },
+      { on: '2026-11-22', text: 'x' },
+      { on: '2026-11-23', text: ' ' },
+    ]) {
+      expect(approvedCallNotes([note({ id: 'a', amendments: [bad] })], ['a']), JSON.stringify(bad)).toEqual([]);
+      expect(approvedLedgerSections([page({ id: 's', amendments: [bad] })], ['s']), JSON.stringify(bad)).toEqual([]);
+    }
+  });
+
+  it('a call a scope rule reaches after the amendment never showed the first text, so it gets no amendment line', () => {
+    const rule = { kind: 'fx_devaluation', countryCode: 'ZW', claimCode: 'ZWL', madeAfter: '2026-11-22' };
+    const n = note({ id: 'z', scope: { ids: [91], rule }, amendments: [{ on: '2026-11-25', text: 'first said x.' }] });
+    const later = (made: string) => ({
+      id: 7300,
+      kind: 'fx_devaluation',
+      country_code: 'ZW',
+      claim: 'ZWL depreciates 0.85% or more against USD at any point within 14 days, from 26.5872.',
+      made_on: made,
+    });
+    expect(notesForCall(later('2026-11-24'), [n], ['z'])[0].text).toBe(
+      'Note added 24 Nov 2026. Body. Amended 25 Nov 2026: first said x.',
+    );
+    expect(notesForCall(later('2026-11-26'), [n], ['z'])[0].text).toBe('Note added 26 Nov 2026. Body.');
+    // A listed call always carries it.
+    expect(notesForCall({ id: 91 }, [n], ['z'])[0].text).toContain('Amended 25 Nov 2026: first said x.');
+  });
+
+  it('a /ledger section ends with its amendment line, escaped; /methodology appends it as a paragraph', () => {
+    const s = page({ id: 's', kicker: 'K', amendments: [{ on: '2026-11-23', text: 'this section first said <x>.' }] });
+    const [approved] = approvedLedgerSections([s], ['s']);
+    expect(ledgerSectionsHtml([approved])).toBe(
+      '<div class="rule"></div><div class="kicker">K</div><h2>H</h2><p class="lede">P.</p>' +
+        '<p class="lede">Amended 23 Nov 2026: this section first said &lt;x&gt;.</p>',
+    );
+    expect(ledgerSectionsHtml(approvedLedgerSections([page({ id: 't', kicker: 'K' })], ['t']))).toBe(
+      '<div class="rule"></div><div class="kicker">K</div><h2>H</h2><p class="lede">P.</p>',
+    );
+    const [m] = approvedMethodologyNotes(
+      [page({ id: 'm', amendments: [{ on: '2026-11-24', text: 'first said y.' }] })],
+      ['m'],
+    );
+    expect(methodologyPayload([m])[0].paragraphs).toEqual([
+      'Added 23 Nov 2026. P.',
+      'Amended 24 Nov 2026: first said y.',
+    ]);
   });
 });
