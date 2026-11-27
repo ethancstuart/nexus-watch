@@ -44,6 +44,11 @@ function fail(res: VercelResponse, format: 'csv' | 'json' | null, f: Failure) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS FIRST, ON EVERY RESPONSE. It used to be set only beside the file, so
+  // a cross-origin reader got an opaque network error instead of our 404, 405,
+  // 500 or 503 and could not tell an outage from a typo (Bugbot, PR #70).
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
   const raw = Array.isArray(req.query?.format) ? req.query.format[0] : req.query?.format;
   const format = raw === 'csv' || raw === 'json' ? raw : null;
 
@@ -98,7 +103,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
     }
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', DOWNLOAD_CACHE_CONTROL);
     // header=present: RFC 4180's own parameter for a CSV whose first line is a header.
     res.setHeader(

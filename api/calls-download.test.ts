@@ -537,6 +537,32 @@ describe('cache headers', () => {
     expect([r.status, r.headers['Cache-Control']]).toEqual([503, 'no-store']);
   });
 
+  it('every error carries the same CORS headers as the file itself (Bugbot, PR #70)', async () => {
+    // The CORS headers a success sends, read from the response rather than typed
+    // here, so a header added to the success path is required of every error too.
+    const cors = (r: Res['state']) =>
+      Object.fromEntries(Object.entries(r.headers).filter(([k]) => k.toLowerCase().startsWith('access-control-')));
+    const success = cors(await get('csv'));
+    expect(success).toEqual({ 'Access-Control-Allow-Origin': '*' });
+    expect(cors(await get('json'))).toEqual(success);
+
+    const errors: Array<[string, Res['state']]> = [];
+    for (const format of ['csv', 'json']) {
+      errors.push([`${format} POST`, await get(format, 'POST')]);
+      h.fail = true;
+      errors.push([`${format} outage`, await get(format)]);
+      h.fail = false;
+      delete process.env.DATABASE_URL;
+      errors.push([`${format} no database`, await get(format)]);
+      process.env.DATABASE_URL = 'postgres://stub';
+    }
+    errors.push(['unknown format', await get('xml')], ['no format', await get(undefined)]);
+    errors.push(['unknown format POST', await get('xml', 'POST')]);
+
+    expect(errors.map(([, r]) => r.status)).toEqual([405, 500, 503, 405, 500, 503, 404, 404, 405]);
+    for (const [what, r] of errors) expect(cors(r), what).toEqual(success);
+  });
+
   it('an unknown format is a 404 and a write is a 405, neither cached; HEAD is served', async () => {
     for (const f of ['xml', '', undefined, ['csv', 'json']]) {
       const r = await get(f);
