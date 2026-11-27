@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { renderMethodology } from './methodology.ts';
+import { PREREGISTRATION_URL, renderMethodology } from './methodology.ts';
 import {
   MIN_MEASUREMENTS_PER_REQUIRED_DAY,
   UNRESOLVABLE_GRACE_DAYS,
@@ -91,5 +91,23 @@ describe('methodology publishes the coverage rule the resolver actually runs', (
     expect(text).toMatch(/no fresh quote/);
     expect(text).toMatch(/holds hits and misses alike/);
     expect(text).toMatch(/A rate missing earlier in the window does not hold the call/);
+  });
+
+  it('links the FX pre-registration on GitHub in one plain sentence, and claims nothing', () => {
+    // The file's existence at this path is checked in scripts/fx-cohort-skill.test.ts,
+    // which can read the repo; this suite renders the page.
+    const links = [...root.querySelectorAll('a')].filter((a) => a.getAttribute('href') === PREREGISTRATION_URL);
+    expect(links).toHaveLength(1);
+    expect(PREREGISTRATION_URL).toBe(
+      'https://github.com/ethancstuart/nexus-watch/blob/main/docs/preregistration/2026-12-fx-skill.md',
+    );
+    expect(links[0].textContent).toBe('pre-registration on GitHub');
+    const sentence = (links[0].closest('p')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    expect(sentence).toBe(
+      'How currency calls made from 1 December 2026 will be judged against their stored base rate ' +
+        '(the cohorts, the score, the read-out dates and the decision rule) was written on 27 November 2026 ' +
+        'and is published as a pre-registration on GitHub, dated by its merge into the public repository.',
+    );
+    expect(sentence).not.toMatch(/\bskill\b|accura|proven|beat/i);
   });
 });

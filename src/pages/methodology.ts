@@ -12,6 +12,14 @@ import {
 } from '../../api/_lib/calls.ts';
 
 /**
+ * The FX pre-registration, on GitHub so that the commit dates it. The path is
+ * the repo's own `docs/preregistration/2026-12-fx-skill.md`; a test checks that
+ * the file exists, so the link cannot point at nothing.
+ */
+export const PREREGISTRATION_URL =
+  'https://github.com/ethancstuart/nexus-watch/blob/main/docs/preregistration/2026-12-fx-skill.md';
+
+/**
  * CII Methodology page — explains the Country Instability Index algorithm.
  * Route: /#/methodology
  */
@@ -69,6 +77,10 @@ export function renderMethodology(root: HTMLElement): void {
       base-rate series — election and referendum dates, sanctions designations, conflict deltas — so
       that a future version of this number measures something about the world rather than about our
       own choice of window. That work is dated and will be described here when it ships.</p>
+      <p>How currency calls made from 1 December 2026 will be judged against their stored base rate
+      (the cohorts, the score, the read-out dates and the decision rule) was written on 27 November
+      2026 and is published as a <a class="method-link" href="${PREREGISTRATION_URL}" target="_blank"
+      rel="noopener">pre-registration on GitHub</a>, dated by its merge into the public repository.</p>
 
       <div id="method-notes"></div>
 
