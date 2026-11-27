@@ -313,27 +313,35 @@ export function renderBrief(root: HTMLElement, date: string): void {
 
       // Prefer briefText (markdown) from content column; fall back to
       // the legacy HTML summary for pre-A.5 historical briefs.
-      let content: { briefText?: string; edition?: unknown } = {};
+      let content: { briefText?: string; edition?: unknown; record?: unknown } = {};
       if (typeof data.content === 'string') {
         try {
-          content = JSON.parse(data.content) as { briefText?: string; edition?: unknown };
+          content = JSON.parse(data.content) as { briefText?: string; edition?: unknown; record?: unknown };
         } catch {
           /* ignore */
         }
       } else if (data.content && typeof data.content === 'object') {
-        content = data.content as { briefText?: string; edition?: unknown };
+        content = data.content as { briefText?: string; edition?: unknown; record?: unknown };
       }
       // Only an exact 'mechanical' (as api/cron/daily-brief.ts editionFromStoredContent reads it).
       const mechanical = content.edition === 'mechanical';
+      // A RECORD-ONLY edition (plan R1) archives its record beside the text, as an
+      // object; mechanical rows archived before R1 have none, and their body is the
+      // older one (wire headline, index board, markets). Detected from the row,
+      // never from its date.
+      const recordOnly = mechanical && typeof content.record === 'object' && content.record !== null;
 
       const body = content.briefText
         ? renderBriefBody(content.briefText, { dateForImage: briefDate, links: mechanical })
         : (data.summary ?? '<p>Brief content unavailable.</p>');
       // No model wrote a mechanical edition, so its byline cannot say one did.
-      const byline = mechanical
+      const byline = recordOnly
         ? `Mechanical edition: assembled by code from the ledger's own entries. No model wrote it.<br>
           <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>`
-        : `Written by a model from the day's collected data.<br>
+        : mechanical
+          ? `Mechanical edition: assembled by code. No model wrote it.<br>
+          <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>`
+          : `Written by a model from the day's collected data.<br>
           Sources: OONI, USGS, UCDP, OFAC and the UN list, World Bank governance, Wikipedia pageviews, and daily
           FX reference rates. <a href="#/methodology" style="color:#9a1b1b;">Read the methodology →</a>`;
 

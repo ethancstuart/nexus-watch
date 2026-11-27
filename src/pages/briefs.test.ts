@@ -208,10 +208,12 @@ describe('a mechanical edition in the SPA', () => {
   const TEXT =
     '## 🏁 What resolved today\n\n- UG (UG): MISS — we said 40%. [Call #7001](https://nexuswatch.dev/call/7001)\n\n' +
     '## 📝 About this edition\n\nCorrections are listed on [the corrections page](https://nexuswatch.dev/corrections).\n';
-  const row = (edition?: string) => ({
+  // An R1 (record-only) row archives its record beside the text; that is how it is told apart.
+  const RECORD = { resolved: { read: true, total: 1 }, open: { read: true, total: 789 }, correctionsPage: true };
+  const row = (edition?: string, extra: Record<string, unknown> = { record: RECORD }) => ({
     brief_date: '2026-11-27',
     summary: null,
-    content: { briefText: TEXT, ...(edition ? { edition } : {}) },
+    content: { briefText: TEXT, ...(edition ? { edition } : {}), ...extra },
     generated_at: null,
   });
 
@@ -221,6 +223,29 @@ describe('a mechanical edition in the SPA', () => {
     expect(byline).toContain("Mechanical edition: assembled by code from the ledger's own entries. No model wrote it.");
     expect(byline).not.toMatch(/Written by a model|USGS|Wikipedia/);
     expect(root.querySelector('.dossier-byline a')?.getAttribute('href')).toBe('#/methodology');
+  });
+
+  // Review finding 1: mechanical rows archived before R1 carry the older body
+  // (the wire headline, the index board, markets), so "the ledger's own entries"
+  // would be false on them. They are told apart by the row, not by its date.
+  it('a mechanical row archived before R1 gets a byline true for it', async () => {
+    const PRE_R1 =
+      "## 🎯 Today's Call\n\nNo open calls today.\n\n## 📊 Top Signal\n\n**A headline** (Wire). This is the mechanical " +
+      'edition — no model draft was produced today, so we give you the lead as the wire carried it rather than a synthesis.\n';
+    for (const extra of [{}, { record: null }, { record: 'yes' }]) {
+      document.body.textContent = '';
+      const root = await renderOne({
+        brief_date: '2026-11-20',
+        summary: null,
+        content: { briefText: PRE_R1, edition: 'mechanical', ...extra },
+        generated_at: null,
+      });
+      const byline = root.querySelector('.dossier-byline')?.textContent ?? '';
+      expect(byline).not.toContain("ledger's own entries");
+      expect(byline).toContain('Mechanical edition: assembled by code. No model wrote it.');
+      expect(byline).not.toContain('Written by a model');
+      expect(root.querySelector('.dossier-body')?.textContent).toContain('as the wire carried it');
+    }
   });
 
   it('renders its own-site links as links', async () => {
