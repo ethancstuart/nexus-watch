@@ -1396,10 +1396,12 @@ ${(() => {
     //
     // THE SUBJECT DEPENDS ON WHICH EDITION SHIPPED. On a model day it is the
     // declared line, or one scraped from Top Signal. On a mechanical day
-    // scraping is forbidden: the first bold phrase in the fallback's Top Signal
-    // is the lead news headline verbatim, and for three mornings in September
-    // 2026 that was a Chinatown murder story sent to every subscriber as the
-    // subject of this register. See fallbackSubject.
+    // scraping is forbidden: the first bold phrase in the old fallback's Top
+    // Signal was the lead news headline verbatim, and for three mornings in
+    // September 2026 that was a Chinatown murder story sent to every subscriber
+    // as the subject of this register. See fallbackSubject. The record-only
+    // edition (plan R1) has no Top Signal; its subject is still counted from the
+    // Ledger line's own query, the same day's resolutions its first section lists.
     const subject = onFallback ? fallbackSubject(today, ledgerRecord) : chooseSubject(declaredSubject, briefText);
     const archiveT0 = Date.now();
     // The edition travels with the stored content (from the same flag, not the
@@ -2516,7 +2518,8 @@ function renderDossierInner(
   }
 
   // If there's no Good Morning section (shouldn't happen with Sonnet output,
-  // but defensive against the fallback builder), prepend Market Pulse.
+  // but defensive), prepend Market Pulse. On a mechanical day `markets` is
+  // empty and this adds nothing.
   if (!marketPulseInserted) {
     pieces.unshift(renderMarketPulse(markets));
   }

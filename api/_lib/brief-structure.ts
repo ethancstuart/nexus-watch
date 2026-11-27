@@ -189,8 +189,9 @@ export function chooseSubject(declared: string | null, body: string): string | n
  * body worth scraping.
  *
  * WHY NOT SCRAPE ON THOSE DAYS. chooseSubject falls through to the first bold
- * phrase in Top Signal, and on the mechanical edition that phrase is the lead
- * news headline, verbatim. From 2026-09-10 to 09-12 the Anthropic account was
+ * phrase in Top Signal, and on the mechanical edition that phrase was the lead
+ * news headline, verbatim (until plan R1 made it the record-only edition, which
+ * has no Top Signal and prints no headline). From 2026-09-10 to 09-12 the Anthropic account was
  * out of credit, the news feed had not moved since the 7th, and four
  * subscribers received "Investigating a Murder: Public Records Uncover New
  * Clues in Chinatown" three mornings running as the subject of a forecast
