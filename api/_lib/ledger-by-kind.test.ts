@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { assembleByKind, describeCorrections, type KindCountRow, type ScoredRow } from './ledger-by-kind.js';
+import {
+  assembleByKind,
+  calibrationExclusionNote,
+  describeCorrections,
+  kindsUnderCorrection,
+  type KindCountRow,
+  type ScoredRow,
+} from './ledger-by-kind.js';
 
 /**
  * REGRESSION FOR A DEFECT THAT WAS LIVE ON THE PUBLIC API.
@@ -380,6 +387,47 @@ describe('per-kind calibration', () => {
     const out = assembleByKind(counts, agreeing);
     expect(out.censorship_event.corrected).toBeNull();
     expect(out.censorship_event.calibration).toHaveLength(2);
+  });
+});
+
+describe('the pooled table and kinds under correction', () => {
+  const r = (kind: string, correctedOutcome?: 0 | 1): ScoredRow => ({
+    kind,
+    countryCode: 'XX',
+    probability: 0.2,
+    baseRate: 0.25,
+    outcome: 0,
+    resolvedOn: '2026-11-01',
+    correctedOutcome,
+  });
+
+  it('a kind is under correction when any of its rows has an outcome-changing correction', () => {
+    expect([...kindsUnderCorrection([r('fx_devaluation'), r('censorship_event', 1), r('censorship_event')])]).toEqual([
+      'censorship_event',
+    ]);
+    expect(kindsUnderCorrection([r('fx_devaluation'), r('censorship_event')]).size).toBe(0);
+  });
+
+  it('is exactly the condition that gives a kind its second reading', () => {
+    const rows = [r('fx_devaluation'), r('censorship_event', 1), r('censorship_event')];
+    const counts: KindCountRow[] = [
+      { kind: 'fx_devaluation', open: 0, resolved: 1, hits: 0, unscored: 0 },
+      { kind: 'censorship_event', open: 0, resolved: 2, hits: 0, unscored: 0 },
+    ];
+    const out = assembleByKind(counts, rows);
+    for (const kind of Object.keys(out)) {
+      expect(kindsUnderCorrection(rows).has(kind)).toBe(out[kind].corrected !== null);
+    }
+  });
+
+  it('the sentence beside the table names the kinds left out, or is absent', () => {
+    expect(calibrationExclusionNote(['censorship_event'])).toBe(
+      'Censorship forecasts are left out of this table while their outcomes are under correction.',
+    );
+    expect(calibrationExclusionNote(['fx_devaluation', 'censorship_event'])).toBe(
+      'Censorship and currency forecasts are left out of this table while their outcomes are under correction.',
+    );
+    expect(calibrationExclusionNote([])).toBeNull();
   });
 });
 

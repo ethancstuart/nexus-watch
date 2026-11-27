@@ -247,5 +247,37 @@ export function assembleByKind(counts: KindCountRow[], scoredRows: ScoredRow[]):
   return out;
 }
 
+/**
+ * Kinds whose outcomes are UNDER CORRECTION: at least one scored row's evidence
+ * disagrees with its published verdict. Exactly the condition under which
+ * assembleByKind gives a kind a second reading, withholds its corrected skill
+ * and withholds its calibration table, so all of them move together.
+ */
+export function kindsUnderCorrection(rows: ScoredRow[]): Set<string> {
+  return new Set(rows.filter((r) => r.correctedOutcome !== undefined).map((r) => r.kind));
+}
+
+/** How a kind is named in the sentence beside the pooled calibration table. */
+const TABLE_KIND_NAME: Record<string, string> = {
+  censorship_event: 'Censorship',
+  fx_devaluation: 'Currency',
+};
+
+/**
+ * The plain sentence beside the pooled calibration table when kinds are left
+ * out of it, or null when none is. Words for the owner's sign-off
+ * (lanes12/FRONTDOOR.md): "Censorship forecasts are left out of this table
+ * while their outcomes are under correction."
+ */
+export function calibrationExclusionNote(kinds: Iterable<string>): string | null {
+  const names = [...new Set(kinds)].sort().map((k, i) => {
+    const name = TABLE_KIND_NAME[k] ?? k;
+    return i === 0 ? name : name.toLowerCase();
+  });
+  if (names.length === 0) return null;
+  const subject = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `${subject} forecasts are left out of this table while their outcomes are under correction.`;
+}
+
 // Moved to calls.ts so the daily brief can use it; re-exported so callers are unchanged.
 export { describeCorrections } from './calls.js';

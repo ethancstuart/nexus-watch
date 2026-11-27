@@ -13,7 +13,12 @@ import {
   SCORED_STATUSES,
   type ScoredCall,
 } from '../_lib/calls.js';
-import { assembleByKind } from '../_lib/ledger-by-kind.js';
+import {
+  assembleByKind,
+  calibrationExclusionNote,
+  kindsUnderCorrection,
+  type ScoredRow,
+} from '../_lib/ledger-by-kind.js';
 import { callNotesPayload, notesForCall } from '../_lib/call-notes.js';
 
 export const config = { runtime: 'nodejs', maxDuration: 20 };
@@ -306,6 +311,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       baseRate: c.base_rate ?? undefined,
     }));
 
+    // Every scored row in by_kind's shape, the correction riding along. One
+    // mapping for the per-kind figures and for the pooled table's exclusions,
+    // so the two cannot disagree about which kinds are under correction.
+    const kindRowsScored: ScoredRow[] = scoringRows.map((c) => ({
+      kind: c.kind,
+      countryCode: c.country_code,
+      probability: c.probability,
+      baseRate: c.base_rate ?? undefined,
+      outcome: (c.status === 'hit' ? 1 : 0) as 0 | 1,
+      resolvedOn: (c.resolved_at ?? '').slice(0, 10),
+      // Only a correction that CHANGES the outcome counts as one. A row
+      // agreeing with what was published is not a correction, and counting
+      // it would overstate how much of the record moved.
+      correctedOutcome: correctedOutcomeOf(c.status, c.corrected_status),
+    }));
+
+    // THE POOLED TABLE LEAVES OUT A KIND UNDER CORRECTION, AND SAYS SO.
+    // `scoring.calibration` (and the decomposition of it beside it) pooled
+    // censorship calls on their PUBLISHED outcomes, 54 of which the evidence
+    // contradicts: a said-against-happened table the corrections section
+    // disowns, kept in every daily snapshot. So while a kind carries an
+    // outcome-changing correction (the condition that withholds its corrected
+    // skill and its own by_kind table) its rows are left out here, and
+    // `calibration_note` says so in one sentence. The table's counts are then
+    // every scored claim outside those kinds. Lead decision on
+    // REVIEW-FRONTDOOR finding 8, 27 Nov 2026.
+    const excludedFromTable = [...kindsUnderCorrection(kindRowsScored)].filter((k) => !CALIBRATION_KINDS.has(k));
+    const tableCalls: ScoredCall[] = claimScored
+      .filter((c) => !excludedFromTable.includes(c.kind))
+      .map((c) => ({
+        probability: c.probability,
+        outcome: (c.status === 'hit' ? 1 : 0) as 0 | 1,
+        baseRate: c.base_rate ?? undefined,
+      }));
+
     // NaN is a real answer here — "not enough resolved calls to say" — and it
     // must reach the page as null rather than becoming a confident-looking 0.
     const num = (v: number) => (Number.isFinite(v) ? v : null);
@@ -321,21 +361,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // censorship and FX have different resolvers, base-rate estimators and
     // dependence structures, so a row-weighted average across them is
     // dominated by whichever kind wrote more rows, not a track record.
-    const byKind = assembleByKind(
-      kindRows,
-      scoringRows.map((c) => ({
-        kind: c.kind,
-        countryCode: c.country_code,
-        probability: c.probability,
-        baseRate: c.base_rate ?? undefined,
-        outcome: (c.status === 'hit' ? 1 : 0) as 0 | 1,
-        resolvedOn: (c.resolved_at ?? '').slice(0, 10),
-        // Only a correction that CHANGES the outcome counts as one. A row
-        // agreeing with what was published is not a correction, and counting
-        // it would overstate how much of the record moved.
-        correctedOutcome: correctedOutcomeOf(c.status, c.corrected_status),
-      })),
-    );
+    const byKind = assembleByKind(kindRows, kindRowsScored);
 
     return res.status(200).json({
       generated_at: new Date().toISOString(),
@@ -378,8 +404,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `in at least ${MIN_RESOLUTION_BATCHES} independent batches — with one batch there is no way to ` +
           'separate forecasting skill from the fortnight the world happened to have.',
         base_rate: scored.length ? num(baseRate(scored)) : null,
-        calibration: scored.length ? calibrationBins(scored) : [],
-        murphy: scored.length ? murphyDecomposition(scored) : null,
+        calibration: tableCalls.length ? calibrationBins(tableCalls) : [],
+        calibration_note: calibrationExclusionNote(excludedFromTable),
+        murphy: tableCalls.length ? murphyDecomposition(tableCalls) : null,
       },
       by_kind: byKind,
       /**
